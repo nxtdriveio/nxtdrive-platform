@@ -69,10 +69,13 @@ Subscription tiers (data model ready from day 1, enforcement deferred):
 ## Infrastructure
 
 - VPS IP: 178.251.232.105
+- Deploy path: `/var/www/nxtdrive/staging` and `/var/www/nxtdrive/production`
 - DNS: Cloudflare → nxtdrive.io
 - Reverse proxy: Caddy (handles HTTPS termination, custom domain routing)
-- Environments: staging (current Supabase project) + production (separate Supabase project, to be created)
+- Environments: staging (current Supabase project) + production (separate Supabase project — done)
 - CI/CD: GitHub Actions — push to `staging` branch deploys to staging; push to `main` deploys to production
+- GitHub repo: https://github.com/nxtdrive/nxtdrive-platform.git
+- Branch strategy: `main` → production, `staging` → staging, feature branches → PR into `staging`
 
 ## Secrets (per environment)
 
