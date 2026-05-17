@@ -74,7 +74,7 @@ Subscription tiers (data model ready from day 1, enforcement deferred):
 - Reverse proxy: Caddy (handles HTTPS termination, custom domain routing)
 - Environments: staging (current Supabase project) + production (separate Supabase project — done)
 - CI/CD: GitHub Actions — push to `staging` branch deploys to staging; push to `main` deploys to production
-- GitHub repo: https://github.com/nxtdrive/nxtdrive-platform.git
+- GitHub repo: https://github.com/nxtdriveio/nxtdrive-platform.git
 - Branch strategy: `main` → production, `staging` → staging, feature branches → PR into `staging`
 
 ## Secrets (per environment)
