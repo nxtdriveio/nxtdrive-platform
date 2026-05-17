@@ -73,7 +73,13 @@ mkdir -p /var/log/caddy
 chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
 
 echo "==> [5/7] Fetch repo for infra config files"
-if [[ ! -d "$WORK_DIR/.git" ]]; then
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ -d "$SCRIPT_REPO_ROOT/.git" && -f "$SCRIPT_REPO_ROOT/infra/Caddyfile.production" ]]; then
+  echo "    Running from existing repo at $SCRIPT_REPO_ROOT — skipping fetch."
+  WORK_DIR="$SCRIPT_REPO_ROOT"
+elif [[ ! -d "$WORK_DIR/.git" ]]; then
   git clone --depth 1 "$REPO_URL" "$WORK_DIR"
 else
   git -C "$WORK_DIR" fetch --depth 1 origin main
