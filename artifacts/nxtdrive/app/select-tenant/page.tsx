@@ -5,6 +5,8 @@ import { setActiveTenantId } from "@/lib/auth/active-tenant";
 import { landingPathFor } from "@/lib/auth/redirect-by-role";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
+export const dynamic = "force-dynamic";
+
 async function chooseTenant(formData: FormData) {
   "use server";
   const tenantId = String(formData.get("tenant_id") ?? "");
