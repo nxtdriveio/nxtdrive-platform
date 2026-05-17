@@ -6,6 +6,31 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/leads/types";
 
+export async function convertLeadToStudent(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const rawPackage = String(formData.get("package_id") ?? "").trim();
+  const packageId = rawPackage === "" ? null : rawPackage;
+  if (!leadId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { data: studentId, error } = await service.rpc(
+    "convert_lead_to_student",
+    {
+      p_lead_id: leadId,
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_package_id: packageId,
+    },
+  );
+  if (error || !studentId) redirect(`/backoffice/leads/${leadId}`);
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/leads");
+  revalidatePath("/backoffice/leerlingen");
+  redirect(`/backoffice/leerlingen/${studentId as string}`);
+}
+
 function isValidStatus(v: unknown): v is LeadStatus {
   return typeof v === "string" && (LEAD_STATUSES as readonly string[]).includes(v);
 }

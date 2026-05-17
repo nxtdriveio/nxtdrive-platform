@@ -65,3 +65,54 @@ from demo,
   ('22222222-2222-4222-8222-000000000005'::uuid, '11111111-1111-4111-8111-000000000005'::uuid, jsonb_build_object('source', 'facebook'))
 ) as v(event_id, lead_id, payload)
 on conflict (id) do nothing;
+
+-- Demo packages for the NXTDRIVE Demo Academy ------------------------------
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.packages (id, tenant_id, name, credits_total, price_cents, valid_days, active)
+select v.id, demo.id, v.name, v.credits_total, v.price_cents, v.valid_days, true
+from demo,
+(values
+  ('33333333-3333-4333-8333-000000000001'::uuid, 'Proefles',          1,  6500,  null),
+  ('33333333-3333-4333-8333-000000000002'::uuid, 'Starterspakket',   10, 62500,  365),
+  ('33333333-3333-4333-8333-000000000003'::uuid, 'Standaardpakket',  30, 180000, 365),
+  ('33333333-3333-4333-8333-000000000004'::uuid, 'Spoedopleiding',   40, 245000, 90)
+) as v(id, name, credits_total, price_cents, valid_days)
+on conflict (id) do nothing;
+
+-- Demo student for the converted demo lead (Emma van Dijk) -----------------
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.students (id, tenant_id, lead_id, full_name, email, phone, postcode)
+select v.id, demo.id, v.lead_id, v.full_name, v.email, v.phone, v.postcode
+from demo,
+(values
+  ('44444444-4444-4444-8444-000000000001'::uuid,
+   '11111111-1111-4111-8111-000000000004'::uuid,
+   'Emma van Dijk', 'emma.vandijk@example.nl', '+31644444444', '2644DD')
+) as v(id, lead_id, full_name, email, phone, postcode)
+on conflict (id) do nothing;
+
+-- Demo credit ledger: standaardpakket toegekend aan Emma + 2 verbruikte lessen
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.credit_ledger (id, tenant_id, student_id, delta, reason, related_type, related_id, note)
+select v.id, demo.id, v.student_id, v.delta, v.reason::public.credit_reason, v.related_type, v.related_id, v.note
+from demo,
+(values
+  ('55555555-5555-4555-8555-000000000001'::uuid,
+   '44444444-4444-4444-8444-000000000001'::uuid,
+   30, 'package_purchase', 'package',
+   '33333333-3333-4333-8333-000000000003'::uuid,
+   'Pakket toegekend: Standaardpakket'),
+  ('55555555-5555-4555-8555-000000000002'::uuid,
+   '44444444-4444-4444-8444-000000000001'::uuid,
+   -1, 'lesson_consumed', null, null, 'Demo: les 1 verbruikt'),
+  ('55555555-5555-4555-8555-000000000003'::uuid,
+   '44444444-4444-4444-8444-000000000001'::uuid,
+   -1, 'lesson_consumed', null, null, 'Demo: les 2 verbruikt')
+) as v(id, student_id, delta, reason, related_type, related_id, note)
+on conflict (id) do nothing;

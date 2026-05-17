@@ -1,0 +1,267 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
+import { requireActiveTenant } from "@/lib/auth/require-role";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Input, Label } from "@/components/ui/input";
+import {
+  CREDIT_REASON_LABEL,
+  type CreditLedgerRow,
+  type Student,
+  type StudentBalance,
+} from "@/lib/students/types";
+import { formatEuros, type Package } from "@/lib/packages/types";
+import { adjustCredits, grantPackageToStudent } from "../actions";
+
+export const dynamic = "force-dynamic";
+
+const dtFmt = new Intl.DateTimeFormat("nl-NL", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+export default async function StudentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const isAdmin = roles.includes("tenant_admin");
+
+  const supabase = await createServerSupabaseClient();
+
+  const { data: studentRaw } = await supabase
+    .from("students")
+    .select("*")
+    .eq("id", id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!studentRaw) notFound();
+  const student = studentRaw as Student;
+
+  const { data: ledgerRaw } = await supabase
+    .from("credit_ledger")
+    .select(
+      "id, tenant_id, student_id, delta, reason, related_type, related_id, note, actor_user_id, created_at",
+    )
+    .eq("student_id", id)
+    .eq("tenant_id", tenant.id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const ledger = (ledgerRaw ?? []) as CreditLedgerRow[];
+
+  const { data: balanceRaw } = await supabase
+    .from("student_credit_balance")
+    .select("student_id, tenant_id, balance")
+    .eq("student_id", id)
+    .maybeSingle();
+  const balance = ((balanceRaw as StudentBalance | null)?.balance ?? 0) as number;
+
+  const { data: packagesRaw } = await supabase
+    .from("packages")
+    .select("id, name, credits_total, price_cents, active")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("credits_total", { ascending: true });
+  const activePackages = (packagesRaw ?? []) as Pick<
+    Package,
+    "id" | "name" | "credits_total" | "price_cents" | "active"
+  >[];
+
+  return (
+    <div className="space-y-6">
+      <Link
+        href="/backoffice/leerlingen"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden />
+        Terug naar leerlingen
+      </Link>
+
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {student.full_name}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Leerling sinds {dtFmt.format(new Date(student.created_at))}
+          </p>
+        </div>
+        <Badge
+          variant={balance > 5 ? "success" : balance > 0 ? "warning" : "danger"}
+        >
+          Saldo: {balance} credits
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Contactgegevens</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <Field label="E-mail" value={student.email} />
+                <Field label="Telefoon" value={student.phone} />
+                <Field label="Postcode" value={student.postcode} />
+                <Field
+                  label="Login gekoppeld"
+                  value={student.user_id ? "Ja" : "Nee"}
+                />
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Credit-historie</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ledger.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nog geen credit-mutaties.
+                </p>
+              ) : (
+                <ol className="divide-y divide-border">
+                  {ledger.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-start justify-between gap-3 py-3"
+                    >
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-foreground">
+                          {CREDIT_REASON_LABEL[row.reason]}
+                        </div>
+                        {row.note ? (
+                          <div className="text-xs text-muted-foreground">
+                            {row.note}
+                          </div>
+                        ) : null}
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {dtFmt.format(new Date(row.created_at))}
+                        </div>
+                      </div>
+                      <span
+                        className={
+                          row.delta >= 0
+                            ? "text-success font-semibold"
+                            : "text-danger font-semibold"
+                        }
+                      >
+                        {row.delta >= 0 ? "+" : ""}
+                        {row.delta}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          {isAdmin ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pakket toekennen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activePackages.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Geen actieve pakketten.{" "}
+                    <Link
+                      href="/backoffice/packages"
+                      className="text-primary hover:underline"
+                    >
+                      Maak er eerst één aan.
+                    </Link>
+                  </p>
+                ) : (
+                  <form action={grantPackageToStudent} className="space-y-3">
+                    <input type="hidden" name="student_id" value={student.id} />
+                    <Select name="package_id" defaultValue={activePackages[0]!.id}>
+                      {activePackages.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.credits_total} credits ·{" "}
+                          {formatEuros(p.price_cents)}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button type="submit" size="sm" className="w-full">
+                      Toekennen
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isAdmin ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Handmatige correctie</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={adjustCredits} className="space-y-3">
+                  <input type="hidden" name="student_id" value={student.id} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="delta">Aantal (+ of -)</Label>
+                    <Input
+                      id="delta"
+                      name="delta"
+                      type="number"
+                      required
+                      placeholder="-1 of +5"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="note">Reden</Label>
+                    <Input
+                      id="note"
+                      name="note"
+                      required
+                      maxLength={200}
+                      placeholder="bv. Compensatie geannuleerde les"
+                    />
+                  </div>
+                  <Button type="submit" size="sm" className="w-full">
+                    Correctie boeken
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-1 text-foreground">{value ?? "—"}</dd>
+    </div>
+  );
+}

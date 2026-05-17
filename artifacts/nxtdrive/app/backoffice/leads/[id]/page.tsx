@@ -17,7 +17,8 @@ import {
   type Lead,
   type LeadEvent,
 } from "@/lib/leads/types";
-import { addNote, updateStatus } from "../actions";
+import { addNote, convertLeadToStudent, updateStatus } from "../actions";
+import { formatEuros, type Package } from "@/lib/packages/types";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,32 @@ export default async function LeadDetailPage({
     .order("created_at", { ascending: false })
     .limit(50);
   const events = (eventsRaw ?? []) as LeadEvent[];
+
+  // For the "Klant maken" panel — only fetched when an admin views the page.
+  const isAdmin = (await import("@/lib/auth/session")).rolesForTenant(
+    (await (await import("@/lib/auth/require-role")).requireUser()),
+    tenant.id,
+  ).includes("tenant_admin");
+
+  const { data: existingStudent } = await supabase
+    .from("students")
+    .select("id")
+    .eq("lead_id", id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  const { data: pkgRaw } = isAdmin && !existingStudent
+    ? await supabase
+        .from("packages")
+        .select("id, name, credits_total, price_cents, active")
+        .eq("tenant_id", tenant.id)
+        .eq("active", true)
+        .order("credits_total", { ascending: true })
+    : { data: null };
+  const activePackages = (pkgRaw ?? []) as Pick<
+    Package,
+    "id" | "name" | "credits_total" | "price_cents" | "active"
+  >[];
 
   return (
     <div className="space-y-6">
@@ -165,7 +192,7 @@ export default async function LeadDetailPage({
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Status bijwerken</CardTitle>
@@ -186,6 +213,67 @@ export default async function LeadDetailPage({
               </form>
             </CardContent>
           </Card>
+
+          {isAdmin ? (
+            existingStudent ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Klant</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Deze lead is al omgezet naar een leerling.
+                  </p>
+                  <Link
+                    href={`/backoffice/leerlingen/${existingStudent.id}`}
+                    className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    Naar leerlingprofiel →
+                  </Link>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Klant maken</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form action={convertLeadToStudent} className="space-y-3">
+                    <input type="hidden" name="lead_id" value={lead.id} />
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="package_id"
+                        className="text-xs uppercase tracking-wide text-muted-foreground"
+                      >
+                        Pakket (optioneel)
+                      </label>
+                      <Select
+                        id="package_id"
+                        name="package_id"
+                        defaultValue=""
+                      >
+                        <option value="">Geen pakket — alleen leerling aanmaken</option>
+                        {activePackages.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.credits_total} credits ·{" "}
+                            {formatEuros(p.price_cents)}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <Button type="submit" size="sm" className="w-full">
+                      Leerling aanmaken
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Zet de lead op{" "}
+                      <span className="text-foreground">Klant geworden</span> en
+                      kent eventueel het pakket toe.
+                    </p>
+                  </form>
+                </CardContent>
+              </Card>
+            )
+          ) : null}
         </div>
       </div>
     </div>
