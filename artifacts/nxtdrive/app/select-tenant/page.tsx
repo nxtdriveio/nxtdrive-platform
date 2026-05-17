@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-role";
 import { uniqueTenants } from "@/lib/auth/session";
 import { setActiveTenantId } from "@/lib/auth/active-tenant";
-import { landingPathFor } from "@/lib/auth/redirect-by-role";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,15 +15,25 @@ async function chooseTenant(formData: FormData) {
 
   const user = await requireUser();
   const allowed = uniqueTenants(user).some((t) => t.id === tenantId);
-  if (!allowed) redirect("/select-tenant");
+  // Platform admins can enter any tenant even without a membership row.
+  if (!allowed && !user.profile?.is_platform_admin) redirect("/select-tenant");
 
   await setActiveTenantId(tenantId);
 
-  const scoped = {
-    ...user,
-    memberships: user.memberships.filter((m) => m.tenant_id === tenantId),
-  };
-  redirect(landingPathFor(scoped));
+  // The user explicitly picked a tenant — route by their role IN that tenant,
+  // ignoring the platform-admin override that landingPathFor() applies.
+  const roles = user.memberships
+    .filter((m) => m.tenant_id === tenantId)
+    .map((m) => m.role);
+
+  if (roles.includes("tenant_admin") || user.profile?.is_platform_admin) {
+    redirect("/backoffice");
+  }
+  if (roles.includes("instructor")) redirect("/instructor");
+  if (roles.includes("student") || roles.includes("parent")) {
+    redirect("/student");
+  }
+  redirect("/");
 }
 
 export default async function SelectTenantPage() {
