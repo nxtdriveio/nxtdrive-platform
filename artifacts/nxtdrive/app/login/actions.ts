@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getPublicOrigin } from "@/lib/utils/public-origin";
 
 export async function sendMagicLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -12,10 +12,7 @@ export async function sendMagicLink(formData: FormData) {
   }
 
   const supabase = await createServerSupabaseClient();
-  const hdrs = await headers();
-  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "localhost";
-  const proto = hdrs.get("x-forwarded-proto") ?? "https";
-  const origin = `${proto}://${host}`;
+  const origin = await getPublicOrigin();
 
   const { error } = await supabase.auth.signInWithOtp({
     email,

@@ -2,11 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/redirect-by-role";
+import { getPublicOrigin } from "@/lib/utils/public-origin";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const explicitNext = searchParams.get("next");
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const explicitNext = url.searchParams.get("next");
+  const origin = await getPublicOrigin();
 
   if (!code) {
     return NextResponse.redirect(
@@ -23,8 +25,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Route by role: platform admin → /admin, single tenant → tenant dashboard,
-  // multiple tenants → /select-tenant.
   let dest = "/";
   if (explicitNext && explicitNext.startsWith("/")) {
     dest = explicitNext;
