@@ -92,11 +92,15 @@ mkdir -p /etc/caddy/sites-enabled
 cp "$WORK_DIR/infra/Caddyfile.staging"    /etc/caddy/sites-enabled/staging
 cp "$WORK_DIR/infra/Caddyfile.production" /etc/caddy/sites-enabled/production
 
-# Ensure the import line is present exactly once.
-if ! grep -q "import /etc/caddy/sites-enabled" /etc/caddy/Caddyfile 2>/dev/null; then
-  echo "" >> /etc/caddy/Caddyfile
-  echo "import /etc/caddy/sites-enabled/*" >> /etc/caddy/Caddyfile
-fi
+# Overwrite the main Caddyfile with our managed version. Global options must
+# come first; site definitions live under /etc/caddy/sites-enabled/*.
+cat > /etc/caddy/Caddyfile <<'CADDYEOF'
+{
+        email ops@nxtdrive.io
+}
+
+import /etc/caddy/sites-enabled/*
+CADDYEOF
 
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy || systemctl restart caddy
