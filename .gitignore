@@ -47,3 +47,20 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Next.js
+.next/
+artifacts/nxtdrive/.next/
+
+# Local env files — never commit secrets
+.env
+.env.*
+!.env.example
+*.env.local
+
+# Local artifact build output
+artifacts/*/dist
+artifacts/*/.next
+
+# Attached assets (chat-pane uploads, not part of the app)
+attached_assets/

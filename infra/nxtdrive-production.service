@@ -1,0 +1,23 @@
+# systemd unit for the PRODUCTION Next.js app.
+# Install at /etc/systemd/system/nxtdrive-production.service then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nxtdrive-production
+[Unit]
+Description=NXTDRIVE Next.js (production)
+After=network.target
+
+[Service]
+Type=simple
+User=deployer
+WorkingDirectory=/var/www/nxtdrive/production/current/artifacts/nxtdrive
+Environment=NODE_ENV=production
+Environment=PORT=5001
+EnvironmentFile=/var/www/nxtdrive/production/shared/.env
+ExecStart=/usr/bin/pnpm --filter @workspace/nxtdrive run start
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

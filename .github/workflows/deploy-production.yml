@@ -1,25 +1,25 @@
-name: Deploy staging
+name: Deploy production
 
 on:
   push:
-    branches: [staging]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-staging
+  group: deploy-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Build, migrate and deploy to staging VPS
+    name: Build, migrate and deploy to production VPS
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: staging
+    environment: production
 
     env:
-      APP_URL: https://staging.nxtdrive.io
-      DEPLOY_BASE: /var/www/nxtdrive/staging
-      SERVICE: nxtdrive-staging
+      APP_URL: https://app.nxtdrive.io
+      DEPLOY_BASE: /var/www/nxtdrive/production
+      SERVICE: nxtdrive-production
 
     steps:
       - name: Checkout
@@ -44,15 +44,15 @@ jobs:
       - name: Build NXTDRIVE
         env:
           NODE_ENV: production
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_APP_URL: ${{ env.APP_URL }}
         run: pnpm --filter @workspace/nxtdrive run build
 
       - name: Apply database migrations
         env:
-          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-        run: pnpm --filter @workspace/scripts run db:migrate -- --env=staging
+          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: pnpm --filter @workspace/scripts run db:migrate -- --env=production
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -68,21 +68,21 @@ jobs:
         run: |
           ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p $DEPLOY_BASE/shared && chmod 700 $DEPLOY_BASE/shared"
-          cat > /tmp/staging.env <<'ENVEOF'
+          cat > /tmp/production.env <<'ENVEOF'
           NODE_ENV=production
-          PORT=5000
+          PORT=5001
           NEXT_PUBLIC_APP_URL=${{ env.APP_URL }}
-          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.STAGING_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.STAGING_SUPABASE_ANON_KEY }}
-          SUPABASE_URL=${{ secrets.STAGING_SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.STAGING_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-          SESSION_SECRET=${{ secrets.STAGING_SESSION_SECRET }}
-          DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.PRODUCTION_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
+          SUPABASE_URL=${{ secrets.PRODUCTION_SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          SESSION_SECRET=${{ secrets.PRODUCTION_SESSION_SECRET }}
+          DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
           ENVEOF
-          scp /tmp/staging.env "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$DEPLOY_BASE/shared/.env"
+          scp /tmp/production.env "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$DEPLOY_BASE/shared/.env"
           ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "chmod 600 $DEPLOY_BASE/shared/.env"
-          rm /tmp/staging.env
+          rm /tmp/production.env
 
       - name: Rsync release and restart service
         run: |
