@@ -4,6 +4,8 @@ import { uniqueTenants } from "@/lib/auth/session";
 import { setActiveTenantId } from "@/lib/auth/active-tenant";
 import { landingPathFor } from "@/lib/auth/redirect-by-role";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,6 @@ async function chooseTenant(formData: FormData) {
 
   await setActiveTenantId(tenantId);
 
-  // Compute role-aware destination AS IF the user only had this tenant.
   const scoped = {
     ...user,
     memberships: user.memberships.filter((m) => m.tenant_id === tenantId),
@@ -31,20 +32,20 @@ export default async function SelectTenantPage() {
   const tenants = uniqueTenants(user);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-slate-50">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+    <main className="bg-nxt-grid relative flex min-h-screen items-center justify-center px-6 py-10">
+      <Card className="w-full max-w-md space-y-6 p-8">
         <div className="text-center">
-          <NxtdriveLogo className="h-8 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-slate-900">
+          <NxtdriveLogo className="mx-auto text-xl" />
+          <h1 className="mt-5 text-xl font-semibold text-foreground">
             Kies een rijschool
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             Je hebt toegang tot meerdere rijscholen.
           </p>
         </div>
 
         {tenants.length === 0 ? (
-          <p className="text-sm text-slate-600 text-center">
+          <p className="text-center text-sm text-muted-foreground">
             Je hebt nog geen toegang. Neem contact op met je rijschool.
           </p>
         ) : (
@@ -55,19 +56,17 @@ export default async function SelectTenantPage() {
                   <input type="hidden" name="tenant_id" value={t.id} />
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-between rounded-md border border-slate-200 px-4 py-3 hover:bg-slate-50 transition text-left"
+                    className="flex w-full items-center justify-between rounded-md border border-border bg-card px-4 py-3 text-left transition hover:bg-muted"
                   >
-                    <span className="font-medium text-slate-900">{t.name}</span>
-                    <span className="text-xs text-slate-500 uppercase">
-                      {t.plan}
-                    </span>
+                    <span className="font-medium text-foreground">{t.name}</span>
+                    <Badge variant="primary">{t.plan}</Badge>
                   </button>
                 </form>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </main>
   );
 }

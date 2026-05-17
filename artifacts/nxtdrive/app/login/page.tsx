@@ -1,4 +1,7 @@
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { sendMagicLink, signInWithPassword } from "./actions";
 
 export default async function LoginPage({
@@ -11,91 +14,76 @@ export default async function LoginPage({
   const errorMsg = params.error;
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-slate-50">
-      <div className="w-full max-w-sm space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+    <main className="bg-nxt-grid relative flex min-h-screen items-center justify-center px-6 py-10">
+      <Card className="w-full max-w-sm space-y-6 p-8">
         <div className="text-center">
-          <NxtdriveLogo className="h-10 mx-auto mb-4" />
-          <h1 className="text-2xl font-semibold text-slate-900">Inloggen</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <NxtdriveLogo className="mx-auto text-xl" />
+          <h1 className="mt-5 text-2xl font-semibold text-foreground">Inloggen</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Log in met je e-mailadres en wachtwoord.
           </p>
         </div>
 
         {sent ? (
-          <div className="rounded-md bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800">
+          <div className="rounded-md border border-success/30 bg-[color-mix(in_oklab,var(--success)_10%,transparent)] p-3 text-sm text-success">
             Check je inbox — we hebben je een inloglink gestuurd.
           </div>
         ) : null}
 
         {errorMsg ? (
-          <p className="text-sm text-red-600">{decodeURIComponent(errorMsg)}</p>
+          <div className="rounded-md border border-danger/30 bg-[color-mix(in_oklab,var(--danger)_10%,transparent)] p-3 text-sm text-danger">
+            {decodeURIComponent(errorMsg)}
+          </div>
         ) : null}
 
         <form action={signInWithPassword} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-slate-700 mb-1"
-            >
-              E-mailadres
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="email">E-mailadres</Label>
+            <Input
               id="email"
               name="email"
               type="email"
               required
               autoComplete="email"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--tenant-primary)]"
               placeholder="naam@rijschool.nl"
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-slate-700 mb-1"
-            >
-              Wachtwoord
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Wachtwoord</Label>
+            <Input
               id="password"
               name="password"
               type="password"
               required
               autoComplete="current-password"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--tenant-primary)]"
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-md bg-[color:var(--tenant-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
-          >
+          <Button type="submit" className="w-full">
             Inloggen
-          </button>
+          </Button>
         </form>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200" />
+            <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase tracking-wide">
-            <span className="bg-white px-2 text-slate-400">of</span>
+            <span className="bg-card px-2 text-muted-foreground">of</span>
           </div>
         </div>
 
         <form action={sendMagicLink} className="space-y-3">
-          <p className="text-xs text-slate-500 text-center">
-            Wachtwoord vergeten? Vul hierboven je e-mailadres in en vraag een inloglink aan.
+          <p className="text-center text-xs text-muted-foreground">
+            Wachtwoord vergeten? Vul hierboven je e-mailadres in en vraag een
+            inloglink aan.
           </p>
-          <button
-            type="submit"
-            className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
-          >
+          <Button type="submit" variant="outline" className="w-full">
             Stuur inloglink per e-mail
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
     </main>
   );
 }

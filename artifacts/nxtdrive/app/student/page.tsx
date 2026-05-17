@@ -7,17 +7,18 @@ export default async function StudentPage() {
   const { user, tenant } = await requireActiveTenant(["student", "parent"]);
 
   return (
-    <main className="min-h-screen p-8 bg-slate-50">
-      <header className="flex items-center justify-between mb-8">
-        <NxtdriveLogo />
-        <div className="text-sm text-slate-600">
-          {user.profile?.full_name ?? user.email} · {tenant.name}
+    <main className="min-h-screen bg-background p-8">
+      <header className="mb-8 flex items-center justify-between">
+        <NxtdriveLogo className="text-lg" />
+        <div className="text-sm text-muted-foreground">
+          {user.profile?.full_name ?? user.email} ·{" "}
+          <span className="text-foreground">{tenant.name}</span>
         </div>
       </header>
-      <h1 className="text-2xl font-semibold text-slate-900 mb-2">
+      <h1 className="mb-2 text-2xl font-semibold text-foreground">
         Mijn rijschool
       </h1>
-      <p className="text-slate-600">
+      <p className="text-muted-foreground">
         Hier komen je lessen, voortgang en facturen.
       </p>
     </main>

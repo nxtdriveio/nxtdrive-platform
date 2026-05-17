@@ -1,6 +1,8 @@
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -14,21 +16,22 @@ export default async function PlatformAdminPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main className="min-h-screen p-8 bg-slate-50">
-      <header className="flex items-center justify-between mb-8">
-        <NxtdriveLogo />
-        <div className="text-sm text-slate-600">
-          {user.profile?.full_name ?? user.email} · platform admin
+    <main className="min-h-screen bg-background p-8">
+      <header className="mb-8 flex items-center justify-between">
+        <NxtdriveLogo className="text-lg" />
+        <div className="text-sm text-muted-foreground">
+          {user.profile?.full_name ?? user.email} ·{" "}
+          <span className="text-foreground">platform admin</span>
         </div>
       </header>
 
       <section>
-        <h1 className="text-2xl font-semibold text-slate-900 mb-4">
+        <h1 className="mb-4 text-2xl font-semibold text-foreground">
           Tenants ({tenants?.length ?? 0})
         </h1>
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Naam</th>
                 <th className="px-4 py-3 font-medium">Slug</th>
@@ -36,24 +39,26 @@ export default async function PlatformAdminPage() {
                 <th className="px-4 py-3 font-medium">White-label</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {tenants?.map((t) => (
                 <tr key={t.id}>
-                  <td className="px-4 py-3 font-medium">{t.name}</td>
-                  <td className="px-4 py-3 text-slate-600 font-mono text-xs">
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    {t.name}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     {t.slug}
                   </td>
-                  <td className="px-4 py-3 uppercase text-xs text-slate-700">
-                    {t.plan}
+                  <td className="px-4 py-3">
+                    <Badge variant="primary">{t.plan}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-muted-foreground">
                     {t.white_label_enabled ? "ja" : "nee"}
                   </td>
                 </tr>
               )) ?? null}
             </tbody>
           </table>
-        </div>
+        </Card>
       </section>
     </main>
   );

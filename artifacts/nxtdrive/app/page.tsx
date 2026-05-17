@@ -3,25 +3,35 @@ import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="max-w-2xl w-full text-center space-y-8">
-        <NxtdriveLogo className="h-12 mx-auto" />
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-          Het complete platform voor rijscholen
+    <main className="bg-nxt-grid relative min-h-screen overflow-hidden">
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center px-6 py-12 text-center">
+        <NxtdriveLogo className="text-3xl" />
+        <h1 className="mt-10 text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          De slimme software voor{" "}
+          <span className="bg-gradient-to-r from-brand-300 via-brand-500 to-brand-700 bg-clip-text text-transparent">
+            moderne rijscholen
+          </span>
         </h1>
-        <p className="text-lg text-slate-600">
-          Van eerste lead tot geslaagd examen — alles in één systeem.
+        <p className="mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
+          Van eerste lead tot geslaagd examen — alles in één systeem. Plannen,
+          leerlingen, voortgang, betalingen en meer.
         </p>
-        <div className="flex flex-wrap gap-3 justify-center">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-md bg-[color:var(--tenant-primary)] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:opacity-90 transition"
+            className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
           >
             Inloggen
           </Link>
+          <Link
+            href="#"
+            className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-card px-6 text-sm font-medium text-foreground transition hover:bg-muted"
+          >
+            Plan een demo
+          </Link>
         </div>
-        <p className="text-xs text-slate-400">
-          NXTDRIVE &middot; multi-tenant SaaS voor rijscholen
+        <p className="mt-10 text-xs text-muted-foreground">
+          NXTDRIVE · multi-tenant SaaS voor rijscholen
         </p>
       </div>
     </main>
