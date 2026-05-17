@@ -1,0 +1,77 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build NXTDRIVE
+        env:
+          # Build-time public env (safe to expose).
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+        run: pnpm --filter @workspace/nxtdrive run build
+
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: pnpm --filter @workspace/scripts run db:migrate
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.STAGING_VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync release
+        run: |
+          RELEASE_DIR="/var/www/nxtdrive/staging/releases/$(date +%Y%m%d%H%M%S)"
+          ssh deployer@${{ secrets.STAGING_VPS_HOST }} "mkdir -p $RELEASE_DIR"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next/cache' \
+            ./ deployer@${{ secrets.STAGING_VPS_HOST }}:$RELEASE_DIR/
+          ssh deployer@${{ secrets.STAGING_VPS_HOST }} bash -c "'
+            set -euo pipefail
+            cd $RELEASE_DIR
+            pnpm install --frozen-lockfile --prod=false
+            pnpm --filter @workspace/nxtdrive run build
+            ln -sfn $RELEASE_DIR /var/www/nxtdrive/staging/current
+            sudo systemctl restart nxtdrive-staging
+            # Keep last 5 releases
+            ls -1dt /var/www/nxtdrive/staging/releases/* | tail -n +6 | xargs -r rm -rf
+          '"

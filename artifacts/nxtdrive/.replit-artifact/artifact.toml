@@ -1,0 +1,36 @@
+kind = "web"
+previewPath = "/"
+title = "NXTDRIVE"
+version = "1.0.0"
+id = "artifacts/nxtdrive"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22557
+
+[services.env]
+PORT = "22557"
+
+[services.development]
+run = "pnpm --filter @workspace/nxtdrive run dev"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/nxtdrive", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@workspace/nxtdrive", "run", "start"]
+
+[services.production.run.env]
+PORT = "22557"
+NODE_ENV = "production"

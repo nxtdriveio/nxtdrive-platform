@@ -1,0 +1,26 @@
+# Caddy reverse proxy for STAGING — staging.nxtdrive.io
+# Deploy path: /var/www/nxtdrive/staging
+# The Next.js app is expected to run on 127.0.0.1:5000 (systemd unit nxtdrive-staging).
+
+{
+	email ops@nxtdrive.io
+}
+
+staging.nxtdrive.io {
+	encode gzip zstd
+
+	reverse_proxy 127.0.0.1:5000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+		header_up X-Real-IP {remote_host}
+		flush_interval -1
+	}
+
+	log {
+		output file /var/log/caddy/staging.nxtdrive.io.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+		format json
+	}
+}

@@ -1,0 +1,23 @@
+# systemd unit for the staging Next.js app.
+# Install at /etc/systemd/system/nxtdrive-staging.service then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nxtdrive-staging
+[Unit]
+Description=NXTDRIVE Next.js (staging)
+After=network.target
+
+[Service]
+Type=simple
+User=deployer
+WorkingDirectory=/var/www/nxtdrive/staging/current/artifacts/nxtdrive
+Environment=NODE_ENV=production
+Environment=PORT=5000
+EnvironmentFile=/var/www/nxtdrive/staging/shared/.env
+ExecStart=/usr/bin/pnpm --filter @workspace/nxtdrive run start
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

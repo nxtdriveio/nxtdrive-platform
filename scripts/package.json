@@ -5,10 +5,17 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "db:migrate": "tsx ./src/apply-migrations.ts",
+    "db:seed": "tsx ./src/seed-demo.ts",
+    "db:promote-admin": "tsx ./src/promote-platform-admin.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "pg": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "tsx": "catalog:"
   }
 }

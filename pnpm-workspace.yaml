@@ -41,6 +41,12 @@ packages:
   - scripts
 
 catalog:
+  '@supabase/ssr': ^0.5.2
+  '@supabase/supabase-js': ^2.45.4
+  '@tailwindcss/postcss': ^4.1.14
+  '@types/pg': ^8.11.10
+  next: ^15.0.3
+  pg: ^8.13.1
   '@replit/vite-plugin-cartographer': ^0.5.1
   '@replit/vite-plugin-dev-banner': ^0.1.1
   '@replit/vite-plugin-runtime-error-modal': ^0.0.6
