@@ -2,7 +2,12 @@
  * Apply SQL migrations from supabase/migrations/ to the configured Postgres DB.
  *
  * Usage:
- *   DATABASE_URL=postgres://... pnpm --filter @workspace/scripts run db:migrate
+ *   pnpm --filter @workspace/scripts run db:migrate                  # staging (default)
+ *   pnpm --filter @workspace/scripts run db:migrate -- --env=production
+ *
+ * Secrets read:
+ *   - staging:    STAGING_DATABASE_URL (or DATABASE_URL fallback)
+ *   - production: PRODUCTION_DATABASE_URL  (no fallback — must be set explicitly)
  *
  * Each .sql file in supabase/migrations/ is applied exactly once, in filename
  * order. Applied filenames are tracked in public._migrations (created on first
@@ -12,6 +17,11 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import {
+  bannerFor,
+  parseEnvFromArgv,
+  resolveConnectionString,
+} from "./lib/db-env.js";
 
 const { Client } = pg;
 
@@ -19,12 +29,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(HERE, "..", "..", "supabase", "migrations");
 
 async function main(): Promise<void> {
-  const connectionString = process.env["DATABASE_URL"];
-  if (!connectionString) {
-    throw new Error(
-      "DATABASE_URL must be set (Supabase pooler connection string).",
-    );
-  }
+  const env = parseEnvFromArgv(process.argv);
+  const connectionString = resolveConnectionString(env);
+
+  console.log(`${bannerFor(env)} — applying migrations from ${MIGRATIONS_DIR}`);
 
   const client = new Client({ connectionString });
   await client.connect();
