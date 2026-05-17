@@ -16,7 +16,7 @@ catalogs:
       specifier: ^0.5.2
       version: 0.5.2
     '@supabase/supabase-js':
-      specifier: ^2.45.4
+      specifier: 2.105.4
       version: 2.105.4
     '@tailwindcss/postcss':
       specifier: ^4.1.14
@@ -505,6 +505,9 @@ importers:
 
   scripts:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       pg:
         specifier: 'catalog:'
         version: 8.20.0
