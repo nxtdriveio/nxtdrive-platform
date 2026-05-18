@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarDays, Wallet, User } from "lucide-react";
+import { Home, CalendarDays, Wallet, Receipt, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/student", label: "Vandaag", icon: Home, exact: true },
   { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
   { href: "/student/credits", label: "Tegoed", icon: Wallet },
+  { href: "/student/facturen", label: "Facturen", icon: Receipt },
   { href: "/student/profile", label: "Profiel", icon: User },
 ];
 
@@ -19,7 +20,7 @@ export function StudentBottomNav() {
       aria-label="Hoofdnavigatie"
       className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur"
     >
-      <ul className="mx-auto grid max-w-2xl grid-cols-4">
+      <ul className="mx-auto grid max-w-2xl grid-cols-5">
         {items.map((it) => {
           const active = it.exact
             ? pathname === it.href
