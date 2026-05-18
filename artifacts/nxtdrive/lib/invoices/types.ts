@@ -37,6 +37,7 @@ export type Invoice = {
   total_cents: number;
   notes: string | null;
   payment_record_id: string | null;
+  payment_record_tenant_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
