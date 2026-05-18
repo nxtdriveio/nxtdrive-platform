@@ -15,6 +15,11 @@ import {
   type StudentBalance,
 } from "@/lib/students/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
+import {
+  LESSON_STATUS_LABEL,
+  LESSON_STATUS_VARIANT,
+  type Lesson,
+} from "@/lib/lessons/types";
 import { adjustCredits, grantPackageToStudent } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +84,16 @@ export default async function StudentDetailPage({
     "id" | "name" | "credits_total" | "price_cents" | "active"
   >[];
 
+  const { data: upcomingRaw } = await supabase
+    .from("lessons")
+    .select("*")
+    .eq("student_id", id)
+    .eq("tenant_id", tenant.id)
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(5);
+  const upcomingLessons = (upcomingRaw ?? []) as Lesson[];
+
   return (
     <div className="space-y-6">
       <Link
@@ -121,6 +136,49 @@ export default async function StudentDetailPage({
                   value={student.user_id ? "Ja" : "Nee"}
                 />
               </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Komende lessen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingLessons.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Geen geplande lessen.{" "}
+                  <Link
+                    href={`/backoffice/agenda/nieuw?student_id=${student.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    Plan er één →
+                  </Link>
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {upcomingLessons.map((l) => (
+                    <li
+                      key={l.id}
+                      className="flex items-center justify-between gap-3 py-3"
+                    >
+                      <Link
+                        href={`/backoffice/agenda/${l.id}`}
+                        className="flex-1 text-sm hover:underline"
+                      >
+                        <div className="font-medium text-foreground">
+                          {dtFmt.format(new Date(l.starts_at))}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {l.location ?? "—"} · {l.credits_cost} credit(s)
+                        </div>
+                      </Link>
+                      <Badge variant={LESSON_STATUS_VARIANT[l.status]}>
+                        {LESSON_STATUS_LABEL[l.status]}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 

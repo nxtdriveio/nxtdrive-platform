@@ -11,6 +11,7 @@
     "db:add-membership": "tsx ./src/add-membership.ts",
     "db:test-rls-leads": "tsx ./src/test-rls-leads.ts",
     "db:test-rls-credits": "tsx ./src/test-rls-credits.ts",
+    "db:test-rls-lessons": "tsx ./src/test-rls-lessons.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
