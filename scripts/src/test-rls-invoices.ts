@@ -12,6 +12,9 @@
  *   5. Instructor CANNOT invoke create_invoice / set_invoice_status RPCs
  *      (they are service_role-only).
  *   6. set_invoice_status enforces legal transitions (draft→paid rejected).
+ *   7. Cross-tenant: an admin of tenant X cannot read invoices of tenant Y,
+ *      and a student of tenant X cannot read invoices of a student in
+ *      tenant Y.
  */
 import { createClient } from "@supabase/supabase-js";
 import { parseEnvFromArgv, bannerFor } from "./lib/db-env.js";
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
   const createdUserIds: string[] = [];
   const createdStudentIds: string[] = [];
   const createdInvoiceIds: string[] = [];
+  const createdTenantIds: string[] = [];
 
   try {
     const { data: tenant } = await serviceClient
@@ -330,6 +334,158 @@ async function main(): Promise<void> {
         detail: error ? error.message : "ok",
       });
     }
+
+    // --- Cross-tenant isolation --------------------------------------------
+    // Build a second tenant with its own admin + student + invoice, then
+    // sign in as each side and verify the other's invoice is invisible.
+    const otherSlug = `rls-other-${stamp}`;
+    const { data: otherTenant, error: otTenErr } = await serviceClient
+      .from("tenants")
+      .insert({ slug: otherSlug, name: `RLS Other ${stamp}` })
+      .select("id")
+      .single();
+    if (otTenErr || !otherTenant) {
+      throw new Error(`create other tenant: ${otTenErr?.message}`);
+    }
+    const otherTenantId = otherTenant.id as string;
+    createdTenantIds.push(otherTenantId);
+
+    const otherAdminEmail = `admin-other-${stamp}@nxtdrive.test`;
+    const otherAdminCreate = await serviceClient.auth.admin.createUser({
+      email: otherAdminEmail,
+      email_confirm: true,
+      password: instructorPassword,
+    });
+    if (otherAdminCreate.error || !otherAdminCreate.data.user) {
+      throw new Error(
+        `createUser other admin: ${otherAdminCreate.error?.message}`,
+      );
+    }
+    const otherAdminId = otherAdminCreate.data.user.id;
+    createdUserIds.push(otherAdminId);
+    await serviceClient
+      .from("profiles")
+      .upsert({ id: otherAdminId, email: otherAdminEmail, full_name: "Other Admin" });
+    await serviceClient.from("memberships").insert({
+      user_id: otherAdminId,
+      tenant_id: otherTenantId,
+      role: "tenant_admin",
+    });
+
+    const otherStudentEmail = `student-other-${stamp}@nxtdrive.test`;
+    const otherStudentCreate = await serviceClient.auth.admin.createUser({
+      email: otherStudentEmail,
+      email_confirm: true,
+      password: studentPassword,
+    });
+    if (otherStudentCreate.error || !otherStudentCreate.data.user) {
+      throw new Error(
+        `createUser other student: ${otherStudentCreate.error?.message}`,
+      );
+    }
+    const otherStudentUserId = otherStudentCreate.data.user.id;
+    createdUserIds.push(otherStudentUserId);
+    await serviceClient.from("profiles").upsert({
+      id: otherStudentUserId,
+      email: otherStudentEmail,
+      full_name: "Other Student",
+    });
+    const { data: otherStudent } = await serviceClient
+      .from("students")
+      .insert({
+        tenant_id: otherTenantId,
+        user_id: otherStudentUserId,
+        full_name: `Other Student ${stamp}`,
+        email: otherStudentEmail,
+      })
+      .select("id")
+      .single();
+    if (!otherStudent) throw new Error("could not create other student");
+    createdStudentIds.push(otherStudent.id);
+    await serviceClient.from("memberships").insert({
+      user_id: otherStudentUserId,
+      tenant_id: otherTenantId,
+      role: "student",
+    });
+
+    const { data: otherInvoiceId, error: otInvErr } = await serviceClient.rpc(
+      "create_invoice",
+      {
+        p_tenant_id: otherTenantId,
+        p_actor: otherAdminId,
+        p_student_id: otherStudent.id,
+        p_due_date: null,
+        p_notes: null,
+      },
+    );
+    if (otInvErr || !otherInvoiceId) {
+      throw new Error(`other create_invoice: ${otInvErr?.message}`);
+    }
+    createdInvoiceIds.push(otherInvoiceId as string);
+    await serviceClient.rpc("add_invoice_line", {
+      p_invoice_id: otherInvoiceId as string,
+      p_tenant_id: otherTenantId,
+      p_actor: otherAdminId,
+      p_description: "Other tenant line",
+      p_quantity: 1,
+      p_unit_price_cents: 5000,
+      p_tax_rate_bp: 2100,
+      p_related_package_id: null,
+    });
+    await serviceClient.rpc("set_invoice_status", {
+      p_invoice_id: otherInvoiceId as string,
+      p_tenant_id: otherTenantId,
+      p_actor: otherAdminId,
+      p_status: "open",
+    });
+
+    // demo-academy student A must NOT see the other tenant's open invoice
+    {
+      const aClient2 = createClient(url, anon, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const aSign2 = await aClient2.auth.signInWithPassword({
+        email: A.email,
+        password: studentPassword,
+      });
+      if (aSign2.error) {
+        throw new Error(`student A re-signIn: ${aSign2.error.message}`);
+      }
+      const { data } = await aClient2
+        .from("invoices")
+        .select("id")
+        .eq("id", otherInvoiceId as string);
+      results.push({
+        name: "student in tenant X cannot read invoice from tenant Y",
+        ok: (data ?? []).length === 0,
+        detail: `rows=${(data ?? []).length}`,
+      });
+      await aClient2.auth.signOut();
+    }
+
+    // Other-tenant admin must NOT see demo-academy invoices
+    {
+      const oClient = createClient(url, anon, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const oSign = await oClient.auth.signInWithPassword({
+        email: otherAdminEmail,
+        password: instructorPassword,
+      });
+      if (oSign.error) {
+        throw new Error(`other admin signIn: ${oSign.error.message}`);
+      }
+      const { data } = await oClient
+        .from("invoices")
+        .select("id")
+        .in("id", [invA_open, invA_draft, invB_open]);
+      results.push({
+        name: "admin of tenant Y cannot read invoices from tenant X",
+        ok: (data ?? []).length === 0,
+        detail: `rows=${(data ?? []).length}`,
+      });
+      await oClient.auth.signOut();
+    }
   } finally {
     // Cleanup. Order matters: lines → invoices → counters → students → users.
     for (const iid of createdInvoiceIds) {
@@ -356,6 +512,13 @@ async function main(): Promise<void> {
     for (const uid of createdUserIds) {
       await serviceClient.from("memberships").delete().eq("user_id", uid);
       await serviceClient.auth.admin.deleteUser(uid).catch(() => undefined);
+    }
+    for (const tid of createdTenantIds) {
+      await serviceClient
+        .from("tenants")
+        .delete()
+        .eq("id", tid)
+        .then(() => undefined, () => undefined);
     }
   }
 
