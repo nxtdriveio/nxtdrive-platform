@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { StudentProgressCard } from "@/components/student/ProgressCard";
-import { getCurrentStudent } from "@/lib/students/current";
+import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 
@@ -17,8 +17,16 @@ export default async function StudentLessonDetailPage({
   params: Promise<{ lessonId: string }>;
 }) {
   const { lessonId } = await params;
-  const { user, tenant } = await requireActiveTenant(["student"]);
-  const student = await getCurrentStudent(user.id, tenant.id);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { student, needsChildPicker } = await getActiveStudent(
+    user,
+    tenant.id,
+    roles,
+  );
+  if (needsChildPicker) redirect("/student/select-child");
   if (!student) notFound();
 
   const supabase = await createServerSupabaseClient();

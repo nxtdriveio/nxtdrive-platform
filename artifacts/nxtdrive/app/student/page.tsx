@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CalendarDays, GraduationCap } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
-import { getCurrentStudent } from "@/lib/students/current";
+import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
@@ -25,8 +26,16 @@ function endOfWindow(days: number): Date {
 }
 
 export default async function StudentHomePage() {
-  const { user, tenant } = await requireActiveTenant(["student"]);
-  const student = await getCurrentStudent(user.id, tenant.id);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { student, needsChildPicker } = await getActiveStudent(
+    user,
+    tenant.id,
+    roles,
+  );
+  if (needsChildPicker) redirect("/student/select-child");
 
   if (!student) {
     return (

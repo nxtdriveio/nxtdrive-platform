@@ -16,10 +16,6 @@ export function roleHomePath(user: AuthenticatedUser, tenantId?: string): string
 
   if (roles.includes("tenant_admin")) return "/backoffice";
   if (roles.includes("instructor")) return "/instructor";
-  if (roles.includes("student")) return "/student";
-  // Parent role exists in the schema but the /student PWA is gated to
-  // ["student"] only until a parent↔student linkage model lands (see
-  // follow-up #9). Sending a parent to /student here would create a
-  // self-redirect loop, so we bounce them to the public root for now.
+  if (roles.includes("student") || roles.includes("parent")) return "/student";
   return "/";
 }

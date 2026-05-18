@@ -1,5 +1,5 @@
 /**
- * RLS tests for the Student PWA (Phase 2F).
+ * RLS tests for the Student PWA (Phase 2F + Phase 2G parent linkage).
  *
  *   pnpm --filter @workspace/scripts run db:test-rls-student
  *   pnpm --filter @workspace/scripts run db:test-rls-student -- --env=production
@@ -11,6 +11,13 @@
  *   4. Student sees only their own balance via student_credit_balance.
  *   5. Student CANNOT read raw lesson_notes (zero rows even for own lessons).
  *   6. Anonymous role cannot read student_credit_balance.
+ *
+ * And, under a real authenticated parent JWT (linked to child A only):
+ *   7. Parent sees only the linked child's students row.
+ *   8. Parent sees only the linked child's lessons, never the other student's.
+ *   9. Parent sees only the linked child's credit_ledger rows.
+ *  10. Parent sees only the linked child's balance.
+ *  11. Parent without a guardian link sees zero students.
  */
 import { createClient } from "@supabase/supabase-js";
 import { parseEnvFromArgv, bannerFor } from "./lib/db-env.js";
@@ -42,6 +49,7 @@ async function main(): Promise<void> {
   const createdUserIds: string[] = [];
   const createdStudentIds: string[] = [];
   const createdPackageIds: string[] = [];
+  const createdTenantIds: string[] = [];
 
   try {
     // --- tenant + instructor (for lesson scheduling) ----------------------
@@ -108,6 +116,44 @@ async function main(): Promise<void> {
       });
 
       return { userId, studentId: student.id as string, email };
+    }
+
+    // Parent helper: creates a tenant member with the `parent` role and
+    // (optionally) a guardian link to one of the test students.
+    async function createLoggedInParent(label: string, linkStudentId: string | null) {
+      const email = `parent-${label}-${stamp}@nxtdrive.test`;
+      const { data: u, error: uErr } = await serviceClient.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: studentPassword,
+      });
+      if (uErr || !u?.user) throw new Error(`createUser: ${uErr?.message}`);
+      const userId = u.user.id;
+      createdUserIds.push(userId);
+
+      await serviceClient
+        .from("profiles")
+        .upsert({ id: userId, email, full_name: `Parent ${label}` });
+
+      await serviceClient.from("memberships").insert({
+        user_id: userId,
+        tenant_id: tenantId,
+        role: "parent",
+      });
+
+      if (linkStudentId) {
+        const link = await serviceClient.from("student_guardians").insert({
+          tenant_id: tenantId,
+          student_id: linkStudentId,
+          user_id: userId,
+          relation: "parent",
+        });
+        if (link.error) {
+          throw new Error(`guardian link failed: ${link.error.message}`);
+        }
+      }
+
+      return { userId, email };
     }
 
     const A = await createLoggedInStudent("a");
@@ -262,6 +308,164 @@ async function main(): Promise<void> {
     }
 
     await aClient.auth.signOut();
+
+    // --- parent linkage assertions ---------------------------------------
+    const linkedParent = await createLoggedInParent("linked", A.studentId);
+    const unlinkedParent = await createLoggedInParent("unlinked", null);
+
+    const pClient = createClient(url, anon, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const pSignIn = await pClient.auth.signInWithPassword({
+      email: linkedParent.email,
+      password: studentPassword,
+    });
+    if (pSignIn.error || !pSignIn.data.session) {
+      throw new Error(`parent signIn failed: ${pSignIn.error?.message}`);
+    }
+
+    // 7. parent students row visibility
+    {
+      const { data } = await pClient
+        .from("students")
+        .select("id, user_id")
+        .in("id", [A.studentId, B.studentId]);
+      const ids = (data ?? []).map((r) => r.id);
+      results.push({
+        name: "parent sees only linked child's students row",
+        ok: ids.length === 1 && ids[0] === A.studentId,
+        detail: `visible_ids=${ids.join(",")}`,
+      });
+    }
+
+    // 8. parent lessons visibility
+    {
+      const { data } = await pClient.from("lessons").select("id, student_id");
+      const rows = data ?? [];
+      const onlyChild = rows.every((r) => r.student_id === A.studentId);
+      const hasChild = rows.some((r) => r.student_id === A.studentId);
+      results.push({
+        name: "parent sees only linked child's lessons",
+        ok: hasChild && onlyChild,
+        detail: `rows=${rows.length} only_child=${onlyChild}`,
+      });
+    }
+
+    // 9. parent credit_ledger visibility
+    {
+      const { data } = await pClient
+        .from("credit_ledger")
+        .select("id, student_id");
+      const rows = data ?? [];
+      const onlyChild = rows.every((r) => r.student_id === A.studentId);
+      const hasChild = rows.some((r) => r.student_id === A.studentId);
+      results.push({
+        name: "parent sees only linked child's credit_ledger rows",
+        ok: hasChild && onlyChild,
+        detail: `rows=${rows.length} only_child=${onlyChild}`,
+      });
+    }
+
+    // 10. parent balance view scoped to child
+    {
+      const { data } = await pClient
+        .from("student_credit_balance")
+        .select("student_id, balance");
+      const rows = data ?? [];
+      const onlyChild = rows.every((r) => r.student_id === A.studentId);
+      const childBalance =
+        rows.find((r) => r.student_id === A.studentId)?.balance ?? null;
+      results.push({
+        name: "parent sees only linked child's balance",
+        ok: onlyChild && rows.length === 1 && childBalance === 3,
+        detail: `rows=${rows.length} balanceChild=${childBalance}`,
+      });
+    }
+
+    await pClient.auth.signOut();
+
+    // 11. unlinked parent: zero visibility
+    const uClient = createClient(url, anon, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const uSignIn = await uClient.auth.signInWithPassword({
+      email: unlinkedParent.email,
+      password: studentPassword,
+    });
+    if (uSignIn.error || !uSignIn.data.session) {
+      throw new Error(`unlinked parent signIn failed: ${uSignIn.error?.message}`);
+    }
+    {
+      const { data: students } = await uClient
+        .from("students")
+        .select("id")
+        .in("id", [A.studentId, B.studentId]);
+      const { data: lessons } = await uClient
+        .from("lessons")
+        .select("id");
+      const { data: ledger } = await uClient
+        .from("credit_ledger")
+        .select("id");
+      results.push({
+        name: "parent without guardian link sees zero students/lessons/ledger",
+        ok:
+          (students ?? []).length === 0 &&
+          (lessons ?? []).length === 0 &&
+          (ledger ?? []).length === 0,
+        detail: `students=${(students ?? []).length} lessons=${(lessons ?? []).length} ledger=${(ledger ?? []).length}`,
+      });
+    }
+    await uClient.auth.signOut();
+
+    // 12. cross-tenant isolation: linked parent must NOT see a student
+    //     in a different tenant, even though the schema is shared.
+    const { data: otherTenant } = await serviceClient
+      .from("tenants")
+      .insert({
+        slug: `rls-other-${stamp}`,
+        name: `RLS Other Tenant ${stamp}`,
+        plan: "start",
+        white_label_enabled: false,
+      })
+      .select("id")
+      .single();
+    if (!otherTenant) throw new Error("could not create second tenant");
+    createdTenantIds.push(otherTenant.id);
+
+    const { data: otherStudent } = await serviceClient
+      .from("students")
+      .insert({
+        tenant_id: otherTenant.id,
+        full_name: `Other Tenant Student ${stamp}`,
+        email: `other-${stamp}@nxtdrive.test`,
+      })
+      .select("id")
+      .single();
+    if (!otherStudent) throw new Error("could not create other-tenant student");
+    createdStudentIds.push(otherStudent.id);
+
+    const p2Client = createClient(url, anon, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const p2SignIn = await p2Client.auth.signInWithPassword({
+      email: linkedParent.email,
+      password: studentPassword,
+    });
+    if (p2SignIn.error || !p2SignIn.data.session) {
+      throw new Error(`parent re-signIn failed: ${p2SignIn.error?.message}`);
+    }
+    {
+      const { data: rows } = await p2Client
+        .from("students")
+        .select("id, tenant_id")
+        .eq("tenant_id", otherTenant.id);
+      results.push({
+        name: "parent cannot read students from a different tenant",
+        ok: (rows ?? []).length === 0,
+        detail: `rows_in_other_tenant=${(rows ?? []).length}`,
+      });
+    }
+    await p2Client.auth.signOut();
   } finally {
     // --- cleanup ---------------------------------------------------------
     // Note: credit_ledger is insert-only (BEFORE DELETE trigger blocks
@@ -269,6 +473,11 @@ async function main(): Promise<void> {
     // FK into ledger therefore also resist cascade deletes — best-effort
     // cleanup, mirroring the instructor RLS test pattern.
     for (const sid of createdStudentIds) {
+      await serviceClient
+        .from("student_guardians")
+        .delete()
+        .eq("student_id", sid)
+        .then(() => undefined, () => undefined);
       await serviceClient
         .from("lessons")
         .delete()
@@ -290,6 +499,13 @@ async function main(): Promise<void> {
     for (const uid of createdUserIds) {
       await serviceClient.from("memberships").delete().eq("user_id", uid);
       await serviceClient.auth.admin.deleteUser(uid).catch(() => undefined);
+    }
+    for (const tid of createdTenantIds) {
+      await serviceClient
+        .from("tenants")
+        .delete()
+        .eq("id", tid)
+        .then(() => undefined, () => undefined);
     }
   }
 

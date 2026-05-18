@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
-import { getCurrentStudent } from "@/lib/students/current";
+import { getActiveStudent } from "@/lib/students/access";
 import {
   CREDIT_REASON_LABEL,
   type CreditLedgerRow,
@@ -21,8 +22,16 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 export default async function StudentCreditsPage() {
-  const { user, tenant } = await requireActiveTenant(["student"]);
-  const student = await getCurrentStudent(user.id, tenant.id);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { student, needsChildPicker } = await getActiveStudent(
+    user,
+    tenant.id,
+    roles,
+  );
+  if (needsChildPicker) redirect("/student/select-child");
   if (!student) {
     return (
       <Card>

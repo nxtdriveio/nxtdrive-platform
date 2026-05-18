@@ -4,13 +4,24 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { getCurrentStudent } from "@/lib/students/current";
+import { getActiveStudent } from "@/lib/students/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentProfilePage() {
-  const { user, tenant } = await requireActiveTenant(["student"]);
-  const student = await getCurrentStudent(user.id, tenant.id);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { student, accessible } = await getActiveStudent(
+    user,
+    tenant.id,
+    roles,
+  );
+  const isParent = roles.includes("parent") && !roles.includes("student");
+  const otherChildren = isParent
+    ? accessible.filter((s) => s.id !== student?.id && s.user_id !== user.id)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -69,6 +80,22 @@ export default async function StudentProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      {isParent && otherChildren.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-2 pt-5">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Wissel van leerling
+            </div>
+            <Link
+              href="/student/select-child"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Andere leerling kiezen ({otherChildren.length})
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <form action="/auth/logout" method="post">
         <button
