@@ -9,10 +9,10 @@
 --     definer would bypass it and leak other students' balances).
 --
 -- Notes:
---   - `lessons_select_members` (0014) already restricts students to their own
---     lessons via students.user_id; no change needed here.
 --   - `students_select_members` (0011) already lets a student read their own
---     row via `user_id = auth.uid()`; no change needed here.
+--     row via `user_id = auth.uid()`, BUT the tenant-wide branch also lets
+--     students see every other student row in the tenant. The same goes for
+--     `lessons_select_members` (0014). Both are tightened in 0018.
 
 -- credit_ledger -----------------------------------------------------------
 drop policy if exists credit_ledger_select_members on public.credit_ledger;
