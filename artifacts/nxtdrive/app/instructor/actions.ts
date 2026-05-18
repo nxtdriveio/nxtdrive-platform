@@ -126,6 +126,60 @@ export async function addLessonNoteAction(
   return {};
 }
 
+export async function toggleStudentCbrCompetencyAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const studentId = String(formData.get("student_id") ?? "");
+  const competencyId = String(formData.get("competency_id") ?? "");
+  const achieved = String(formData.get("achieved") ?? "") === "1";
+  if (!studentId) return { error: "student_id ontbreekt" };
+  if (!competencyId) return { error: "competency_id ontbreekt" };
+
+  const { user, tenant, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
+  const isAdmin = roles.includes("tenant_admin");
+
+  const service = createServiceRoleClient();
+
+  // Defense-in-depth: an instructor may only edit a student's checklist if
+  // they have taught that student at least one lesson. tenant_admin can edit
+  // any student in the tenant.
+  if (!isAdmin) {
+    const { data: link } = await service
+      .from("lessons")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", studentId)
+      .eq("instructor_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (!link) return { error: "Niet geautoriseerd voor deze leerling" };
+  } else {
+    const { data: stu } = await service
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (!stu) return { error: "Leerling niet gevonden" };
+  }
+
+  const { error } = await service.rpc("set_student_cbr_progress", {
+    p_student_id: studentId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_competency_id: competencyId,
+    p_achieved: achieved,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor", "layout");
+  revalidatePath("/student", "layout");
+  return {};
+}
+
 export async function setLessonProgressAction(
   formData: FormData,
 ): Promise<ActionResult> {

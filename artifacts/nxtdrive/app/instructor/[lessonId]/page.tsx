@@ -8,6 +8,7 @@ import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
 import { InstructorActionsPanel } from "@/components/instructor/ActionsPanel";
+import { InstructorCbrChecklist } from "@/components/cbr/InstructorChecklist";
 import {
   refundPctForHours,
   type CancellationPolicy,
@@ -15,6 +16,11 @@ import {
   type LessonNote,
 } from "@/lib/lessons/types";
 import type { Student, StudentBalance } from "@/lib/students/types";
+import {
+  buildChecklist,
+  type CbrCompetency,
+  type StudentCbrProgressRow,
+} from "@/lib/cbr/types";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +125,23 @@ export default async function InstructorLessonPage({
   );
   const refundPct = refundPctForHours(policy, hoursBefore);
   const refundPreview = Math.round((lesson.credits_cost * refundPct) / 100);
+
+  const [competenciesRes, progressRes] = await Promise.all([
+    supabase
+      .from("cbr_competencies")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("student_cbr_progress")
+      .select("*")
+      .eq("student_id", lesson.student_id),
+  ]);
+  const checklist = buildChecklist(
+    (competenciesRes.data ?? []) as CbrCompetency[],
+    (progressRes.data ?? []) as StudentCbrProgressRow[],
+  );
 
   const { data: notesRaw } = await supabase
     .from("lesson_notes")
@@ -237,6 +260,13 @@ export default async function InstructorLessonPage({
           balance={balance}
           progressScore={lesson.progress_score}
         />
+        {student ? (
+          <InstructorCbrChecklist
+            studentId={student.id}
+            studentName={student.full_name}
+            items={checklist}
+          />
+        ) : null}
         <Card>
           <CardContent className="space-y-2 pt-5">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">

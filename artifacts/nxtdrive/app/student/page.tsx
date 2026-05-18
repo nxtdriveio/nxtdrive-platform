@@ -7,10 +7,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
+import { CbrReadinessCard } from "@/components/cbr/ReadinessCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
+import {
+  buildChecklist,
+  type CbrCompetency,
+  type StudentCbrProgressRow,
+} from "@/lib/cbr/types";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +95,23 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
 
+  const [competenciesRes, progressRes] = await Promise.all([
+    supabase
+      .from("cbr_competencies")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("student_cbr_progress")
+      .select("*")
+      .eq("student_id", student.id),
+  ]);
+  const checklist = buildChecklist(
+    (competenciesRes.data ?? []) as CbrCompetency[],
+    (progressRes.data ?? []) as StudentCbrProgressRow[],
+  );
+
   const instructorNames = await getInstructorNames([
     ...(nextLesson ? [nextLesson.instructor_id] : []),
     ...upcoming.map((l) => l.instructor_id),
@@ -135,6 +158,8 @@ export default async function StudentHomePage() {
       )}
 
       <StudentBalanceCard balance={balance} />
+
+      <CbrReadinessCard items={checklist} />
 
       <Card>
         <CardContent className="space-y-3 pt-5">

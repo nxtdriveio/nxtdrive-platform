@@ -116,3 +116,48 @@ from demo,
    -1, 'lesson_consumed', null, null, 'Demo: les 2 verbruikt')
 ) as v(id, student_id, delta, reason, related_type, related_id, note)
 on conflict (id) do nothing;
+
+-- Default CBR competencies for the NXTDRIVE Demo Academy -------------------
+-- Idempotent via (tenant_id, code) unique key; codes/labels match
+-- seed_default_cbr_competencies() in 0022_cbr_checklist.sql.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.cbr_competencies (tenant_id, code, label, sort_order)
+select demo.id, v.code, v.label, v.sort_order
+from demo,
+(values
+  ('voertuigbediening',       'Voertuigbediening',                10),
+  ('kijktechniek',            'Kijktechniek en spiegelgebruik',   20),
+  ('bochten',                 'Bochten nemen',                    30),
+  ('kruispunten',             'Kruispunten',                      40),
+  ('voorrang',                'Voorrang verlenen',                50),
+  ('snelheid',                'Snelheid aanpassen',               60),
+  ('invoegen',                'Invoegen en uitvoegen',            70),
+  ('snelweg',                 'Snelweg rijden',                   80),
+  ('file',                    'File rijden',                      90),
+  ('parkeren',                'Parkeren',                        100),
+  ('bijzondere_verrichtingen','Bijzondere verrichtingen',        110),
+  ('milieubewust',            'Milieubewust rijden',             120),
+  ('examenoefening',          'Examenoefening',                  130)
+) as v(code, label, sort_order)
+on conflict (tenant_id, code) do nothing;
+
+-- Demo CBR progress for Emma — a handful of competencies ticked so the
+-- student PWA shows a meaningful readiness percentage out of the box.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.student_cbr_progress (
+  student_id, tenant_id, competency_id, achieved_at
+)
+select
+  '44444444-4444-4444-8444-000000000001'::uuid,
+  demo.id,
+  c.id,
+  now()
+from demo
+join public.cbr_competencies c
+  on c.tenant_id = demo.id
+ and c.code in ('voertuigbediening', 'kijktechniek', 'bochten', 'kruispunten')
+on conflict (student_id, competency_id) do nothing;
