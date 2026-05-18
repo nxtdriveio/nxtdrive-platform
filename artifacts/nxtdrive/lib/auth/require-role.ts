@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, rolesForTenant } from "./session";
 import { resolveActiveTenant } from "./active-tenant";
+import { roleHomePath } from "./role-home";
 import type { AuthenticatedUser, MemberRole, Tenant } from "@/lib/types";
 
 export async function requireUser(): Promise<AuthenticatedUser> {
@@ -22,7 +23,9 @@ export async function requireTenantRole(
   const user = await requireUser();
   const roles = rolesForTenant(user, tenantId);
   const hasRole = roles.some((r) => allowedRoles.includes(r));
-  if (!hasRole && !user.profile?.is_platform_admin) redirect("/");
+  if (!hasRole && !user.profile?.is_platform_admin) {
+    redirect(roleHomePath(user, tenantId));
+  }
   return { user, roles };
 }
 
@@ -44,7 +47,9 @@ export async function requireActiveTenant(
     .map((m) => m.role);
 
   const hasRole = roles.some((r) => allowedRoles.includes(r));
-  if (!hasRole && !user.profile?.is_platform_admin) redirect("/");
+  if (!hasRole && !user.profile?.is_platform_admin) {
+    redirect(roleHomePath(user, tenant.id));
+  }
 
   return { user, tenant, roles };
 }

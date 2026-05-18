@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import { getCurrentStudent } from "@/lib/students/current";
+import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
@@ -33,24 +34,30 @@ export default async function StudentLessonsPage() {
   const supabase = await createServerSupabaseClient();
   const nowIso = new Date().toISOString();
 
+  // RLS guarantees each student sees only their own lessons; the order-by
+  // index on (student_id, starts_at) keeps these queries cheap even without
+  // pagination. We avoid silent hard limits so the page is true "full
+  // history". If a student ever crosses ~500 lessons we'll add scroll-pager.
   const [upcomingRes, pastRes] = await Promise.all([
     supabase
       .from("lessons")
       .select("*")
       .eq("student_id", student.id)
       .gte("starts_at", nowIso)
-      .order("starts_at", { ascending: true })
-      .limit(50),
+      .order("starts_at", { ascending: true }),
     supabase
       .from("lessons")
       .select("*")
       .eq("student_id", student.id)
       .lt("starts_at", nowIso)
-      .order("starts_at", { ascending: false })
-      .limit(50),
+      .order("starts_at", { ascending: false }),
   ]);
   const upcoming = (upcomingRes.data ?? []) as Lesson[];
   const past = (pastRes.data ?? []) as Lesson[];
+  const instructorNames = await getInstructorNames([
+    ...upcoming.map((l) => l.instructor_id),
+    ...past.map((l) => l.instructor_id),
+  ]);
 
   // Groepeer historische lessen per maand.
   const pastByMonth = new Map<string, Lesson[]>();
@@ -79,7 +86,11 @@ export default async function StudentLessonsPage() {
           <ol className="space-y-2">
             {upcoming.map((l) => (
               <li key={l.id}>
-                <StudentLessonCard lesson={l} showDate />
+                <StudentLessonCard
+                  lesson={l}
+                  showDate
+                  instructorName={instructorNames.get(l.instructor_id)}
+                />
               </li>
             ))}
           </ol>
@@ -101,7 +112,11 @@ export default async function StudentLessonsPage() {
                 <ol className="space-y-2">
                   {lessons.map((l) => (
                     <li key={l.id}>
-                      <StudentLessonCard lesson={l} showDate />
+                      <StudentLessonCard
+                        lesson={l}
+                        showDate
+                        instructorName={instructorNames.get(l.instructor_id)}
+                      />
                     </li>
                   ))}
                 </ol>

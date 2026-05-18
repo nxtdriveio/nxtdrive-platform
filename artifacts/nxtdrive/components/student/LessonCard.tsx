@@ -22,11 +22,13 @@ export function StudentLessonCard({
   selected = false,
   showDate = false,
   href,
+  instructorName,
 }: {
   lesson: Lesson;
   selected?: boolean;
   showDate?: boolean;
   href?: string;
+  instructorName?: string | null;
 }) {
   const start = new Date(lesson.starts_at);
   const end = new Date(lesson.ends_at);
@@ -61,8 +63,9 @@ export function StudentLessonCard({
         <div className="truncate text-sm font-medium text-foreground">
           {lesson.location ?? "Locatie volgt"}
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className="truncate text-xs text-muted-foreground">
           {durMin} min · {lesson.credits_cost} credits
+          {instructorName ? ` · ${instructorName}` : ""}
         </div>
       </div>
       <Badge

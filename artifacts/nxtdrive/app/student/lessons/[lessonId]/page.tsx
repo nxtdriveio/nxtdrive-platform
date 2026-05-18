@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { StudentProgressCard } from "@/components/student/ProgressCard";
 import { getCurrentStudent } from "@/lib/students/current";
+import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ export default async function StudentLessonDetailPage({
     .maybeSingle();
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
+  const names = await getInstructorNames([lesson.instructor_id]);
+  const instructorName = names.get(lesson.instructor_id);
 
   return (
     <div className="space-y-4">
@@ -40,7 +43,7 @@ export default async function StudentLessonDetailPage({
         Terug naar lessen
       </Link>
 
-      <StudentProgressCard lesson={lesson} />
+      <StudentProgressCard lesson={lesson} instructorName={instructorName} />
 
       {lesson.progress_summary == null && lesson.status === "completed" ? (
         <Card>

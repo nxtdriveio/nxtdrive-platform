@@ -55,7 +55,13 @@ function Ring({ pct }: { pct: number }) {
   );
 }
 
-export function StudentProgressCard({ lesson }: { lesson: Lesson }) {
+export function StudentProgressCard({
+  lesson,
+  instructorName,
+}: {
+  lesson: Lesson;
+  instructorName?: string | null;
+}) {
   const start = new Date(lesson.starts_at);
   const end = new Date(lesson.ends_at);
   const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
@@ -102,11 +108,19 @@ export function StudentProgressCard({ lesson }: { lesson: Lesson }) {
           </div>
         </div>
 
-        {lesson.location ? (
-          <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            <span className="text-foreground">Locatie:</span> {lesson.location}
-          </div>
-        ) : null}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {instructorName ? (
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <span className="text-foreground">Instructeur:</span>{" "}
+              {instructorName}
+            </div>
+          ) : null}
+          {lesson.location ? (
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <span className="text-foreground">Locatie:</span> {lesson.location}
+            </div>
+          ) : null}
+        </div>
 
         {lesson.progress_summary ? (
           <div className="space-y-1">

@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
 import { getCurrentStudent } from "@/lib/students/current";
+import { getInstructorNames } from "@/lib/students/instructor-names";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
 
@@ -15,6 +16,11 @@ export const dynamic = "force-dynamic";
 function startOfToday(): Date {
   const x = new Date();
   x.setHours(0, 0, 0, 0);
+  return x;
+}
+function endOfWindow(days: number): Date {
+  const x = startOfToday();
+  x.setDate(x.getDate() + days);
   return x;
 }
 
@@ -41,6 +47,7 @@ export default async function StudentHomePage() {
   const supabase = await createServerSupabaseClient();
   const nowIso = new Date().toISOString();
   const todayIso = startOfToday().toISOString();
+  const weekEndIso = endOfWindow(7).toISOString();
 
   // Volgende les: eerste geplande les ≥ nu.
   const { data: nextRaw } = await supabase
@@ -54,14 +61,14 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const nextLesson = (nextRaw as Lesson | null) ?? null;
 
-  // Komende week: alle aankomende lessen vanaf vandaag (max 5).
+  // Komende 7 dagen: alle lessen vanaf vandaag tot +7 dagen.
   const { data: upcomingRaw } = await supabase
     .from("lessons")
     .select("*")
     .eq("student_id", student.id)
     .gte("starts_at", todayIso)
-    .order("starts_at", { ascending: true })
-    .limit(5);
+    .lt("starts_at", weekEndIso)
+    .order("starts_at", { ascending: true });
   const upcoming = ((upcomingRaw ?? []) as Lesson[]).filter(
     (l) => l.id !== nextLesson?.id,
   );
@@ -72,6 +79,11 @@ export default async function StudentHomePage() {
     .eq("student_id", student.id)
     .maybeSingle();
   const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
+
+  const instructorNames = await getInstructorNames([
+    ...(nextLesson ? [nextLesson.instructor_id] : []),
+    ...upcoming.map((l) => l.instructor_id),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -91,7 +103,11 @@ export default async function StudentHomePage() {
               <CalendarDays className="h-4 w-4" aria-hidden />
               Volgende les
             </div>
-            <StudentLessonCard lesson={nextLesson} showDate />
+            <StudentLessonCard
+              lesson={nextLesson}
+              showDate
+              instructorName={instructorNames.get(nextLesson.instructor_id)}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -133,7 +149,11 @@ export default async function StudentHomePage() {
             <ol className="space-y-2">
               {upcoming.map((l) => (
                 <li key={l.id}>
-                  <StudentLessonCard lesson={l} showDate />
+                  <StudentLessonCard
+                    lesson={l}
+                    showDate
+                    instructorName={instructorNames.get(l.instructor_id)}
+                  />
                 </li>
               ))}
             </ol>

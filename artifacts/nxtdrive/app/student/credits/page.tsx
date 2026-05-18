@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,24 +70,48 @@ export default async function StudentCreditsPage() {
             <ol className="divide-y divide-border">
               {rows.map((r) => {
                 const positive = r.delta > 0;
-                return (
-                  <li
-                    key={r.id}
-                    className="flex items-center justify-between gap-3 py-2.5 text-sm"
-                  >
-                    <div className="min-w-0">
+                const lessonHref =
+                  r.related_type === "lesson" && r.related_id
+                    ? `/student/lessons/${r.related_id}`
+                    : null;
+                const inner = (
+                  <>
+                    <div className="min-w-0 flex-1">
                       <div className="truncate font-medium text-foreground">
                         {CREDIT_REASON_LABEL[r.reason]}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {dateFmt.format(new Date(r.created_at))}
                         {r.note ? ` · ${r.note}` : ""}
+                        {lessonHref ? " · Bekijk les" : ""}
                       </div>
                     </div>
                     <Badge variant={positive ? "success" : "warning"}>
                       {positive ? "+" : ""}
                       {r.delta}
                     </Badge>
+                    {lessonHref ? (
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </>
+                );
+                return (
+                  <li key={r.id}>
+                    {lessonHref ? (
+                      <Link
+                        href={lessonHref}
+                        className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm transition hover:bg-muted/60"
+                      >
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                        {inner}
+                      </div>
+                    )}
                   </li>
                 );
               })}
