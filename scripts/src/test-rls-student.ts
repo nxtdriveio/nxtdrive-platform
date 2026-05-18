@@ -174,14 +174,19 @@ async function main(): Promise<void> {
     if (!pack) throw new Error("could not create package");
     createdPackageIds.push(pack.id);
 
-    for (const S of [A, B]) {
+    for (let i = 0; i < 2; i++) {
+      const S = i === 0 ? A : B;
       await serviceClient.rpc("grant_package", {
         p_student_id: S.studentId,
         p_tenant_id: tenantId,
         p_actor: instructorId,
         p_package_id: pack.id,
       });
-      const start = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      // Stagger lesson start times per student + stamp so reruns and same-instructor
+      // back-to-back lessons don't collide with the per-instructor overlap constraint.
+      const start = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000 + (i + 1) * 2 * 60 * 60 * 1000 + (stamp % 60) * 60 * 1000,
+      ).toISOString();
       const sch = await serviceClient.rpc("schedule_lesson", {
         p_tenant_id: tenantId,
         p_actor: instructorId,
@@ -466,6 +471,23 @@ async function main(): Promise<void> {
       });
     }
     await p2Client.auth.signOut();
+
+    // ---- RPC execute grant lockdown (migration 0023) -------------------
+    // set_student_cbr_progress is service-role only. Anon must be blocked.
+    {
+      const { error } = await anonClient.rpc("set_student_cbr_progress", {
+        p_student_id: "00000000-0000-0000-0000-000000000000",
+        p_tenant_id: "00000000-0000-0000-0000-000000000000",
+        p_actor: "00000000-0000-0000-0000-000000000000",
+        p_competency_id: "00000000-0000-0000-0000-000000000000",
+        p_achieved: true,
+      });
+      results.push({
+        name: "anon CANNOT call set_student_cbr_progress RPC (execute revoked)",
+        ok: error !== null,
+        detail: error ? error.message : "no error returned — RPC is callable!",
+      });
+    }
   } finally {
     // --- cleanup ---------------------------------------------------------
     // Note: credit_ledger is insert-only (BEFORE DELETE trigger blocks

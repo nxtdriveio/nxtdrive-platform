@@ -240,6 +240,28 @@ async function main(): Promise<void> {
     }
   }
 
+  // ---- RPC execute grant lockdown (migration 0023) -----------------------
+  // The mutation RPCs must be service-role only. Calling them with the anon
+  // key (which authenticates as the `anon` PostgREST role) must fail.
+  {
+    const { error } = await anonClient.rpc("create_lead", {
+      p_tenant_id: "00000000-0000-0000-0000-000000000000",
+      p_source: "manual",
+      p_full_name: "RLS Lockdown Probe",
+      p_email: null,
+      p_phone: null,
+      p_postcode: null,
+      p_message: null,
+      p_submitted_ip: null,
+      p_user_agent: null,
+    });
+    results.push({
+      name: "anon CANNOT call create_lead RPC (execute revoked)",
+      ok: !!error,
+      detail: error ? error.message : "no error returned — RPC is callable!",
+    });
+  }
+
   console.log("");
   let failed = 0;
   for (const r of results) {

@@ -414,6 +414,42 @@ async function main(): Promise<void> {
     }
   }
 
+  // ---- RPC execute grant lockdown (migration 0023) -----------------------
+  // The mutation RPCs must be service-role only. Calling them with the anon
+  // key (which authenticates as the `anon` PostgREST role) must fail.
+  {
+    const { error } = await anonClient.rpc("schedule_lesson", {
+      p_tenant_id: "00000000-0000-0000-0000-000000000000",
+      p_actor: "00000000-0000-0000-0000-000000000000",
+      p_instructor_id: "00000000-0000-0000-0000-000000000000",
+      p_student_id: "00000000-0000-0000-0000-000000000000",
+      p_starts_at: new Date().toISOString(),
+      p_duration_min: 60,
+      p_credits_cost: 1,
+      p_location: null,
+      p_notes: null,
+    });
+    results.push({
+      name: "anon CANNOT call schedule_lesson RPC (execute revoked)",
+      ok: error !== null,
+      detail: error ? error.message : "no error returned — RPC is callable!",
+    });
+  }
+  {
+    const { error } = await anonClient.rpc("set_lesson_progress", {
+      p_lesson_id: "00000000-0000-0000-0000-000000000000",
+      p_tenant_id: "00000000-0000-0000-0000-000000000000",
+      p_actor: "00000000-0000-0000-0000-000000000000",
+      p_score: 3,
+      p_summary: null,
+    });
+    results.push({
+      name: "anon CANNOT call set_lesson_progress RPC (execute revoked)",
+      ok: error !== null,
+      detail: error ? error.message : "no error returned — RPC is callable!",
+    });
+  }
+
   // ---- cleanup -----------------------------------------------------------
   await serviceClient.from("lessons").delete().eq("student_id", student.id);
   await serviceClient.from("students").delete().eq("id", student.id);

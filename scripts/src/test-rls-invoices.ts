@@ -305,6 +305,22 @@ async function main(): Promise<void> {
 
     await iClient.auth.signOut();
 
+    // Anon JWT must also be rejected (defense-in-depth — migration 0020).
+    {
+      const { error } = await anonClient.rpc("create_invoice", {
+        p_tenant_id: tenantId,
+        p_actor: instructorId,
+        p_student_id: A.studentId,
+        p_due_date: null,
+        p_notes: null,
+      });
+      results.push({
+        name: "anon CANNOT call create_invoice RPC (execute revoked)",
+        ok: !!error,
+        detail: error ? error.message : "no error returned — RPC is callable!",
+      });
+    }
+
     // --- Status machine: draft → paid must fail ----------------------------
     {
       const { error } = await serviceClient.rpc("set_invoice_status", {

@@ -277,6 +277,37 @@ async function main(): Promise<void> {
     }
   }
 
+  // ---- RPC execute grant lockdown (migration 0023) -----------------------
+  // The mutation RPCs must be service-role only. Calling them with the anon
+  // key (which authenticates as the `anon` PostgREST role) must fail.
+  {
+    const { error } = await anonClient.rpc("grant_package", {
+      p_tenant_id: "00000000-0000-0000-0000-000000000000",
+      p_student_id: "00000000-0000-0000-0000-000000000000",
+      p_package_id: "00000000-0000-0000-0000-000000000000",
+      p_actor: null,
+    });
+    results.push({
+      name: "anon CANNOT call grant_package RPC (execute revoked)",
+      ok: !!error,
+      detail: error ? error.message : "no error returned — RPC is callable!",
+    });
+  }
+  {
+    const { error } = await anonClient.rpc("adjust_credits", {
+      p_tenant_id: "00000000-0000-0000-0000-000000000000",
+      p_student_id: "00000000-0000-0000-0000-000000000000",
+      p_actor: null,
+      p_delta: -1,
+      p_reason: "rls test",
+    });
+    results.push({
+      name: "anon CANNOT call adjust_credits RPC (execute revoked)",
+      ok: !!error,
+      detail: error ? error.message : "no error returned — RPC is callable!",
+    });
+  }
+
   console.log("");
   let failed = 0;
   for (const r of results) {
