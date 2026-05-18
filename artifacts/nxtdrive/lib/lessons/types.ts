@@ -40,9 +40,20 @@ export type Lesson = {
   cancellation_reason: string | null;
   cancelled_hours_before: number | null;
   refunded_credits: number | null;
+  progress_score: number | null;
+  progress_summary: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type LessonNote = {
+  id: string;
+  tenant_id: string;
+  lesson_id: string;
+  author_user_id: string;
+  body: string;
+  created_at: string;
 };
 
 export type CancellationTier = { hours_before: number; refund_pct: number };

@@ -1,0 +1,120 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  LESSON_STATUS_LABEL,
+  LESSON_STATUS_VARIANT,
+  type Lesson,
+} from "@/lib/lessons/types";
+
+const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function Ring({ pct }: { pct: number }) {
+  const safe = Math.max(0, Math.min(100, pct));
+  const r = 36;
+  const c = 2 * Math.PI * r;
+  const offset = c - (safe / 100) * c;
+  return (
+    <svg viewBox="0 0 100 100" className="h-24 w-24" aria-hidden>
+      <circle
+        cx="50"
+        cy="50"
+        r={r}
+        fill="none"
+        className="stroke-muted"
+        strokeWidth="10"
+      />
+      <circle
+        cx="50"
+        cy="50"
+        r={r}
+        fill="none"
+        className="stroke-primary"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        transform="rotate(-90 50 50)"
+      />
+      <text
+        x="50"
+        y="55"
+        textAnchor="middle"
+        className="fill-foreground text-[20px] font-bold"
+      >
+        {Math.round(safe)}%
+      </text>
+    </svg>
+  );
+}
+
+export function InstructorProgressCard({
+  lesson,
+  balance,
+  progressScore,
+}: {
+  lesson: Lesson;
+  balance: number;
+  progressScore: number | null;
+}) {
+  const durMin = Math.round(
+    (new Date(lesson.ends_at).getTime() -
+      new Date(lesson.starts_at).getTime()) /
+      60000,
+  );
+  const pct = progressScore != null ? (progressScore / 10) * 100 : 0;
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Les voortgang
+            </div>
+            <div className="mt-0.5 text-sm font-medium text-foreground">
+              {timeFmt.format(new Date(lesson.starts_at))}
+              {"–"}
+              {timeFmt.format(new Date(lesson.ends_at))} · {durMin} min
+            </div>
+          </div>
+          <Badge variant={LESSON_STATUS_VARIANT[lesson.status]}>
+            {LESSON_STATUS_LABEL[lesson.status]}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Ring pct={pct} />
+          <div className="flex-1 space-y-1.5 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Voortgangscore</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {progressScore != null ? `${progressScore} / 10` : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Credits deze les</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {lesson.credits_cost}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Saldo leerling</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {balance}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {lesson.location ? (
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <span className="text-foreground">Locatie:</span> {lesson.location}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
