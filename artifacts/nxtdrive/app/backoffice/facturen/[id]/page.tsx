@@ -28,6 +28,7 @@ import {
   setInvoiceStatus,
   updateInvoiceDraft,
 } from "../actions";
+import { createMolliePayment } from "../mollie-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +47,19 @@ const dtFmt = new Intl.DateTimeFormat("nl-NL", {
 
 export default async function InvoiceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const sp = (await (searchParams ?? Promise.resolve({}))) as Record<
+    string,
+    string | string[] | undefined
+  >;
+  const mollieFlag = typeof sp.mollie === "string" ? sp.mollie : null;
+  const mollieError =
+    typeof sp.mollie_error === "string" ? sp.mollie_error : null;
   const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
@@ -344,6 +354,14 @@ export default async function InvoiceDetailPage({
             </Card>
           ) : null}
 
+          {isOpen && isAdmin ? (
+            <MolliePaymentCard
+              invoice={invoice}
+              flag={mollieFlag}
+              error={mollieError}
+            />
+          ) : null}
+
           {isAdmin ? (
             <Card>
               <CardHeader>
@@ -423,6 +441,89 @@ function StatusButton({
         {label}
       </Button>
     </form>
+  );
+}
+
+function MolliePaymentCard({
+  invoice,
+  flag,
+  error,
+}: {
+  invoice: Invoice;
+  flag: string | null;
+  error: string | null;
+}) {
+  const hasLink =
+    Boolean(invoice.mollie_payment_id) &&
+    Boolean(invoice.mollie_checkout_url) &&
+    (invoice.mollie_status === "open" ||
+      invoice.mollie_status === "pending" ||
+      invoice.mollie_status === null);
+
+  const errorLabels: Record<string, string> = {
+    no_api_key:
+      "Mollie API-sleutel ontbreekt. Stel deze in onder Instellingen.",
+    key_decrypt_failed: "Kon Mollie-sleutel niet ontsleutelen.",
+    not_open: "Alleen openstaande facturen kunnen een betaallink krijgen.",
+    not_found: "Factuur niet gevonden.",
+    zero_amount: "Totaalbedrag is € 0,00.",
+    attach_failed: "Mollie-betaling aanmaken lukte wel, koppelen niet.",
+  };
+  let errorMsg: string | null = null;
+  if (error) {
+    errorMsg =
+      errorLabels[error] ??
+      (error.startsWith("api_")
+        ? `Mollie API gaf een fout (${error.replace("api_", "HTTP ")}).`
+        : `Onbekende fout: ${error}`);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Online betaling (Mollie)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {flag === "created" ? (
+          <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            Betaallink aangemaakt.
+          </p>
+        ) : null}
+        {flag === "existing" ? (
+          <p className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm text-sky-700 dark:text-sky-300">
+            Bestaande betaallink is nog geldig.
+          </p>
+        ) : null}
+        {errorMsg ? (
+          <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+            {errorMsg}
+          </p>
+        ) : null}
+
+        {hasLink && invoice.mollie_checkout_url ? (
+          <div className="space-y-2">
+            <Label htmlFor="mollie_link">Betaallink (deel met leerling)</Label>
+            <Input
+              id="mollie_link"
+              readOnly
+              value={invoice.mollie_checkout_url}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <p className="text-xs text-muted-foreground">
+              Status: {invoice.mollie_status ?? "open"}. Webhook werkt de
+              factuur automatisch bij zodra Mollie de betaling bevestigt.
+            </p>
+          </div>
+        ) : null}
+
+        <form action={createMolliePayment}>
+          <input type="hidden" name="invoice_id" value={invoice.id} />
+          <Button type="submit" size="sm" className="w-full">
+            {hasLink ? "Nieuwe betaallink genereren" : "Verzend betaallink"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -502,6 +502,115 @@ async function main(): Promise<void> {
       });
       await oClient.auth.signOut();
     }
+
+    // --- Mollie secrets isolation (Task #15) -------------------------------
+    // anon JWT must not see ANY row in tenant_secrets — the table has RLS
+    // enabled with no policies, so PostgREST returns an empty set.
+    {
+      const { data, error } = await anonClient
+        .from("tenant_secrets")
+        .select("tenant_id, key")
+        .limit(5);
+      results.push({
+        name: "anon cannot read tenant_secrets",
+        ok: (data ?? []).length === 0 && !error,
+        detail: `rows=${(data ?? []).length}${error ? ` err=${error.message}` : ""}`,
+      });
+    }
+
+    // Student (authenticated, non-admin) must also not see tenant_secrets
+    // for their own tenant. Sign in as student A again.
+    {
+      const sClient = createClient(url, anon, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const sSign = await sClient.auth.signInWithPassword({
+        email: A.email,
+        password: studentPassword,
+      });
+      if (sSign.error) throw new Error(`student re-signIn: ${sSign.error.message}`);
+      const { data } = await sClient
+        .from("tenant_secrets")
+        .select("tenant_id, key")
+        .eq("tenant_id", tenantId);
+      results.push({
+        name: "student cannot read tenant_secrets in own tenant",
+        ok: (data ?? []).length === 0,
+        detail: `rows=${(data ?? []).length}`,
+      });
+      await sClient.auth.signOut();
+    }
+
+    // anon cannot read payment_records either.
+    {
+      const { data } = await anonClient
+        .from("payment_records")
+        .select("id")
+        .limit(5);
+      results.push({
+        name: "anon cannot read payment_records",
+        ok: (data ?? []).length === 0,
+        detail: `rows=${(data ?? []).length}`,
+      });
+    }
+
+    // anon cannot call the new Mollie service-role RPCs.
+    {
+      const { error } = await anonClient.rpc("set_tenant_secret", {
+        p_tenant_id: tenantId,
+        p_actor: adminId,
+        p_key: "x",
+        p_ciphertext: "x",
+        p_iv: "x",
+        p_auth_tag: "x",
+      });
+      results.push({
+        name: "anon CANNOT call set_tenant_secret RPC (execute revoked)",
+        ok: !!error,
+        detail: error ? error.message : "no error — RPC is callable!",
+      });
+    }
+    {
+      const { error } = await anonClient.rpc("confirm_mollie_payment", {
+        p_tenant_id: tenantId,
+        p_actor: null,
+        p_invoice_id: invA_open,
+        p_mollie_payment_id: "tr_evil",
+        p_status: "paid",
+        p_amount_cents: 100,
+        p_currency: "EUR",
+        p_method: "ideal",
+        p_paid_at: new Date().toISOString(),
+        p_raw_payload: {},
+      });
+      results.push({
+        name: "anon CANNOT call confirm_mollie_payment RPC (execute revoked)",
+        ok: !!error,
+        detail: error ? error.message : "no error — RPC is callable!",
+      });
+    }
+
+    // confirm_mollie_payment must reject cross-tenant invoice references.
+    // We pass the other tenant's invoice id under demo-academy's tenant_id.
+    {
+      const { error } = await serviceClient.rpc("confirm_mollie_payment", {
+        p_tenant_id: tenantId,
+        p_actor: null,
+        p_invoice_id: otherInvoiceId as string,
+        p_mollie_payment_id: `tr_xtest_${stamp}`,
+        p_status: "paid",
+        p_amount_cents: 5000,
+        p_currency: "EUR",
+        p_method: "ideal",
+        p_paid_at: new Date().toISOString(),
+        p_raw_payload: {},
+      });
+      results.push({
+        name: "confirm_mollie_payment rejects cross-tenant invoice",
+        ok: !!error && /not found/i.test(error.message),
+        detail: error ? error.message : "no error returned",
+      });
+    }
   } finally {
     // Cleanup. Order matters: lines → invoices → counters → students → users.
     for (const iid of createdInvoiceIds) {

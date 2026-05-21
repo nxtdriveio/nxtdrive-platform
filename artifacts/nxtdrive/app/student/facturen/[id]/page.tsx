@@ -51,6 +51,12 @@ export default async function StudentInvoiceDetailPage({
   const invoice = invoiceRes.data as Invoice;
   const lines = (linesRes.data ?? []) as InvoiceLine[];
   const display = displayStatus(invoice);
+  const showPayCta =
+    invoice.status === "open" &&
+    !!invoice.mollie_checkout_url &&
+    (invoice.mollie_status === "open" ||
+      invoice.mollie_status === "pending" ||
+      invoice.mollie_status === null);
 
   return (
     <div className="space-y-4">
@@ -80,6 +86,28 @@ export default async function StudentInvoiceDetailPage({
           </Badge>
         </div>
       </div>
+
+      {showPayCta && invoice.mollie_checkout_url ? (
+        <Card>
+          <CardContent className="space-y-2 pt-5">
+            <p className="text-sm text-foreground">
+              Je kunt deze factuur direct online betalen via Mollie.
+            </p>
+            <a
+              href={invoice.mollie_checkout_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Betaal nu {formatEuros(invoice.total_cents)}
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Je wordt doorgestuurd naar Mollie en daarna teruggebracht naar
+              deze pagina.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="pt-5">

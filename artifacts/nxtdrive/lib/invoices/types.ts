@@ -38,6 +38,9 @@ export type Invoice = {
   notes: string | null;
   payment_record_id: string | null;
   payment_record_tenant_id: string | null;
+  mollie_payment_id: string | null;
+  mollie_checkout_url: string | null;
+  mollie_status: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
