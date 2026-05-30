@@ -16,6 +16,7 @@
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",
     "db:test-rls-invoices": "tsx ./src/test-rls-invoices.ts",
     "db:test-mollie-flow": "tsx ./src/test-mollie-flow.ts",
+    "db:test-notifications": "tsx ./src/test-notifications.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

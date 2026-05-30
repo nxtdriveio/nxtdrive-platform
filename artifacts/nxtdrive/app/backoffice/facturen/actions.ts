@@ -9,6 +9,7 @@ import {
   parseEurosToCents,
   type InvoiceStatus,
 } from "@/lib/invoices/types";
+import { notifyInvoicePaid } from "@/lib/notifications/dispatch";
 
 function isValidStatus(s: string): s is InvoiceStatus {
   return (INVOICE_STATUSES as readonly string[]).includes(s);
@@ -189,6 +190,17 @@ export async function setInvoiceStatus(formData: FormData) {
     p_actor: user.id,
     p_status: status as InvoiceStatus,
   });
+
+  // When an invoice is marked paid manually, send the same confirmation email
+  // as the Mollie flow. Idempotent + best-effort; must run before redirect()
+  // (which throws to perform the navigation).
+  if (status === "paid") {
+    try {
+      await notifyInvoicePaid(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyInvoicePaid failed", err);
+    }
+  }
 
   revalidatePath(`/backoffice/facturen/${invoiceId}`);
   revalidatePath("/backoffice/facturen");

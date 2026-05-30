@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKey } from "@/lib/mollie/secrets";
 import { getPayment, mollieAmountToCents } from "@/lib/mollie/client";
+import { notifyInvoicePaid } from "@/lib/notifications/dispatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,6 +127,15 @@ export async function POST(
     // 500 so Mollie retries — the RPC is idempotent, so a retry is safe.
     console.error("[mollie webhook] confirm_mollie_payment failed", rpcErr);
     return new NextResponse("rpc failed", { status: 500 });
+  }
+
+  // Best-effort payment-confirmation email. Idempotent (dedupe on invoice id)
+  // and a no-op unless the invoice is now actually paid, so webhook retries
+  // never double-send. Never let a notification failure break the webhook.
+  try {
+    await notifyInvoicePaid(service, tenantId, metaInvoice);
+  } catch (err) {
+    console.error("[mollie webhook] notifyInvoicePaid failed", err);
   }
 
   return new NextResponse("ok", { status: 200 });
