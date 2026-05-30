@@ -3,60 +3,86 @@ import {
   Users,
   Inbox,
   Wallet,
-  Calendar,
+  Receipt,
   Clock,
   ArrowUpRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  getDashboardKpis,
+  getTodayLessons,
+  getLeadsPipeline,
+  LEAD_PIPELINE_STAGES,
+} from "@/lib/dashboard/metrics";
+import { formatEuros } from "@/lib/invoices/types";
+import { LEAD_STATUS_LABEL } from "@/lib/leads/types";
+import {
+  LESSON_STATUS_LABEL,
+  LESSON_STATUS_VARIANT,
+  type LessonStatus,
+} from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
-const kpis = [
-  {
-    label: "Actieve leerlingen",
-    value: "0",
-    hint: "nog niet beschikbaar",
-    icon: Users,
-  },
-  {
-    label: "Proeflessen gepland",
-    value: "0",
-    hint: "nog niet beschikbaar",
-    icon: Calendar,
-  },
-  {
-    label: "Openstaande leads",
-    value: "0",
-    hint: "module volgt in Phase 2B",
-    icon: Inbox,
-  },
-  {
-    label: "Omzet deze maand",
-    value: "€ 0,00",
-    hint: "nog niet beschikbaar",
-    icon: Wallet,
-  },
-  {
-    label: "Lessen vandaag",
-    value: "0",
-    hint: "nog niet beschikbaar",
-    icon: Clock,
-  },
-  {
-    label: "Nog opvolgen",
-    value: "0",
-    hint: "nog niet beschikbaar",
-    icon: TrendingUp,
-  },
-];
+const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+  timeZone: "Europe/Amsterdam",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 export default async function BackofficePage() {
   const { user, tenant } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
   ]);
+  const supabase = await createServerSupabaseClient();
+  const [metrics, todayLessons, pipeline] = await Promise.all([
+    getDashboardKpis(supabase, tenant.id),
+    getTodayLessons(supabase, tenant.id),
+    getLeadsPipeline(supabase, tenant.id),
+  ]);
+
+  const kpis = [
+    {
+      label: "Actieve leerlingen",
+      value: metrics.activeStudents.toLocaleString("nl-NL"),
+      hint: "met een actief dossier",
+      icon: Users,
+    },
+    {
+      label: "Lessen vandaag",
+      value: metrics.lessonsToday.toLocaleString("nl-NL"),
+      hint: "geplande lessen vandaag",
+      icon: Clock,
+    },
+    {
+      label: "Openstaande leads",
+      value: metrics.openLeads.toLocaleString("nl-NL"),
+      hint: "nog niet omgezet of afgehaakt",
+      icon: Inbox,
+    },
+    {
+      label: "Omzet deze maand",
+      value: formatEuros(metrics.revenueThisMonthCents),
+      hint: "betaalde facturen deze maand",
+      icon: Wallet,
+    },
+    {
+      label: "Nog opvolgen",
+      value: metrics.leadsToFollowUp.toLocaleString("nl-NL"),
+      hint: "nieuwe leads zonder contact",
+      icon: TrendingUp,
+    },
+    {
+      label: "Openstaande facturen",
+      value: metrics.openInvoices.toLocaleString("nl-NL"),
+      hint: "verzonden, nog niet betaald",
+      icon: Receipt,
+    },
+  ];
 
   const today = new Intl.DateTimeFormat("nl-NL", {
     weekday: "long",
@@ -116,9 +142,37 @@ export default async function BackofficePage() {
             <CardTitle>Agenda vandaag</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              Agenda-module volgt in Phase 4.
-            </div>
+            {todayLessons.length === 0 ? (
+              <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+                Geen lessen gepland voor vandaag.
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {todayLessons.map((lesson) => (
+                  <li
+                    key={lesson.id}
+                    className="flex items-center justify-between gap-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-24 shrink-0 text-sm tabular-nums text-muted-foreground">
+                        {timeFmt.format(new Date(lesson.startsAt))} –{" "}
+                        {timeFmt.format(new Date(lesson.endsAt))}
+                      </span>
+                      <span className="text-sm font-medium text-foreground">
+                        {lesson.studentName}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={
+                        LESSON_STATUS_VARIANT[lesson.status as LessonStatus]
+                      }
+                    >
+                      {LESSON_STATUS_LABEL[lesson.status as LessonStatus]}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -127,33 +181,21 @@ export default async function BackofficePage() {
             <CardTitle>Leads-pipeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              Volgt in Phase 2B.
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Slimme meldingen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              Volgt zodra modules data leveren.
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Leerlingen-voortgang</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              Volgt in Phase 4.
-            </div>
+            <ul className="space-y-2.5">
+              {LEAD_PIPELINE_STAGES.map((stage) => (
+                <li
+                  key={stage}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-muted-foreground">
+                    {LEAD_STATUS_LABEL[stage]}
+                  </span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {pipeline[stage].toLocaleString("nl-NL")}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </section>
