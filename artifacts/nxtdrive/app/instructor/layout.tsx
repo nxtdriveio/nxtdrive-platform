@@ -1,4 +1,6 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import { BrandProvider } from "@/components/brand-provider";
 import { InstructorTopBar } from "@/components/instructor/TopBar";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +15,21 @@ export default async function InstructorLayout({
     "tenant_admin",
   ]);
   const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
+  const branding = await getTenantBranding(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <InstructorTopBar tenantName={tenant.name} userLabel={userLabel} />
+    <BrandProvider
+      tenant={tenant}
+      branding={branding}
+      className="flex min-h-screen flex-col bg-background text-foreground"
+    >
+      <InstructorTopBar
+        tenantName={tenant.name}
+        userLabel={userLabel}
+        logoUrl={logoUrl}
+      />
       <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">{children}</main>
-    </div>
+    </BrandProvider>
   );
 }

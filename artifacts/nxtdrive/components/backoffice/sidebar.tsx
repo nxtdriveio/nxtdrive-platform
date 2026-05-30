@@ -28,13 +28,23 @@ const nav = [
   { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings },
 ];
 
-export function BackofficeSidebar({ tenantName }: { tenantName: string }) {
+export function BackofficeSidebar({
+  tenantName,
+  logoUrl,
+}: {
+  tenantName: string;
+  logoUrl?: string | null;
+}) {
   const pathname = usePathname();
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-        <NxtdriveLogo className="text-base" />
+        <NxtdriveLogo
+          className="text-base"
+          logoUrl={logoUrl}
+          brandName={tenantName}
+        />
       </div>
 
       <div className="px-3 pt-3 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">

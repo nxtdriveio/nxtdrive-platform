@@ -1,0 +1,1 @@
+- [White-label theming](white-label-theming.md) — recolor per tenant by overriding the active --primary token family inline on a layout wrapper, not the dead --tenant-primary vars.

@@ -10,6 +10,7 @@ import {
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BrandingForm } from "@/components/backoffice/branding-form";
 import { saveMollieApiKey } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,15 @@ export default async function SettingsPage({
   const sp = await searchParams;
   const result = typeof sp.mollie === "string" ? sp.mollie : null;
   const reason = typeof sp.reason === "string" ? sp.reason : null;
+  const brandingResult = typeof sp.branding === "string" ? sp.branding : null;
 
   const service = createServiceRoleClient();
   const status = await getMollieApiKeyStatus(service, tenant.id);
+  const { data: brandingRow } = await service
+    .from("tenant_branding")
+    .select("logo_url, primary_color, primary_foreground")
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
 
   return (
     <div className="space-y-6">
@@ -101,6 +108,45 @@ export default async function SettingsPage({
               {status.configured ? "Sleutel vervangen" : "Sleutel opslaan"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Huisstijl
+            {tenant.white_label_enabled ? (
+              <Badge variant="success">Witlabel actief</Badge>
+            ) : (
+              <Badge variant="warning">Witlabel niet actief</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Stel je eigen logo en kleuren in voor het backoffice, de
+            instructeur- en de leerlingomgeving.
+            {tenant.white_label_enabled
+              ? " Je huisstijl is zichtbaar voor je team en leerlingen."
+              : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
+          </p>
+
+          {brandingResult === "saved" ? (
+            <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+              Huisstijl opgeslagen.
+            </p>
+          ) : null}
+          {brandingResult === "error" ? (
+            <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+              Huisstijl niet opgeslagen: {reason ?? "onbekende fout"}.
+            </p>
+          ) : null}
+
+          <BrandingForm
+            initialLogoUrl={brandingRow?.logo_url ?? ""}
+            initialPrimaryColor={brandingRow?.primary_color ?? ""}
+            initialPrimaryForeground={brandingRow?.primary_foreground ?? ""}
+          />
         </CardContent>
       </Card>
     </div>

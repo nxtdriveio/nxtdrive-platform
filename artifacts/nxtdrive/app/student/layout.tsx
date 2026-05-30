@@ -1,4 +1,6 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
 import { getActiveStudent } from "@/lib/students/access";
@@ -26,13 +28,24 @@ export default async function StudentLayout({
       : "Ouder"
     : user.profile?.full_name ?? user.email ?? "Leerling";
 
+  const branding = await getTenantBranding(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
+
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <StudentTopBar tenantName={tenant.name} userLabel={userLabel} />
+    <BrandProvider
+      tenant={tenant}
+      branding={branding}
+      className="flex min-h-screen flex-col bg-background text-foreground"
+    >
+      <StudentTopBar
+        tenantName={tenant.name}
+        userLabel={userLabel}
+        logoUrl={logoUrl}
+      />
       <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6">
         <div className="mx-auto max-w-2xl">{children}</div>
       </main>
       <StudentBottomNav />
-    </div>
+    </BrandProvider>
   );
 }

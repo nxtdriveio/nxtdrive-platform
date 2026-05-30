@@ -1,5 +1,7 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getTheme } from "@/lib/theme";
+import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import { BrandProvider } from "@/components/brand-provider";
 import { BackofficeSidebar } from "@/components/backoffice/sidebar";
 import { BackofficeTopbar } from "@/components/backoffice/topbar";
 
@@ -15,6 +17,8 @@ export default async function BackofficeLayout({
     "instructor",
   ]);
   const theme = await getTheme();
+  const branding = await getTenantBranding(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Onbekend";
   const roleLabel = roles
@@ -22,8 +26,15 @@ export default async function BackofficeLayout({
     .join(" + ");
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <BackofficeSidebar tenantName={tenant.name} />
+    <BrandProvider
+      tenant={tenant}
+      branding={branding}
+      className="flex h-screen bg-background text-foreground"
+    >
+      <BackofficeSidebar
+        tenantName={tenant.name}
+        logoUrl={logoUrl}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <BackofficeTopbar
           userLabel={userLabel}
@@ -32,6 +43,6 @@ export default async function BackofficeLayout({
         />
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
-    </div>
+    </BrandProvider>
   );
 }

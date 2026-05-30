@@ -7,11 +7,30 @@ import { cn } from "@/lib/utils";
 export function NxtdriveLogo({
   className,
   showWordmark = true,
+  logoUrl,
+  brandName,
 }: {
   className?: string;
   showWordmark?: boolean;
+  /** When set (white-label active), render this logo instead of the wordmark. */
+  logoUrl?: string | null;
+  /** Accessible name / alt text for the tenant logo. */
+  brandName?: string;
 }) {
   const gradientId = "nxtdrive-x-gradient";
+
+  if (logoUrl) {
+    return (
+      <span className={cn("inline-flex items-center", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoUrl}
+          alt={brandName ?? "Logo"}
+          className="h-[1.6em] w-auto max-w-[180px] object-contain"
+        />
+      </span>
+    );
+  }
 
   return (
     <span
