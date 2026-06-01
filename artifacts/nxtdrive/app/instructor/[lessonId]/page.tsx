@@ -10,7 +10,8 @@ import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
 import { InstructorActionsPanel } from "@/components/instructor/ActionsPanel";
-import { InstructorCbrChecklist } from "@/components/cbr/InstructorChecklist";
+import { SkillScoring } from "@/components/skills/SkillScoring";
+import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
 import {
   refundPctForHours,
   type CancellationPolicy,
@@ -18,11 +19,8 @@ import {
   type LessonNote,
 } from "@/lib/lessons/types";
 import type { Student, StudentBalance } from "@/lib/students/types";
-import {
-  buildChecklist,
-  type CbrCompetency,
-  type StudentCbrProgressRow,
-} from "@/lib/cbr/types";
+import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
+import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 
 export const dynamic = "force-dynamic";
 
@@ -128,22 +126,10 @@ export default async function InstructorLessonPage({
   const refundPct = refundPctForHours(policy, hoursBefore);
   const refundPreview = Math.round((lesson.credits_cost * refundPct) / 100);
 
-  const [competenciesRes, progressRes] = await Promise.all([
-    supabase
-      .from("cbr_competencies")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .eq("active", true)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("student_cbr_progress")
-      .select("*")
-      .eq("student_id", lesson.student_id),
+  const [readiness, leskaart] = await Promise.all([
+    loadStudentReadiness(supabase, tenant.id, lesson.student_id),
+    loadInstructorLeskaart(supabase, tenant.id, lesson.student_id, lesson.id),
   ]);
-  const checklist = buildChecklist(
-    (competenciesRes.data ?? []) as CbrCompetency[],
-    (progressRes.data ?? []) as StudentCbrProgressRow[],
-  );
 
   const { data: notesRaw } = await supabase
     .from("lesson_notes")
@@ -168,7 +154,8 @@ export default async function InstructorLessonPage({
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem,1fr,20rem]">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem,1fr,20rem]">
       <Card className="lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-6rem)]">
         <CardContent className="pt-5">
           <InstructorDayList
@@ -265,11 +252,7 @@ export default async function InstructorLessonPage({
           progressScore={lesson.progress_score}
         />
         {student ? (
-          <InstructorCbrChecklist
-            studentId={student.id}
-            studentName={student.full_name}
-            items={checklist}
-          />
+          <ExamReadinessPanel studentId={student.id} readiness={readiness} />
         ) : null}
         {student && taskLaunch.boards.length > 0 ? (
           <Card>
@@ -318,6 +301,13 @@ export default async function InstructorLessonPage({
           </CardContent>
         </Card>
       </div>
+      </div>
+
+      <SkillScoring
+        lessonId={lesson.id}
+        studentName={student?.full_name ?? "Leerling"}
+        leskaart={leskaart}
+      />
     </div>
   );
 }

@@ -206,3 +206,100 @@ export async function setLessonProgressAction(
   revalidatePath(`/instructor/${lessonId}`);
   return {};
 }
+
+/**
+ * Records a 1–10 grade for one skill during one lesson (Leskaart L2). Auth via
+ * lesson ownership; the locked `set_skill_score` RPC re-validates the score,
+ * the active leaf, the lesson↔student↔tenant link, recomputes the rollup and
+ * writes the audit row. Server-side only.
+ */
+export async function setSkillScoreAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const skillId = String(formData.get("skill_id") ?? "");
+  const score = parseInt(String(formData.get("score") ?? ""), 10);
+  if (!skillId) return { error: "skill_id ontbreekt" };
+  if (!Number.isFinite(score) || score < 1 || score > 10) {
+    return { error: "Score moet tussen 1 en 10 liggen" };
+  }
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("set_skill_score", {
+    p_lesson_id: lessonId,
+    p_tenant_id: ctx.tenantId,
+    p_actor: ctx.userId,
+    p_student_id: ctx.lesson.student_id,
+    p_skill_id: skillId,
+    p_score: score,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/instructor/${lessonId}`);
+  return {};
+}
+
+/**
+ * Updates the exam preconditions (theorie / machtiging / gezondheidsverklaring)
+ * that feed the advisory readiness verdict (Leskaart L1/L2). Auth: the actor
+ * must be an instructor who has taught the student, or a tenant_admin. The
+ * locked `set_student_cbr_status` RPC upserts and audits. Server-side only.
+ */
+export async function setStudentCbrStatusAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const studentId = String(formData.get("student_id") ?? "");
+  if (!studentId) return { error: "student_id ontbreekt" };
+  const theorie = String(formData.get("theorie_behaald") ?? "") === "1";
+  const machtiging = String(formData.get("machtiging_geregeld") ?? "") === "1";
+  const gvVereist =
+    String(formData.get("gezondheidsverklaring_vereist") ?? "") === "1";
+  const gvGeregeld =
+    String(formData.get("gezondheidsverklaring_geregeld") ?? "") === "1";
+
+  const { user, tenant, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
+  const isAdmin = roles.includes("tenant_admin");
+  const service = createServiceRoleClient();
+
+  // Defense-in-depth: an instructor may only edit a student they have taught;
+  // tenant_admin may edit any student in the tenant.
+  if (!isAdmin) {
+    const { data: link } = await service
+      .from("lessons")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", studentId)
+      .eq("instructor_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (!link) return { error: "Niet geautoriseerd voor deze leerling" };
+  } else {
+    const { data: stu } = await service
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (!stu) return { error: "Leerling niet gevonden" };
+  }
+
+  const { error } = await service.rpc("set_student_cbr_status", {
+    p_student_id: studentId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_theorie_behaald: theorie,
+    p_machtiging_geregeld: machtiging,
+    p_gezondheidsverklaring_vereist: gvVereist,
+    p_gezondheidsverklaring_geregeld: gvGeregeld,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor", "layout");
+  revalidatePath("/student", "layout");
+  return {};
+}

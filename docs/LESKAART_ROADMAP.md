@@ -85,7 +85,7 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
     scores, spread laatste-3 ≤ 1,0 én minimum ≥ 7,0; de zone tussen "niet" en
     "bijna" (kritiek 7–7,9 of gem 7–7,49) valt conservatief op "niet examenrijp".
 
-### Fase L2 — Instructeur-leskaart (tablet-first)
+### Fase L2 — Instructeur-leskaart (tablet-first) ✅ (kern)
 - Lescockpit uitbreiden: per categorie inklapbare secties, snelle 1–10 invoer
   (touch-stepper/slider), huidige score als carry-over, kritieke skills gemarkeerd,
   "vandaag geoefend"-chips, examenadvies-update.
@@ -93,6 +93,19 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   aandachtspunten, theoriehuiswerk).
 - Enterprise visuele upgrade (dicht, snel, rustig).
 - **Klaar als:** instructeur beoordeelt vlot per vaardigheid en legt de les compleet vast.
+- **Status:** Instructeur-lespagina toont nu de nieuwe L0/L1-leskaart i.p.v. de platte
+  CBR-checklist. Volledige taxonomie (hoofdcategorie → subcategorie → vaardigheid) in
+  inklapbare secties met segmented 1–10 invoer, carry-over (`student_skill_scores`),
+  kritiekmarkering, theoriekoppeling-indicator, live per-categorie ⌀/voortgang en
+  "vandaag geoefend"-overzicht (`lesson_skill_scores` voor déze les). Scoren via
+  server action `setSkillScoreAction` → vergrendelde RPC `set_skill_score` (audit +
+  rollup). Examenrijpheid-paneel toont de L1-uitkomst (readiness%, fase, advies,
+  blockers, disclaimer) en laat de instructeur de randvoorwaarden (theorie /
+  machtiging / gezondheidsverklaring) bijwerken via `setStudentCbrStatusAction` →
+  RPC `set_student_cbr_status`. Loader: `lib/skills/leskaart-data.ts`. Componenten:
+  `components/skills/SkillScoring.tsx` + `ExamReadinessPanel.tsx`.
+  - **Nog open (verschoven naar L4):** lesregistratie-context (voertuig, locatie,
+    behandelde onderdelen, theoriehuiswerk) — buiten scope van L2.
 
 ### Fase L3 — Leerling- & ouder-leskaart (mobile-first)
 - Per-categorie voortgang (%), examenrijpheidsmeter + fase-band, "vandaag geoefend",
