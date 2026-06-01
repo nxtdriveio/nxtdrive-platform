@@ -49,7 +49,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Module 10 — Leerling PWA + ouderportaal | ✅ | `app/student/*`, `select-child`, `lib/students/active-child.ts` |
 | Module 13 — CBR (Fase 1, handmatig) | ✅ | `0022_cbr_checklist`, `components/cbr/*` |
 | Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + 14 RLS/idempotentie-tests groen. Degradeert netjes tot SendGrid gekoppeld is |
-| Module 14 — Rapportages | 🟡 minimaal | `app/backoffice/rapportages` bestaat, beperkte diepte |
+| Module 14 — Rapportages | 🟡 tenant-rapportage uitgebreid (Leskaart L5) | `app/backoffice/rapportages`: activiteit (periode) + **examenrijpheid & kwaliteit** (actuele stand). `lib/reports/quality-overview.ts` aggregeert tenant-breed via dezelfde L1-engine (`computeReadiness`) zodat cijfers gelijk zijn aan instructeur/leerling: fase-bands, advies-bands, per-leerling readiness, per-instructeur voortgang (voltooide lessen, leerlingen, gem. lescijfer), KPI's (gem. examenrijpheid, examenrijp/bijna, kritieke aandachtspunten, theorie behaald, lesvoltooiing). Strikt tenant-scoped via RLS (admin+instructor lezen tenant-breed; instructeurslijst uit lessen, niet uit memberships); fail-loud loaders. Buiten scope: platformrapportage (MRR/ARR — Module 14 platform), visuele grafieken (aparte follow-up), AI (L6) |
 | Module 8 — Theorie Platform | ⬜ | geen routes/migraties |
 | Module 11 — Taken & Workflow (Kanban) | ✅ datamodel + beveiliging + bord-UI + auto-toewijzing + notificaties | `0027_tasks` + `0028_tasks_hardening` + `0029_task_assignment_rules` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (30 asserties). Bord-UI `/backoffice/taken` live: bordkiezer, kolommen + kaarten, drag/drop herordenen + kolomwissel (move_task), aanmaken/bewerken/archiveren-dialog (titel, omschrijving, prioriteit, einddatum, toewijzing). Auto-toewijzing: tenant-instelbare regels (`task_assignment_rules`) bepalen bij aanmaak de afdeling (standaardregel CBR-machtiging → Administratie), met terugval op de afdeling van het bord; beheer-UI op `/backoffice/instellingen` (afdelingen tonen + regels toevoegen/(de)activeren/verwijderen). Notificatie `task_assigned` (NL, witlabel-bewust, idempotent, degradeert als e-mail niet is geconfigureerd) wordt best-effort verstuurd bij toewijzing in create/update. Buiten scope: push/WhatsApp/SMS, AI |
 | Module 15 — AI Platform | ⬜ | — |
@@ -86,8 +86,13 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
   theorie herinnering, reviewverzoek) als volgende iteratie.
 
 ### Fase B — Rapportages verdiepen (Module 14)
-- Tenant-niveau: omzet, leerlingen, lessen, conversies, annuleringen, slagingspercentages.
-- Platform-niveau: tenants, MRR/ARR, groei, churn, actieve gebruikers.
+- ✅ Tenant-niveau (Leskaart L5): examenrijpheid-overzicht over alle leerlingen
+  (fase-bands, bijna-examenrijp, examenwaardig), voortgang per instructeur en per
+  leerling, kwaliteits-/slagingsindicatoren — op `/backoffice/rapportages`,
+  herbruikt de L1-engine (`computeReadiness`) zodat cijfers consistent zijn met
+  instructeur/leerling, strikt tenant-scoped via bestaande RLS.
+- ⬜ Visuele grafieken op de rapportagepagina (aparte follow-up).
+- ⬜ Platform-niveau: tenants, MRR/ARR, groei, churn, actieve gebruikers.
 
 ### Fase C — Theorie Platform (Module 8, canon Sprint 5)
 - Datamodel: hoofdstukken, toetsen, scores, huiswerk/deadlines (tenant-scoped + RLS).

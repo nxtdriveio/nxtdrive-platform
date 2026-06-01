@@ -11,6 +11,13 @@ import {
   defaultReportRange,
   normalizeYmd,
 } from "@/lib/dashboard/metrics";
+import { loadTenantQualityOverview } from "@/lib/reports/quality-overview";
+import {
+  QualityKpis,
+  PhaseDistribution,
+  StudentReadinessTable,
+  InstructorProgressTable,
+} from "@/components/backoffice/reports/quality";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +46,10 @@ export default async function RapportagesPage({
   const toRaw = normalizeYmd(params.to) ?? fallback.to;
   const to = toRaw < from ? from : toRaw;
 
-  const report = await getReport(supabase, tenant.id, from, to);
+  const [report, quality] = await Promise.all([
+    getReport(supabase, tenant.id, from, to),
+    loadTenantQualityOverview(supabase, tenant.id),
+  ]);
   const exportHref = `/backoffice/rapportages/export?from=${from}&to=${to}`;
 
   return (
@@ -181,6 +191,26 @@ export default async function RapportagesPage({
           </tfoot>
         </table>
       </Card>
+
+      <div className="border-t border-border pt-6">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+          Examenrijpheid &amp; kwaliteit
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Actuele stand op basis van de leskaart — onafhankelijk van de gekozen
+          periode. Cijfers komen uit dezelfde berekeningslaag als de instructeur-
+          en leerlingweergave.
+        </p>
+      </div>
+
+      <QualityKpis data={quality} />
+
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PhaseDistribution data={quality} />
+        <InstructorProgressTable instructors={quality.instructors} />
+      </section>
+
+      <StudentReadinessTable students={quality.students} />
     </div>
   );
 }
