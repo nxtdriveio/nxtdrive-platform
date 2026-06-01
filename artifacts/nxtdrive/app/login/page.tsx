@@ -2,6 +2,7 @@ import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { DevLoginPanel } from "@/components/dev/DevLoginPanel";
 import { sendMagicLink, signInWithPassword } from "./actions";
 
 export default async function LoginPage({
@@ -14,7 +15,8 @@ export default async function LoginPage({
   const errorMsg = params.error;
 
   return (
-    <main className="bg-nxt-grid relative flex min-h-screen items-center justify-center px-6 py-10">
+    <main className="bg-nxt-grid relative flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-10">
+      <DevLoginPanel />
       <Card className="w-full max-w-sm space-y-6 p-8">
         <div className="text-center">
           <NxtdriveLogo className="mx-auto text-xl" />
