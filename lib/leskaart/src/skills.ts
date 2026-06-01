@@ -1,6 +1,6 @@
 // Leskaart L0 — typed contract for the hierarchical skill taxonomy and the
-// 1..10 per-skill score model. Pure types + tree helper, no IO. Readiness
-// logic lives in L1.
+// 1..10 per-skill score model. Pure types + tree helpers, no IO. Readiness
+// logic lives in ./readiness.ts (L1).
 
 export type SkillLevel = 1 | 2 | 3;
 

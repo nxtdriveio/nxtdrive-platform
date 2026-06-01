@@ -70,11 +70,20 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
 - RLS, audit, server-side RPC's. Idempotent.
 - **Klaar als:** taxonomie + scores opslagbaar, migratie schoon, RLS getest.
 
-### Fase L1 — Examenrijpheid-engine
+### Fase L1 — Examenrijpheid-engine ✅ (datalaag + engine)
 - Berekening per leerling: gemiddelde, kritieke-skill-check (≥8), stabiliteit laatste 3
   lessen, koppeling theorie/machtiging/gezondheidsverklaring → advies (niet / bijna /
   examenwaardig) + Readiness Score 0–100% met fase-band. Puur adviserend.
 - **Klaar als:** readiness reproduceerbaar berekend en getoond, met duidelijke disclaimer.
+- **Status:** Pure engine `@workspace/leskaart` (`computeReadiness`) + server-loader
+  `lib/skills/readiness-data.ts` + preconditie-store `student_cbr_status` (migratie 0031,
+  RLS + service-role RPC `set_student_cbr_status` + audit). Getest:
+  `db:test-readiness` (engine-asserties + RLS/RPC). Visuele weergave volgt in L2/L3.
+  - Gedocumenteerde keuzes (canon laat ze open): ongescoorde leaf telt als 1
+    ("nog nooit behandeld"); gemiddelde over álle actieve leaves; Readiness% =
+    (gem−1)/9·100 (alles 1 = 0%, alles 10 = 100%); stabiliteit = ≥3 lessen met
+    scores, spread laatste-3 ≤ 1,0 én minimum ≥ 7,0; de zone tussen "niet" en
+    "bijna" (kritiek 7–7,9 of gem 7–7,49) valt conservatief op "niet examenrijp".
 
 ### Fase L2 — Instructeur-leskaart (tablet-first)
 - Lescockpit uitbreiden: per categorie inklapbare secties, snelle 1–10 invoer

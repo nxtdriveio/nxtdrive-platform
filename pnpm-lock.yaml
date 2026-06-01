@@ -431,6 +431,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@workspace/leskaart':
+        specifier: workspace:*
+        version: link:../../lib/leskaart
       next:
         specifier: 'catalog:'
         version: 15.5.18(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -512,11 +515,16 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
+  lib/leskaart: {}
+
   scripts:
     dependencies:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@workspace/leskaart':
+        specifier: workspace:*
+        version: link:../lib/leskaart
       pg:
         specifier: 'catalog:'
         version: 8.20.0
