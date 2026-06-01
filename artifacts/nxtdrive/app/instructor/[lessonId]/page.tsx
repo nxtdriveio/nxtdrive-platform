@@ -12,6 +12,8 @@ import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
 import { InstructorActionsPanel } from "@/components/instructor/ActionsPanel";
 import { LessonContextPanel } from "@/components/instructor/LessonContextPanel";
 import { TheoryHomeworkPanel } from "@/components/instructor/TheoryHomeworkPanel";
+import { AiLessonReport } from "@/components/instructor/AiLessonReport";
+import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
 import { loadVehicles, loadLocations, loadLessonContext } from "@/lib/lessons/context-data";
@@ -226,6 +228,8 @@ export default async function InstructorLessonPage({
           homework={lessonHomework}
         />
 
+        <AiLessonReport lessonId={lesson.id} />
+
         {lesson.progress_summary ? (
           <Card>
             <CardContent className="space-y-2 pt-5">
@@ -285,6 +289,7 @@ export default async function InstructorLessonPage({
         {student ? (
           <ExamReadinessPanel studentId={student.id} readiness={readiness} />
         ) : null}
+        {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
         {student && taskLaunch.boards.length > 0 ? (
           <Card>
             <CardContent className="space-y-2 pt-5">

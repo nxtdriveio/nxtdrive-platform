@@ -13,9 +13,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "catalog:",
-    "@workspace/leskaart": "workspace:*",
     "@supabase/supabase-js": "catalog:",
+    "@workspace/leskaart": "workspace:*",
     "next": "catalog:",
+    "openai": "^6.39.1",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
