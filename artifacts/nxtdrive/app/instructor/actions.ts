@@ -243,10 +243,119 @@ export async function setSkillScoreAction(
 
 /**
  * Updates the exam preconditions (theorie / machtiging / gezondheidsverklaring)
- * that feed the advisory readiness verdict (Leskaart L1/L2). Auth: the actor
- * must be an instructor who has taught the student, or a tenant_admin. The
- * locked `set_student_cbr_status` RPC upserts and audits. Server-side only.
+ * that feed the advisory readiness verdict (Leskaart L1/L2). See
+ * setStudentCbrStatusAction below.
  */
+/**
+ * Records the full lesson context (Leskaart L4): voertuig, locatie,
+ * leerlingnotitie, interne notitie, aandachtspunten en de behandelde
+ * onderdelen (gekoppelde vaardigheden). Auth via lesson ownership; the locked
+ * `set_lesson_context` RPC re-validates tenant scope and writes the audit row.
+ */
+export async function setLessonContextAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const locationId = String(formData.get("location_id") ?? "").trim() || null;
+  const studentNote = String(formData.get("student_note") ?? "").trim().slice(0, 4000);
+  const internalNote = String(formData.get("internal_note") ?? "").trim().slice(0, 4000);
+  const attention = String(formData.get("attention_points") ?? "").trim().slice(0, 4000);
+  const topicSkillIds = formData
+    .getAll("topic_skill_ids")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("set_lesson_context", {
+    p_lesson_id: lessonId,
+    p_tenant_id: ctx.tenantId,
+    p_actor: ctx.userId,
+    p_vehicle_id: vehicleId,
+    p_location_id: locationId,
+    p_student_note: studentNote || null,
+    p_internal_note: internalNote || null,
+    p_attention_points: attention || null,
+    p_topic_skill_ids: topicSkillIds,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+/**
+ * Assigns theory homework (Leskaart L4) to the lesson's student, optionally
+ * tied to this lesson, with an optional deadline + note. Auth via lesson
+ * ownership; the locked `assign_theory_homework` RPC validates module/student
+ * scope and audits.
+ */
+export async function assignTheoryHomeworkAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const moduleId = String(formData.get("module_id") ?? "").trim();
+  const deadline = String(formData.get("deadline") ?? "").trim() || null;
+  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+  if (!moduleId) return { error: "Kies een theoriemodule" };
+
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("assign_theory_homework", {
+    p_tenant_id: ctx.tenantId,
+    p_actor: ctx.userId,
+    p_student_id: ctx.lesson.student_id,
+    p_module_id: moduleId,
+    p_lesson_id: lessonId,
+    p_deadline: deadline,
+    p_note: note || null,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+/**
+ * Updates a theory homework status (Leskaart L4) from the instructor cockpit.
+ * Auth via lesson ownership; the locked `set_theory_homework_status` RPC
+ * re-validates that the actor is staff (or the owning student) and audits.
+ */
+export async function setTheoryHomeworkStatusAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const homeworkId = String(formData.get("homework_id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim();
+  if (!homeworkId) return { error: "homework_id ontbreekt" };
+  if (!["open", "done", "cancelled"].includes(status)) {
+    return { error: "Ongeldige status" };
+  }
+
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("set_theory_homework_status", {
+    p_tenant_id: ctx.tenantId,
+    p_actor: ctx.userId,
+    p_homework_id: homeworkId,
+    p_status: status,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath("/student", "layout");
+  return {};
+}
+
 export async function setStudentCbrStatusAction(
   formData: FormData,
 ): Promise<ActionResult> {

@@ -12,6 +12,8 @@ import {
   BarChart3,
   Receipt,
   Settings,
+  Car,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -22,6 +24,8 @@ const nav = [
   { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap },
   { href: "/backoffice/packages", label: "Pakketten", icon: Package },
+  { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car },
+  { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen },
   { href: "/backoffice/taken", label: "Taken", icon: ClipboardList },
   { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3 },
   { href: "/backoffice/facturen", label: "Facturen", icon: Receipt },

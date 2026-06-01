@@ -1,0 +1,231 @@
+import { requireActiveTenant } from "@/lib/auth/require-role";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { loadVehicles, loadLocations } from "@/lib/lessons/context-data";
+import {
+  VEHICLE_TRANSMISSIONS,
+  VEHICLE_TRANSMISSION_LABEL,
+} from "@/lib/lessons/types";
+import {
+  createVehicle,
+  toggleVehicleActive,
+  createLocation,
+  toggleLocationActive,
+} from "./actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function VoertuigenPage() {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const supabase = await createServerSupabaseClient();
+  const [vehicles, locations] = await Promise.all([
+    loadVehicles(supabase, tenant.id),
+    loadLocations(supabase, tenant.id),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Voertuigen &amp; locaties
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Beheer de lesvoertuigen en ophaal-/vertreklocaties van je rijschool.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Voertuigen</CardTitle>
+            </CardHeader>
+            {vehicles.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">
+                Nog geen voertuigen — maak er rechts één aan.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Naam</th>
+                    <th className="px-4 py-3 font-medium">Kenteken</th>
+                    <th className="px-4 py-3 font-medium">Transmissie</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {vehicles.map((v) => (
+                    <tr key={v.id}>
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {v.label}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {v.license_plate ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {v.transmission
+                          ? VEHICLE_TRANSMISSION_LABEL[v.transmission]
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.active ? (
+                          <Badge variant="success">Actief</Badge>
+                        ) : (
+                          <Badge variant="warning">Inactief</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <form action={toggleVehicleActive}>
+                          <input type="hidden" name="vehicle_id" value={v.id} />
+                          <input
+                            type="hidden"
+                            name="active"
+                            value={String(v.active)}
+                          />
+                          <Button type="submit" variant="ghost" size="sm">
+                            {v.active ? "Deactiveren" : "Activeren"}
+                          </Button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Nieuw voertuig</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={createVehicle} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="v-label">Naam</Label>
+                <Input
+                  id="v-label"
+                  name="label"
+                  required
+                  placeholder="bv. VW Golf 1"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="v-plate">Kenteken (optioneel)</Label>
+                <Input id="v-plate" name="license_plate" placeholder="00-XXX-0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="v-transmission">Transmissie</Label>
+                <Select id="v-transmission" name="transmission" defaultValue="">
+                  <option value="">— Niet opgegeven —</option>
+                  {VEHICLE_TRANSMISSIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {VEHICLE_TRANSMISSION_LABEL[t]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button type="submit" size="sm" className="w-full">
+                Voertuig aanmaken
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Locaties</CardTitle>
+            </CardHeader>
+            {locations.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">
+                Nog geen locaties — maak er rechts één aan.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Naam</th>
+                    <th className="px-4 py-3 font-medium">Adres</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {locations.map((l) => (
+                    <tr key={l.id}>
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {l.name}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {l.address ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {l.active ? (
+                          <Badge variant="success">Actief</Badge>
+                        ) : (
+                          <Badge variant="warning">Inactief</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <form action={toggleLocationActive}>
+                          <input type="hidden" name="location_id" value={l.id} />
+                          <input
+                            type="hidden"
+                            name="active"
+                            value={String(l.active)}
+                          />
+                          <Button type="submit" variant="ghost" size="sm">
+                            {l.active ? "Deactiveren" : "Activeren"}
+                          </Button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Nieuwe locatie</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={createLocation} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="l-name">Naam</Label>
+                <Input
+                  id="l-name"
+                  name="name"
+                  required
+                  placeholder="bv. Station Centraal"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="l-address">Adres (optioneel)</Label>
+                <Input
+                  id="l-address"
+                  name="address"
+                  placeholder="bv. Stationsplein 1"
+                />
+              </div>
+              <Button type="submit" size="sm" className="w-full">
+                Locatie aanmaken
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

@@ -6,10 +6,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { StudentProgressCard } from "@/components/student/ProgressCard";
 import { LessonSkillFeedbackCard } from "@/components/skills/LessonSkillFeedbackCard";
+import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
+import { StudentLessonContextCard } from "@/components/student/LessonContextCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import { loadStudentLessonSkills } from "@/lib/skills/student-leskaart-data";
-import type { Lesson } from "@/lib/lessons/types";
+import { loadLessonTheoryHomework } from "@/lib/theory/data";
+import { VEHICLE_TRANSMISSION_LABEL, type Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +43,73 @@ export default async function StudentLessonDetailPage({
     .maybeSingle();
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
-  const [names, skillGroups] = await Promise.all([
+  const [names, skillGroups, homework] = await Promise.all([
     getInstructorNames([lesson.instructor_id]),
     loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
+    loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
   ]);
   const instructorName = names.get(lesson.instructor_id);
+
+  // Resolve lescontext labels (voertuig, locatie, behandelde onderdelen).
+  const [vehicleRes, locationRes, topicsRes] = await Promise.all([
+    lesson.vehicle_id
+      ? supabase
+          .from("vehicles")
+          .select("label, license_plate, transmission")
+          .eq("id", lesson.vehicle_id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    lesson.location_id
+      ? supabase
+          .from("locations")
+          .select("name")
+          .eq("id", lesson.location_id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("lesson_topics")
+      .select("skill_taxonomy(label)")
+      .eq("lesson_id", lesson.id)
+      .eq("tenant_id", tenant.id),
+  ]);
+
+  if ("error" in vehicleRes && vehicleRes.error) {
+    throw new Error(`Voertuig laden mislukt: ${vehicleRes.error.message}`);
+  }
+  if ("error" in locationRes && locationRes.error) {
+    throw new Error(`Locatie laden mislukt: ${locationRes.error.message}`);
+  }
+  if (topicsRes.error) {
+    throw new Error(
+      `Behandelde onderdelen laden mislukt: ${topicsRes.error.message}`,
+    );
+  }
+
+  const veh = vehicleRes.data as
+    | { label: string; license_plate: string | null; transmission: keyof typeof VEHICLE_TRANSMISSION_LABEL | null }
+    | null;
+  const vehicleLabel = veh
+    ? [
+        veh.label,
+        veh.license_plate ? `(${veh.license_plate})` : null,
+        veh.transmission ? `· ${VEHICLE_TRANSMISSION_LABEL[veh.transmission]}` : null,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
+  const locationName =
+    (locationRes.data as { name: string } | null)?.name ?? null;
+  const topics = ((topicsRes.data ?? []) as {
+    skill_taxonomy: { label: string } | { label: string }[] | null;
+  }[])
+    .map((r) =>
+      Array.isArray(r.skill_taxonomy)
+        ? r.skill_taxonomy[0]?.label
+        : r.skill_taxonomy?.label,
+    )
+    .filter((l): l is string => Boolean(l));
 
   return (
     <div className="space-y-4">
@@ -58,7 +123,19 @@ export default async function StudentLessonDetailPage({
 
       <StudentProgressCard lesson={lesson} instructorName={instructorName} />
 
+      <StudentLessonContextCard
+        vehicleLabel={vehicleLabel}
+        locationName={locationName}
+        studentNote={lesson.student_note}
+        attentionPoints={lesson.attention_points}
+        topics={topics}
+      />
+
       <LessonSkillFeedbackCard groups={skillGroups} />
+
+      {homework.length > 0 ? (
+        <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
+      ) : null}
 
       {lesson.progress_summary == null && lesson.status === "completed" ? (
         <Card>

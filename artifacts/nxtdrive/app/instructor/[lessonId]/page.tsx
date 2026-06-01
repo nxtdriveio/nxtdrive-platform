@@ -10,8 +10,12 @@ import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
 import { InstructorActionsPanel } from "@/components/instructor/ActionsPanel";
+import { LessonContextPanel } from "@/components/instructor/LessonContextPanel";
+import { TheoryHomeworkPanel } from "@/components/instructor/TheoryHomeworkPanel";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
+import { loadVehicles, loadLocations, loadLessonContext } from "@/lib/lessons/context-data";
+import { loadTheoryModules, loadLessonTheoryHomework } from "@/lib/theory/data";
 import {
   refundPctForHours,
   type CancellationPolicy,
@@ -126,9 +130,22 @@ export default async function InstructorLessonPage({
   const refundPct = refundPctForHours(policy, hoursBefore);
   const refundPreview = Math.round((lesson.credits_cost * refundPct) / 100);
 
-  const [readiness, leskaart] = await Promise.all([
+  const [
+    readiness,
+    leskaart,
+    vehicles,
+    locations,
+    lessonContext,
+    theoryModules,
+    lessonHomework,
+  ] = await Promise.all([
     loadStudentReadiness(supabase, tenant.id, lesson.student_id),
     loadInstructorLeskaart(supabase, tenant.id, lesson.student_id, lesson.id),
+    loadVehicles(supabase, tenant.id, { activeOnly: true }),
+    loadLocations(supabase, tenant.id, { activeOnly: true }),
+    loadLessonContext(supabase, tenant.id, lesson.id),
+    loadTheoryModules(supabase, tenant.id, { activeOnly: true }),
+    loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
   ]);
 
   const { data: notesRaw } = await supabase
@@ -193,6 +210,20 @@ export default async function InstructorLessonPage({
           hoursBefore={hoursBefore}
           currentScore={lesson.progress_score}
           currentSummary={lesson.progress_summary}
+        />
+
+        <LessonContextPanel
+          lessonId={lesson.id}
+          vehicles={vehicles}
+          locations={locations}
+          leskaart={leskaart}
+          context={lessonContext}
+        />
+
+        <TheoryHomeworkPanel
+          lessonId={lesson.id}
+          modules={theoryModules}
+          homework={lessonHomework}
         />
 
         {lesson.progress_summary ? (

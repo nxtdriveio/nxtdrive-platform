@@ -42,9 +42,56 @@ export type Lesson = {
   refunded_credits: number | null;
   progress_score: number | null;
   progress_summary: string | null;
+  // Leskaart L4 — lescontext (zichtbaar voor de leerling). De interne notitie
+  // staat NIET hier maar in lesson_internal (staff-only).
+  vehicle_id: string | null;
+  location_id: string | null;
+  student_note: string | null;
+  attention_points: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export const VEHICLE_TRANSMISSIONS = ["schakel", "automaat"] as const;
+export type VehicleTransmission = (typeof VEHICLE_TRANSMISSIONS)[number];
+
+export const VEHICLE_TRANSMISSION_LABEL: Record<VehicleTransmission, string> = {
+  schakel: "Schakel",
+  automaat: "Automaat",
+};
+
+export type Vehicle = {
+  id: string;
+  tenant_id: string;
+  label: string;
+  license_plate: string | null;
+  transmission: VehicleTransmission | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Location = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  address: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Full lesson-context snapshot for the instructor cockpit (L4). */
+export type LessonContext = {
+  vehicleId: string | null;
+  locationId: string | null;
+  studentNote: string | null;
+  attentionPoints: string | null;
+  internalNote: string | null;
+  topicSkillIds: string[];
 };
 
 export type LessonNote = {

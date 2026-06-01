@@ -127,10 +127,26 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   `getActiveStudent`; geen scoreinvoer (instructeur-only, L2).
   - **Nog open (verschoven naar L4):** theoriehuiswerk-weergave — buiten scope van L3.
 
-### Fase L4 — Lesregistratie-context & theorie
+### Fase L4 — Lesregistratie-context & theorie ✅
 - Voertuigen & locaties beheren; behandelde onderdelen per les; theoriemodules koppelen
   aan vaardigheden; theoriehuiswerk toewijzen en volgen.
-- **Klaar als:** elke les volledig contextueel vastgelegd; theorie ↔ praktijk gekoppeld.
+- **Geleverd:**
+  - Migraties `0032_lesson_context.sql` (vehicles, locations, lesson-context-kolommen,
+    `lesson_internal` staff-only, `lesson_topics`) + `0033_theory.sql` (theory_modules,
+    theory_module_skills, theory_homework). Alle mutaties via SECURITY DEFINER RPCs,
+    audited, service_role-only grant. RLS: catalogi = members, huiswerk = staff + eigen
+    leerling/ouder, interne notitie nooit zichtbaar voor leerling.
+  - Standaard theoriemodules + koppelingen per nieuwe tenant (trigger + seed).
+  - Instructeur-cockpit: `LessonContextPanel` (voertuig, locatie, behandelde onderdelen,
+    leerlingnotitie, interne notitie, aandachtspunten) + `TheoryHomeworkPanel`
+    (toewijzen met deadline, status beheren).
+  - Backoffice: `/backoffice/voertuigen` (voertuigen + locaties) en `/backoffice/theorie`
+    (modules + vaardigheidskoppelingen), tenant_admin-gated, sidebar-navigatie.
+  - Leerling-PWA: theoriehuiswerk-kaart (open huiswerk + deadline + afronden) op home en
+    lesdetail; lescontext-weergave op lesdetail (voertuig, locatie, behandelde
+    onderdelen, notitie, aandachtspunten).
+- **Bewust niet aangeraakt:** de L1 readiness-engine (`theorie_behaald` voedt deze al).
+- **Klaar als:** elke les volledig contextueel vastgelegd; theorie ↔ praktijk gekoppeld. ✅
 
 ### Fase L5 — Rapportage & kwaliteitscontrole (tenant)
 - Voortgang per instructeur/leerling, examenrijpheid-overzicht, slagingsindicatoren,

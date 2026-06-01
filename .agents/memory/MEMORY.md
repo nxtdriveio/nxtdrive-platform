@@ -5,3 +5,4 @@
 - [Leskaart canon & roadmap](leskaart-canon.md) — lesson card = full dossier; readiness is grade-driven (canon supersedes the old no-threshold/behaald-tick rule).
 - [App Router optimistic state](app-router-optimistic-state.md) — client useState survives refresh/revalidate; reconcile boards from props via a full-field signature effect + snapshot rollback, not router.refresh alone.
 - [Task create-then-link atomicity](task-create-then-link-atomicity.md) — entity-launcher createTask archives the new task if the follow-up link RPC fails, to avoid orphan tasks.
+- [Supabase RPC grant lockdown](supabase-rpc-grants.md) — service-role-only RPCs must revoke execute from anon AND authenticated (not just PUBLIC), or actor can be forged; fix applied envs via new forward migration (runner tracks by filename).

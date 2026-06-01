@@ -170,6 +170,15 @@ select public._insert_default_skill_taxonomy(
   (select id from public.tenants where slug = 'demo-academy')
 );
 
+-- Default theory modules + skill couplings for the NXTDRIVE Demo Academy ---
+-- Idempotent; mirrors _insert_default_theory_modules() in 0033. New tenants
+-- get this via the tenants_provision_theory_modules trigger; demo-academy is
+-- seeded explicitly here. Runs AFTER the taxonomy seed above so couplings
+-- can match leaves by code.
+select public._insert_default_theory_modules(
+  (select id from public.tenants where slug = 'demo-academy')
+);
+
 -- Demo Kanban data for the NXTDRIVE Demo Academy ---------------------------
 -- Departments/boards/columns are provisioned by migration 0027's backfill for
 -- every tenant (incl. demo-academy); here we add a couple of example cards on

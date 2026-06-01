@@ -11,7 +11,9 @@ import { StudentReadinessCard } from "@/components/skills/StudentReadinessCard";
 import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
 import { StudentTrendCard } from "@/components/skills/StudentTrendCard";
 import { RecentPracticeCard } from "@/components/skills/RecentPracticeCard";
+import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { getActiveStudent } from "@/lib/students/access";
+import { loadStudentTheoryHomework } from "@/lib/theory/data";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
@@ -95,9 +97,10 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
 
-  const [readiness, leskaart] = await Promise.all([
+  const [readiness, leskaart, homework] = await Promise.all([
     loadStudentReadiness(supabase, tenant.id, student.id),
     loadStudentLeskaart(supabase, tenant.id, student.id),
+    loadStudentTheoryHomework(supabase, tenant.id, student.id),
   ]);
 
   const instructorNames = await getInstructorNames([
@@ -146,6 +149,8 @@ export default async function StudentHomePage() {
       )}
 
       <StudentReadinessCard readiness={readiness} />
+
+      <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
 
       {leskaart.recent ? (
         <RecentPracticeCard recent={leskaart.recent} />
