@@ -114,6 +114,85 @@ export function renderPaymentConfirmation(
   );
 }
 
+export type TaskAssignedData = {
+  assigneeName: string;
+  taskTitle: string;
+  boardName: string | null;
+  departmentName: string | null;
+  priorityLabel: string | null;
+  dueDate: string | null;
+  taskUrl: string | null;
+};
+
+function formatDateNl(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(d);
+}
+
+export function renderTaskAssigned(
+  branding: EmailBranding,
+  data: TaskAssignedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const due = formatDateNl(data.dueDate);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    assignee_name: data.assigneeName,
+    task_title: data.taskTitle,
+    board_name: data.boardName ?? "",
+    department_name: data.departmentName ?? "",
+    priority: data.priorityLabel ?? "",
+    due_date: due,
+    task_url: data.taskUrl ?? "",
+  };
+
+  const metaRows: string[] = [];
+  if (data.departmentName)
+    metaRows.push(`<li>Afdeling: <strong>${escapeHtml(data.departmentName)}</strong></li>`);
+  if (data.boardName)
+    metaRows.push(`<li>Bord: <strong>${escapeHtml(data.boardName)}</strong></li>`);
+  if (data.priorityLabel)
+    metaRows.push(`<li>Prioriteit: <strong>${escapeHtml(data.priorityLabel)}</strong></li>`);
+  if (due) metaRows.push(`<li>Deadline: <strong>${escapeHtml(due)}</strong></li>`);
+  const metaList = metaRows.length
+    ? `<ul style="margin:8px 0 0;padding-left:20px;color:#475569">${metaRows.join("")}</ul>`
+    : "";
+  const cta = data.taskUrl
+    ? `<p style="margin-top:20px"><a href="${escapeHtml(data.taskUrl)}" style="color:#2563eb">Bekijk de taak</a></p>`
+    : "";
+
+  const subject = `Nieuwe taak toegewezen: ${data.taskTitle}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.assigneeName)},</p>
+    <p>Er is een taak aan jou toegewezen: <strong>${escapeHtml(data.taskTitle)}</strong>.</p>
+    ${metaList}
+    ${cta}`;
+  const metaText =
+    (data.departmentName ? `Afdeling: ${data.departmentName}\n` : "") +
+    (data.boardName ? `Bord: ${data.boardName}\n` : "") +
+    (data.priorityLabel ? `Prioriteit: ${data.priorityLabel}\n` : "") +
+    (due ? `Deadline: ${due}\n` : "");
+  const text =
+    `Beste ${data.assigneeName},\n\n` +
+    `Er is een taak aan jou toegewezen: ${data.taskTitle}.\n` +
+    metaText +
+    (data.taskUrl ? `\nBekijk de taak: ${data.taskUrl}\n` : "") +
+    `\nMet vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;

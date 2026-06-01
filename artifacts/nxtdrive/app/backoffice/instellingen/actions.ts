@@ -74,3 +74,93 @@ export async function saveBranding(formData: FormData) {
   revalidatePath("/backoffice", "layout");
   redirect("/backoffice/instellingen?branding=saved");
 }
+
+export type RuleActionResult = { ok: boolean; error?: string };
+
+const MATCH_TYPES = ["contains", "equals", "starts_with"] as const;
+type MatchType = (typeof MATCH_TYPES)[number];
+
+function matchTypeOf(v: unknown): MatchType {
+  return typeof v === "string" && (MATCH_TYPES as readonly string[]).includes(v)
+    ? (v as MatchType)
+    : "contains";
+}
+
+export async function createAssignmentRule(
+  formData: FormData,
+): Promise<RuleActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const keyword = String(formData.get("keyword") ?? "").trim();
+  const departmentId = String(formData.get("department_id") ?? "").trim();
+  if (!keyword) return { ok: false, error: "Trefwoord is verplicht." };
+  if (!departmentId) return { ok: false, error: "Kies een afdeling." };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("create_task_assignment_rule", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_keyword: keyword.slice(0, 120),
+    p_match_type: matchTypeOf(formData.get("match_type")),
+    p_department_id: departmentId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function updateAssignmentRule(
+  formData: FormData,
+): Promise<RuleActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const ruleId = String(formData.get("rule_id") ?? "").trim();
+  if (!ruleId) return { ok: false, error: "Regel ontbreekt." };
+
+  const keywordRaw = formData.get("keyword");
+  const departmentRaw = formData.get("department_id");
+  const matchRaw = formData.get("match_type");
+  const activeRaw = formData.get("active");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("update_task_assignment_rule", {
+    p_rule_id: ruleId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_keyword:
+      typeof keywordRaw === "string" ? keywordRaw.trim().slice(0, 120) : null,
+    p_match_type: typeof matchRaw === "string" ? matchTypeOf(matchRaw) : null,
+    p_department_id:
+      typeof departmentRaw === "string" && departmentRaw.trim()
+        ? departmentRaw.trim()
+        : null,
+    p_active:
+      activeRaw === null ? null : activeRaw === "true" || activeRaw === "on",
+    p_sort_order: null,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function deleteAssignmentRule(
+  formData: FormData,
+): Promise<RuleActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const ruleId = String(formData.get("rule_id") ?? "").trim();
+  if (!ruleId) return { ok: false, error: "Regel ontbreekt." };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("delete_task_assignment_rule", {
+    p_rule_id: ruleId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}

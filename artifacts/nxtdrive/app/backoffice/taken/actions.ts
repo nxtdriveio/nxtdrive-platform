@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { notifyTaskAssigned } from "@/lib/notifications/dispatch";
 import {
   TASK_LINK_TYPES,
   TASK_PRIORITIES,
@@ -26,6 +27,24 @@ function cleanStr(v: FormDataEntryValue | null, max: number): string | null {
 }
 
 export type ActionResult = { ok: boolean; error?: string };
+
+/**
+ * Best-effort task-assigned notification. Delivery (or its absence) must never
+ * block the task mutation itself, so failures are swallowed here.
+ */
+async function notifyAssignee(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  taskId: string,
+  assigneeUserId: string | null,
+): Promise<void> {
+  if (!assigneeUserId) return;
+  try {
+    await notifyTaskAssigned(service, tenantId, taskId, assigneeUserId);
+  } catch {
+    // swallow — notification is best-effort
+  }
+}
 
 export async function createTask(formData: FormData): Promise<ActionResult> {
   const { user, tenant } = await requireActiveTenant([...ROLES]);
@@ -79,6 +98,10 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       });
       return { ok: false, error: linkErr.message };
     }
+  }
+
+  if (newTaskId) {
+    await notifyAssignee(service, tenant.id, newTaskId as string, assignee);
   }
 
   revalidatePath("/backoffice/taken");
@@ -330,6 +353,8 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
     p_assignee_user_id: assignee,
   });
   if (assignErr) return { ok: false, error: assignErr.message };
+
+  await notifyAssignee(service, tenant.id, taskId, assignee);
 
   revalidatePath("/backoffice/taken");
   return { ok: true };

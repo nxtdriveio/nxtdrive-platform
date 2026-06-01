@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandingForm } from "@/components/backoffice/branding-form";
 import { saveMollieApiKey } from "./actions";
+import {
+  AssignmentRulesManager,
+  type AssignmentRule,
+  type RuleDepartment,
+} from "./assignment-rules-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +38,22 @@ export default async function SettingsPage({
     .select("logo_url, primary_color, primary_foreground")
     .eq("tenant_id", tenant.id)
     .maybeSingle();
+
+  const [{ data: departmentRows }, { data: ruleRows }] = await Promise.all([
+    service
+      .from("task_departments")
+      .select("id, name")
+      .eq("tenant_id", tenant.id)
+      .order("name", { ascending: true }),
+    service
+      .from("task_assignment_rules")
+      .select("id, keyword, match_type, department_id, active, sort_order")
+      .eq("tenant_id", tenant.id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+  const departments = (departmentRows ?? []) as RuleDepartment[];
+  const rules = (ruleRows ?? []) as AssignmentRule[];
 
   return (
     <div className="space-y-6">
@@ -147,6 +168,15 @@ export default async function SettingsPage({
             initialPrimaryColor={brandingRow?.primary_color ?? ""}
             initialPrimaryForeground={brandingRow?.primary_foreground ?? ""}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Taken & toewijzing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AssignmentRulesManager departments={departments} rules={rules} />
         </CardContent>
       </Card>
     </div>

@@ -564,6 +564,221 @@ async function main(): Promise<void> {
       });
     }
 
+    // ---- 12. assignment rules: default rule auto-assigns department --------
+    {
+      const { data: adminDept } = await serviceClient
+        .from("task_departments")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("key", "administratie")
+        .maybeSingle();
+
+      // Title matches the default 'CBR-machtiging' rule, no department given →
+      // create_task must resolve to the Administratie department + audit it.
+      const { data: matchId } = await serviceClient.rpc("create_task", {
+        p_tenant_id: tenantId,
+        p_actor: demoMember.userId,
+        p_board_id: board.id,
+        p_column_id: todoCol.id,
+        p_title: `Controleer CBR-machtiging ${stamp}`,
+        p_description: null,
+        p_priority: "normal",
+        p_due_date: null,
+        p_assignee_user_id: null,
+        p_department_id: null,
+      });
+      const matchTaskId = matchId as string | null;
+      if (matchTaskId) createdTaskIds.push(matchTaskId);
+      const { data: matchTask } = await serviceClient
+        .from("tasks")
+        .select("department_id")
+        .eq("id", matchTaskId ?? "")
+        .maybeSingle();
+      const { data: autoAudit } = await serviceClient
+        .from("audit_log")
+        .select("payload")
+        .eq("action", "task.created")
+        .eq("target_id", matchTaskId ?? "")
+        .maybeSingle();
+      const autoPayload = (autoAudit?.payload ?? {}) as {
+        auto_assigned?: boolean;
+        assignment_rule_id?: string | null;
+      };
+      results.push({
+        name: "create_task auto-assigns department via matching rule + audit",
+        ok:
+          !!adminDept &&
+          matchTask?.department_id === adminDept.id &&
+          autoPayload.auto_assigned === true &&
+          !!autoPayload.assignment_rule_id,
+        detail: `dept=${matchTask?.department_id} expected=${adminDept?.id} auto=${autoPayload.auto_assigned} rule=${autoPayload.assignment_rule_id}`,
+      });
+    }
+
+    // ---- 13. no rule match falls back to the board's department ------------
+    {
+      const { data: boardDept } = await serviceClient
+        .from("task_boards")
+        .select("department_id")
+        .eq("id", board.id)
+        .maybeSingle();
+      const { data: noMatchId } = await serviceClient.rpc("create_task", {
+        p_tenant_id: tenantId,
+        p_actor: demoMember.userId,
+        p_board_id: board.id,
+        p_column_id: todoCol.id,
+        p_title: `Geen regel matcht hierop ${stamp}`,
+        p_description: null,
+        p_priority: "normal",
+        p_due_date: null,
+        p_assignee_user_id: null,
+        p_department_id: null,
+      });
+      const noMatchTaskId = noMatchId as string | null;
+      if (noMatchTaskId) createdTaskIds.push(noMatchTaskId);
+      const { data: noMatchTask } = await serviceClient
+        .from("tasks")
+        .select("department_id")
+        .eq("id", noMatchTaskId ?? "")
+        .maybeSingle();
+      results.push({
+        name: "create_task with no matching rule falls back to board department",
+        ok:
+          !!boardDept?.department_id &&
+          noMatchTask?.department_id === boardDept.department_id,
+        detail: `dept=${noMatchTask?.department_id} board=${boardDept?.department_id}`,
+      });
+    }
+
+    // ---- 14. rule management RPCs (tenant_admin) + audit -------------------
+    {
+      const { data: salesDept } = await serviceClient
+        .from("task_departments")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("key", "administratie")
+        .maybeSingle();
+
+      const { data: ruleId, error: createErr } = await serviceClient.rpc(
+        "create_task_assignment_rule",
+        {
+          p_tenant_id: tenantId,
+          p_actor: demoMember.userId,
+          p_keyword: `Testregel ${stamp}`,
+          p_match_type: "contains",
+          p_department_id: salesDept!.id,
+        },
+      );
+      const newRuleId = ruleId as string | null;
+      const { data: createdAudit } = await serviceClient
+        .from("audit_log")
+        .select("id")
+        .eq("action", "task.rule_created")
+        .eq("target_id", newRuleId ?? "");
+      results.push({
+        name: "create_task_assignment_rule creates rule + audit",
+        ok: !createErr && !!newRuleId && (createdAudit ?? []).length === 1,
+        detail: createErr ? createErr.message : `rule=${newRuleId} audit=${(createdAudit ?? []).length}`,
+      });
+
+      const { error: updateErr } = await serviceClient.rpc(
+        "update_task_assignment_rule",
+        {
+          p_rule_id: newRuleId,
+          p_tenant_id: tenantId,
+          p_actor: demoMember.userId,
+          p_keyword: null,
+          p_match_type: null,
+          p_department_id: null,
+          p_active: false,
+          p_sort_order: null,
+        },
+      );
+      const { data: updatedRule } = await serviceClient
+        .from("task_assignment_rules")
+        .select("active")
+        .eq("id", newRuleId ?? "")
+        .maybeSingle();
+      const { data: updatedAudit } = await serviceClient
+        .from("audit_log")
+        .select("id")
+        .eq("action", "task.rule_updated")
+        .eq("target_id", newRuleId ?? "");
+      results.push({
+        name: "update_task_assignment_rule toggles active + audit",
+        ok: !updateErr && updatedRule?.active === false && (updatedAudit ?? []).length === 1,
+        detail: updateErr ? updateErr.message : `active=${updatedRule?.active} audit=${(updatedAudit ?? []).length}`,
+      });
+
+      const { error: deleteErr } = await serviceClient.rpc(
+        "delete_task_assignment_rule",
+        {
+          p_rule_id: newRuleId,
+          p_tenant_id: tenantId,
+          p_actor: demoMember.userId,
+        },
+      );
+      const { data: remainingRule } = await serviceClient
+        .from("task_assignment_rules")
+        .select("id")
+        .eq("id", newRuleId ?? "");
+      const { data: deletedAudit } = await serviceClient
+        .from("audit_log")
+        .select("id")
+        .eq("action", "task.rule_deleted")
+        .eq("target_id", newRuleId ?? "");
+      results.push({
+        name: "delete_task_assignment_rule removes rule + audit",
+        ok: !deleteErr && (remainingRule ?? []).length === 0 && (deletedAudit ?? []).length === 1,
+        detail: deleteErr ? deleteErr.message : `remaining=${(remainingRule ?? []).length} audit=${(deletedAudit ?? []).length}`,
+      });
+    }
+
+    // ---- 15. anon cannot call rule management RPCs (execute revoked) -------
+    {
+      const { error } = await anonClient.rpc("create_task_assignment_rule", {
+        p_tenant_id: tenantId,
+        p_actor: demoMember.userId,
+        p_keyword: "evil",
+        p_match_type: "contains",
+        p_department_id: dept.id,
+      });
+      results.push({
+        name: "anon CANNOT call create_task_assignment_rule (execute revoked)",
+        ok: !!error,
+        detail: error ? error.message : "no error — RPC is callable!",
+      });
+    }
+
+    // ---- 16. rule resolution is tenant-scoped -----------------------------
+    {
+      // The default 'CBR-machtiging' rule belongs to demo-academy. The other
+      // tenant has its own provisioned default, but resolving a demo-specific
+      // title there must use ITS OWN rule/department, never demo's row.
+      const { data: demoResolve } = await serviceClient.rpc(
+        "resolve_task_assignment",
+        { p_tenant_id: tenantId, p_title: "Controleer CBR-machtiging" },
+      );
+      const { data: otherResolve } = await serviceClient.rpc(
+        "resolve_task_assignment",
+        { p_tenant_id: otherTenantId, p_title: "Controleer CBR-machtiging" },
+      );
+      const demoRow = (demoResolve ?? [])[0] as
+        | { department_id: string }
+        | undefined;
+      const otherRow = (otherResolve ?? [])[0] as
+        | { department_id: string }
+        | undefined;
+      results.push({
+        name: "resolve_task_assignment is tenant-scoped (no cross-tenant leak)",
+        ok:
+          !!demoRow &&
+          !!otherRow &&
+          demoRow.department_id !== otherRow.department_id,
+        detail: `demoDept=${demoRow?.department_id} otherDept=${otherRow?.department_id}`,
+      });
+    }
+
     await demoMember.client.auth.signOut();
     await otherMember.client.auth.signOut();
   } finally {

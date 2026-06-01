@@ -3,8 +3,10 @@ import { loadEmailBranding } from "./branding";
 import {
   renderPaymentConfirmation,
   renderLessonReminder,
+  renderTaskAssigned,
   type LessonReminderData,
 } from "./templates";
+import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
 import type {
   DispatchOutcome,
@@ -260,5 +262,81 @@ export async function notifyLessonReminder(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: lesson.starts_at },
+  });
+}
+
+/**
+ * Notify a staff member (instructor/tenant_admin) that a task has been assigned
+ * to them. Idempotent per (task, assignee): the dedupe key includes both, so
+ * re-saving the same assignment never double-sends, while re-assigning to a
+ * different member sends a fresh notification. Degrades gracefully (skipped) if
+ * the assignee has no email or email delivery is not configured.
+ */
+export async function notifyTaskAssigned(
+  service: SupabaseClient,
+  tenantId: string,
+  taskId: string,
+  assigneeUserId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: task } = await service
+    .from("tasks")
+    .select("id, title, board_id, department_id, priority, due_date")
+    .eq("id", taskId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!task) return { outcome: "skipped" };
+
+  const [{ data: assignee }, { data: board }, { data: department }] =
+    await Promise.all([
+      service
+        .from("profiles")
+        .select("email, full_name")
+        .eq("id", assigneeUserId)
+        .maybeSingle(),
+      task.board_id
+        ? service
+            .from("task_boards")
+            .select("name")
+            .eq("id", task.board_id)
+            .eq("tenant_id", tenantId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      task.department_id
+        ? service
+            .from("task_departments")
+            .select("name")
+            .eq("id", task.department_id)
+            .eq("tenant_id", tenantId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "task_assigned");
+  const priority = task.priority as TaskPriority | null;
+  const email = renderTaskAssigned(
+    branding,
+    {
+      assigneeName: (assignee?.full_name as string | null) ?? "collega",
+      taskTitle: (task.title as string | null) ?? "Taak",
+      boardName: (board?.name as string | null) ?? null,
+      departmentName: (department?.name as string | null) ?? null,
+      priorityLabel: priority ? TASK_PRIORITY_LABEL[priority] : null,
+      dueDate: (task.due_date as string | null) ?? null,
+      taskUrl: null,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "task_assigned",
+    recipientEmail: (assignee?.email as string | null) ?? "",
+    dedupeKey: `task_assigned:task:${taskId}:${assigneeUserId}`,
+    relatedType: "task",
+    relatedId: taskId,
+    email,
+    fromName: branding.tenantName,
+    payload: { task_id: taskId, assignee_user_id: assigneeUserId },
   });
 }

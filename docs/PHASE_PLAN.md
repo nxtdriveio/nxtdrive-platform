@@ -51,7 +51,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + 14 RLS/idempotentie-tests groen. Degradeert netjes tot SendGrid gekoppeld is |
 | Module 14 — Rapportages | 🟡 minimaal | `app/backoffice/rapportages` bestaat, beperkte diepte |
 | Module 8 — Theorie Platform | ⬜ | geen routes/migraties |
-| Module 11 — Taken & Workflow (Kanban) | 🟡 datamodel + beveiliging + bord-UI | `0027_tasks` + `0028_tasks_hardening` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (23 asserties). Bord-UI `/backoffice/taken` live: bordkiezer, kolommen + kaarten, drag/drop herordenen + kolomwissel (move_task), aanmaken/bewerken/archiveren-dialog (titel, omschrijving, prioriteit, einddatum, toewijzing). Nog open: entiteitkoppelingen (#33), auto-toewijzing + notificaties (#34) |
+| Module 11 — Taken & Workflow (Kanban) | ✅ datamodel + beveiliging + bord-UI + auto-toewijzing + notificaties | `0027_tasks` + `0028_tasks_hardening` + `0029_task_assignment_rules` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (30 asserties). Bord-UI `/backoffice/taken` live: bordkiezer, kolommen + kaarten, drag/drop herordenen + kolomwissel (move_task), aanmaken/bewerken/archiveren-dialog (titel, omschrijving, prioriteit, einddatum, toewijzing). Auto-toewijzing: tenant-instelbare regels (`task_assignment_rules`) bepalen bij aanmaak de afdeling (standaardregel CBR-machtiging → Administratie), met terugval op de afdeling van het bord; beheer-UI op `/backoffice/instellingen` (afdelingen tonen + regels toevoegen/(de)activeren/verwijderen). Notificatie `task_assigned` (NL, witlabel-bewust, idempotent, degradeert als e-mail niet is geconfigureerd) wordt best-effort verstuurd bij toewijzing in create/update. Buiten scope: push/WhatsApp/SMS, AI |
 | Module 15 — AI Platform | ⬜ | — |
 | Module 16 — Multi-vestiging | ⬜ | enum-niveau niet aanwezig |
 | Module 17 — Franchise Platform | ⬜ | — |
@@ -94,9 +94,9 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 - Theorie-dashboard (leerling) + huiswerk toewijzen (instructeur).
 - AI-analyse expliciet **later** (Fase G).
 
-### Fase D — Taken & Workflow / Kanban (Module 11, canon Sprint 6)
-- Borden per afdeling, kaarten koppelbaar aan leerling/factuur/examen/les/lead/instructeur.
-- Automatische toewijzing aan afdeling (voorbeeld: CBR-machtiging → Administratie).
+### Fase D — Taken & Workflow / Kanban (Module 11, canon Sprint 6) — ✅ afgerond
+- Borden per afdeling, kaarten koppelbaar aan leerling/factuur/examen/les/lead/instructeur. ✅
+- Automatische toewijzing aan afdeling (voorbeeld: CBR-machtiging → Administratie). ✅ tenant-instelbaar via `task_assignment_rules` + beheer-UI op `/backoffice/instellingen`, met terugval op de afdeling van het bord; notificatie `task_assigned` bij toewijzing.
 
 ### Fase E — Abonnementen & feature-gating + platform admin uitbreiden
 - Enforcement van Start/Pro/Elite (white-label = Elite), feature flags, abonnementsbeheer.
