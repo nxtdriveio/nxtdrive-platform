@@ -2,3 +2,4 @@
 - [Staging Supabase pausing](staging-supabase-pausing.md) — free-tier project pauses on inactivity: DNS stops resolving + pooler says "tenant/user not found"; unpause to restore.
 - [code_execution sandbox env](code-execution-sandbox.md) — `process.env` is undefined there; probe env/reachability via bash, not the JS sandbox.
 - [App Router optimistic state](app-router-optimistic-state.md) — client useState survives refresh/revalidate; reconcile boards from props via a full-field signature effect + snapshot rollback, not router.refresh alone.
+- [Task create-then-link atomicity](task-create-then-link-atomicity.md) — entity-launcher createTask archives the new task if the follow-up link RPC fails, to avoid orphan tasks.

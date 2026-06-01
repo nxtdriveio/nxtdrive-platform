@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, X } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import {
   Card,
   CardContent,
@@ -85,6 +88,11 @@ export default async function InvoiceDetailPage({
   const invoice = invoiceRes.data as Invoice;
   const lines = (linesRes.data ?? []) as InvoiceLine[];
 
+  const taskLaunch = await loadTaskLaunchData(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+
   const { data: studentRaw } = await supabase
     .from("students")
     .select("id, full_name, email")
@@ -127,9 +135,18 @@ export default async function InvoiceDetailPage({
             · aangemaakt {dtFmt.format(new Date(invoice.created_at))}
           </p>
         </div>
-        <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
-          {DISPLAY_STATUS_LABEL[display]}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <CreateTaskFromEntityButton
+            entityType="invoice"
+            entityId={invoice.id}
+            entityLabel={`Factuur #${String(invoice.invoice_no).padStart(4, "0")}`}
+            boards={taskLaunch.boards}
+            members={taskLaunch.members}
+          />
+          <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
+            {DISPLAY_STATUS_LABEL[display]}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

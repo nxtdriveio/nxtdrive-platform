@@ -64,3 +64,43 @@ export type TenantMember = {
   id: string;
   full_name: string | null;
 };
+
+export const TASK_LINK_TYPES = [
+  "student",
+  "invoice",
+  "exam",
+  "lesson",
+  "lead",
+  "instructor",
+] as const;
+export type TaskLinkType = (typeof TASK_LINK_TYPES)[number];
+
+export const TASK_LINK_TYPE_LABEL: Record<TaskLinkType, string> = {
+  student: "Leerling",
+  invoice: "Factuur",
+  exam: "Examen",
+  lesson: "Les",
+  lead: "Lead",
+  instructor: "Instructeur",
+};
+
+export type TaskLinkRow = {
+  id: string;
+  tenant_id: string;
+  task_id: string;
+  entity_type: TaskLinkType;
+  entity_id: string;
+  created_at: string;
+};
+
+/** A task link enriched with a display label and (optional) deep-link href. */
+export type ResolvedTaskLink = {
+  id: string;
+  task_id: string;
+  entity_type: TaskLinkType;
+  entity_id: string;
+  label: string;
+  href: string | null;
+};
+
+export type EntitySearchResult = { id: string; label: string };

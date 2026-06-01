@@ -5,11 +5,14 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type {
+  ResolvedTaskLink,
   Task,
   TaskBoard,
   TaskColumn,
+  TaskLinkRow,
   TenantMember,
 } from "@/lib/tasks/types";
+import { resolveTaskLinks } from "@/lib/tasks/links";
 import { Board } from "./board";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +85,22 @@ export default async function TakenPage({
     (a.full_name ?? "").localeCompare(b.full_name ?? "", "nl"),
   );
 
+  // Linked entities for the board's cards, resolved to names + deep-links.
+  const taskIds = tasks.map((t) => t.id);
+  const { data: linkRowsRaw } = taskIds.length
+    ? await service
+        .from("task_links")
+        .select("id, tenant_id, task_id, entity_type, entity_id, created_at")
+        .eq("tenant_id", tenant.id)
+        .in("task_id", taskIds)
+    : { data: [] };
+  const linkRows = (linkRowsRaw ?? []) as TaskLinkRow[];
+  const resolvedLinks = await resolveTaskLinks(service, tenant.id, linkRows);
+  const linksByTask: Record<string, ResolvedTaskLink[]> = {};
+  for (const link of resolvedLinks) {
+    (linksByTask[link.task_id] ??= []).push(link);
+  }
+
   return (
     <div className="space-y-6">
       <Header tenantName={tenant.name} />
@@ -108,6 +127,7 @@ export default async function TakenPage({
         columns={columns}
         initialTasks={tasks}
         members={members}
+        links={linksByTask}
       />
     </div>
   );

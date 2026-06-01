@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +50,11 @@ export default async function LeadDetailPage({
     .maybeSingle();
   if (!leadRaw) notFound();
   const lead = leadRaw as Lead;
+
+  const taskLaunch = await loadTaskLaunchData(
+    createServiceRoleClient(),
+    tenant.id,
+  );
 
   const { data: eventsRaw } = await supabase
     .from("lead_events")
@@ -105,9 +113,18 @@ export default async function LeadDetailPage({
             {LEAD_SOURCE_LABEL[lead.source]}
           </p>
         </div>
-        <Badge variant={LEAD_STATUS_VARIANT[lead.status]}>
-          {LEAD_STATUS_LABEL[lead.status]}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <CreateTaskFromEntityButton
+            entityType="lead"
+            entityId={lead.id}
+            entityLabel={lead.full_name}
+            boards={taskLaunch.boards}
+            members={taskLaunch.members}
+          />
+          <Badge variant={LEAD_STATUS_VARIANT[lead.status]}>
+            {LEAD_STATUS_LABEL[lead.status]}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

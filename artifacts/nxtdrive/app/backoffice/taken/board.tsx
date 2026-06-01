@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import {
   TASK_PRIORITY_LABEL,
   TASK_PRIORITY_VARIANT,
+  type ResolvedTaskLink,
   type Task,
   type TaskColumn,
   type TenantMember,
@@ -61,11 +62,13 @@ export function Board({
   columns,
   initialTasks,
   members,
+  links,
 }: {
   boardId: string;
   columns: TaskColumn[];
   initialTasks: Task[];
   members: TenantMember[];
+  links?: Record<string, ResolvedTaskLink[]>;
 }) {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>(() =>
@@ -287,6 +290,9 @@ export function Board({
           mode={dialog.mode}
           columnId={dialog.mode === "create" ? dialog.columnId : undefined}
           task={dialog.mode === "edit" ? dialog.task : undefined}
+          links={
+            dialog.mode === "edit" ? (links?.[dialog.task.id] ?? []) : undefined
+          }
           onClose={() => setDialog(null)}
         />
       ) : null}

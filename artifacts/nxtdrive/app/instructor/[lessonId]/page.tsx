@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
@@ -163,6 +165,8 @@ export default async function InstructorLessonPage({
     ),
   );
 
+  const taskLaunch = await loadTaskLaunchData(service, tenant.id);
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem,1fr,20rem]">
       <Card className="lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-6rem)]">
@@ -266,6 +270,33 @@ export default async function InstructorLessonPage({
             studentName={student.full_name}
             items={checklist}
           />
+        ) : null}
+        {student && taskLaunch.boards.length > 0 ? (
+          <Card>
+            <CardContent className="space-y-2 pt-5">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                Taak aanmaken
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <CreateTaskFromEntityButton
+                  entityType="lesson"
+                  entityId={lesson.id}
+                  entityLabel={`${dtFmt.format(new Date(lesson.starts_at))} — ${student.full_name}`}
+                  boards={taskLaunch.boards}
+                  members={taskLaunch.members}
+                  label="Les-taak"
+                />
+                <CreateTaskFromEntityButton
+                  entityType="exam"
+                  entityId={student.id}
+                  entityLabel={student.full_name}
+                  boards={taskLaunch.boards}
+                  members={taskLaunch.members}
+                  label="Examen-taak"
+                />
+              </div>
+            </CardContent>
+          </Card>
         ) : null}
         <Card>
           <CardContent className="space-y-2 pt-5">

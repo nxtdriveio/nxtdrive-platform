@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +57,11 @@ export default async function StudentDetailPage({
     .maybeSingle();
   if (!studentRaw) notFound();
   const student = studentRaw as Student;
+
+  const taskLaunch = await loadTaskLaunchData(
+    createServiceRoleClient(),
+    tenant.id,
+  );
 
   const { data: ledgerRaw } = await supabase
     .from("credit_ledger")
@@ -113,11 +121,22 @@ export default async function StudentDetailPage({
             Leerling sinds {dtFmt.format(new Date(student.created_at))}
           </p>
         </div>
-        <Badge
-          variant={balance > 5 ? "success" : balance > 0 ? "warning" : "danger"}
-        >
-          Saldo: {balance} credits
-        </Badge>
+        <div className="flex items-center gap-2">
+          <CreateTaskFromEntityButton
+            entityType="student"
+            entityId={student.id}
+            entityLabel={student.full_name}
+            boards={taskLaunch.boards}
+            members={taskLaunch.members}
+          />
+          <Badge
+            variant={
+              balance > 5 ? "success" : balance > 0 ? "warning" : "danger"
+            }
+          >
+            Saldo: {balance} credits
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

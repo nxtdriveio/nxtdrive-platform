@@ -4,6 +4,8 @@ import { ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +57,8 @@ export default async function LessonDetailPage({
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
 
+  const taskLaunch = await loadTaskLaunchData(service, tenant.id);
+
   const { data: student } = await supabase
     .from("students")
     .select("id, full_name")
@@ -103,9 +107,18 @@ export default async function LessonDetailPage({
             {instructor?.full_name ?? "Instructeur"}
           </p>
         </div>
-        <Badge variant={LESSON_STATUS_VARIANT[lesson.status]}>
-          {LESSON_STATUS_LABEL[lesson.status]}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <CreateTaskFromEntityButton
+            entityType="lesson"
+            entityId={lesson.id}
+            entityLabel={`${dtFmt.format(startsAt)} — ${student?.full_name ?? "Leerling"}`}
+            boards={taskLaunch.boards}
+            members={taskLaunch.members}
+          />
+          <Badge variant={LESSON_STATUS_VARIANT[lesson.status]}>
+            {LESSON_STATUS_LABEL[lesson.status]}
+          </Badge>
+        </div>
       </div>
 
       {sp.error ? (
