@@ -107,11 +107,25 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   - **Nog open (verschoven naar L4):** lesregistratie-context (voertuig, locatie,
     behandelde onderdelen, theoriehuiswerk) — buiten scope van L2.
 
-### Fase L3 — Leerling- & ouder-leskaart (mobile-first)
+### Fase L3 — Leerling- & ouder-leskaart (mobile-first) ✅ (kern)
 - Per-categorie voortgang (%), examenrijpheidsmeter + fase-band, "vandaag geoefend",
   feedback per les, trend/historie, theoriehuiswerk, motiverende status.
 - Ouder: read-only, uitsluitend eigen kind.
 - **Klaar als:** leerling/ouder zien helder hun stand en ontwikkeling over tijd.
+- **Status:** Leerling-/ouder-startpagina toont nu de nieuwe skill-leskaart i.p.v. de
+  platte CBR-checklist: de L1-examenrijpheidsmeter (readiness%, 5-fasenband, advies,
+  "nog te doen"-blockers, adviserende disclaimer — identiek aan de instructeurkant via
+  dezelfde `loadStudentReadiness`-engine), per-hoofdcategorie voortgang (% afgeleid van
+  de 1–10-scores, ⌀ waar beoordeeld, kritiekmarkering), "vandaag/laatst geoefend"-overzicht
+  en een ontwikkeling-over-tijd-trend (gemiddelde per beoordeelde les). De lesdetailpagina
+  toont feedback per les: de beoordeelde vaardigheden gegroepeerd per categorie met cijfer.
+  Read-only loader: `lib/skills/student-leskaart-data.ts` (`loadStudentLeskaart` +
+  `loadStudentLessonSkills`). Componenten: `components/skills/StudentReadinessCard.tsx`,
+  `StudentCategoryProgressCard.tsx`, `StudentTrendCard.tsx`, `RecentPracticeCard.tsx`,
+  `LessonSkillFeedbackCard.tsx`. Ouder ziet exact dezelfde data, read-only en uitsluitend
+  voor het eigen gekoppelde kind — afgedwongen door bestaande RLS (`student_guardians`) +
+  `getActiveStudent`; geen scoreinvoer (instructeur-only, L2).
+  - **Nog open (verschoven naar L4):** theoriehuiswerk-weergave — buiten scope van L3.
 
 ### Fase L4 — Lesregistratie-context & theorie
 - Voertuigen & locaties beheren; behandelde onderdelen per les; theoriemodules koppelen

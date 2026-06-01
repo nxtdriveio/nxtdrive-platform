@@ -7,16 +7,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
-import { CbrReadinessCard } from "@/components/cbr/ReadinessCard";
+import { StudentReadinessCard } from "@/components/skills/StudentReadinessCard";
+import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
+import { StudentTrendCard } from "@/components/skills/StudentTrendCard";
+import { RecentPracticeCard } from "@/components/skills/RecentPracticeCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
+import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
-import {
-  buildChecklist,
-  type CbrCompetency,
-  type StudentCbrProgressRow,
-} from "@/lib/cbr/types";
 
 export const dynamic = "force-dynamic";
 
@@ -95,22 +95,10 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
 
-  const [competenciesRes, progressRes] = await Promise.all([
-    supabase
-      .from("cbr_competencies")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .eq("active", true)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("student_cbr_progress")
-      .select("*")
-      .eq("student_id", student.id),
+  const [readiness, leskaart] = await Promise.all([
+    loadStudentReadiness(supabase, tenant.id, student.id),
+    loadStudentLeskaart(supabase, tenant.id, student.id),
   ]);
-  const checklist = buildChecklist(
-    (competenciesRes.data ?? []) as CbrCompetency[],
-    (progressRes.data ?? []) as StudentCbrProgressRow[],
-  );
 
   const instructorNames = await getInstructorNames([
     ...(nextLesson ? [nextLesson.instructor_id] : []),
@@ -157,9 +145,17 @@ export default async function StudentHomePage() {
         </Card>
       )}
 
-      <StudentBalanceCard balance={balance} />
+      <StudentReadinessCard readiness={readiness} />
 
-      <CbrReadinessCard items={checklist} />
+      {leskaart.recent ? (
+        <RecentPracticeCard recent={leskaart.recent} />
+      ) : null}
+
+      <StudentCategoryProgressCard categories={leskaart.categories} />
+
+      <StudentTrendCard history={leskaart.history} />
+
+      <StudentBalanceCard balance={balance} />
 
       <Card>
         <CardContent className="space-y-3 pt-5">

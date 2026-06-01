@@ -5,8 +5,10 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { StudentProgressCard } from "@/components/student/ProgressCard";
+import { LessonSkillFeedbackCard } from "@/components/skills/LessonSkillFeedbackCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
+import { loadStudentLessonSkills } from "@/lib/skills/student-leskaart-data";
 import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,10 @@ export default async function StudentLessonDetailPage({
     .maybeSingle();
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
-  const names = await getInstructorNames([lesson.instructor_id]);
+  const [names, skillGroups] = await Promise.all([
+    getInstructorNames([lesson.instructor_id]),
+    loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
+  ]);
   const instructorName = names.get(lesson.instructor_id);
 
   return (
@@ -52,6 +57,8 @@ export default async function StudentLessonDetailPage({
       </Link>
 
       <StudentProgressCard lesson={lesson} instructorName={instructorName} />
+
+      <LessonSkillFeedbackCard groups={skillGroups} />
 
       {lesson.progress_summary == null && lesson.status === "completed" ? (
         <Card>
