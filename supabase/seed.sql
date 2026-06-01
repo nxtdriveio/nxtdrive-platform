@@ -161,3 +161,59 @@ join public.cbr_competencies c
   on c.tenant_id = demo.id
  and c.code in ('voertuigbediening', 'kijktechniek', 'bochten', 'kruispunten')
 on conflict (student_id, competency_id) do nothing;
+
+-- Demo Kanban data for the NXTDRIVE Demo Academy ---------------------------
+-- Departments/boards/columns are provisioned by migration 0027's backfill for
+-- every tenant (incl. demo-academy); here we add a couple of example cards on
+-- the Administratie board's "Te doen" column, linked to existing demo entities.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+),
+admin_board as (
+  select b.id as board_id, b.department_id
+    from public.task_boards b
+    join public.task_departments d on d.id = b.department_id
+    join demo on demo.id = b.tenant_id
+   where d.key = 'administratie'
+   order by b.sort_order
+   limit 1
+),
+todo_col as (
+  select c.id as column_id
+    from public.task_columns c
+    join admin_board ab on ab.board_id = c.board_id
+   where c.name = 'Te doen'
+   limit 1
+)
+insert into public.tasks (
+  id, tenant_id, board_id, column_id, department_id, title, description, priority, position
+)
+select v.id, demo.id, ab.board_id, tc.column_id, ab.department_id,
+       v.title, v.description, v.priority::public.task_priority, v.position
+from demo, admin_board ab, todo_col tc,
+(values
+  ('66666666-6666-4666-8666-000000000001'::uuid,
+   'Controleer CBR-machtiging leerling',
+   'Voorbeeldtaak: controleer de CBR-machtiging van een leerling.', 'high', 0),
+  ('66666666-6666-4666-8666-000000000002'::uuid,
+   'Bel nieuwe lead voor proefles',
+   'Voorbeeldtaak: neem contact op met een nieuwe lead.', 'normal', 1)
+) as v(id, title, description, priority, position)
+on conflict (id) do nothing;
+
+-- Example polymorphic links: a task to a student, a task to a lead.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.task_links (id, tenant_id, task_id, entity_type, entity_id)
+select v.id, demo.id, v.task_id, v.entity_type::public.task_link_type, v.entity_id
+from demo,
+(values
+  ('77777777-7777-4777-8777-000000000001'::uuid,
+   '66666666-6666-4666-8666-000000000001'::uuid,
+   'student', '44444444-4444-4444-8444-000000000001'::uuid),
+  ('77777777-7777-4777-8777-000000000002'::uuid,
+   '66666666-6666-4666-8666-000000000002'::uuid,
+   'lead',    '11111111-1111-4111-8111-000000000001'::uuid)
+) as v(id, task_id, entity_type, entity_id)
+on conflict (id) do nothing;
