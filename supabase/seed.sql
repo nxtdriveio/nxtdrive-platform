@@ -162,6 +162,14 @@ join public.cbr_competencies c
  and c.code in ('voertuigbediening', 'kijktechniek', 'bochten', 'kruispunten')
 on conflict (student_id, competency_id) do nothing;
 
+-- Default Leskaart skill taxonomy for the NXTDRIVE Demo Academy ------------
+-- Idempotent; mirrors _insert_default_skill_taxonomy() in 0030. New tenants
+-- get this via the tenants_provision_skill_taxonomy trigger; demo-academy is
+-- seeded explicitly here so the tree is present after a clean seed.
+select public._insert_default_skill_taxonomy(
+  (select id from public.tenants where slug = 'demo-academy')
+);
+
 -- Demo Kanban data for the NXTDRIVE Demo Academy ---------------------------
 -- Departments/boards/columns are provisioned by migration 0027's backfill for
 -- every tenant (incl. demo-academy); here we add a couple of example cards on
