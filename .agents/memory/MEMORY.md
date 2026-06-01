@@ -1,3 +1,4 @@
 - [Notification dispatch idempotency](notification-idempotency.md) — a send whose status write fails must surface (status_update_failed), never stay silently 'queued', or retries double-send.
 - [Staging Supabase pausing](staging-supabase-pausing.md) — free-tier project pauses on inactivity: DNS stops resolving + pooler says "tenant/user not found"; unpause to restore.
 - [code_execution sandbox env](code-execution-sandbox.md) — `process.env` is undefined there; probe env/reachability via bash, not the JS sandbox.
+- [App Router optimistic state](app-router-optimistic-state.md) — client useState survives refresh/revalidate; reconcile boards from props via a full-field signature effect + snapshot rollback, not router.refresh alone.

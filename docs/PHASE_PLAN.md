@@ -51,7 +51,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + 14 RLS/idempotentie-tests groen. Degradeert netjes tot SendGrid gekoppeld is |
 | Module 14 — Rapportages | 🟡 minimaal | `app/backoffice/rapportages` bestaat, beperkte diepte |
 | Module 8 — Theorie Platform | ⬜ | geen routes/migraties |
-| Module 11 — Taken & Workflow (Kanban) | 🟡 datamodel + beveiliging | `0027_tasks` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (19 asserties). UI nog niet |
+| Module 11 — Taken & Workflow (Kanban) | 🟡 datamodel + beveiliging + bord-UI | `0027_tasks` + `0028_tasks_hardening` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (23 asserties). Bord-UI `/backoffice/taken` live: bordkiezer, kolommen + kaarten, drag/drop herordenen + kolomwissel (move_task), aanmaken/bewerken/archiveren-dialog (titel, omschrijving, prioriteit, einddatum, toewijzing). Nog open: entiteitkoppelingen (#33), auto-toewijzing + notificaties (#34) |
 | Module 15 — AI Platform | ⬜ | — |
 | Module 16 — Multi-vestiging | ⬜ | enum-niveau niet aanwezig |
 | Module 17 — Franchise Platform | ⬜ | — |
