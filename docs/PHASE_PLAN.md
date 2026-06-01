@@ -82,8 +82,7 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 **Doel:** notificatiefundering live + twee flows (lesherinnering, betaling ontvangen).
 - Herstel staging Supabase / secrets (blocker).
 - `0026_notifications` toepassen; `db:test-notifications` groen.
-- E-mailprovider koppelen. **Let op canon:** canon noemt **Amazon SES**; huidige taak
-  koos SendGrid. Beslissing met gebruiker afstemmen voordat we definitief koppelen.
+- E-mailprovider koppelen: **SendGrid** (besloten — wijkt bewust af van canon's Amazon SES).
 - Resterende automatische berichten uit canon (proefles bevestiging, examen ingepland,
   theorie herinnering, reviewverzoek) als volgende iteratie.
 
@@ -119,9 +118,9 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 
 ---
 
-## Bekende canon ↔ project discrepanties (afstemmen met gebruiker)
+## Bekende canon ↔ project afwijkingen (besloten)
 
-1. **Domein:** canon zegt `nxtdrive.nl`; `replit.md` user-preference zegt `nxtdrive.io`.
-   Aangehouden: **`nxtdrive.io`** (expliciete preference) tot gebruiker anders beslist.
-2. **E-mailprovider:** canon zegt **Amazon SES**; lopende notificatietaak koos SendGrid.
-   Te beslissen vóór definitieve koppeling.
+Deze afwijkingen wijken bewust af van de canon en zijn door de gebruiker bevestigd:
+
+1. **Domein:** `nxtdrive.io` (canon noemde `nxtdrive.nl`). Besloten: **`nxtdrive.io`**.
+2. **E-mailprovider:** **SendGrid** (canon noemde Amazon SES). Besloten: **SendGrid**.
