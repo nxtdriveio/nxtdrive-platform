@@ -48,7 +48,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Module 9 — Instructeur PWA | ✅ | `app/instructor/*`, `components/instructor/*` |
 | Module 10 — Leerling PWA + ouderportaal | ✅ | `app/student/*`, `select-child`, `lib/students/active-child.ts` |
 | Module 13 — CBR (Fase 1, handmatig) | ✅ | `0022_cbr_checklist`, `components/cbr/*` |
-| Module 12 — Communicatiecentrum (email) | 🟡 **geblokkeerd** | `0026_notifications`, `lib/notifications/*`, `app/api/jobs/lesson-reminders` — code klaar + typecheck groen; migratie/test **niet uitgevoerd** (staging Supabase onbereikbaar) |
+| Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + 14 RLS/idempotentie-tests groen. Degradeert netjes tot SendGrid gekoppeld is |
 | Module 14 — Rapportages | 🟡 minimaal | `app/backoffice/rapportages` bestaat, beperkte diepte |
 | Module 8 — Theorie Platform | ⬜ | geen routes/migraties |
 | Module 11 — Taken & Workflow (Kanban) | ⬜ | geen routes/migraties |
@@ -63,13 +63,11 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | AVG/Compliance: docs + data export/verwijdering | ⬜ | — |
 | Abonnementstiers (Start/Pro/Elite) enforcement | 🟡 | enums in `0002`; nog geen gating-logica |
 
-### Actieve blocker
+### Eerdere blocker (opgelost 2026-06-01)
 
-- **Staging Supabase onbereikbaar.** `SUPABASE_URL` en `DATABASE_URL` verwijzen naar
-  projectref `fcuijikzwsaiftfwbmum`; de REST-host resolvet niet in DNS en de pooler
-  meldt `tenant/user not found`. Migratie `0026` en `db:test-notifications` kunnen niet
-  draaien tot het project hersteld is of de secrets naar een nieuw staging-project
-  wijzen. **Gebruikersactie vereist.**
+- Staging Supabase was tijdelijk gepauzeerd (DNS resolvete niet, pooler meldde
+  `tenant/user not found`). Na unpause hersteld; migratie `0026` toegepast en tests groen.
+  Let op: gratis Supabase-projecten pauzeren bij inactiviteit — zelfde symptoom kan terugkeren.
 
 ---
 
@@ -80,10 +78,11 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 
 ### Fase A — Communicatie afmaken (Module 12) 🟡 NU
 **Doel:** notificatiefundering live + twee flows (lesherinnering, betaling ontvangen).
-- Herstel staging Supabase / secrets (blocker).
-- `0026_notifications` toepassen; `db:test-notifications` groen.
-- E-mailprovider koppelen: **SendGrid** (besloten — wijkt bewust af van canon's Amazon SES).
-- Resterende automatische berichten uit canon (proefles bevestiging, examen ingepland,
+- ✅ `0026_notifications` toegepast; `db:test-notifications` groen (14 asserties).
+- ✅ Fundering: templates + log + idempotente RPC's, server-side, white-label-aware, degradeert netjes.
+- ⬜ E-mailprovider **SendGrid** koppelen (connector `not_setup`) en echte verzending bedraden.
+- ⬜ Cron-schema + `CRON_SECRET` zetten zodat lesherinnering-job draait.
+- ⬜ Resterende automatische berichten uit canon (proefles bevestiging, examen ingepland,
   theorie herinnering, reviewverzoek) als volgende iteratie.
 
 ### Fase B — Rapportages verdiepen (Module 14)

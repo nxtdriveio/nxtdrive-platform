@@ -32,4 +32,5 @@ export type DispatchOutcome =
   | "already_sent"
   | "skipped_no_recipient"
   | "enqueue_failed"
+  | "status_update_failed"
   | "not_paid";

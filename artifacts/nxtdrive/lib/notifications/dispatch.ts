@@ -77,15 +77,13 @@ async function dispatch(
   if (row.status === "sent") return { outcome: "already_sent" };
 
   if (!params.recipientEmail) {
-    await service.rpc("mark_notification_status", {
-      p_id: row.id,
-      p_tenant_id: params.tenantId,
-      p_status: "skipped",
-      p_provider: null,
-      p_provider_message_id: null,
-      p_error: "missing_recipient_email",
+    const marked = await markStatus(service, row.id, params.tenantId, {
+      status: "skipped",
+      provider: null,
+      providerMessageId: null,
+      error: "missing_recipient_email",
     });
-    return { outcome: "skipped_no_recipient" };
+    return { outcome: marked ? "skipped_no_recipient" : "status_update_failed" };
   }
 
   const result = await sendEmail({
@@ -95,27 +93,71 @@ async function dispatch(
   });
 
   if (result.ok) {
-    await service.rpc("mark_notification_status", {
-      p_id: row.id,
-      p_tenant_id: params.tenantId,
-      p_status: "sent",
-      p_provider: result.provider,
-      p_provider_message_id: result.providerMessageId,
-      p_error: null,
+    const marked = await markStatus(service, row.id, params.tenantId, {
+      status: "sent",
+      provider: result.provider,
+      providerMessageId: result.providerMessageId,
+      error: null,
     });
+    // The email WAS sent. If we could not persist 'sent', surface it loudly:
+    // the row stays 'queued', so a blind retry would re-send. Operators must
+    // reconcile rather than let the system silently double-send.
+    if (!marked) {
+      console.error(
+        "[notifications] email sent but status update failed — row left 'queued', manual reconciliation needed",
+        { id: row.id, tenantId: params.tenantId, dedupeKey: params.dedupeKey },
+      );
+      return { outcome: "status_update_failed" };
+    }
     return { outcome: "sent" };
   }
 
   const status: "skipped" | "failed" = result.skipped ? "skipped" : "failed";
-  await service.rpc("mark_notification_status", {
-    p_id: row.id,
-    p_tenant_id: params.tenantId,
-    p_status: status,
-    p_provider: result.provider,
-    p_provider_message_id: null,
-    p_error: result.error,
+  const marked = await markStatus(service, row.id, params.tenantId, {
+    status,
+    provider: result.provider,
+    providerMessageId: null,
+    error: result.error,
   });
-  return { outcome: status };
+  return { outcome: marked ? status : "status_update_failed" };
+}
+
+type MarkStatusArgs = {
+  status: "sent" | "failed" | "skipped";
+  provider: string | null;
+  providerMessageId: string | null;
+  error: string | null;
+};
+
+/**
+ * Wrapper around the mark_notification_status RPC that returns whether the
+ * status was actually persisted. Callers MUST act on a false result — a send
+ * whose status could not be recorded is an at-risk-of-duplicate state.
+ */
+async function markStatus(
+  service: SupabaseClient,
+  id: string,
+  tenantId: string,
+  args: MarkStatusArgs,
+): Promise<boolean> {
+  const { error } = await service.rpc("mark_notification_status", {
+    p_id: id,
+    p_tenant_id: tenantId,
+    p_status: args.status,
+    p_provider: args.provider,
+    p_provider_message_id: args.providerMessageId,
+    p_error: args.error,
+  });
+  if (error) {
+    console.error("[notifications] mark_notification_status failed", {
+      id,
+      tenantId,
+      status: args.status,
+      error,
+    });
+    return false;
+  }
+  return true;
 }
 
 /**
