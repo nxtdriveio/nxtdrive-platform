@@ -331,6 +331,36 @@ async function main(): Promise<void> {
       });
     }
 
+    // --- 10. new trial-lesson notification types are accepted --------------
+    // Task #61 — the CHECK constraints must permit the proefles message types.
+    for (const trialType of [
+      "trial_lesson_received",
+      "trial_lesson_confirmed",
+    ] as const) {
+      const tlKey = `${trialType}:test:${stamp}`;
+      const { data: tlEnq, error: tlErr } = await serviceClient.rpc(
+        "enqueue_notification",
+        {
+          p_tenant_id: tenantId,
+          p_channel: "email",
+          p_type: trialType,
+          p_recipient_email: "lead@example.com",
+          p_subject: "Proefles",
+          p_dedupe_key: tlKey,
+          p_related_type: "trial_lesson",
+          p_related_id: `trial-${stamp}`,
+          p_payload: { test: true },
+        },
+      );
+      const tlRow = (tlEnq as { id: string; status: string }[] | null)?.[0];
+      if (tlRow?.id) createdLogIds.push(tlRow.id);
+      results.push({
+        name: `enqueue_notification accepts '${trialType}' type`,
+        ok: !tlErr && !!tlRow && tlRow.status === "queued",
+        detail: tlErr ? tlErr.message : `status=${tlRow?.status}`,
+      });
+    }
+
     await demoMember.auth.signOut();
     await otherMember.auth.signOut();
   } finally {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { analyzeIntake } from "@/lib/leads/intake-analysis";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
+import { notifyTrialLessonReceived } from "@/lib/notifications/dispatch";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -350,7 +351,7 @@ export async function chooseTrialLesson(formData: FormData) {
     );
   }
 
-  const { error } = await service.rpc("book_trial_lesson", {
+  const { data: trialId, error } = await service.rpc("book_trial_lesson", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
     p_instructor_id: valid.instructorId,
@@ -377,6 +378,17 @@ export async function chooseTrialLesson(formData: FormData) {
   // Task #54 — provisional booking advances the funnel to trial_planned and
   // queues the "bevestig proefles" task for the instructor.
   await reconcileLeadSafe(service, tenant.id, leadId, null);
+
+  // Task #61 — acknowledge the chosen (still provisional) moment by email.
+  // Best-effort + idempotent: a failure here must never lose the booking, and
+  // it degrades gracefully when SendGrid is not yet connected.
+  if (typeof trialId === "string") {
+    try {
+      await notifyTrialLessonReceived(service, tenant.id, trialId);
+    } catch (e) {
+      console.error("[trial] notifyTrialLessonReceived failed", e);
+    }
+  }
 
   redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&booked=1`);
 }

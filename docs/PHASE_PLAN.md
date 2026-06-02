@@ -51,7 +51,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Module 9 — Instructeur PWA | ✅ | `app/instructor/*`, `components/instructor/*` |
 | Module 10 — Leerling PWA + ouderportaal | ✅ | `app/student/*`, `select-child`, `lib/students/active-child.ts` |
 | Module 13 — CBR (Fase 1, handmatig) | ✅ | `0022_cbr_checklist`, `components/cbr/*` |
-| Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + 14 RLS/idempotentie-tests groen. Degradeert netjes tot SendGrid gekoppeld is |
+| Module 12 — Communicatiecentrum (email) | ✅ fundering (SendGrid-koppeling open) | `0026_notifications` **toegepast**, `lib/notifications/*`, `app/api/jobs/lesson-reminders`; migratie + RLS/idempotentie-tests groen (16 asserties). Degradeert netjes tot SendGrid gekoppeld is. **Proefles bevestiging** (`0045_trial_lesson_notifications` **toegepast**): twee nieuwe typen `trial_lesson_received` (leerling kiest provisional moment → ontvangstbevestiging) + `trial_lesson_confirmed` (backoffice bevestigt → bevestigingsmail), white-label-bewust + idempotent per `trial_lesson`-id, degradeert netjes. Gebonden in `chooseTrialLesson` (intake) en `confirmTrialLesson` (backoffice); best-effort zodat e-mailfout nooit de boeking/bevestiging laat falen |
 | Module 14 — Rapportages | 🟡 tenant-rapportage uitgebreid (Leskaart L5) | `app/backoffice/rapportages`: activiteit (periode) + **examenrijpheid & kwaliteit** (actuele stand). `lib/reports/quality-overview.ts` aggregeert tenant-breed via dezelfde L1-engine (`computeReadiness`) zodat cijfers gelijk zijn aan instructeur/leerling: fase-bands, advies-bands, per-leerling readiness, per-instructeur voortgang (voltooide lessen, leerlingen, gem. lescijfer), KPI's (gem. examenrijpheid, examenrijp/bijna, kritieke aandachtspunten, theorie behaald, lesvoltooiing). Strikt tenant-scoped via RLS (admin+instructor lezen tenant-breed; instructeurslijst uit lessen, niet uit memberships); fail-loud loaders. Buiten scope: platformrapportage (MRR/ARR — Module 14 platform), visuele grafieken (aparte follow-up), AI (L6) |
 | Module 8 — Theorie Platform | ⬜ | geen routes/migraties |
 | Module 11 — Taken & Workflow (Kanban) | ✅ datamodel + beveiliging + bord-UI + auto-toewijzing + notificaties | `0027_tasks` + `0028_tasks_hardening` + `0029_task_assignment_rules` **toegepast**: afdelingen/borden/kolommen/taken/koppelingen, RLS, vergrendelde RPC's, backfill + seed; `db:test-rls-tasks` groen (30 asserties). Bord-UI `/backoffice/taken` live: bordkiezer, kolommen + kaarten, drag/drop herordenen + kolomwissel (move_task), aanmaken/bewerken/archiveren-dialog (titel, omschrijving, prioriteit, einddatum, toewijzing). Auto-toewijzing: tenant-instelbare regels (`task_assignment_rules`) bepalen bij aanmaak de afdeling (standaardregel CBR-machtiging → Administratie), met terugval op de afdeling van het bord; beheer-UI op `/backoffice/instellingen` (afdelingen tonen + regels toevoegen/(de)activeren/verwijderen). Notificatie `task_assigned` (NL, witlabel-bewust, idempotent, degradeert als e-mail niet is geconfigureerd) wordt best-effort verstuurd bij toewijzing in create/update. Buiten scope: push/WhatsApp/SMS, AI |
@@ -86,7 +86,10 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 - ✅ Fundering: templates + log + idempotente RPC's, server-side, white-label-aware, degradeert netjes.
 - ⬜ E-mailprovider **SendGrid** koppelen (connector `not_setup`) en echte verzending bedraden.
 - ⬜ Cron-schema + `CRON_SECRET` zetten zodat lesherinnering-job draait.
-- ⬜ Resterende automatische berichten uit canon (proefles bevestiging, examen ingepland,
+- ✅ **Proefles bevestiging** (`0045`): ontvangstbevestiging bij keuze (provisional)
+  + bevestigingsmail bij backoffice-bevestiging — white-label-bewust, idempotent,
+  degradeert netjes zonder SendGrid.
+- ⬜ Resterende automatische berichten uit canon (examen ingepland,
   theorie herinnering, reviewverzoek) als volgende iteratie.
 
 ### Fase B — Rapportages verdiepen (Module 14)

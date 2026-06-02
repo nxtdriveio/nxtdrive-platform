@@ -4,6 +4,8 @@ import {
   renderPaymentConfirmation,
   renderLessonReminder,
   renderTaskAssigned,
+  renderTrialLessonReceived,
+  renderTrialLessonConfirmed,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -338,5 +340,134 @@ export async function notifyTaskAssigned(
     email,
     fromName: branding.tenantName,
     payload: { task_id: taskId, assignee_user_id: assigneeUserId },
+  });
+}
+
+/**
+ * Load a trial lesson + its lead (recipient) for a notification. Returns null
+ * when the trial does not belong to the tenant. Tenant-scoped throughout.
+ */
+async function loadTrialForNotify(
+  service: SupabaseClient,
+  tenantId: string,
+  trialId: string,
+): Promise<{
+  leadEmail: string;
+  leadName: string;
+  startsAt: string;
+  location: string | null;
+  instructorId: string | null;
+} | null> {
+  const { data: trial } = await service
+    .from("trial_lessons")
+    .select("id, lead_id, instructor_id, starts_at, pickup_location")
+    .eq("id", trialId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!trial) return null;
+
+  const { data: lead } = await service
+    .from("leads")
+    .select("full_name, email")
+    .eq("id", trial.lead_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  return {
+    leadEmail: (lead?.email as string | null) ?? "",
+    leadName: (lead?.full_name as string | null) ?? "cursist",
+    startsAt: trial.starts_at as string,
+    location: (trial.pickup_location as string | null) ?? null,
+    instructorId: (trial.instructor_id as string | null) ?? null,
+  };
+}
+
+/**
+ * Acknowledge that a prospect picked a preferred trial-lesson moment (stored
+ * provisional). Idempotent per trial-lesson id: each new provisional pick gets a
+ * fresh row so re-picking sends a new acknowledgement, but a retried call for
+ * the same trial never double-sends. Degrades gracefully (skipped) when the lead
+ * has no email or email delivery is not configured.
+ */
+export async function notifyTrialLessonReceived(
+  service: SupabaseClient,
+  tenantId: string,
+  trialId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const trial = await loadTrialForNotify(service, tenantId, trialId);
+  if (!trial) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "trial_lesson_received");
+  const email = renderTrialLessonReceived(
+    branding,
+    {
+      leadName: trial.leadName,
+      startsAt: trial.startsAt,
+      location: trial.location,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "trial_lesson_received",
+    recipientEmail: trial.leadEmail,
+    dedupeKey: `trial_lesson_received:trial:${trialId}`,
+    relatedType: "trial_lesson",
+    relatedId: trialId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: trial.startsAt },
+  });
+}
+
+/**
+ * Confirm a trial lesson to the prospect after the backoffice confirms it.
+ * Idempotent per trial-lesson id: confirming twice (or a retried call) never
+ * double-sends. Degrades gracefully (skipped) when the lead has no email or
+ * email delivery is not configured.
+ */
+export async function notifyTrialLessonConfirmed(
+  service: SupabaseClient,
+  tenantId: string,
+  trialId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const trial = await loadTrialForNotify(service, tenantId, trialId);
+  if (!trial) return { outcome: "skipped" };
+
+  let instructorName: string | null = null;
+  if (trial.instructorId) {
+    const { data: instructor } = await service
+      .from("profiles")
+      .select("full_name")
+      .eq("id", trial.instructorId)
+      .maybeSingle();
+    instructorName = (instructor?.full_name as string | null) ?? null;
+  }
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "trial_lesson_confirmed");
+  const email = renderTrialLessonConfirmed(
+    branding,
+    {
+      leadName: trial.leadName,
+      startsAt: trial.startsAt,
+      location: trial.location,
+      instructorName,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "trial_lesson_confirmed",
+    recipientEmail: trial.leadEmail,
+    dedupeKey: `trial_lesson_confirmed:trial:${trialId}`,
+    relatedType: "trial_lesson",
+    relatedId: trialId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: trial.startsAt },
   });
 }

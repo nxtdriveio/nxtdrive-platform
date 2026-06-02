@@ -13,6 +13,7 @@ import {
   type LeadStatus,
 } from "@/lib/leads/types";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
+import { notifyTrialLessonConfirmed } from "@/lib/notifications/dispatch";
 import {
   analyzeIntake,
   intakeAttentionDedupeKey,
@@ -105,6 +106,15 @@ export async function confirmTrialLesson(formData: FormData) {
   }
 
   await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
+  // Task #61 — email the prospect that their proefles is confirmed.
+  // Best-effort + idempotent: a failure here must never fail the confirmation,
+  // and it degrades gracefully when SendGrid is not yet connected.
+  try {
+    await notifyTrialLessonConfirmed(service, tenant.id, trialId);
+  } catch (e) {
+    console.error("[trial] notifyTrialLessonConfirmed failed", e);
+  }
 
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/agenda");

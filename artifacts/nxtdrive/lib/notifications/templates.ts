@@ -193,6 +193,99 @@ export function renderTaskAssigned(
   );
 }
 
+export type TrialLessonReceivedData = {
+  leadName: string;
+  startsAt: string | Date;
+  location: string | null;
+};
+
+export function renderTrialLessonReceived(
+  branding: EmailBranding,
+  data: TrialLessonReceivedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    lead_name: data.leadName,
+    lesson_time: when,
+    location: data.location ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Voorkeurslocatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const subject = `We hebben je voorkeursmoment ontvangen`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.leadName)},</p>
+    <p>Bedankt voor je aanvraag! We hebben je voorkeursmoment voor een proefles op <strong>${escapeHtml(when)}</strong> in goede orde ontvangen.</p>
+    ${locationLine}
+    <p>Dit moment is nog niet definitief. We nemen het door en sturen je zo snel mogelijk een bevestiging.</p>`;
+  const text =
+    `Beste ${data.leadName},\n\n` +
+    `Bedankt voor je aanvraag! We hebben je voorkeursmoment voor een proefles op ${when} in goede orde ontvangen.\n` +
+    (data.location ? `Voorkeurslocatie: ${data.location}\n` : "") +
+    `\nDit moment is nog niet definitief. We nemen het door en sturen je zo snel mogelijk een bevestiging.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type TrialLessonConfirmedData = {
+  leadName: string;
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+export function renderTrialLessonConfirmed(
+  branding: EmailBranding,
+  data: TrialLessonConfirmedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    lead_name: data.leadName,
+    lesson_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Je proefles is bevestigd — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.leadName)},</p>
+    <p>Goed nieuws! Je proefles is bevestigd op <strong>${escapeHtml(when)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>Tot dan! Kun je niet komen? Neem dan tijdig contact met ons op.</p>`;
+  const text =
+    `Beste ${data.leadName},\n\n` +
+    `Goed nieuws! Je proefles is bevestigd op ${when}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nTot dan! Kun je niet komen? Neem dan tijdig contact met ons op.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;
