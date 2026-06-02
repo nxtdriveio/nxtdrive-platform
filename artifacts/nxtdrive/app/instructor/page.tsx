@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import type { Lesson } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
+import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,14 @@ export default async function InstructorIndexPage() {
     lessons.find((l) => l.status === "planned") ?? lessons[0] ?? null;
   if (target) redirect(`/instructor/${target.id}`);
 
+  // No lessons today, but there may still be trial lessons (proeflessen) to show.
+  const trials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: dayStart,
+    to: dayEnd,
+    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+  });
+
   // Empty state — no lessons today.
   const studentIds = Array.from(new Set(lessons.map((l) => l.student_id)));
   const { data: studentsRaw } = studentIds.length
@@ -75,10 +84,14 @@ export default async function InstructorIndexPage() {
           <InstructorDayList
             lessons={lessons}
             studentNames={studentNames}
+            trialLessons={trials}
             date={today}
           />
           <div className="border-t border-border pt-4 text-sm text-muted-foreground">
-            Geen lessen voor vandaag. Bekijk de{" "}
+            {trials.length > 0
+              ? "Geen reguliere lessen vandaag, wel een of meer proeflessen. "
+              : "Geen lessen voor vandaag. "}
+            Bekijk de{" "}
             <Link
               href="/instructor/week"
               className="text-primary hover:underline"

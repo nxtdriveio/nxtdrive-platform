@@ -25,6 +25,7 @@ import {
   type LessonNote,
 } from "@/lib/lessons/types";
 import type { Student, StudentBalance } from "@/lib/students/types";
+import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 
@@ -94,6 +95,15 @@ export default async function InstructorLessonPage({
   if (!isAdmin) dayQuery = dayQuery.eq("instructor_id", user.id);
   const { data: dayLessonsRaw } = await dayQuery;
   const dayLessons = (dayLessonsRaw ?? []) as Lesson[];
+
+  // Trial lessons (proeflessen) on the same day, so the day list shows the full
+  // picture and the instructor cannot double-book over a provisional/confirmed one.
+  const dayTrials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: dayStart,
+    to: dayEnd,
+    instructorId: isAdmin ? undefined : user.id,
+  });
 
   const studentIds = Array.from(
     new Set([lesson.student_id, ...dayLessons.map((l) => l.student_id)]),
@@ -180,6 +190,7 @@ export default async function InstructorLessonPage({
           <InstructorDayList
             lessons={dayLessons}
             studentNames={studentNames}
+            trialLessons={dayTrials}
             selectedId={lesson.id}
             date={anchor}
           />

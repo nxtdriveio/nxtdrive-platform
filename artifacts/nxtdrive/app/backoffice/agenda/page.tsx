@@ -12,6 +12,11 @@ import {
   type Lesson,
 } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
+import {
+  loadAgendaTrialLessons,
+  type AgendaTrialLesson,
+} from "@/lib/trial-lessons/agenda";
+import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +66,12 @@ export default async function AgendaPage({
     .order("starts_at", { ascending: true });
   const lessons = (lessonsRaw ?? []) as Lesson[];
 
+  const trials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: weekStart,
+    to: weekEnd,
+  });
+
   // Pull display names for students (RLS-scoped to this tenant).
   const studentIds = Array.from(new Set(lessons.map((l) => l.student_id)));
   const { data: studentsRaw } = studentIds.length
@@ -78,7 +89,12 @@ export default async function AgendaPage({
 
   // Instructor names need elevated visibility (auth.users). Service-role read
   // is fine here — page is admin/instructor-only anyway.
-  const instructorIds = Array.from(new Set(lessons.map((l) => l.instructor_id)));
+  const instructorIds = Array.from(
+    new Set([
+      ...lessons.map((l) => l.instructor_id),
+      ...trials.map((t) => t.instructor_id),
+    ]),
+  );
   const service = createServiceRoleClient();
   const { data: instructorsRaw } = instructorIds.length
     ? await service
@@ -91,19 +107,35 @@ export default async function AgendaPage({
       .map((p) => [p.id, p.full_name ?? "Instructeur"]),
   );
 
-  // Group lessons by day.
-  const days: { date: Date; lessons: Lesson[] }[] = [];
+  // Group lessons and trial lessons by day, interleaved and sorted by time so
+  // a provisional/confirmed proefles shows in the right slot among the lessons.
+  type AgendaItem =
+    | { kind: "lesson"; starts_at: string; lesson: Lesson }
+    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson };
+
+  const days: { date: Date; items: AgendaItem[] }[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
-    days.push({ date: d, lessons: [] });
+    days.push({ date: d, items: [] });
   }
-  for (const l of lessons) {
-    const idx = Math.floor(
-      (new Date(l.starts_at).getTime() - weekStart.getTime()) /
+  const dayIndex = (startsAt: string) =>
+    Math.floor(
+      (new Date(startsAt).getTime() - weekStart.getTime()) /
         (1000 * 60 * 60 * 24),
     );
-    if (idx >= 0 && idx < 7) days[idx]!.lessons.push(l);
+  for (const l of lessons) {
+    const idx = dayIndex(l.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({ kind: "lesson", starts_at: l.starts_at, lesson: l });
+  }
+  for (const t of trials) {
+    const idx = dayIndex(t.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({ kind: "trial", starts_at: t.starts_at, trial: t });
+  }
+  for (const day of days) {
+    day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
   return (
@@ -154,33 +186,48 @@ export default async function AgendaPage({
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {dayFmt.format(day.date)}
             </div>
-            {day.lessons.length === 0 ? (
+            {day.items.length === 0 ? (
               <div className="text-xs text-muted-foreground">—</div>
             ) : (
               <ul className="space-y-2">
-                {day.lessons.map((l) => (
-                  <li key={l.id}>
-                    <Link
-                      href={`/backoffice/agenda/${l.id}`}
-                      className="block rounded-md border border-border bg-card px-2 py-1.5 text-xs hover:border-primary"
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-medium text-foreground">
-                          {timeFmt.format(new Date(l.starts_at))}
-                        </span>
-                        <Badge variant={LESSON_STATUS_VARIANT[l.status]}>
-                          {LESSON_STATUS_LABEL[l.status]}
-                        </Badge>
-                      </div>
-                      <div className="mt-1 truncate text-muted-foreground">
-                        {studentMap.get(l.student_id) ?? "Leerling"}
-                      </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {instructorMap.get(l.instructor_id) ?? "Instructeur"}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
+                {day.items.map((item) =>
+                  item.kind === "lesson" ? (
+                    <li key={`lesson-${item.lesson.id}`}>
+                      <Link
+                        href={`/backoffice/agenda/${item.lesson.id}`}
+                        className="block rounded-md border border-border bg-card px-2 py-1.5 text-xs hover:border-primary"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium text-foreground">
+                            {timeFmt.format(new Date(item.lesson.starts_at))}
+                          </span>
+                          <Badge variant={LESSON_STATUS_VARIANT[item.lesson.status]}>
+                            {LESSON_STATUS_LABEL[item.lesson.status]}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 truncate text-muted-foreground">
+                          {studentMap.get(item.lesson.student_id) ?? "Leerling"}
+                        </div>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {instructorMap.get(item.lesson.instructor_id) ??
+                            "Instructeur"}
+                        </div>
+                      </Link>
+                    </li>
+                  ) : (
+                    <li key={`trial-${item.trial.id}`}>
+                      <TrialLessonCard
+                        leadId={item.trial.lead_id}
+                        leadName={item.trial.lead_name}
+                        startsAt={item.trial.starts_at}
+                        status={item.trial.status}
+                        instructorName={instructorMap.get(
+                          item.trial.instructor_id,
+                        )}
+                      />
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </Card>

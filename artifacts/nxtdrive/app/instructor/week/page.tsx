@@ -11,6 +11,11 @@ import {
   type Lesson,
 } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
+import {
+  loadAgendaTrialLessons,
+  type AgendaTrialLesson,
+} from "@/lib/trial-lessons/agenda";
+import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +72,13 @@ export default async function InstructorWeekPage({
   const { data: lessonsRaw } = await query;
   const lessons = (lessonsRaw ?? []) as Lesson[];
 
+  const trials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: weekStart,
+    to: weekEnd,
+    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+  });
+
   const studentIds = Array.from(new Set(lessons.map((l) => l.student_id)));
   const { data: studentsRaw } = studentIds.length
     ? await supabase
@@ -81,18 +93,34 @@ export default async function InstructorWeekPage({
     ]),
   );
 
-  const days: { date: Date; lessons: Lesson[] }[] = [];
+  // Interleave lessons and active trial lessons per day, sorted by start time.
+  type AgendaItem =
+    | { kind: "lesson"; starts_at: string; lesson: Lesson }
+    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson };
+
+  const days: { date: Date; items: AgendaItem[] }[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
-    days.push({ date: d, lessons: [] });
+    days.push({ date: d, items: [] });
   }
-  for (const l of lessons) {
-    const idx = Math.floor(
-      (new Date(l.starts_at).getTime() - weekStart.getTime()) /
+  const dayIndex = (startsAt: string) =>
+    Math.floor(
+      (new Date(startsAt).getTime() - weekStart.getTime()) /
         (1000 * 60 * 60 * 24),
     );
-    if (idx >= 0 && idx < 7) days[idx]!.lessons.push(l);
+  for (const l of lessons) {
+    const idx = dayIndex(l.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({ kind: "lesson", starts_at: l.starts_at, lesson: l });
+  }
+  for (const t of trials) {
+    const idx = dayIndex(t.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({ kind: "trial", starts_at: t.starts_at, trial: t });
+  }
+  for (const day of days) {
+    day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
   return (
@@ -145,30 +173,44 @@ export default async function InstructorWeekPage({
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {dayFmt.format(day.date)}
               </div>
-              {day.lessons.length === 0 ? (
+              {day.items.length === 0 ? (
                 <div className="text-xs text-muted-foreground">—</div>
               ) : (
                 <ul className="space-y-1.5">
-                  {day.lessons.map((l) => (
-                    <li key={l.id}>
-                      <Link
-                        href={`/instructor/${l.id}`}
-                        className="block rounded-md border border-border bg-card px-2 py-1.5 text-xs hover:border-primary"
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-medium text-foreground">
-                            {timeFmt.format(new Date(l.starts_at))}
-                          </span>
-                          <Badge variant={LESSON_STATUS_VARIANT[l.status]}>
-                            {LESSON_STATUS_LABEL[l.status]}
-                          </Badge>
-                        </div>
-                        <div className="mt-1 truncate text-muted-foreground">
-                          {studentNames.get(l.student_id) ?? "Leerling"}
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
+                  {day.items.map((item) =>
+                    item.kind === "lesson" ? (
+                      <li key={`lesson-${item.lesson.id}`}>
+                        <Link
+                          href={`/instructor/${item.lesson.id}`}
+                          className="block rounded-md border border-border bg-card px-2 py-1.5 text-xs hover:border-primary"
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-medium text-foreground">
+                              {timeFmt.format(new Date(item.lesson.starts_at))}
+                            </span>
+                            <Badge
+                              variant={LESSON_STATUS_VARIANT[item.lesson.status]}
+                            >
+                              {LESSON_STATUS_LABEL[item.lesson.status]}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 truncate text-muted-foreground">
+                            {studentNames.get(item.lesson.student_id) ??
+                              "Leerling"}
+                          </div>
+                        </Link>
+                      </li>
+                    ) : (
+                      <li key={`trial-${item.trial.id}`}>
+                        <TrialLessonCard
+                          leadId={item.trial.lead_id}
+                          leadName={item.trial.lead_name}
+                          startsAt={item.trial.starts_at}
+                          status={item.trial.status}
+                        />
+                      </li>
+                    ),
+                  )}
                 </ul>
               )}
             </CardContent>
