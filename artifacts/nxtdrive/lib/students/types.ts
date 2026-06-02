@@ -28,6 +28,8 @@ export type Student = {
   postcode: string | null;
   notes: string | null;
   preferred_dayparts: string[] | null;
+  refill_opt_in: boolean;
+  refill_preferred_dayparts: string[];
   active: boolean;
   created_at: string;
   updated_at: string;

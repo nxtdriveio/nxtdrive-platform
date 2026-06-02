@@ -21,6 +21,8 @@ import { LeadScorePolicyManager } from "./lead-score-policy-manager";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { CancellationPolicyManager } from "./cancellation-policy-manager";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
+import { RefillPolicyManager } from "./refill-policy-manager";
+import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +63,7 @@ export default async function SettingsPage({
 
   const leadScorePolicy = await loadLeadScorePolicy(service, tenant.id);
   const cancellationPolicy = await loadCancellationPolicy(service, tenant.id);
+  const refillPolicy = await loadRefillPolicy(service, tenant.id);
 
   return (
     <div className="space-y-6">
@@ -202,6 +205,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <CancellationPolicyManager policy={cancellationPolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Herbezet-uitnodigingen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RefillPolicyManager policy={refillPolicy} />
         </CardContent>
       </Card>
     </div>

@@ -286,6 +286,114 @@ export function renderTrialLessonConfirmed(
   );
 }
 
+export type LessonRefillInvitationData = {
+  studentName: string;
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+  expiresAt: string | Date | null;
+};
+
+export function renderLessonRefillInvitation(
+  branding: EmailBranding,
+  data: LessonRefillInvitationData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const expires = data.expiresAt ? formatDateTimeNl(data.expiresAt) : "";
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    lesson_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+    expires_at: expires,
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const expiresLine = expires
+    ? `<p style="color:#475569">Reageer vóór <strong>${escapeHtml(expires)}</strong> — daarna vervalt de uitnodiging.</p>`
+    : "";
+  const subject = `Er is een lesmoment vrijgekomen — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Er is onverwacht een lesmoment vrijgekomen op <strong>${escapeHtml(when)}</strong>. Omdat je hebt aangegeven beschikbaar te zijn voor extra lessen, bieden we het jou als eerste aan.</p>
+    ${locationLine}
+    ${instructorLine}
+    ${expiresLine}
+    <p>Log in op je leerlingomgeving om de les te <strong>bevestigen</strong> of <strong>af te wijzen</strong>. Bij bevestiging wordt de les direct ingepland en je tegoed verrekend.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Er is onverwacht een lesmoment vrijgekomen op ${when}. Omdat je hebt aangegeven beschikbaar te zijn voor extra lessen, bieden we het jou als eerste aan.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    (expires ? `\nReageer vóór ${expires} — daarna vervalt de uitnodiging.\n` : "") +
+    `\nLog in op je leerlingomgeving om de les te bevestigen of af te wijzen. Bij bevestiging wordt de les direct ingepland en je tegoed verrekend.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type LessonRefillConfirmedData = {
+  studentName: string;
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+export function renderLessonRefillConfirmed(
+  branding: EmailBranding,
+  data: LessonRefillConfirmedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    lesson_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Je extra les is ingepland — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Top! Je extra les is bevestigd en ingepland op <strong>${escapeHtml(when)}</strong>. Je tegoed is hiervoor verrekend.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>Tot dan! Kun je toch niet komen? Neem dan tijdig contact met ons op.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Top! Je extra les is bevestigd en ingepland op ${when}. Je tegoed is hiervoor verrekend.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nTot dan! Kun je toch niet komen? Neem dan tijdig contact met ons op.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;

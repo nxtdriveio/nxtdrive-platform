@@ -99,6 +99,10 @@ export type CandidateInput = {
   fullName: string;
   balanceMin: number;
   preferredDayparts: string[]; // may be empty
+  // Task #93 — student explicitly opted in to be invited for freed time, with
+  // optional preferred moments (dayparts) specific to the wachtlijst.
+  refillOptIn: boolean;
+  refillPreferredDayparts: string[]; // may be empty
   // Days until the student's next upcoming exam, or null when none scheduled.
   examInDays: number | null;
   // Number of recently cancelled lessons within the policy window.
@@ -197,6 +201,23 @@ export function scoreCandidateBase(
       points: policy.ample_credit_points,
       label: "Veel openstaand tegoed",
     });
+  }
+
+  // Task #93 — explicit wachtlijst opt-in. A student who asked to be invited for
+  // freed time ranks higher; a matching preferred moment adds a further bonus.
+  if (c.refillOptIn) {
+    factors.push({
+      key: "refill_opt_in",
+      points: policy.refill_opt_in_points,
+      label: "Beschikbaar voor extra lessen",
+    });
+    if (slotMatchesDayparts(slot.startMs, c.refillPreferredDayparts)) {
+      factors.push({
+        key: "refill_preferred_moment",
+        points: policy.refill_preferred_moment_points,
+        label: "Voorkeursmoment voor extra lessen",
+      });
+    }
   }
 
   const score = factors.reduce((sum, f) => sum + f.points, 0);
@@ -565,13 +586,17 @@ export async function suggestStudentsForSlot(
   // --- Active students + balances ----------------------------------------
   const { data: studentsRaw } = await client
     .from("students")
-    .select("id, full_name, preferred_dayparts")
+    .select(
+      "id, full_name, preferred_dayparts, refill_opt_in, refill_preferred_dayparts",
+    )
     .eq("tenant_id", tenantId)
     .eq("active", true);
   const students = (studentsRaw ?? []) as {
     id: string;
     full_name: string;
     preferred_dayparts: string[] | null;
+    refill_opt_in: boolean | null;
+    refill_preferred_dayparts: string[] | null;
   }[];
   if (students.length === 0) return [];
   const studentIds = students.map((s) => s.id);
@@ -695,11 +720,16 @@ export async function suggestStudentsForSlot(
     if (!eligible) continue;
 
     const last = lastLessonAt.get(s.id) ?? null;
+    const refillPreferredDayparts = (s.refill_preferred_dayparts ?? []).filter(
+      (x): x is string => typeof x === "string",
+    );
     const input: CandidateInput = {
       studentId: s.id,
       fullName: s.full_name,
       balanceMin,
       preferredDayparts,
+      refillOptIn: s.refill_opt_in === true,
+      refillPreferredDayparts,
       examInDays: examInDays.get(s.id) ?? null,
       recentCancellations: recentCancellations.get(s.id) ?? 0,
       daysSinceLastLesson:
@@ -786,6 +816,7 @@ export async function suggestStudentsForSlot(
       student_id: p.input.studentId,
       full_name: p.input.fullName,
       balance_min: p.input.balanceMin,
+      refill_opt_in: p.input.refillOptIn,
       score: p.baseScore + route.scoreDelta,
       factors,
       reason: reasonFromFactors(factors),

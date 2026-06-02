@@ -30,6 +30,10 @@ export type CandidateScoreFactor = {
     | "recent_cancellation"
     | "idle_with_credit"
     | "ample_credit"
+    // Refill opt-in factors — Task #93. A student who explicitly opted in to be
+    // invited for freed time ranks higher; a matching preferred moment adds more.
+    | "refill_opt_in"
+    | "refill_preferred_moment"
     // Lead (trial-lesson) factors — Task #92, used when ranking trial-wanting
     // leads for a freed slot alongside existing students.
     | "lead_preferred_day"
@@ -67,6 +71,10 @@ export type StudentCandidate = {
   student_id: string;
   full_name: string;
   balance_min: number;
+  // Whether this student opted in to refill (wachtlijst) invitations. The invite
+  // RPC enforces opt-in at the DB level, so the UI only offers "Uitnodigen" for
+  // opted-in candidates; non-opted-in students still appear (advisory "Plan in").
+  refill_opt_in: boolean;
   score: number;
   factors: CandidateScoreFactor[];
   reason: string;

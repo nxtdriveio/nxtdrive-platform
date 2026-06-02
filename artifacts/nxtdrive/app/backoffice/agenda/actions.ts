@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
+import { notifyLessonRefillInvitation } from "@/lib/notifications/dispatch";
 
 export async function scheduleLesson(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -87,6 +89,117 @@ export async function completeLesson(formData: FormData) {
   revalidatePath("/backoffice/agenda");
   revalidatePath(`/backoffice/agenda/${lessonId}`);
   redirect(`/backoffice/agenda/${lessonId}`);
+}
+
+export type RefillActionResult = { ok: boolean; error?: string };
+
+/**
+ * Invite a single opted-in student to a freed slot (wachtlijst). Staff-only.
+ * Loads the tenant's refill policy and forwards enabled / validity / max-
+ * concurrent to the locked create RPC, which re-validates the slot is free,
+ * enforces the rules and prevents duplicate pendings. On success the student is
+ * notified by email (degrades gracefully). Nothing is booked here — the student
+ * confirms in their PWA.
+ */
+export async function inviteStudentToSlot(
+  formData: FormData,
+): Promise<RefillActionResult> {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  const instructorId = String(formData.get("instructor_id") ?? "").trim();
+  const startsAt = String(formData.get("starts_at") ?? "").trim();
+  const duration = parseInt(String(formData.get("duration_min") ?? "0"), 10);
+  const sourceLessonId =
+    String(formData.get("source_lesson_id") ?? "").trim() || null;
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const scoreRaw = parseInt(String(formData.get("score") ?? "0"), 10);
+  const score = Number.isFinite(scoreRaw) ? scoreRaw : 0;
+
+  if (!studentId || !instructorId || !startsAt) {
+    return { ok: false, error: "Ontbrekende gegevens voor de uitnodiging." };
+  }
+  if (!Number.isFinite(duration) || duration < 15) {
+    return { ok: false, error: "Ongeldige lesduur." };
+  }
+  const startsDate = new Date(startsAt);
+  if (Number.isNaN(startsDate.getTime())) {
+    return { ok: false, error: "Ongeldig tijdstip." };
+  }
+
+  const service = createServiceRoleClient();
+  const policy = await loadRefillPolicy(service, tenant.id);
+  if (!policy.enabled) {
+    return {
+      ok: false,
+      error: "Herbezet-uitnodigingen staan uit in de instellingen.",
+    };
+  }
+
+  const { data: invitationId, error } = await service.rpc(
+    "create_lesson_refill_invitation",
+    {
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_student_id: studentId,
+      p_instructor_id: instructorId,
+      p_starts_at: startsDate.toISOString(),
+      p_duration_min: duration,
+      p_enabled: policy.enabled,
+      p_valid_minutes: policy.valid_minutes,
+      p_max_candidates: policy.max_candidates,
+      p_location: location || null,
+      p_source_lesson_id: sourceLessonId,
+      p_score: score,
+      p_reason: reason || null,
+    },
+  );
+  if (error || !invitationId) {
+    return { ok: false, error: error?.message ?? "Uitnodigen mislukt." };
+  }
+
+  await notifyLessonRefillInvitation(
+    service,
+    tenant.id,
+    invitationId as string,
+  );
+
+  revalidatePath("/backoffice/agenda");
+  if (sourceLessonId) revalidatePath(`/backoffice/agenda/${sourceLessonId}`);
+  return { ok: true };
+}
+
+/**
+ * Cancel an open refill invitation (staff-only). The locked cancel RPC marks it
+ * cancelled and writes the audit row, freeing the slot to be offered again.
+ */
+export async function cancelRefillInvitation(
+  formData: FormData,
+): Promise<RefillActionResult> {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const invitationId = String(formData.get("invitation_id") ?? "").trim();
+  const sourceLessonId =
+    String(formData.get("source_lesson_id") ?? "").trim() || null;
+  if (!invitationId) return { ok: false, error: "Uitnodiging ontbreekt." };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("cancel_lesson_refill_invitation", {
+    p_invitation_id: invitationId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/agenda");
+  if (sourceLessonId) revalidatePath(`/backoffice/agenda/${sourceLessonId}`);
+  return { ok: true };
 }
 
 export async function cancelLesson(formData: FormData) {

@@ -3,7 +3,9 @@ export type NotificationType =
   | "lesson_reminder"
   | "task_assigned"
   | "trial_lesson_received"
-  | "trial_lesson_confirmed";
+  | "trial_lesson_confirmed"
+  | "lesson_refill_invitation"
+  | "lesson_refill_confirmed";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

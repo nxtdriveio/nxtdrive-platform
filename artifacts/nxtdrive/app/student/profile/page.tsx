@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getActiveStudent } from "@/lib/students/access";
+import { RefillOptInForm } from "@/components/student/refill-optin-form";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,14 @@ export default async function StudentProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      {student ? (
+        <RefillOptInForm
+          studentId={student.id}
+          optIn={student.refill_opt_in}
+          preferredDayparts={student.refill_preferred_dayparts ?? []}
+        />
+      ) : null}
 
       {isParent && otherChildren.length > 0 ? (
         <Card>

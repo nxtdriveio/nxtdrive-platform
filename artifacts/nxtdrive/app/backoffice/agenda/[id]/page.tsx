@@ -264,6 +264,7 @@ export default async function LessonDetailPage({
           startsAt={lesson.starts_at}
           durationMin={durationMin}
           excludeAppointmentId={lesson.id}
+          sourceLessonId={lesson.id}
         />
       ) : null}
     </div>

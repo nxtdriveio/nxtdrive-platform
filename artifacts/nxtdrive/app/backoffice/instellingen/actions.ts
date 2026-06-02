@@ -15,6 +15,10 @@ import {
   CANCELLATION_POLICY_KEY,
   mergeCancellationPolicy,
 } from "@/lib/lessons/cancellation-policy";
+import {
+  LESSON_REFILL_POLICY_KEY,
+  mergeRefillPolicy,
+} from "@/lib/lesson-refill/policy";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -364,5 +368,63 @@ export async function resetLeadScorePolicy(): Promise<PolicyActionResult> {
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/backoffice/leads");
+  return { ok: true };
+}
+
+// --- Herbezet-uitnodigingen / wachtlijst (Task #93) ------------------------
+// Tenant-configurable rules for the refill invitation flow. The create RPC reads
+// these from tenant_settings key `lesson_refill_policy`. We pass the raw form
+// values through mergeRefillPolicy so the stored JSON is always sanitised:
+// enabled coerced to boolean, valid_minutes and max_candidates clamped to a sane
+// range. Service-role write — tenant_id always from the authenticated membership.
+
+export async function saveRefillPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const enabledRaw = formData.get("enabled");
+  const enabled = enabledRaw === "true" || enabledRaw === "on";
+
+  const policy = mergeRefillPolicy({
+    enabled,
+    valid_minutes: parseOptionalNumber(formData.get("valid_minutes")),
+    max_candidates: parseOptionalNumber(formData.get("max_candidates")),
+  });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: LESSON_REFILL_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/agenda");
+  return { ok: true };
+}
+
+export async function resetRefillPolicy(): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeRefillPolicy(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: LESSON_REFILL_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/agenda");
   return { ok: true };
 }

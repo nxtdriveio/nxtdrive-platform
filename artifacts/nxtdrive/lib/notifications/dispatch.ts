@@ -6,6 +6,8 @@ import {
   renderTaskAssigned,
   renderTrialLessonReceived,
   renderTrialLessonConfirmed,
+  renderLessonRefillInvitation,
+  renderLessonRefillConfirmed,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -469,5 +471,145 @@ export async function notifyTrialLessonConfirmed(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: trial.startsAt },
+  });
+}
+
+/**
+ * Load a refill invitation + its student (recipient) for a notification.
+ * Returns null when the invitation does not belong to the tenant. Tenant-scoped
+ * throughout.
+ */
+async function loadRefillInvitationForNotify(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{
+  studentEmail: string;
+  studentName: string;
+  startsAt: string;
+  location: string | null;
+  instructorId: string | null;
+  expiresAt: string | null;
+} | null> {
+  const { data: inv } = await service
+    .from("lesson_refill_invitations")
+    .select(
+      "id, student_id, instructor_id, starts_at, location, expires_at",
+    )
+    .eq("id", invitationId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!inv) return null;
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", inv.student_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  return {
+    studentEmail: (student?.email as string | null) ?? "",
+    studentName: (student?.full_name as string | null) ?? "cursist",
+    startsAt: inv.starts_at as string,
+    location: (inv.location as string | null) ?? null,
+    instructorId: (inv.instructor_id as string | null) ?? null,
+    expiresAt: (inv.expires_at as string | null) ?? null,
+  };
+}
+
+async function instructorNameFor(
+  service: SupabaseClient,
+  instructorId: string | null,
+): Promise<string | null> {
+  if (!instructorId) return null;
+  const { data: instructor } = await service
+    .from("profiles")
+    .select("full_name")
+    .eq("id", instructorId)
+    .maybeSingle();
+  return (instructor?.full_name as string | null) ?? null;
+}
+
+/**
+ * Invite a student to a freed lesson moment (wachtlijst). Idempotent per
+ * invitation id: re-sending for the same invitation never double-sends.
+ * Degrades gracefully (skipped) when the student has no email or email delivery
+ * is not configured.
+ */
+export async function notifyLessonRefillInvitation(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const inv = await loadRefillInvitationForNotify(service, tenantId, invitationId);
+  if (!inv) return { outcome: "skipped" };
+
+  const instructorName = await instructorNameFor(service, inv.instructorId);
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "lesson_refill_invitation");
+  const email = renderLessonRefillInvitation(
+    branding,
+    {
+      studentName: inv.studentName,
+      startsAt: inv.startsAt,
+      location: inv.location,
+      instructorName,
+      expiresAt: inv.expiresAt,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "lesson_refill_invitation",
+    recipientEmail: inv.studentEmail,
+    dedupeKey: `lesson_refill_invitation:invitation:${invitationId}`,
+    relatedType: "lesson_refill_invitation",
+    relatedId: invitationId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: inv.startsAt },
+  });
+}
+
+/**
+ * Confirm a booked extra lesson to the student after they accepted the
+ * invitation. Idempotent per invitation id: confirming twice (or a retried
+ * call) never double-sends. Degrades gracefully (skipped) when the student has
+ * no email or email delivery is not configured.
+ */
+export async function notifyLessonRefillConfirmed(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const inv = await loadRefillInvitationForNotify(service, tenantId, invitationId);
+  if (!inv) return { outcome: "skipped" };
+
+  const instructorName = await instructorNameFor(service, inv.instructorId);
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "lesson_refill_confirmed");
+  const email = renderLessonRefillConfirmed(
+    branding,
+    {
+      studentName: inv.studentName,
+      startsAt: inv.startsAt,
+      location: inv.location,
+      instructorName,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "lesson_refill_confirmed",
+    recipientEmail: inv.studentEmail,
+    dedupeKey: `lesson_refill_confirmed:invitation:${invitationId}`,
+    relatedType: "lesson_refill_invitation",
+    relatedId: invitationId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: inv.startsAt },
   });
 }

@@ -50,6 +50,12 @@ export type LessonPlanPolicy = {
   // How many top base-scored candidates get route-refined (bounds Google calls).
   route_max_candidates: number;
 
+  // --- Refill opt-in weights — Task #93 ----------------------------------
+  // Student explicitly opted in to be invited when time frees up (wachtlijst).
+  refill_opt_in_points: number;
+  // Slot daypart matches one of the student's refill preferred moments.
+  refill_preferred_moment_points: number;
+
   // --- Lead (trial-lesson) weights — Task #92 ----------------------------
   // Scoring weights for ranking trial-wanting LEADS for a freed slot. These
   // mirror the student weights but for the intake profile of an open lead.
@@ -87,6 +93,8 @@ export const DEFAULT_LESSON_PLAN_POLICY: LessonPlanPolicy = {
   idle_days: 10,
   ample_credit_points: 10,
   ample_credit_min: 600, // 10 uur tegoed
+  refill_opt_in_points: 25,
+  refill_preferred_moment_points: 10,
   route_near_km: 3,
   route_near_points: 15,
   route_fits_points: 25,
@@ -127,6 +135,8 @@ const POINT_KEYS = [
   "recent_cancellation_points",
   "idle_with_credit_points",
   "ample_credit_points",
+  "refill_opt_in_points",
+  "refill_preferred_moment_points",
   "route_near_points",
   "route_fits_points",
   "route_detour_points",

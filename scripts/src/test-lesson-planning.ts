@@ -69,6 +69,8 @@ function baseInput(over: Partial<CandidateInput> = {}): CandidateInput {
     fullName: "Test Leerling",
     balanceMin: 600,
     preferredDayparts: [],
+    refillOptIn: false,
+    refillPreferredDayparts: [],
     examInDays: null,
     recentCancellations: 0,
     daysSinceLastLesson: 30,
@@ -297,6 +299,94 @@ check(
   check(
     "score: ample credit factor",
     hasFactor(ample.factors, "ample_credit"),
+  );
+
+  // Task #93 — wachtlijst opt-in boosts the herbezet score.
+  const optedIn = scoreCandidateBase(
+    baseInput({
+      refillOptIn: true,
+      refillPreferredDayparts: [],
+      hasUpcomingLesson: true,
+      balanceMin: 60,
+      daysSinceLastLesson: 0,
+    }),
+    slot,
+    policy,
+  );
+  check(
+    "score: refill opt-in → refill_opt_in factor",
+    hasFactor(optedIn.factors, "refill_opt_in") &&
+      !hasFactor(optedIn.factors, "refill_preferred_moment") &&
+      optedIn.score === policy.refill_opt_in_points,
+    `score=${optedIn.score}`,
+  );
+
+  // Opt-in PLUS a matching preferred moment adds a further bonus.
+  const optedInMoment = scoreCandidateBase(
+    baseInput({
+      refillOptIn: true,
+      refillPreferredDayparts: ["morning"],
+      hasUpcomingLesson: true,
+      balanceMin: 60,
+      daysSinceLastLesson: 0,
+    }),
+    slot,
+    policy,
+  );
+  check(
+    "score: refill opt-in + matching moment → both factors",
+    hasFactor(optedInMoment.factors, "refill_opt_in") &&
+      hasFactor(optedInMoment.factors, "refill_preferred_moment") &&
+      optedInMoment.score ===
+        policy.refill_opt_in_points + policy.refill_preferred_moment_points,
+    `score=${optedInMoment.score}`,
+  );
+
+  // Opt-in but the slot daypart does NOT match preferences → no moment bonus.
+  const optedInMismatch = scoreCandidateBase(
+    baseInput({
+      refillOptIn: true,
+      refillPreferredDayparts: ["evening"],
+      hasUpcomingLesson: true,
+      balanceMin: 60,
+      daysSinceLastLesson: 0,
+    }),
+    slot,
+    policy,
+  );
+  check(
+    "score: refill opt-in, non-matching moment → opt-in only",
+    hasFactor(optedInMismatch.factors, "refill_opt_in") &&
+      !hasFactor(optedInMismatch.factors, "refill_preferred_moment") &&
+      optedInMismatch.score === policy.refill_opt_in_points,
+    `score=${optedInMismatch.score}`,
+  );
+
+  // Not opted in → never gets refill factors.
+  const notOptedIn = scoreCandidateBase(
+    baseInput({
+      refillOptIn: false,
+      refillPreferredDayparts: ["morning"],
+      hasUpcomingLesson: true,
+      balanceMin: 60,
+      daysSinceLastLesson: 0,
+    }),
+    slot,
+    policy,
+  );
+  check(
+    "score: not opted in → no refill factors",
+    !hasFactor(notOptedIn.factors, "refill_opt_in") &&
+      !hasFactor(notOptedIn.factors, "refill_preferred_moment"),
+    `score=${notOptedIn.score}`,
+  );
+
+  // The opted-in student ranks strictly higher than an otherwise-identical
+  // student who did not opt in.
+  check(
+    "score: opted-in ranks higher than identical non-opted-in",
+    optedIn.score > notOptedIn.score,
+    `optIn=${optedIn.score} noOptIn=${notOptedIn.score}`,
   );
 
   // Sum equals the sum of factor points.
