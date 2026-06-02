@@ -30,6 +30,11 @@ export type Student = {
   preferred_dayparts: string[] | null;
   refill_opt_in: boolean;
   refill_preferred_dayparts: string[];
+  // Tenant-scoped consent to use the student for reviews / social media.
+  // Privacy by default: false = no consent. Edited via a guarded server action.
+  review_consent: boolean;
+  review_consent_at: string | null;
+  review_consent_by: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;

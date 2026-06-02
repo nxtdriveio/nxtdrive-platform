@@ -5,12 +5,28 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { loadStudentDossier } from "@/lib/students/dossier";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
+import { StudentStatusBar } from "@/components/students/StudentStatusBar";
+import { StudentNotesCard } from "@/components/students/StudentNotesCard";
+import { StudentConsentCard } from "@/components/students/StudentConsentCard";
+import {
+  GuardiansCard,
+  IntakeCard,
+  ReadinessCard,
+  CbrStatusCard,
+  TheoryCard,
+  LessonHistoryCard,
+  PlannedCard,
+  InvoicesCard,
+  CommunicationCard,
+  TasksCard,
+} from "@/components/students/StudentDossierCards";
 import {
   CREDIT_REASON_LABEL,
   formatTegoed,
@@ -20,11 +36,7 @@ import {
   type StudentBalance,
 } from "@/lib/students/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
-import {
-  LESSON_STATUS_LABEL,
-  LESSON_STATUS_VARIANT,
-  type Lesson,
-} from "@/lib/lessons/types";
+import { type Lesson } from "@/lib/lessons/types";
 import { adjustCredits, grantPackageToStudent } from "../actions";
 import { saveStudentDaypartPreference } from "@/lib/availability/actions";
 import {
@@ -55,6 +67,7 @@ export default async function StudentDetailPage({
   const isAdmin = roles.includes("tenant_admin");
 
   const supabase = await createServerSupabaseClient();
+  const service = createServiceRoleClient();
 
   const { data: studentRaw } = await supabase
     .from("students")
@@ -65,10 +78,14 @@ export default async function StudentDetailPage({
   if (!studentRaw) notFound();
   const student = studentRaw as Student;
 
-  const taskLaunch = await loadTaskLaunchData(
-    createServiceRoleClient(),
-    tenant.id,
-  );
+  const taskLaunch = await loadTaskLaunchData(service, tenant.id);
+
+  const dossier = await loadStudentDossier(supabase, service, {
+    tenantId: tenant.id,
+    studentId: student.id,
+    leadId: student.lead_id,
+    email: student.email,
+  });
 
   const { data: ledgerRaw } = await supabase
     .from("credit_ledger")
@@ -109,6 +126,9 @@ export default async function StudentDetailPage({
     .limit(5);
   const upcomingLessons = (upcomingRaw ?? []) as Lesson[];
 
+  const cbr = dossier.cbrStatus;
+  const nextLessonAt = upcomingLessons[0]?.starts_at ?? null;
+
   return (
     <div className="space-y-6">
       <Link
@@ -146,6 +166,22 @@ export default async function StudentDetailPage({
         </div>
       </div>
 
+      <StudentStatusBar
+        studentId={student.id}
+        nextLessonAt={nextLessonAt}
+        balanceMinutes={balance}
+        openInvoiceCount={
+          dossier.invoices.filter((i) => i.status === "open").length
+        }
+        outstandingCents={dossier.outstandingCents}
+        theoriePassed={cbr ? cbr.theorie_behaald : null}
+        machtigingArranged={cbr ? cbr.machtiging_geregeld : null}
+        healthRequired={cbr ? cbr.gezondheidsverklaring_vereist : true}
+        healthArranged={cbr ? cbr.gezondheidsverklaring_geregeld : null}
+        readiness={dossier.readiness}
+        openTaskCount={dossier.tasks.length}
+      />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
@@ -165,48 +201,23 @@ export default async function StudentDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Komende lessen</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {upcomingLessons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Geen geplande lessen.{" "}
-                  <Link
-                    href={`/backoffice/agenda/nieuw?student_id=${student.id}`}
-                    className="text-primary hover:underline"
-                  >
-                    Plan er één →
-                  </Link>
-                </p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {upcomingLessons.map((l) => (
-                    <li
-                      key={l.id}
-                      className="flex items-center justify-between gap-3 py-3"
-                    >
-                      <Link
-                        href={`/backoffice/agenda/${l.id}`}
-                        className="flex-1 text-sm hover:underline"
-                      >
-                        <div className="font-medium text-foreground">
-                          {dtFmt.format(new Date(l.starts_at))}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {l.location ?? "—"} · {formatTegoed(l.credits_cost)}
-                        </div>
-                      </Link>
-                      <Badge variant={LESSON_STATUS_VARIANT[l.status]}>
-                        {LESSON_STATUS_LABEL[l.status]}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <GuardiansCard guardians={dossier.guardians} />
+
+          <IntakeCard intake={dossier.intake} />
+
+          <ReadinessCard readiness={dossier.readiness} />
+
+          <PlannedCard
+            upcomingLessons={upcomingLessons}
+            appointments={dossier.appointments}
+            studentId={student.id}
+          />
+
+          <TheoryCard homework={dossier.theory} />
+
+          <LessonHistoryCard lessons={dossier.lessons} />
+
+          <CommunicationCard communications={dossier.communications} />
 
           <Card>
             <CardHeader>
@@ -255,6 +266,25 @@ export default async function StudentDetailPage({
         </div>
 
         <div className="space-y-6">
+          <CbrStatusCard status={dossier.cbrStatus} checklist={dossier.cbrChecklist} />
+
+          <InvoicesCard
+            invoices={dossier.invoices}
+            outstandingCents={dossier.outstandingCents}
+          />
+
+          <TasksCard tasks={dossier.tasks} />
+
+          <StudentNotesCard studentId={student.id} notes={student.notes} />
+
+          {isAdmin ? (
+            <StudentConsentCard
+              studentId={student.id}
+              consent={student.review_consent}
+              consentAt={student.review_consent_at}
+            />
+          ) : null}
+
           {isAdmin ? (
             <Card>
               <CardHeader>

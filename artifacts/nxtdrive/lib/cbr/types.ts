@@ -18,6 +18,22 @@ export type StudentCbrProgressRow = {
   updated_at: string;
 };
 
+/**
+ * Administrative CBR preconditions for one student (0031). Absence of a row
+ * means "nog niets geregeld" — never fabricated. theorie/machtiging are always
+ * required; the gezondheidsverklaring only when `gezondheidsverklaring_vereist`.
+ */
+export type StudentCbrStatus = {
+  student_id: string;
+  tenant_id: string;
+  theorie_behaald: boolean;
+  machtiging_geregeld: boolean;
+  gezondheidsverklaring_vereist: boolean;
+  gezondheidsverklaring_geregeld: boolean;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 export type CbrChecklistItem = {
   competency: CbrCompetency;
   achieved: boolean;
