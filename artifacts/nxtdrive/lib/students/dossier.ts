@@ -15,6 +15,11 @@ import type { Invoice } from "@/lib/invoices/types";
 import type { LeadIntakeDetail } from "@/lib/leads/types";
 import type { TheoryHomeworkWithModule } from "@/lib/theory/types";
 import type { Task } from "@/lib/tasks/types";
+import {
+  isDocumentCategory,
+  type DocumentCategory,
+  type StudentDocument,
+} from "@/lib/students/document-types";
 
 /** A guardian linked to the student, with the contact's resolved name/email. */
 export type StudentGuardianView = {
@@ -67,6 +72,8 @@ export type StudentDossier = {
   outstandingCents: number;
   communications: StudentCommunication[];
   tasks: StudentLinkedTask[];
+  /** Uploaded documents for this student, newest first. */
+  documents: StudentDocument[];
 };
 
 const STUDENT_LINKED_APPOINTMENT_TYPES = [
@@ -113,6 +120,7 @@ export async function loadStudentDossier(
     invoicesRes,
     communicationsRes,
     taskLinksRes,
+    documentsRes,
   ] = await Promise.all([
     rls
       .from("student_guardians")
@@ -188,6 +196,15 @@ export async function loadStudentDossier(
       .eq("tenant_id", tenantId)
       .in("entity_type", ["student", "exam"])
       .eq("entity_id", studentId),
+    // Documents: RLS already restricts student_documents to staff only.
+    rls
+      .from("student_documents")
+      .select(
+        "id, tenant_id, student_id, storage_path, file_name, category, mime_type, size_bytes, uploaded_by, created_at",
+      )
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (guardiansRes.error) {
@@ -220,6 +237,9 @@ export async function loadStudentDossier(
   if (taskLinksRes.error) {
     throw new Error(`dossier: task links load failed (${ctx}): ${taskLinksRes.error.message}`);
   }
+  if (documentsRes.error) {
+    throw new Error(`dossier: documents load failed (${ctx}): ${documentsRes.error.message}`);
+  }
 
   // Resolve guardian contact names/emails. profiles RLS exposes only the
   // caller's own row, so staff must read them via the service role — bounded to
@@ -250,6 +270,14 @@ export async function loadStudentDossier(
   );
   const tasks = await loadOpenTasks(service, tenantId, taskIds);
 
+  // Resolve uploader names. profiles RLS exposes only the caller's own row, so
+  // staff must read them via the service role — bounded to the user_ids on this
+  // tenant's document rows.
+  const documents = await resolveDocuments(
+    service,
+    (documentsRes.data ?? []) as RawDocumentRow[],
+  );
+
   return {
     guardians,
     intake: (intakeRes.data as LeadIntakeDetail | null) ?? null,
@@ -263,7 +291,64 @@ export async function loadStudentDossier(
     outstandingCents,
     communications: (communicationsRes.data ?? []) as StudentCommunication[],
     tasks,
+    documents,
   };
+}
+
+type RawDocumentRow = {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  storage_path: string;
+  file_name: string;
+  category: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: string | null;
+  created_at: string;
+};
+
+async function resolveDocuments(
+  service: SupabaseClient,
+  rows: RawDocumentRow[],
+): Promise<StudentDocument[]> {
+  if (rows.length === 0) return [];
+  const uploaderIds = Array.from(
+    new Set(rows.map((r) => r.uploaded_by).filter((v): v is string => !!v)),
+  );
+  let byId = new Map<string, { full_name: string | null }>();
+  if (uploaderIds.length > 0) {
+    const { data: profiles, error } = await service
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", uploaderIds);
+    if (error) {
+      throw new Error(`dossier: document uploader load failed: ${error.message}`);
+    }
+    byId = new Map(
+      ((profiles ?? []) as { id: string; full_name: string | null }[]).map((p) => [
+        p.id,
+        p,
+      ]),
+    );
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    tenant_id: r.tenant_id,
+    student_id: r.student_id,
+    storage_path: r.storage_path,
+    file_name: r.file_name,
+    category: (isDocumentCategory(r.category)
+      ? r.category
+      : "other") as DocumentCategory,
+    mime_type: r.mime_type,
+    size_bytes: Number(r.size_bytes),
+    uploaded_by: r.uploaded_by,
+    uploaded_by_name: r.uploaded_by
+      ? (byId.get(r.uploaded_by)?.full_name ?? null)
+      : null,
+    created_at: r.created_at,
+  }));
 }
 
 async function resolveGuardians(

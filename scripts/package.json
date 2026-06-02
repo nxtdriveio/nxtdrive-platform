@@ -20,6 +20,7 @@
     "db:test-rls-availability": "tsx ./src/test-rls-availability.ts",
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",
     "db:test-rls-invoices": "tsx ./src/test-rls-invoices.ts",
+    "db:test-rls-documents": "tsx ./src/test-rls-documents.ts",
     "db:test-mollie-flow": "tsx ./src/test-mollie-flow.ts",
     "db:test-notifications": "tsx ./src/test-notifications.ts",
     "db:test-rls-tasks": "tsx ./src/test-rls-tasks.ts",

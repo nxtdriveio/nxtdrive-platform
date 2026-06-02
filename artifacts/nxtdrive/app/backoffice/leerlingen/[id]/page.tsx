@@ -15,6 +15,7 @@ import { Input, Label } from "@/components/ui/input";
 import { StudentStatusBar } from "@/components/students/StudentStatusBar";
 import { StudentNotesCard } from "@/components/students/StudentNotesCard";
 import { StudentConsentCard } from "@/components/students/StudentConsentCard";
+import { StudentDocumentsCard } from "@/components/students/StudentDocumentsCard";
 import {
   GuardiansCard,
   IntakeCard,
@@ -56,10 +57,13 @@ const dtFmt = new Intl.DateTimeFormat("nl-NL", {
 
 export default async function StudentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ doc_error?: string }>;
 }) {
   const { id } = await params;
+  const { doc_error: docError } = await searchParams;
   const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
@@ -276,6 +280,12 @@ export default async function StudentDetailPage({
           <TasksCard tasks={dossier.tasks} />
 
           <StudentNotesCard studentId={student.id} notes={student.notes} />
+
+          <StudentDocumentsCard
+            studentId={student.id}
+            documents={dossier.documents}
+            errorCode={docError}
+          />
 
           {isAdmin ? (
             <StudentConsentCard
