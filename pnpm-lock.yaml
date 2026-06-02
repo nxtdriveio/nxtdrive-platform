@@ -477,6 +477,9 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
 
   lib/api-client-react:
     dependencies:

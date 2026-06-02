@@ -3,7 +3,9 @@ import type { AuthenticatedUser, MemberRole } from "@/lib/types";
 /**
  * Picks the most appropriate landing route for a user when they're denied
  * access to another role's section. Priority mirrors the privilege ladder:
- * platform admin → tenant admin → instructor → student.
+ * platform admin → tenant admin → instructor → student → parent.
+ * A pure parent lands on the Ouderportaal; a student (or student+parent) on
+ * the student PWA.
  */
 export function roleHomePath(user: AuthenticatedUser, tenantId?: string): string {
   if (user.profile?.is_platform_admin) return "/admin";
@@ -16,6 +18,7 @@ export function roleHomePath(user: AuthenticatedUser, tenantId?: string): string
 
   if (roles.includes("tenant_admin")) return "/backoffice";
   if (roles.includes("instructor")) return "/instructor";
-  if (roles.includes("student") || roles.includes("parent")) return "/student";
+  if (roles.includes("student")) return "/student";
+  if (roles.includes("parent")) return "/ouder";
   return "/";
 }

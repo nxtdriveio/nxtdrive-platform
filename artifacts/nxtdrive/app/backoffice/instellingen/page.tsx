@@ -23,6 +23,8 @@ import { CancellationPolicyManager } from "./cancellation-policy-manager";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { RefillPolicyManager } from "./refill-policy-manager";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
+import { ParentPortalManager } from "./parent-portal-manager";
+import { loadParentPortalVisibility } from "@/lib/parent-portal/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,10 @@ export default async function SettingsPage({
   const leadScorePolicy = await loadLeadScorePolicy(service, tenant.id);
   const cancellationPolicy = await loadCancellationPolicy(service, tenant.id);
   const refillPolicy = await loadRefillPolicy(service, tenant.id);
+  const parentPortalVisibility = await loadParentPortalVisibility(
+    service,
+    tenant.id,
+  );
 
   return (
     <div className="space-y-6">
@@ -214,6 +220,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <RefillPolicyManager policy={refillPolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ouderportaal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ParentPortalManager visibility={parentPortalVisibility} />
         </CardContent>
       </Card>
     </div>

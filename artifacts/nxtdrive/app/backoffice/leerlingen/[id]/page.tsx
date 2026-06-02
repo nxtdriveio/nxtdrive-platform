@@ -16,8 +16,8 @@ import { StudentStatusBar } from "@/components/students/StudentStatusBar";
 import { StudentNotesCard } from "@/components/students/StudentNotesCard";
 import { StudentConsentCard } from "@/components/students/StudentConsentCard";
 import { StudentDocumentsCard } from "@/components/students/StudentDocumentsCard";
+import { GuardianManagerCard } from "@/components/students/GuardianManagerCard";
 import {
-  GuardiansCard,
   IntakeCard,
   ReadinessCard,
   CbrStatusCard,
@@ -205,7 +205,7 @@ export default async function StudentDetailPage({
             </CardContent>
           </Card>
 
-          <GuardiansCard guardians={dossier.guardians} />
+          <GuardianManagerCard studentId={id} guardians={dossier.guardians} />
 
           <IntakeCard intake={dossier.intake} />
 

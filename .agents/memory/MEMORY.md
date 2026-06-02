@@ -14,3 +14,5 @@
 - [Intake attention-points → tasks](intake-attention-tasks.md) — one-click aandachtspunt→task: task_type='manual' (survives sweep), dedupe_key lead:{id}:intake:{code}, routed via resolve_task_assignment.
 - [Google Maps JS loader](google-maps-js-loader.md) — loading=async script onload doesn't populate google.maps; must use bootstrap + importLibrary; gm_authFailure hook to hide map on ApiNotActivatedMapError etc.
 - [Student review/social consent](student-review-consent.md) — review_consent is privacy-by-default (NOT NULL false), admin-only via guarded RPC; notes editable by admin+instructor.
+- [my_tenant_ids broad RLS over-exposure](agenda-rls-broad-tenant-branch.md) — a bare `tenant_id in (my_tenant_ids())` SELECT branch leaks to ANY membership row (parents/students); use explicit staff-role + self + guardian branches.
+- [Parent portal dual-role](parent-portal-dual-role.md) — /ouder must call getActiveStudent({preferGuardianChildren:true}) so a student+parent isn't pinned to own row; /student keeps own-row-wins.

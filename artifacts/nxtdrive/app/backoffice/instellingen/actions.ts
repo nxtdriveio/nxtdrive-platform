@@ -19,6 +19,11 @@ import {
   LESSON_REFILL_POLICY_KEY,
   mergeRefillPolicy,
 } from "@/lib/lesson-refill/policy";
+import {
+  PARENT_PORTAL_SECTIONS,
+  PARENT_PORTAL_VISIBILITY_KEY,
+  mergeParentPortalVisibility,
+} from "@/lib/parent-portal/visibility";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -426,5 +431,62 @@ export async function resetRefillPolicy(): Promise<PolicyActionResult> {
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/backoffice/agenda");
+  return { ok: true };
+}
+
+// --- Ouderportaal zichtbaarheid (Task #96) ---------------------------------
+// Which sections of the read-only parent portal (/ouder) a tenant exposes to
+// parents. Every section defaults to visible; an admin opts OUT. The raw form
+// values are passed through mergeParentPortalVisibility so the stored JSON is
+// always sanitised (unknown keys dropped, values coerced to strict booleans).
+// Service-role write — tenant_id always from the authenticated membership.
+
+export async function saveParentPortalVisibility(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const override: Record<string, boolean> = {};
+  for (const section of PARENT_PORTAL_SECTIONS) {
+    const raw = formData.get(section);
+    override[section] = raw === "true" || raw === "on";
+  }
+
+  const visibility = mergeParentPortalVisibility(override);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: PARENT_PORTAL_VISIBILITY_KEY,
+      value: visibility,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/ouder", "layout");
+  return { ok: true };
+}
+
+export async function resetParentPortalVisibility(): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const visibility = mergeParentPortalVisibility(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: PARENT_PORTAL_VISIBILITY_KEY,
+      value: visibility,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/ouder", "layout");
   return { ok: true };
 }

@@ -6,7 +6,7 @@ import { uniqueTenants } from "./session";
  *  1. Platform admin → /admin
  *  2. Multiple tenants → /select-tenant
  *  3. Single tenant: tenant_admin → /backoffice, instructor → /instructor,
- *     student/parent → /student
+ *     student (or student+parent) → /student, pure parent → /ouder
  *  4. No memberships → /  (will show a "no access" prompt)
  */
 export function landingPathFor(user: AuthenticatedUser): string {
@@ -23,6 +23,7 @@ export function landingPathFor(user: AuthenticatedUser): string {
 
   if (roles.includes("tenant_admin")) return "/backoffice";
   if (roles.includes("instructor")) return "/instructor";
-  if (roles.includes("student") || roles.includes("parent")) return "/student";
+  if (roles.includes("student")) return "/student";
+  if (roles.includes("parent")) return "/ouder";
   return "/";
 }
