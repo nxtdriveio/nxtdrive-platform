@@ -17,6 +17,19 @@ export async function scheduleLesson(formData: FormData) {
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
 
+  // Fase 3 — optional precise location coordinates (graceful: null without Places).
+  const parseCoord = (raw: FormDataEntryValue | null, max: number) => {
+    if (typeof raw !== "string" || raw.trim() === "") return null;
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) && n >= -max && n <= max ? n : null;
+  };
+  const locationLat = parseCoord(formData.get("location_lat"), 90);
+  const locationLng = parseCoord(formData.get("location_lng"), 180);
+  const hasCoords = locationLat !== null && locationLng !== null;
+  const locationPlaceId = hasCoords
+    ? String(formData.get("location_place_id") ?? "").trim().slice(0, 300) || null
+    : null;
+
   if (!instructorId || !studentId || !date || !time) {
     redirect("/backoffice/agenda/nieuw?error=missing");
   }
@@ -46,6 +59,9 @@ export async function scheduleLesson(formData: FormData) {
     p_credits_cost: credits,
     p_location: location || null,
     p_notes: notes || null,
+    p_location_lat: locationLat,
+    p_location_lng: locationLng,
+    p_location_place_id: locationPlaceId,
   });
   if (error || !lessonId) {
     const code = encodeURIComponent(error?.message ?? "unknown");

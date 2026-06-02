@@ -1,0 +1,149 @@
+"use client";
+
+// ---------------------------------------------------------------------------
+// Fase 3 — Route Intelligence: Google Places address autocomplete.
+//
+// Captures a precise pickup/location: formatted address + place_id + lat/lng.
+// Graceful degradation is a first-class requirement — when
+// NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is absent (or the script fails to load) this
+// renders a plain text input and simply reports the typed text with null
+// coordinates. The server still works: it falls back to free-text + Haversine
+// + manual confirmation.
+// ---------------------------------------------------------------------------
+import * as React from "react";
+import { Input } from "@/components/ui/input";
+
+export type ResolvedPlace = {
+  address: string;
+  placeId: string | null;
+  lat: number | null;
+  lng: number | null;
+  formattedAddress: string | null;
+};
+
+type GooglePlace = {
+  place_id?: string;
+  formatted_address?: string;
+  geometry?: { location?: { lat: () => number; lng: () => number } };
+};
+
+type GoogleAutocomplete = {
+  addListener: (event: string, handler: () => void) => void;
+  getPlace: () => GooglePlace;
+};
+
+type GoogleMaps = {
+  maps: {
+    places: {
+      Autocomplete: new (
+        input: HTMLInputElement,
+        opts: {
+          fields: string[];
+          types?: string[];
+          componentRestrictions?: { country: string | string[] };
+        },
+      ) => GoogleAutocomplete;
+    };
+  };
+};
+
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+let scriptPromise: Promise<GoogleMaps | null> | null = null;
+
+function loadGoogleMaps(): Promise<GoogleMaps | null> {
+  if (typeof window === "undefined" || !MAPS_KEY) return Promise.resolve(null);
+  const existing = (window as unknown as { google?: GoogleMaps }).google;
+  if (existing?.maps?.places) return Promise.resolve(existing);
+  if (scriptPromise) return scriptPromise;
+
+  scriptPromise = new Promise<GoogleMaps | null>((resolve) => {
+    const url =
+      "https://maps.googleapis.com/maps/api/js?key=" +
+      encodeURIComponent(MAPS_KEY) +
+      "&libraries=places&loading=async";
+    const script = document.createElement("script");
+    script.src = url;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      resolve((window as unknown as { google?: GoogleMaps }).google ?? null);
+    };
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return scriptPromise;
+}
+
+export function PlacesAutocomplete({
+  id,
+  value,
+  placeholder,
+  country = "nl",
+  onChange,
+  onResolve,
+}: {
+  id?: string;
+  value: string;
+  placeholder?: string;
+  country?: string;
+  /** Called on every keystroke with the raw text (coords become unknown). */
+  onChange: (text: string) => void;
+  /** Called when the user picks a suggestion (or types, with null coords). */
+  onResolve: (place: ResolvedPlace) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const onResolveRef = React.useRef(onResolve);
+  onResolveRef.current = onResolve;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!MAPS_KEY) return;
+    void loadGoogleMaps().then((google) => {
+      if (cancelled || !google || !inputRef.current) return;
+      const ac = new google.maps.places.Autocomplete(inputRef.current, {
+        fields: ["place_id", "formatted_address", "geometry"],
+        types: ["geocode"],
+        componentRestrictions: { country },
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        const loc = place.geometry?.location;
+        const address =
+          place.formatted_address ?? inputRef.current?.value ?? "";
+        onResolveRef.current({
+          address,
+          placeId: place.place_id ?? null,
+          lat: loc ? loc.lat() : null,
+          lng: loc ? loc.lng() : null,
+          formattedAddress: place.formatted_address ?? null,
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [country]);
+
+  return (
+    <Input
+      id={id}
+      ref={inputRef}
+      placeholder={placeholder}
+      value={value}
+      autoComplete="off"
+      onChange={(e) => {
+        const text = e.target.value;
+        onChange(text);
+        // Typing invalidates any previously resolved coordinates.
+        onResolveRef.current({
+          address: text,
+          placeId: null,
+          lat: null,
+          lng: null,
+          formattedAddress: null,
+        });
+      }}
+    />
+  );
+}

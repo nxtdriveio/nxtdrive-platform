@@ -43,6 +43,17 @@ function triBool(value: FormDataEntryValue | null): boolean | null {
   return null;
 }
 
+/** Parse a coordinate string within a valid range, else null. */
+function coordOrNull(
+  value: FormDataEntryValue | null,
+  max: number,
+): number | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const n = Number.parseFloat(value);
+  if (!Number.isFinite(n) || n < -max || n > max) return null;
+  return n;
+}
+
 function oneOf<T extends string>(
   value: FormDataEntryValue | null,
   allowed: readonly T[],
@@ -99,6 +110,17 @@ export async function submitIntake(formData: FormData) {
   const date_of_birth = dateOrNull(slug, formData.get("date_of_birth"), "geboortedatum");
   const city = trimOrNull(formData.get("city"), 200);
   const pickup_location = trimOrNull(formData.get("pickup_location"), 200);
+  // Fase 3 — precise pickup coordinates (graceful: all null when Places absent).
+  const pickup_lat = coordOrNull(formData.get("pickup_lat"), 90);
+  const pickup_lng = coordOrNull(formData.get("pickup_lng"), 180);
+  // Coordinates are only meaningful as a pair.
+  const pickup_has_coords = pickup_lat !== null && pickup_lng !== null;
+  const pickup_place_id = pickup_has_coords
+    ? trimOrNull(formData.get("pickup_place_id"), 300)
+    : null;
+  const pickup_formatted_address = pickup_has_coords
+    ? trimOrNull(formData.get("pickup_formatted_address"), 300)
+    : null;
 
   if (!full_name) err(slug, "Vul je naam in.");
   if (!email && !phone)
@@ -213,6 +235,10 @@ export async function submitIntake(formData: FormData) {
     p_terms_accepted: terms_accepted,
     p_submitted_ip: ipHeader,
     p_user_agent: userAgent,
+    p_pickup_lat: pickup_lat,
+    p_pickup_lng: pickup_lng,
+    p_pickup_place_id: pickup_place_id,
+    p_pickup_formatted_address: pickup_formatted_address,
   });
 
   if (rpcErr) {
@@ -315,6 +341,14 @@ export async function chooseTrialLesson(formData: FormData) {
     p_pickup_location: valid.pickupLocation,
     p_score: valid.score,
     p_reason: valid.reason,
+    p_pickup_lat: valid.pickupLat,
+    p_pickup_lng: valid.pickupLng,
+    p_pickup_place_id: valid.pickupPlaceId,
+    p_pickup_formatted_address: valid.pickupFormattedAddress,
+    p_route_status: valid.route.status,
+    p_route_travel_to_min: valid.route.travel_to_min,
+    p_route_travel_from_min: valid.route.travel_from_min,
+    p_route_needs_confirm: valid.route.needs_manual_confirm,
   });
   if (error) {
     redirect(

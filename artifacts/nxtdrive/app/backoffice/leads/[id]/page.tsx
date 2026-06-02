@@ -184,7 +184,7 @@ export default async function LeadDetailPage({
   const { data: trialRaw } = await supabase
     .from("trial_lessons")
     .select(
-      "id, lead_id, tenant_id, instructor_id, starts_at, ends_at, duration_min, status, pickup_location, score, reason, created_at, updated_at",
+      "id, lead_id, tenant_id, instructor_id, starts_at, ends_at, duration_min, status, pickup_location, score, reason, created_at, updated_at, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, route_status, route_travel_to_min, route_travel_from_min, route_needs_confirm",
     )
     .eq("lead_id", id)
     .eq("tenant_id", tenant.id)

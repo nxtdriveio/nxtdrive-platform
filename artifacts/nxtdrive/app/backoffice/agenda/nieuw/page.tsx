@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Student, StudentBalance } from "@/lib/students/types";
 import { scheduleLesson } from "../actions";
+import { LessonLocationField } from "./location-field";
 
 export const dynamic = "force-dynamic";
 
@@ -208,15 +209,7 @@ export default async function NewLessonPage({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="location">Locatie</Label>
-                <Input
-                  id="location"
-                  name="location"
-                  placeholder="bv. Station Amersfoort"
-                  maxLength={200}
-                />
-              </div>
+              <LessonLocationField />
 
               <div className="space-y-1.5">
                 <Label htmlFor="notes">Notities</Label>

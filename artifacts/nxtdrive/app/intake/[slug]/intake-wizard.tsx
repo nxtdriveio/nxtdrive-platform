@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import {
   INTAKE_APPLICANT_TYPES,
   INTAKE_APPLICANT_TYPE_LABEL,
@@ -46,6 +47,10 @@ type State = {
   date_of_birth: string;
   city: string;
   pickup_location: string;
+  pickup_lat: string;
+  pickup_lng: string;
+  pickup_place_id: string;
+  pickup_formatted_address: string;
   source: string;
   license_goal: string;
   transmission: string;
@@ -74,6 +79,10 @@ const INITIAL: State = {
   date_of_birth: "",
   city: "",
   pickup_location: "",
+  pickup_lat: "",
+  pickup_lng: "",
+  pickup_place_id: "",
+  pickup_formatted_address: "",
   source: "website",
   license_goal: "",
   transmission: "",
@@ -228,6 +237,14 @@ export function IntakeWizard({
         <input type="hidden" name="date_of_birth" value={state.date_of_birth} />
         <input type="hidden" name="city" value={state.city} />
         <input type="hidden" name="pickup_location" value={state.pickup_location} />
+        <input type="hidden" name="pickup_lat" value={state.pickup_lat} />
+        <input type="hidden" name="pickup_lng" value={state.pickup_lng} />
+        <input type="hidden" name="pickup_place_id" value={state.pickup_place_id} />
+        <input
+          type="hidden"
+          name="pickup_formatted_address"
+          value={state.pickup_formatted_address}
+        />
         <input
           type="hidden"
           name="weekly_availability"
@@ -352,12 +369,26 @@ export function IntakeWizard({
 
             <div className="space-y-1.5">
               <Label htmlFor="pickup_location">Wijk / ophaallocatie</Label>
-              <Input
+              <PlacesAutocomplete
                 id="pickup_location"
                 placeholder="Wijk of adres waar we je ophalen"
                 value={state.pickup_location}
-                onChange={(e) => set("pickup_location", e.target.value)}
+                onChange={(text) => set("pickup_location", text)}
+                onResolve={(place) =>
+                  setState((prev) => ({
+                    ...prev,
+                    pickup_location: place.address,
+                    pickup_lat: place.lat != null ? String(place.lat) : "",
+                    pickup_lng: place.lng != null ? String(place.lng) : "",
+                    pickup_place_id: place.placeId ?? "",
+                    pickup_formatted_address: place.formattedAddress ?? "",
+                  }))
+                }
               />
+              <p className="text-xs text-muted-foreground">
+                Begin te typen en kies je adres uit de lijst voor een
+                nauwkeurige ophaallocatie.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

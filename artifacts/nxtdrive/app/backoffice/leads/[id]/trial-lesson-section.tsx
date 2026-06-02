@@ -7,6 +7,7 @@ import {
   TRIAL_LESSON_STATUS_LABEL,
   TRIAL_LESSON_STATUS_VARIANT,
   type TrialLesson,
+  type TrialRouteInsight,
   type TrialSuggestion,
 } from "@/lib/trial-lessons/types";
 import {
@@ -34,6 +35,47 @@ const timeFmt = new Intl.DateTimeFormat("nl-NL", {
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Fase 3 — render the route insight for a slot/trial: travel times to/from the
+// adjacent appointments + a flag when the route could not be confirmed.
+function RouteInsight({
+  route,
+  needsConfirm,
+}: {
+  route: TrialRouteInsight;
+  needsConfirm?: boolean;
+}) {
+  const parts: string[] = [];
+  if (route.travel_to_min != null) {
+    parts.push(`${route.travel_to_min} min vanaf vorige`);
+  }
+  if (route.travel_from_min != null) {
+    parts.push(`${route.travel_from_min} min naar volgende`);
+  }
+  const flagged = needsConfirm ?? route.needs_manual_confirm;
+
+  if (parts.length === 0 && route.status === "unavailable" && !flagged) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      {parts.length > 0 ? (
+        <span className="text-muted-foreground">
+          Reistijd: {parts.join(" · ")}
+          {route.status === "estimated" ? " (schatting)" : ""}
+        </span>
+      ) : route.status === "unavailable" ? (
+        <span className="text-muted-foreground">
+          Geen reistijd te bepalen (geen ophaalcoördinaten)
+        </span>
+      ) : null}
+      {flagged ? (
+        <Badge variant="warning">Route controleren</Badge>
+      ) : null}
+    </div>
+  );
 }
 
 // yyyy-mm-dd / HH:mm in UTC (matches how slots are generated/stored).
@@ -143,6 +185,16 @@ function ActiveTrial({
         {trial.reason ? (
           <p className="mt-2 text-xs text-primary">Match: {trial.reason}</p>
         ) : null}
+        <RouteInsight
+          route={{
+            status: trial.route_status,
+            travel_to_min: trial.route_travel_to_min,
+            travel_from_min: trial.route_travel_from_min,
+            prev_distance_km: null,
+            next_distance_km: null,
+            needs_manual_confirm: trial.route_needs_confirm,
+          }}
+        />
       </div>
 
       {trial.status === "provisional" ? (
@@ -287,6 +339,7 @@ function SuggestionsList({
                   {s.factors.map((f) => f.label).join(" · ")}
                 </p>
               ) : null}
+              {s.route ? <RouteInsight route={s.route} /> : null}
             </li>
           );
         })}
