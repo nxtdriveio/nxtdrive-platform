@@ -10,3 +10,4 @@
 - [Intake-analyse mapping](intake-analysis-mapping.md) — Fase 1B engine: failed_exam_before = has_done_exam (no pass/fail field), recommended_step always plan_trial_lesson for new leads, idempotent backfill-on-read.
 - [Lead funnel automation](lead-funnel-automation.md) — forward-only funnel from observable facts (manual placeholders never auto-overridden); idempotent auto-tasks via tasks.dedupe_key partial-unique index.
 - [Intake attention-points → tasks](intake-attention-tasks.md) — one-click aandachtspunt→task: task_type='manual' (survives sweep), dedupe_key lead:{id}:intake:{code}, routed via resolve_task_assignment.
+- [Google Maps JS loader](google-maps-js-loader.md) — loading=async script onload doesn't populate google.maps; must use bootstrap + importLibrary; gm_authFailure hook to hide map on ApiNotActivatedMapError etc.

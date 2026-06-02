@@ -64,6 +64,8 @@ import { TrialLessonSection } from "./trial-lesson-section";
 import { IntakeTaskButtons } from "./intake-task-buttons";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
 import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
+import { getTrialNeighbours } from "@/lib/trial-lessons/neighbours";
+import type { MapPoint } from "@/components/trial-route-map";
 
 export const dynamic = "force-dynamic";
 
@@ -242,6 +244,46 @@ export default async function LeadDetailPage({
     }
   }
 
+  // Fase 3 — Route Intelligence map preview. For the active (chosen) trial that
+  // has a pickup coordinate, resolve its neighbouring appointments so the
+  // backoffice can show the pickup pin + surrounding lessons on a map. Reuses
+  // coordinates already persisted on trial_lessons / lessons; never geocodes.
+  let activeTrialMapPoints: MapPoint[] = [];
+  const activeTrial = trials.find(
+    (t) => t.status === "provisional" || t.status === "confirmed",
+  );
+  if (
+    activeTrial &&
+    activeTrial.pickup_lat != null &&
+    activeTrial.pickup_lng != null
+  ) {
+    const neighbours = await getTrialNeighbours(createServiceRoleClient(), {
+      tenantId: tenant.id,
+      instructorId: activeTrial.instructor_id,
+      trialId: activeTrial.id,
+      startsAt: activeTrial.starts_at,
+      endsAt: activeTrial.ends_at,
+    });
+    activeTrialMapPoints = [
+      {
+        kind: "pickup" as const,
+        lat: activeTrial.pickup_lat,
+        lng: activeTrial.pickup_lng,
+        label: activeTrial.pickup_formatted_address
+          ? activeTrial.pickup_formatted_address
+          : activeTrial.pickup_location
+            ? `Ophaal: ${activeTrial.pickup_location}`
+            : "Ophaallocatie",
+      },
+      ...neighbours.map((n) => ({
+        kind: n.kind,
+        lat: n.lat,
+        lng: n.lng,
+        label: n.label,
+      })),
+    ];
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -316,6 +358,7 @@ export default async function LeadDetailPage({
               instructorNames={instructorNames}
               trials={trials}
               suggestions={trialSuggestions}
+              activeTrialMapPoints={activeTrialMapPoints}
             />
           ) : null}
 

@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 import * as React from "react";
 import { Input } from "@/components/ui/input";
+import { loadGoogleMaps, MAPS_KEY } from "@/lib/maps/loader";
 
 export type ResolvedPlace = {
   address: string;
@@ -20,60 +21,6 @@ export type ResolvedPlace = {
   lng: number | null;
   formattedAddress: string | null;
 };
-
-type GooglePlace = {
-  place_id?: string;
-  formatted_address?: string;
-  geometry?: { location?: { lat: () => number; lng: () => number } };
-};
-
-type GoogleAutocomplete = {
-  addListener: (event: string, handler: () => void) => void;
-  getPlace: () => GooglePlace;
-};
-
-type GoogleMaps = {
-  maps: {
-    places: {
-      Autocomplete: new (
-        input: HTMLInputElement,
-        opts: {
-          fields: string[];
-          types?: string[];
-          componentRestrictions?: { country: string | string[] };
-        },
-      ) => GoogleAutocomplete;
-    };
-  };
-};
-
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-let scriptPromise: Promise<GoogleMaps | null> | null = null;
-
-function loadGoogleMaps(): Promise<GoogleMaps | null> {
-  if (typeof window === "undefined" || !MAPS_KEY) return Promise.resolve(null);
-  const existing = (window as unknown as { google?: GoogleMaps }).google;
-  if (existing?.maps?.places) return Promise.resolve(existing);
-  if (scriptPromise) return scriptPromise;
-
-  scriptPromise = new Promise<GoogleMaps | null>((resolve) => {
-    const url =
-      "https://maps.googleapis.com/maps/api/js?key=" +
-      encodeURIComponent(MAPS_KEY) +
-      "&libraries=places&loading=async";
-    const script = document.createElement("script");
-    script.src = url;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      resolve((window as unknown as { google?: GoogleMaps }).google ?? null);
-    };
-    script.onerror = () => resolve(null);
-    document.head.appendChild(script);
-  });
-  return scriptPromise;
-}
 
 export function PlacesAutocomplete({
   id,

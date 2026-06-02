@@ -15,6 +15,7 @@ import {
   rejectTrialLesson,
   rescheduleTrialLesson,
 } from "../actions";
+import { TrialRouteMap, type MapPoint } from "@/components/trial-route-map";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
@@ -91,11 +92,13 @@ export function TrialLessonSection({
   instructorNames,
   trials,
   suggestions,
+  activeTrialMapPoints,
 }: {
   leadId: string;
   instructorNames: Record<string, string>;
   trials: TrialLesson[];
   suggestions: TrialSuggestion[];
+  activeTrialMapPoints?: MapPoint[];
 }) {
   const active = trials.find(
     (t) => t.status === "provisional" || t.status === "confirmed",
@@ -113,6 +116,7 @@ export function TrialLessonSection({
             leadId={leadId}
             trial={active}
             instructorName={instructorNames[active.instructor_id] ?? "Instructeur"}
+            mapPoints={activeTrialMapPoints}
           />
         ) : null}
 
@@ -151,10 +155,12 @@ function ActiveTrial({
   leadId,
   trial,
   instructorName,
+  mapPoints,
 }: {
   leadId: string;
   trial: TrialLesson;
   instructorName: string;
+  mapPoints?: MapPoint[];
 }) {
   const start = new Date(trial.starts_at);
   const end = new Date(trial.ends_at);
@@ -195,6 +201,9 @@ function ActiveTrial({
             needs_manual_confirm: trial.route_needs_confirm,
           }}
         />
+        {mapPoints && mapPoints.length > 0 ? (
+          <TrialRouteMap points={mapPoints} />
+        ) : null}
       </div>
 
       {trial.status === "provisional" ? (
