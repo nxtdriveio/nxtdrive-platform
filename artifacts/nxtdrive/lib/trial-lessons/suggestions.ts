@@ -46,7 +46,7 @@ import {
 // Tunable scheduling policy. Tenant-configurable via tenant_settings key
 // `trial_lesson_policy`; these are the platform defaults (never per-school
 // hardcoded — see replit.md). Hours are interpreted in UTC for this phase.
-type TrialPolicy = {
+export type TrialPolicy = {
   duration_min: number;
   window_days: number;
   work_start_hour: number;
@@ -81,7 +81,7 @@ type TrialPolicy = {
   route_max_candidates: number;
 };
 
-const DEFAULT_POLICY: TrialPolicy = {
+export const DEFAULT_POLICY: TrialPolicy = {
   duration_min: 60,
   window_days: 21,
   work_start_hour: 9,
@@ -116,14 +116,14 @@ const JS_DAY_TO_WEEKDAY: Record<number, IntakeWeekday> = {
   6: "sat",
 };
 
-type BusyInterval = {
+export type BusyInterval = {
   start: number;
   end: number;
   lat: number | null;
   lng: number | null;
 };
 
-type SuggestionContext = {
+export type SuggestionContext = {
   tenantId: string;
   instructorId: string;
   instructorName: string;
@@ -408,7 +408,7 @@ function reasonFromFactors(factors: TrialScoreFactor[]): string {
   return factors.map((f) => f.label).join(" · ");
 }
 
-type ScoredSlot = {
+export type ScoredSlot = {
   start: number;
   end: number;
   score: number;
@@ -499,7 +499,7 @@ function pointKey(p: LatLng): string {
   return `${p.lat},${p.lng}`;
 }
 
-type RouteResult = {
+export type RouteResult = {
   scoreDelta: number;
   factors: TrialScoreFactor[];
   insight: TrialRouteInsight;
@@ -540,7 +540,7 @@ function apptsOnDay(dayStart: number, busy: BusyInterval[]): number {
  * The required buffer is the largest of: the base buffer, the anxious-learner
  * buffer (when applicable) and the busy-region buffer (on dense days).
  */
-async function applyRouteScoring(
+export async function applyRouteScoring(
   ctx: SuggestionContext,
   slots: ScoredSlot[],
   allowReject: boolean,

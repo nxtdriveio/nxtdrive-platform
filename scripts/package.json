@@ -23,6 +23,7 @@
     "db:test-rls-lead-dashboard": "tsx ./src/test-rls-lead-dashboard.ts",
     "db:test-readiness": "tsx ./src/test-readiness.ts",
     "db:test-intake-analysis": "tsx ./src/test-intake-analysis.ts",
+    "test-route-scoring": "tsx ./src/test-route-scoring.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
