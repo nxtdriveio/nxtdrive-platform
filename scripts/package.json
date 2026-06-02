@@ -20,6 +20,7 @@
     "db:test-mollie-flow": "tsx ./src/test-mollie-flow.ts",
     "db:test-notifications": "tsx ./src/test-notifications.ts",
     "db:test-rls-tasks": "tsx ./src/test-rls-tasks.ts",
+    "db:test-rls-lead-dashboard": "tsx ./src/test-rls-lead-dashboard.ts",
     "db:test-readiness": "tsx ./src/test-readiness.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

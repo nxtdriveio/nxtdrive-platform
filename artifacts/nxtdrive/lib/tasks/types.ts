@@ -1,6 +1,35 @@
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+// Task #54 — typed tasks. `manual` covers everything the Kanban created before;
+// the rest are the lead-automation auto-task kinds (idempotent via dedupe_key).
+export const TASK_TYPES = [
+  "manual",
+  "new_lead_contact",
+  "intake_review",
+  "trial_plan",
+  "trial_confirm",
+  "trial_complete",
+  "assessment",
+  "package_advice",
+  "payment_followup",
+  "reengage",
+] as const;
+export type TaskType = (typeof TASK_TYPES)[number];
+
+export const TASK_TYPE_LABEL: Record<TaskType, string> = {
+  manual: "Handmatig",
+  new_lead_contact: "Nieuwe lead bellen",
+  intake_review: "Intake beoordelen",
+  trial_plan: "Proefles plannen",
+  trial_confirm: "Proefles bevestigen",
+  trial_complete: "Proefles afronden",
+  assessment: "Beoordeling maken",
+  package_advice: "Pakketadvies sturen",
+  payment_followup: "Betaling opvolgen",
+  reengage: "Lead heractiveren",
+};
+
 export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Laag",
   normal: "Normaal",

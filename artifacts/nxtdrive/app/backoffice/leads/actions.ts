@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/leads/types";
+import { LEAD_STATUSES, LEAD_SOURCES, type LeadSource, type LeadStatus } from "@/lib/leads/types";
+import { reconcileLeadSafe } from "@/lib/leads/automation";
 
 export async function convertLeadToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -56,6 +57,9 @@ export async function updateStatus(formData: FormData) {
     redirect("/backoffice/leads");
   }
 
+  // Task #54 — recompute action status, score and tasks for the new step.
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/leads");
   redirect(`/backoffice/leads/${leadId}`);
@@ -86,6 +90,8 @@ export async function confirmTrialLesson(formData: FormData) {
     redirect(`/backoffice/leads/${leadId}?trial=error`);
   }
 
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/agenda");
   redirect(`/backoffice/leads/${leadId}`);
@@ -111,6 +117,8 @@ export async function rejectTrialLesson(formData: FormData) {
   if (error) {
     redirect(`/backoffice/leads/${leadId}?trial=error`);
   }
+
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
 
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/agenda");
@@ -154,6 +162,8 @@ export async function rescheduleTrialLesson(formData: FormData) {
     redirect(`/backoffice/leads/${leadId}?trial=error`);
   }
 
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/agenda");
   redirect(`/backoffice/leads/${leadId}`);
@@ -178,5 +188,127 @@ export async function addNote(formData: FormData) {
   if (error) redirect("/backoffice/leads");
 
   revalidatePath(`/backoffice/leads/${leadId}`);
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Task #54 — Slimme Opvolging: manual lead actions.
+// ---------------------------------------------------------------------------
+
+export async function markLeadLost(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!leadId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("mark_lead_lost", {
+    p_lead_id: leadId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_reason: reason,
+  });
+  if (error) redirect(`/backoffice/leads/${leadId}`);
+
+  // Archive any open auto-tasks now that the lead is closed.
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/leads");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+export async function scheduleLeadFollowUp(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const date = String(formData.get("date") ?? "").trim();
+  const time = String(formData.get("time") ?? "").trim() || "09:00";
+  if (!leadId) redirect("/backoffice/leads");
+
+  const nextAt = new Date(`${date}T${time}:00`);
+  if (!date || Number.isNaN(nextAt.getTime())) {
+    redirect(`/backoffice/leads/${leadId}?followup=error`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("schedule_lead_follow_up", {
+    p_lead_id: leadId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_next_action_at: nextAt.toISOString(),
+  });
+  if (error) redirect(`/backoffice/leads/${leadId}?followup=error`);
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/leads");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+function isValidSource(v: unknown): v is LeadSource {
+  return typeof v === "string" && (LEAD_SOURCES as readonly string[]).includes(v);
+}
+
+export async function createLeadManual(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const fullName = String(formData.get("full_name") ?? "").trim().slice(0, 200);
+  const email = String(formData.get("email") ?? "").trim().slice(0, 200) || null;
+  const phone = String(formData.get("phone") ?? "").trim().slice(0, 50) || null;
+  const message = String(formData.get("message") ?? "").trim().slice(0, 2000) || null;
+  const rawSource = formData.get("source");
+  const source: LeadSource = isValidSource(rawSource) ? rawSource : "manual";
+
+  if (!fullName || (!email && !phone)) {
+    redirect("/backoffice/leads?new=error");
+  }
+
+  const service = createServiceRoleClient();
+  const { data: leadId, error } = await service.rpc("create_lead_manual", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_source: source,
+    p_full_name: fullName,
+    p_email: email,
+    p_phone: phone,
+    p_message: message,
+  });
+  if (error || typeof leadId !== "string") {
+    redirect("/backoffice/leads?new=error");
+  }
+
+  // Run automation so the new lead immediately gets a "bel nieuwe lead" task.
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
+  revalidatePath("/backoffice/leads");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+export async function completeLeadTask(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const taskId = String(formData.get("task_id") ?? "");
+  if (!leadId || !taskId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("complete_lead_task", {
+    p_task_id: taskId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) redirect(`/backoffice/leads/${leadId}`);
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/leads");
   redirect(`/backoffice/leads/${leadId}`);
 }

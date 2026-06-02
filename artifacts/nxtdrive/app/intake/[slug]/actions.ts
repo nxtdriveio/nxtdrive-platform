@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { analyzeIntake } from "@/lib/leads/intake-analysis";
+import { reconcileLeadSafe } from "@/lib/leads/automation";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -277,6 +278,12 @@ export async function submitIntake(formData: FormData) {
     });
   }
 
+  // Task #54 — run the lead automation engine (system actor): advance the funnel
+  // to intake_completed, score the lead and queue the "beoordeel intake" task.
+  if (typeof leadId === "string") {
+    await reconcileLeadSafe(service, tenant.id, leadId, null);
+  }
+
   // Fase 2 — hand the prospect to the trial-lesson planner with their lead id so
   // the thank-you page can offer up to 3 suggested proefles-slots.
   if (typeof leadId === "string") {
@@ -355,6 +362,10 @@ export async function chooseTrialLesson(formData: FormData) {
       `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
     );
   }
+
+  // Task #54 — provisional booking advances the funnel to trial_planned and
+  // queues the "bevestig proefles" task for the instructor.
+  await reconcileLeadSafe(service, tenant.id, leadId, null);
 
   redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&booked=1`);
 }

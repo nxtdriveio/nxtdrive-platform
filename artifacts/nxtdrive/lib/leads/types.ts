@@ -1,11 +1,80 @@
+// ---------------------------------------------------------------------------
+// Lead funnel — 15-status spec funnel (Task #54). Existing values
+// (new/contacted/package_advised/converted/dropped) are preserved; the rest
+// extend the funnel. Order here is the funnel order used by the dashboard.
+// ---------------------------------------------------------------------------
+
 export const LEAD_STATUSES = [
   "new",
   "contacted",
+  "intake_completed",
+  "trial_offered",
+  "trial_planned",
+  "trial_confirmed",
+  "trial_completed",
+  "assessment_pending",
+  "assessment_done",
   "package_advised",
+  "payment_pending",
+  "paid",
   "converted",
+  "follow_up",
   "dropped",
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+/** Monotonic funnel rank for forward-only automation progression. */
+export const LEAD_STATUS_RANK: Record<LeadStatus, number> = {
+  new: 0,
+  contacted: 1,
+  intake_completed: 2,
+  trial_offered: 3,
+  trial_planned: 4,
+  trial_confirmed: 5,
+  trial_completed: 6,
+  assessment_pending: 7,
+  assessment_done: 8,
+  package_advised: 9,
+  payment_pending: 10,
+  paid: 11,
+  converted: 12,
+  follow_up: 1,
+  dropped: 0,
+};
+
+/** Statuses the automation engine never overrides (manual/terminal). */
+export const LEAD_TERMINAL_STATUSES: readonly LeadStatus[] = [
+  "converted",
+  "dropped",
+];
+
+export const LEAD_ACTION_STATUSES = [
+  "none",
+  "awaiting_us",
+  "awaiting_lead",
+  "scheduled",
+  "closed",
+] as const;
+export type LeadActionStatus = (typeof LEAD_ACTION_STATUSES)[number];
+
+export const LEAD_ACTION_STATUS_LABEL: Record<LeadActionStatus, string> = {
+  none: "Geen actie",
+  awaiting_us: "Actie bij ons",
+  awaiting_lead: "Wachten op lead",
+  scheduled: "Ingepland",
+  closed: "Afgehandeld",
+};
+
+export const LEAD_ACTION_STATUS_VARIANT: Record<
+  LeadActionStatus,
+  "info" | "warning" | "primary" | "success" | "default"
+> = {
+  none: "default",
+  awaiting_us: "warning",
+  awaiting_lead: "info",
+  scheduled: "primary",
+  closed: "success",
+};
 
 export const LEAD_SOURCES = [
   "website",
@@ -14,6 +83,10 @@ export const LEAD_SOURCES = [
   "facebook",
   "whatsapp",
   "referral",
+  "intake_wizard",
+  "manual",
+  "phone",
+  "email",
   "other",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
@@ -28,14 +101,35 @@ export const LEAD_EVENT_TYPES = [
   "trial_confirmed",
   "trial_rescheduled",
   "trial_rejected",
+  "intake_completed",
+  "score_updated",
+  "lost",
+  "follow_up_scheduled",
+  "assessment_due",
+  "package_advised",
+  "payment_pending",
+  "paid",
+  "reengaged",
+  "task_auto_created",
+  "task_completed",
 ] as const;
 export type LeadEventType = (typeof LEAD_EVENT_TYPES)[number];
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   new: "Nieuw",
   contacted: "Contact opgenomen",
+  intake_completed: "Intake voltooid",
+  trial_offered: "Proefles aangeboden",
+  trial_planned: "Proefles gepland",
+  trial_confirmed: "Proefles bevestigd",
+  trial_completed: "Proefles afgerond",
+  assessment_pending: "Beoordeling open",
+  assessment_done: "Beoordeeld",
   package_advised: "Pakketadvies",
+  payment_pending: "Betaling open",
+  paid: "Betaald",
   converted: "Klant geworden",
+  follow_up: "Later opvolgen",
   dropped: "Afgehaakt",
 };
 
@@ -46,6 +140,10 @@ export const LEAD_SOURCE_LABEL: Record<LeadSource, string> = {
   facebook: "Facebook",
   whatsapp: "WhatsApp",
   referral: "Referral",
+  intake_wizard: "Intake-wizard",
+  manual: "Handmatig",
+  phone: "Telefoon",
+  email: "E-mail",
   other: "Overig",
 };
 
@@ -59,16 +157,37 @@ export const LEAD_EVENT_LABEL: Record<LeadEventType, string> = {
   trial_confirmed: "Proefles bevestigd",
   trial_rescheduled: "Proefles verzet",
   trial_rejected: "Proefles afgewezen",
+  intake_completed: "Intake voltooid",
+  score_updated: "Leadscore bijgewerkt",
+  lost: "Afgehaakt",
+  follow_up_scheduled: "Opvolging gepland",
+  assessment_due: "Beoordeling open",
+  package_advised: "Pakketadvies verstuurd",
+  payment_pending: "Betaling open",
+  paid: "Betaald",
+  reengaged: "Heractivering",
+  task_auto_created: "Automatische taak",
+  task_completed: "Taak afgerond",
 };
 
 export const LEAD_STATUS_VARIANT: Record<
   LeadStatus,
-  "info" | "warning" | "primary" | "success" | "danger"
+  "info" | "warning" | "primary" | "success" | "danger" | "default"
 > = {
   new: "info",
-  contacted: "warning",
+  contacted: "info",
+  intake_completed: "primary",
+  trial_offered: "warning",
+  trial_planned: "warning",
+  trial_confirmed: "primary",
+  trial_completed: "primary",
+  assessment_pending: "warning",
+  assessment_done: "primary",
   package_advised: "primary",
+  payment_pending: "warning",
+  paid: "success",
   converted: "success",
+  follow_up: "info",
   dropped: "danger",
 };
 
@@ -83,8 +202,39 @@ export type Lead = {
   postcode: string | null;
   message: string | null;
   assigned_to: string | null;
+  // Task #54 — dashboard columns.
+  action_status: LeadActionStatus;
+  priority: "low" | "normal" | "high" | "urgent";
+  lead_score: number;
+  lead_score_reason: LeadScoreReason[];
+  assigned_owner_id: string | null;
+  assigned_instructor_id: string | null;
+  assigned_location_id: string | null;
+  preferred_license_goal: IntakeLicenseGoal | null;
+  preferred_transmission: IntakeTransmission | null;
+  role_type: IntakeApplicantType | null;
+  birth_date: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  pickup_address: string | null;
+  pickup_place_id: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  desired_start_date: string | null;
+  last_activity_at: string;
+  next_action_at: string | null;
+  converted_to_student_at: string | null;
+  lost_at: string | null;
+  lost_reason: string | null;
+  source_detail: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type LeadScoreReason = {
+  code: string;
+  label: string;
+  points: number;
 };
 
 export type LeadEvent = {
@@ -94,6 +244,7 @@ export type LeadEvent = {
   actor_user_id: string | null;
   event_type: LeadEventType;
   payload: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   created_at: string;
 };
 

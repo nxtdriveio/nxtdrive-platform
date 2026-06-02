@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   INTAKE_APPLICANT_TYPE_LABEL,
@@ -44,7 +45,19 @@ import {
   type IntakeRecommendedStep,
   type LeadIntakeAnalysis,
 } from "@/lib/leads/intake-analysis";
-import { addNote, convertLeadToStudent, updateStatus } from "../actions";
+import {
+  addNote,
+  convertLeadToStudent,
+  markLeadLost,
+  scheduleLeadFollowUp,
+  updateStatus,
+} from "../actions";
+import {
+  LEAD_ACTION_STATUS_LABEL,
+  LEAD_ACTION_STATUS_VARIANT,
+} from "@/lib/leads/types";
+import { leadScoreBand } from "@/lib/leads/lead-score";
+import type { LeadScoreReason } from "@/lib/leads/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { TrialLessonSection } from "./trial-lesson-section";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
@@ -357,6 +370,8 @@ export default async function LeadDetailPage({
         </div>
 
         <div className="space-y-6">
+          <SmartFollowUpCard lead={lead} />
+
           <Card>
             <CardHeader>
               <CardTitle>Status bijwerken</CardTitle>
@@ -441,6 +456,106 @@ export default async function LeadDetailPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function SmartFollowUpCard({ lead }: { lead: Lead }) {
+  const reasons = Array.isArray(lead.lead_score_reason)
+    ? (lead.lead_score_reason as LeadScoreReason[])
+    : [];
+  const band = leadScoreBand(lead.lead_score);
+  const scoreVariant =
+    band === "hot" ? "warning" : band === "warm" ? "info" : "default";
+  const isClosed = lead.status === "converted" || lead.status === "dropped";
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Slimme opvolging</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Leadscore
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-2xl font-semibold tabular-nums text-foreground">
+                {lead.lead_score}
+              </span>
+              <Badge variant={scoreVariant}>
+                {band === "hot" ? "Hot" : band === "warm" ? "Warm" : "Koud"}
+              </Badge>
+            </div>
+          </div>
+          <Badge variant={LEAD_ACTION_STATUS_VARIANT[lead.action_status]}>
+            {LEAD_ACTION_STATUS_LABEL[lead.action_status]}
+          </Badge>
+        </div>
+
+        {lead.next_action_at ? (
+          <div className="text-sm text-muted-foreground">
+            Volgende actie:{" "}
+            <span className="font-medium text-foreground">
+              {dateTimeFmt.format(new Date(lead.next_action_at))}
+            </span>
+          </div>
+        ) : null}
+
+        {reasons.length > 0 ? (
+          <div className="space-y-1">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Signalen
+            </div>
+            <ul className="space-y-1">
+              {reasons.map((r) => (
+                <li
+                  key={r.code}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-foreground">{r.label}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    +{r.points}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {!isClosed ? (
+          <div className="space-y-3 border-t border-border pt-3">
+            <form action={scheduleLeadFollowUp} className="space-y-2">
+              <input type="hidden" name="lead_id" value={lead.id} />
+              <label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Later opvolgen
+              </label>
+              <div className="flex gap-2">
+                <Input type="date" name="date" defaultValue={todayIso} required />
+                <Input type="time" name="time" defaultValue="09:00" />
+              </div>
+              <Button type="submit" size="sm" variant="outline" className="w-full">
+                Opvolging plannen
+              </Button>
+            </form>
+
+            <form action={markLeadLost} className="space-y-2">
+              <input type="hidden" name="lead_id" value={lead.id} />
+              <Input name="reason" placeholder="Reden afhaken (optioneel)" />
+              <Button
+                type="submit"
+                size="sm"
+                variant="ghost"
+                className="w-full text-danger"
+              >
+                Markeer als afgehaakt
+              </Button>
+            </form>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
