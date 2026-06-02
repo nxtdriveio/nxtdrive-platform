@@ -1,25 +1,16 @@
-import { Car, MapPin, ListChecks, MessageSquare, AlertTriangle } from "lucide-react";
+import { Car, MapPin, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function StudentLessonContextCard({
   vehicleLabel,
   locationName,
-  studentNote,
-  attentionPoints,
   topics,
 }: {
   vehicleLabel: string | null;
   locationName: string | null;
-  studentNote: string | null;
-  attentionPoints: string | null;
   topics: string[];
 }) {
-  const hasAny =
-    vehicleLabel ||
-    locationName ||
-    studentNote ||
-    attentionPoints ||
-    topics.length > 0;
+  const hasAny = vehicleLabel || locationName || topics.length > 0;
   if (!hasAny) return null;
 
   return (
@@ -61,28 +52,6 @@ export function StudentLessonContextCard({
                 </span>
               ))}
             </div>
-          </div>
-        ) : null}
-
-        {studentNote ? (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <MessageSquare className="h-4 w-4" aria-hidden /> Notitie van je instructeur
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {studentNote}
-            </p>
-          </div>
-        ) : null}
-
-        {attentionPoints ? (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-warning">
-              <AlertTriangle className="h-4 w-4" aria-hidden /> Aandachtspunten
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {attentionPoints}
-            </p>
           </div>
         ) : null}
       </CardContent>

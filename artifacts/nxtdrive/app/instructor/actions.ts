@@ -261,6 +261,7 @@ export async function setLessonContextAction(
   const studentNote = String(formData.get("student_note") ?? "").trim().slice(0, 4000);
   const internalNote = String(formData.get("internal_note") ?? "").trim().slice(0, 4000);
   const attention = String(formData.get("attention_points") ?? "").trim().slice(0, 4000);
+  const advies = String(formData.get("advice") ?? "").trim().slice(0, 4000);
   const topicSkillIds = formData
     .getAll("topic_skill_ids")
     .map((v) => String(v))
@@ -279,6 +280,7 @@ export async function setLessonContextAction(
     p_student_note: studentNote || null,
     p_internal_note: internalNote || null,
     p_attention_points: attention || null,
+    p_advies: advies || null,
     p_topic_skill_ids: topicSkillIds,
   });
   if (error) return { error: error.message };

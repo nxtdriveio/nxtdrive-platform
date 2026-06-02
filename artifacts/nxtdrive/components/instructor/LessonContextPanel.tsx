@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Car, MapPin, ListChecks, ChevronDown } from "lucide-react";
+import { Car, MapPin, ListChecks, ChevronDown, Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
@@ -145,6 +145,23 @@ export function LessonContextPanel({
               maxLength={4000}
               defaultValue={context.attentionPoints ?? ""}
               placeholder="bv. Spiegelgebruik bij wisselen van rijbaan"
+            />
+          </div>
+
+          <div className="space-y-1.5 rounded-lg border border-primary/30 bg-primary-soft/30 p-3">
+            <Label htmlFor="ctx-advice">
+              <span className="inline-flex items-center gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Advies voor volgende les (zichtbaar voor leerling)
+              </span>
+            </Label>
+            <Textarea
+              id="ctx-advice"
+              name="advice"
+              rows={2}
+              maxLength={4000}
+              defaultValue={context.advice ?? ""}
+              placeholder="bv. Oefen thuis de theorie over voorrang en focus volgende les op rotondes"
             />
           </div>
 

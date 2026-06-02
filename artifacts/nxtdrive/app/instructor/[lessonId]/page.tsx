@@ -184,7 +184,7 @@ export default async function InstructorLessonPage({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem,1fr,20rem]">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[18rem,1fr,20rem] lg:items-start">
       <Card className="lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-6rem)]">
         <CardContent className="pt-5">
           <InstructorDayList

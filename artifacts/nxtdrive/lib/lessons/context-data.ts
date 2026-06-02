@@ -64,7 +64,7 @@ export async function loadLessonContext(
   const [lessonRes, internalRes, topicsRes] = await Promise.all([
     client
       .from("lessons")
-      .select("vehicle_id, location_id, student_note, attention_points")
+      .select("vehicle_id, location_id, student_note, attention_points, advice")
       .eq("id", lessonId)
       .eq("tenant_id", tenantId)
       .maybeSingle(),
@@ -97,6 +97,7 @@ export async function loadLessonContext(
         location_id: string | null;
         student_note: string | null;
         attention_points: string | null;
+        advice: string | null;
       }
     | null;
 
@@ -105,6 +106,7 @@ export async function loadLessonContext(
     locationId: lesson?.location_id ?? null,
     studentNote: lesson?.student_note ?? null,
     attentionPoints: lesson?.attention_points ?? null,
+    advice: lesson?.advice ?? null,
     internalNote:
       (internalRes.data as { internal_note: string | null } | null)?.internal_note ?? null,
     topicSkillIds: ((topicsRes.data ?? []) as { skill_id: string }[]).map((r) => r.skill_id),

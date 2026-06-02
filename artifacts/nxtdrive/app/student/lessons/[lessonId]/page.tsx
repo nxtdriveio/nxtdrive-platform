@@ -4,13 +4,21 @@ import { ArrowLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { StudentProgressCard } from "@/components/student/ProgressCard";
+import { LessonHeaderCard } from "@/components/student/LessonHeaderCard";
+import { LessonPracticedChips } from "@/components/student/LessonPracticedChips";
+import { LessonNotesCard } from "@/components/student/LessonNotesCard";
+import { LessonAdviceCard } from "@/components/student/LessonAdviceCard";
+import { LessonNavFooter } from "@/components/student/LessonNavFooter";
 import { LessonSkillFeedbackCard } from "@/components/skills/LessonSkillFeedbackCard";
+import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
 import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { StudentLessonContextCard } from "@/components/student/LessonContextCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
-import { loadStudentLessonSkills } from "@/lib/skills/student-leskaart-data";
+import {
+  loadStudentLessonSkills,
+  loadStudentLeskaart,
+} from "@/lib/skills/student-leskaart-data";
 import { loadLessonTheoryHomework } from "@/lib/theory/data";
 import { VEHICLE_TRANSMISSION_LABEL, type Lesson } from "@/lib/lessons/types";
 
@@ -43,12 +51,36 @@ export default async function StudentLessonDetailPage({
     .maybeSingle();
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
-  const [names, skillGroups, homework] = await Promise.all([
+
+  const [names, skillGroups, leskaart, homework] = await Promise.all([
     getInstructorNames([lesson.instructor_id]),
     loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
+    loadStudentLeskaart(supabase, tenant.id, student.id),
     loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
   ]);
   const instructorName = names.get(lesson.instructor_id);
+
+  // Prev/next lesson in this student's chronological lesson list.
+  const [prevRes, nextRes] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("id")
+      .eq("student_id", student.id)
+      .lt("starts_at", lesson.starts_at)
+      .order("starts_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("lessons")
+      .select("id")
+      .eq("student_id", student.id)
+      .gt("starts_at", lesson.starts_at)
+      .order("starts_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const prevLessonId = (prevRes.data as { id: string } | null)?.id ?? null;
+  const nextLessonId = (nextRes.data as { id: string } | null)?.id ?? null;
 
   // Resolve lescontext labels (voertuig, locatie, behandelde onderdelen).
   const [vehicleRes, locationRes, topicsRes] = await Promise.all([
@@ -111,6 +143,15 @@ export default async function StudentLessonDetailPage({
     )
     .filter((l): l is string => Boolean(l));
 
+  // "Vandaag geoefend" chips: every skill graded during this lesson.
+  const practiced = skillGroups.flatMap((g) =>
+    g.skills.map((s) => ({
+      id: s.id,
+      label: s.label,
+      isCritical: s.isCritical,
+    })),
+  );
+
   return (
     <div className="space-y-4">
       <Link
@@ -121,29 +162,55 @@ export default async function StudentLessonDetailPage({
         Terug naar lessen
       </Link>
 
-      <StudentProgressCard lesson={lesson} instructorName={instructorName} />
+      <LessonHeaderCard lesson={lesson} instructorName={instructorName} />
+
+      <LessonPracticedChips skills={practiced} />
+
+      <StudentCategoryProgressCard categories={leskaart.categories} />
+
+      <LessonSkillFeedbackCard groups={skillGroups} />
+
+      <LessonNotesCard
+        studentNote={lesson.student_note}
+        attentionPoints={lesson.attention_points}
+      />
+
+      <LessonAdviceCard advice={lesson.advice} />
 
       <StudentLessonContextCard
         vehicleLabel={vehicleLabel}
         locationName={locationName}
-        studentNote={lesson.student_note}
-        attentionPoints={lesson.attention_points}
         topics={topics}
       />
-
-      <LessonSkillFeedbackCard groups={skillGroups} />
 
       {homework.length > 0 ? (
         <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
       ) : null}
 
-      {lesson.progress_summary == null && lesson.status === "completed" ? (
+      {lesson.progress_summary ? (
+        <Card>
+          <CardContent className="space-y-1 pt-5">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Toelichting van je instructeur
+            </div>
+            <p className="whitespace-pre-wrap text-sm text-foreground">
+              {lesson.progress_summary}
+            </p>
+          </CardContent>
+        </Card>
+      ) : lesson.status === "completed" ? (
         <Card>
           <CardContent className="pt-5 text-sm text-muted-foreground">
             Je instructeur heeft nog geen toelichting gedeeld voor deze les.
           </CardContent>
         </Card>
       ) : null}
+
+      <LessonNavFooter
+        prevLessonId={prevLessonId}
+        nextLessonId={nextLessonId}
+        contactHref="/student/profile"
+      />
     </div>
   );
 }

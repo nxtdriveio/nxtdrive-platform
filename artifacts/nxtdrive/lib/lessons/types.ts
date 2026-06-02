@@ -48,6 +48,7 @@ export type Lesson = {
   location_id: string | null;
   student_note: string | null;
   attention_points: string | null;
+  advice: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -90,6 +91,7 @@ export type LessonContext = {
   locationId: string | null;
   studentNote: string | null;
   attentionPoints: string | null;
+  advice: string | null;
   internalNote: string | null;
   topicSkillIds: string[];
 };
