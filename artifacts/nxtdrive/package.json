@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p ${PORT:-22557} -H 127.0.0.1",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test \"lib/**/*.test.ts\""
+    "test": "tsx --test \"lib/**/*.test.ts\"",
+    "notif:smoketest": "tsx ./scripts/notif-smoketest.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
