@@ -298,6 +298,57 @@ function codesOf(points: { code: string }[]) {
   );
 }
 
+// --- Scenario 7: broken input is rejected before scoring --------------------
+{
+  function assertThrows(name: string, fn: () => unknown) {
+    try {
+      fn();
+      assert(name, false, "expected a thrown error, got none");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      assert(name, /Ongeldige intake-gegevens/.test(msg), msg);
+    }
+  }
+
+  // Out-of-enum status (e.g. "maybe" instead of yes/no/unknown).
+  assertThrows("invalid: out-of-enum theory_status rejected", () =>
+    analyzeIntake({
+      ...baseInput(),
+      theory_status: "maybe",
+    } as unknown as IntakeAnalysisInput),
+  );
+
+  // preferred_days must be an array, not a bare string.
+  assertThrows("invalid: non-array preferred_days rejected", () =>
+    analyzeIntake({
+      ...baseInput(),
+      preferred_days: "mon",
+    } as unknown as IntakeAnalysisInput),
+  );
+
+  // Boolean flags must be boolean | null, not strings.
+  assertThrows("invalid: non-boolean has_anxiety rejected", () =>
+    analyzeIntake({
+      ...baseInput(),
+      has_anxiety: "yes",
+    } as unknown as IntakeAnalysisInput),
+  );
+
+  // A missing required field (here: the whole object is incomplete).
+  assertThrows("invalid: missing fields rejected", () =>
+    analyzeIntake({ city: "Utrecht" } as unknown as IntakeAnalysisInput),
+  );
+
+  // Sanity: a fully valid baseline must NOT throw.
+  let validThrew = false;
+  try {
+    analyzeIntake(baseInput());
+  } catch {
+    validThrew = true;
+  }
+  assert("invalid: valid baseline does not throw", !validThrew);
+}
+
 // --- Report -----------------------------------------------------------------
 console.log("NXTDRIVE — Fase 1B intake-analyse engine tests");
 let failed = 0;

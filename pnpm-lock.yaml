@@ -521,7 +521,11 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
-  lib/leads-analysis: {}
+  lib/leads-analysis:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
 
   lib/leskaart: {}
 

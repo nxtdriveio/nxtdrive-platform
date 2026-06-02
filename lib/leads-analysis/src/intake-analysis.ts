@@ -15,6 +15,8 @@
 // templates (intakeAttentionTask) stay in the nxtdrive app layer.
 // ---------------------------------------------------------------------------
 
+import { z } from "zod";
+
 // --- Intake enums (single source of truth) ---------------------------------
 //
 // The engine only needs the answer enums; the nxtdrive app re-exports these
@@ -151,6 +153,49 @@ export type IntakeAnalysis = {
   recommended_step: IntakeRecommendedStep;
 };
 
+// --- Runtime validation ----------------------------------------------------
+//
+// The engine is fed by the public intake wizard and the backoffice backfill,
+// both of which assemble this object from form/DB data. A malformed value (an
+// out-of-enum status, a non-array preferred_days, a non-boolean flag, …) would
+// otherwise silently produce wrong labels/scores. This schema mirrors
+// IntakeAnalysisInput so bad data fails loudly at the engine boundary instead.
+export const intakeAnalysisInputSchema = z.object({
+  city: z.string().nullable(),
+  pickup_location: z.string().nullable(),
+  has_driving_experience: z.boolean().nullable(),
+  had_lessons_before: z.boolean().nullable(),
+  has_done_exam: z.boolean().nullable(),
+  theory_status: z.enum(INTAKE_STATUSES),
+  health_declaration_status: z.enum(INTAKE_STATUSES),
+  cbr_authorization_status: z.enum(INTAKE_STATUSES),
+  preferred_days: z.array(z.string()),
+  preferred_times: z.array(z.string()),
+  desired_start_date: z.string().nullable(),
+  lessons_per_week: z.number().nullable(),
+  pace: z.enum(INTAKE_PACES).nullable(),
+  has_anxiety: z.boolean().nullable(),
+}) satisfies z.ZodType<IntakeAnalysisInput>;
+
+/**
+ * Validate raw intake answers against {@link intakeAnalysisInputSchema}. Throws
+ * a clear, single-line Error listing every offending field on invalid input —
+ * never returns a partially-coerced object. Used as the guard inside
+ * {@link analyzeIntake}, but exported so callers can validate up front too.
+ */
+export function parseIntakeAnalysisInput(
+  input: unknown,
+): IntakeAnalysisInput {
+  const parsed = intakeAnalysisInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("; ");
+    throw new Error(`Ongeldige intake-gegevens voor analyse: ${details}`);
+  }
+  return parsed.data;
+}
+
 // Stored row shape (1:1 with a lead) as read back from the DB.
 export type LeadIntakeAnalysis = {
   id: string;
@@ -205,6 +250,10 @@ function availabilityClass(
 // --- Engine ----------------------------------------------------------------
 
 export function analyzeIntake(input: IntakeAnalysisInput): IntakeAnalysis {
+  // Catch broken intake answers before they reach scoring: a malformed value
+  // must fail loudly here, never silently yield a wrong label/score.
+  parseIntakeAnalysisInput(input);
+
   const labels: IntakeLabel[] = [];
   const attention: IntakeAttentionPoint[] = [];
 
