@@ -14,6 +14,7 @@
     "db:test-rls-credits": "tsx ./src/test-rls-credits.ts",
     "db:test-rls-lessons": "tsx ./src/test-rls-lessons.ts",
     "db:test-rls-trial-lessons": "tsx ./src/test-rls-trial-lessons.ts",
+    "db:test-rls-agenda": "tsx ./src/test-rls-agenda.ts",
     "db:test-rls-instructor": "tsx ./src/test-rls-instructor.ts",
     "db:test-rls-availability": "tsx ./src/test-rls-availability.ts",
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",

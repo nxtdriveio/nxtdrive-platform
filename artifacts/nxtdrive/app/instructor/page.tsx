@@ -9,6 +9,7 @@ import { InstructorDayList } from "@/components/instructor/DayList";
 import type { Lesson } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
+import { loadAgendaAppointments } from "@/lib/agenda/appointments";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +55,16 @@ export default async function InstructorIndexPage() {
     lessons.find((l) => l.status === "planned") ?? lessons[0] ?? null;
   if (target) redirect(`/instructor/${target.id}`);
 
-  // No lessons today, but there may still be trial lessons (proeflessen) to show.
+  // No lessons today, but there may still be trial lessons (proeflessen) or
+  // other appointments (examens, blokken, …) to show.
   const trials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: dayStart,
+    to: dayEnd,
+    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+  });
+
+  const appointments = await loadAgendaAppointments(supabase, {
     tenantId: tenant.id,
     from: dayStart,
     to: dayEnd,
@@ -85,11 +94,12 @@ export default async function InstructorIndexPage() {
             lessons={lessons}
             studentNames={studentNames}
             trialLessons={trials}
+            appointments={appointments}
             date={today}
           />
           <div className="border-t border-border pt-4 text-sm text-muted-foreground">
-            {trials.length > 0
-              ? "Geen reguliere lessen vandaag, wel een of meer proeflessen. "
+            {trials.length > 0 || appointments.length > 0
+              ? "Geen reguliere lessen vandaag, wel andere afspraken. "
               : "Geen lessen voor vandaag. "}
             Bekijk de{" "}
             <Link

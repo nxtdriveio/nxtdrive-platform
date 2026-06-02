@@ -15,7 +15,12 @@ import {
   loadAgendaTrialLessons,
   type AgendaTrialLesson,
 } from "@/lib/trial-lessons/agenda";
+import {
+  loadAgendaAppointments,
+  type AgendaAppointmentView,
+} from "@/lib/agenda/appointments";
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
+import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
 import { loadFreeSpaceForRange } from "@/lib/availability/service";
 import { dateKey } from "@/lib/availability/compute";
@@ -82,6 +87,13 @@ export default async function InstructorWeekPage({
     instructorId: roles.includes("tenant_admin") ? undefined : user.id,
   });
 
+  const appointments = await loadAgendaAppointments(supabase, {
+    tenantId: tenant.id,
+    from: weekStart,
+    to: weekEnd,
+    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+  });
+
   // Background availability: own schedule (or union across instructors for admins).
   const freeSpace = await loadFreeSpaceForRange(supabase, {
     tenantId: tenant.id,
@@ -107,7 +119,8 @@ export default async function InstructorWeekPage({
   // Interleave lessons and active trial lessons per day, sorted by start time.
   type AgendaItem =
     | { kind: "lesson"; starts_at: string; lesson: Lesson }
-    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson };
+    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
+    | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
 
   const days: { date: Date; items: AgendaItem[] }[] = [];
   for (let i = 0; i < 7; i++) {
@@ -129,6 +142,15 @@ export default async function InstructorWeekPage({
     const idx = dayIndex(t.starts_at);
     if (idx >= 0 && idx < 7)
       days[idx]!.items.push({ kind: "trial", starts_at: t.starts_at, trial: t });
+  }
+  for (const a of appointments) {
+    const idx = dayIndex(a.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({
+        kind: "appointment",
+        starts_at: a.starts_at,
+        appointment: a,
+      });
   }
   for (const day of days) {
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
@@ -174,6 +196,12 @@ export default async function InstructorWeekPage({
           >
             Volgende →
           </Link>
+          <Link
+            href="/instructor/afspraak/nieuw"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            + Afspraak
+          </Link>
         </div>
       </div>
 
@@ -214,13 +242,26 @@ export default async function InstructorWeekPage({
                           </div>
                         </Link>
                       </li>
-                    ) : (
+                    ) : item.kind === "trial" ? (
                       <li key={`trial-${item.trial.id}`}>
                         <TrialLessonCard
                           leadId={item.trial.lead_id}
                           leadName={item.trial.lead_name}
                           startsAt={item.trial.starts_at}
                           status={item.trial.status}
+                        />
+                      </li>
+                    ) : (
+                      <li key={`appt-${item.appointment.id}`}>
+                        <AppointmentCard
+                          id={item.appointment.id}
+                          type={item.appointment.type}
+                          startsAt={item.appointment.starts_at}
+                          endsAt={item.appointment.ends_at}
+                          title={item.appointment.title}
+                          location={item.appointment.location}
+                          studentName={item.appointment.student_name}
+                          href={`/instructor/afspraak/${item.appointment.id}`}
                         />
                       </li>
                     ),

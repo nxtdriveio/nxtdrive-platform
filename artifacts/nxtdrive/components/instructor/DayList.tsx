@@ -11,6 +11,13 @@ import {
   TRIAL_LESSON_STATUS_VARIANT,
 } from "@/lib/trial-lessons/types";
 import type { AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
+import type { AgendaAppointmentView } from "@/lib/agenda/appointments";
+import {
+  APPOINTMENT_TYPE_ACCENT,
+  APPOINTMENT_TYPE_LABEL,
+  durationMinutes,
+  isStudentLinkedType,
+} from "@/lib/agenda/types";
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
@@ -24,18 +31,21 @@ const dayFmt = new Intl.DateTimeFormat("nl-NL", {
 
 type DayItem =
   | { kind: "lesson"; starts_at: string; lesson: Lesson }
-  | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson };
+  | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
+  | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
 
 export function InstructorDayList({
   lessons,
   studentNames,
   trialLessons = [],
+  appointments = [],
   selectedId,
   date,
 }: {
   lessons: Lesson[];
   studentNames: Map<string, string>;
   trialLessons?: AgendaTrialLesson[];
+  appointments?: AgendaAppointmentView[];
   selectedId?: string;
   date: Date;
 }) {
@@ -45,6 +55,13 @@ export function InstructorDayList({
     ),
     ...trialLessons.map(
       (t): DayItem => ({ kind: "trial", starts_at: t.starts_at, trial: t }),
+    ),
+    ...appointments.map(
+      (a): DayItem => ({
+        kind: "appointment",
+        starts_at: a.starts_at,
+        appointment: a,
+      }),
     ),
   ].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
 
@@ -110,7 +127,7 @@ export function InstructorDayList({
                   ) : null}
                 </Link>
               </li>
-            ) : (
+            ) : item.kind === "trial" ? (
               <li key={`trial-${item.trial.id}`}>
                 <Link
                   href={`/backoffice/leads/${item.trial.lead_id}`}
@@ -134,6 +151,39 @@ export function InstructorDayList({
                     className="shrink-0"
                   >
                     {TRIAL_LESSON_STATUS_LABEL[item.trial.status]}
+                  </Badge>
+                </Link>
+              </li>
+            ) : (
+              <li key={`appt-${item.appointment.id}`}>
+                <Link
+                  href={`/instructor/afspraak/${item.appointment.id}`}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 transition-colors hover:brightness-95",
+                    APPOINTMENT_TYPE_ACCENT[item.appointment.type],
+                  )}
+                >
+                  <div className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                    {timeFmt.format(new Date(item.appointment.starts_at))}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {isStudentLinkedType(item.appointment.type)
+                        ? (item.appointment.student_name ??
+                          APPOINTMENT_TYPE_LABEL[item.appointment.type])
+                        : (item.appointment.title?.trim() ||
+                          APPOINTMENT_TYPE_LABEL[item.appointment.type])}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {durationMinutes(
+                        item.appointment.starts_at,
+                        item.appointment.ends_at,
+                      )}{" "}
+                      min · {item.appointment.location ?? "—"}
+                    </div>
+                  </div>
+                  <Badge variant="default" className="shrink-0">
+                    {APPOINTMENT_TYPE_LABEL[item.appointment.type]}
                   </Badge>
                 </Link>
               </li>

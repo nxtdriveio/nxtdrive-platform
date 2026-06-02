@@ -16,7 +16,12 @@ import {
   loadAgendaTrialLessons,
   type AgendaTrialLesson,
 } from "@/lib/trial-lessons/agenda";
+import {
+  loadAgendaAppointments,
+  type AgendaAppointmentView,
+} from "@/lib/agenda/appointments";
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
+import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
 import { loadFreeSpaceForRange } from "@/lib/availability/service";
 import { dateKey } from "@/lib/availability/compute";
@@ -75,6 +80,12 @@ export default async function AgendaPage({
     to: weekEnd,
   });
 
+  const appointments = await loadAgendaAppointments(supabase, {
+    tenantId: tenant.id,
+    from: weekStart,
+    to: weekEnd,
+  });
+
   // Background availability: union across all instructors ("someone is free").
   const freeSpace = await loadFreeSpaceForRange(supabase, {
     tenantId: tenant.id,
@@ -103,6 +114,7 @@ export default async function AgendaPage({
     new Set([
       ...lessons.map((l) => l.instructor_id),
       ...trials.map((t) => t.instructor_id),
+      ...appointments.map((a) => a.instructor_id),
     ]),
   );
   const service = createServiceRoleClient();
@@ -121,7 +133,8 @@ export default async function AgendaPage({
   // a provisional/confirmed proefles shows in the right slot among the lessons.
   type AgendaItem =
     | { kind: "lesson"; starts_at: string; lesson: Lesson }
-    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson };
+    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
+    | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
 
   const days: { date: Date; items: AgendaItem[] }[] = [];
   for (let i = 0; i < 7; i++) {
@@ -143,6 +156,15 @@ export default async function AgendaPage({
     const idx = dayIndex(t.starts_at);
     if (idx >= 0 && idx < 7)
       days[idx]!.items.push({ kind: "trial", starts_at: t.starts_at, trial: t });
+  }
+  for (const a of appointments) {
+    const idx = dayIndex(a.starts_at);
+    if (idx >= 0 && idx < 7)
+      days[idx]!.items.push({
+        kind: "appointment",
+        starts_at: a.starts_at,
+        appointment: a,
+      });
   }
   for (const day of days) {
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
@@ -179,6 +201,13 @@ export default async function AgendaPage({
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Volgende →
+          </Link>
+          <Link
+            href="/backoffice/agenda/afspraak/nieuw"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+            Afspraak
           </Link>
           <Link
             href="/backoffice/agenda/nieuw"
@@ -227,7 +256,7 @@ export default async function AgendaPage({
                         </div>
                       </Link>
                     </li>
-                  ) : (
+                  ) : item.kind === "trial" ? (
                     <li key={`trial-${item.trial.id}`}>
                       <TrialLessonCard
                         leadId={item.trial.lead_id}
@@ -237,6 +266,22 @@ export default async function AgendaPage({
                         instructorName={instructorMap.get(
                           item.trial.instructor_id,
                         )}
+                      />
+                    </li>
+                  ) : (
+                    <li key={`appt-${item.appointment.id}`}>
+                      <AppointmentCard
+                        id={item.appointment.id}
+                        type={item.appointment.type}
+                        startsAt={item.appointment.starts_at}
+                        endsAt={item.appointment.ends_at}
+                        title={item.appointment.title}
+                        location={item.appointment.location}
+                        studentName={item.appointment.student_name}
+                        instructorName={instructorMap.get(
+                          item.appointment.instructor_id,
+                        )}
+                        href={`/backoffice/agenda/afspraak/${item.appointment.id}`}
                       />
                     </li>
                   ),
