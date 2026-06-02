@@ -386,7 +386,12 @@ export async function setStudentCbrStatusAction(
   const studentId = String(formData.get("student_id") ?? "");
   if (!studentId) return { error: "student_id ontbreekt" };
   const theorie = String(formData.get("theorie_behaald") ?? "") === "1";
-  const machtiging = String(formData.get("machtiging_geregeld") ?? "") === "1";
+  const machtigingStatusRaw = String(formData.get("machtiging_status") ?? "");
+  const machtigingStatus = (
+    ["nog_nodig", "aangevraagd", "ontvangen"] as const
+  ).includes(machtigingStatusRaw as never)
+    ? machtigingStatusRaw
+    : "nog_nodig";
   const gvVereist =
     String(formData.get("gezondheidsverklaring_vereist") ?? "") === "1";
   const gvGeregeld =
@@ -426,7 +431,7 @@ export async function setStudentCbrStatusAction(
     p_tenant_id: tenant.id,
     p_actor: user.id,
     p_theorie_behaald: theorie,
-    p_machtiging_geregeld: machtiging,
+    p_machtiging_status: machtigingStatus,
     p_gezondheidsverklaring_vereist: gvVereist,
     p_gezondheidsverklaring_geregeld: gvGeregeld,
   });

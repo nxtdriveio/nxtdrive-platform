@@ -28,6 +28,7 @@ import type { Student, StudentBalance } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import type { MachtigingStatus } from "@/lib/cbr/types";
 import {
   loadCockpitProgress,
   loadCockpitPayment,
@@ -168,6 +169,16 @@ export default async function InstructorLessonPage({
     loadTheoryModules(supabase, tenant.id, { activeOnly: true }),
     loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
   ]);
+
+  const { data: cbrStatusRow } = await supabase
+    .from("student_cbr_status")
+    .select("machtiging_status, machtiging_geregeld")
+    .eq("tenant_id", tenant.id)
+    .eq("student_id", lesson.student_id)
+    .maybeSingle();
+  const machtigingStatus: MachtigingStatus =
+    (cbrStatusRow?.machtiging_status as MachtigingStatus | undefined) ??
+    (cbrStatusRow?.machtiging_geregeld ? "ontvangen" : "nog_nodig");
 
   const { data: notesRaw } = await supabase
     .from("lesson_notes")
@@ -310,7 +321,11 @@ export default async function InstructorLessonPage({
           payment={cockpitPayment}
         />
         {student ? (
-          <ExamReadinessPanel studentId={student.id} readiness={readiness} />
+          <ExamReadinessPanel
+            studentId={student.id}
+            readiness={readiness}
+            machtigingStatus={machtigingStatus}
+          />
         ) : null}
         {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
         {student && taskLaunch.boards.length > 0 ? (

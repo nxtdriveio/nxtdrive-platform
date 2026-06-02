@@ -19,6 +19,8 @@ import { loadStudentTheoryHomework } from "@/lib/theory/data";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
+import { loadStudentCbrSummary } from "@/lib/cbr/data";
+import { StudentCbrCard } from "@/components/student/StudentCbrCard";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
 
@@ -99,12 +101,14 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
 
-  const [readiness, leskaart, homework, refillInvitations] = await Promise.all([
-    loadStudentReadiness(supabase, tenant.id, student.id),
-    loadStudentLeskaart(supabase, tenant.id, student.id),
-    loadStudentTheoryHomework(supabase, tenant.id, student.id),
-    listOpenInvitationsForStudent(supabase, tenant.id, student.id),
-  ]);
+  const [readiness, leskaart, homework, refillInvitations, cbrSummary] =
+    await Promise.all([
+      loadStudentReadiness(supabase, tenant.id, student.id),
+      loadStudentLeskaart(supabase, tenant.id, student.id),
+      loadStudentTheoryHomework(supabase, tenant.id, student.id),
+      listOpenInvitationsForStudent(supabase, tenant.id, student.id),
+      loadStudentCbrSummary(supabase, tenant.id, student.id),
+    ]);
 
   const instructorNames = await getInstructorNames([
     ...(nextLesson ? [nextLesson.instructor_id] : []),
@@ -154,6 +158,8 @@ export default async function StudentHomePage() {
       )}
 
       <StudentReadinessCard readiness={readiness} />
+
+      <StudentCbrCard summary={cbrSummary} />
 
       <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
 

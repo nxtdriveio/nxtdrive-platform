@@ -31,8 +31,12 @@ import {
 } from "@/lib/leads/types";
 import { TASK_PRIORITY_LABEL, TASK_PRIORITY_VARIANT } from "@/lib/tasks/types";
 import { formatTegoed } from "@/lib/students/types";
-import type { CbrChecklistItem, StudentCbrStatus } from "@/lib/cbr/types";
-import { readinessPct } from "@/lib/cbr/types";
+import type {
+  CbrChecklistItem,
+  StudentCbrStatus,
+  MachtigingStatus,
+} from "@/lib/cbr/types";
+import { readinessPct, MACHTIGING_STATUS_LABEL } from "@/lib/cbr/types";
 import type { ReadinessResult } from "@workspace/leskaart";
 import type {
   StudentAppointment,
@@ -281,7 +285,9 @@ export function CbrStatusCard({
   checklist: CbrChecklistItem[];
 }) {
   const theorie = status?.theorie_behaald ?? false;
-  const machtiging = status?.machtiging_geregeld ?? false;
+  const machtigingStatus: MachtigingStatus =
+    status?.machtiging_status ??
+    (status?.machtiging_geregeld ? "ontvangen" : "nog_nodig");
   const healthRequired = status?.gezondheidsverklaring_vereist ?? true;
   const healthArranged = status?.gezondheidsverklaring_geregeld ?? false;
   const pct = readinessPct(checklist);
@@ -295,7 +301,20 @@ export function CbrStatusCard({
       <CardContent className="space-y-4">
         <div className="divide-y divide-border">
           <StatusRow label="Theorie behaald" ok={theorie} okText="Behaald" />
-          <StatusRow label="Machtiging geregeld" ok={machtiging} />
+          <div className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span className="text-muted-foreground">Machtiging</span>
+            <Badge
+              variant={
+                machtigingStatus === "ontvangen"
+                  ? "success"
+                  : machtigingStatus === "aangevraagd"
+                    ? "warning"
+                    : "default"
+              }
+            >
+              {MACHTIGING_STATUS_LABEL[machtigingStatus]}
+            </Badge>
+          </div>
           <StatusRow
             label="Gezondheidsverklaring"
             ok={healthArranged}

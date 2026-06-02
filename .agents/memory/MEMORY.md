@@ -17,3 +17,4 @@
 - [my_tenant_ids broad RLS over-exposure](agenda-rls-broad-tenant-branch.md) — a bare `tenant_id in (my_tenant_ids())` SELECT branch leaks to ANY membership row (parents/students); use explicit staff-role + self + guardian branches.
 - [Parent portal dual-role](parent-portal-dual-role.md) — /ouder must call getActiveStudent({preferGuardianChildren:true}) so a student+parent isn't pinned to own row; /student keeps own-row-wins.
 - [Tegoed breakdown buckets](tegoed-breakdown-buckets.md) — gereden vs ingepland derived from lesson_consumed×lesson.status; available==sum(ledger.delta); withheld is informational only.
+- [CBR machtiging 3-state + result](cbr-machtiging-3state.md) — machtiging enum keeps legacy boolean as derived mirror (ontvangen⇒true); derived exam status is forward-looking but must always still surface the last exam outcome+advice.

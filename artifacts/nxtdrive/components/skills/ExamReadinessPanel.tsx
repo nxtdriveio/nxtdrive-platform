@@ -12,10 +12,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { setStudentCbrStatusAction } from "@/app/instructor/actions";
+import {
+  MACHTIGING_STATUSES,
+  MACHTIGING_STATUS_LABEL,
+  type MachtigingStatus,
+} from "@/lib/cbr/types";
 
 type Preconditions = {
   theorieBehaald: boolean;
-  machtigingGeregeld: boolean;
+  machtigingStatus: MachtigingStatus;
   gezondheidsverklaringVereist: boolean;
   gezondheidsverklaringGeregeld: boolean;
 };
@@ -30,13 +35,16 @@ const adviceVariant = {
 export function ExamReadinessPanel({
   studentId,
   readiness,
+  machtigingStatus,
 }: {
   studentId: string;
   readiness: ReadinessResult;
+  /** 3-staps machtigingstatus; afgeleide boolean zit in readiness.preconditions. */
+  machtigingStatus: MachtigingStatus;
 }) {
   const [pre, setPre] = useState<Preconditions>({
     theorieBehaald: readiness.preconditions.theorieBehaald,
-    machtigingGeregeld: readiness.preconditions.machtigingGeregeld,
+    machtigingStatus,
     gezondheidsverklaringVereist:
       readiness.preconditions.gezondheidsverklaringVereist,
     gezondheidsverklaringGeregeld:
@@ -47,8 +55,12 @@ export function ExamReadinessPanel({
   const [, startTransition] = useTransition();
   const router = useRouter();
 
-  function update(key: keyof Preconditions, value: boolean) {
+  function update<K extends keyof Preconditions>(
+    key: K,
+    value: Preconditions[K],
+  ) {
     setError(null);
+    const prev = pre[key];
     setPending((p) => ({ ...p, [key]: true }));
     const next: Preconditions = { ...pre, [key]: value };
     setPre(next);
@@ -56,7 +68,7 @@ export function ExamReadinessPanel({
       const fd = new FormData();
       fd.set("student_id", studentId);
       fd.set("theorie_behaald", next.theorieBehaald ? "1" : "0");
-      fd.set("machtiging_geregeld", next.machtigingGeregeld ? "1" : "0");
+      fd.set("machtiging_status", next.machtigingStatus);
       fd.set(
         "gezondheidsverklaring_vereist",
         next.gezondheidsverklaringVereist ? "1" : "0",
@@ -69,7 +81,7 @@ export function ExamReadinessPanel({
       if (res?.error) {
         setError(res.error);
         // Revert only this field; preserve any concurrent edits to others.
-        setPre((cur) => ({ ...cur, [key]: !value }));
+        setPre((cur) => ({ ...cur, [key]: prev }));
       } else {
         // Re-run the server component so the readiness verdict recomputes.
         router.refresh();
@@ -142,11 +154,15 @@ export function ExamReadinessPanel({
             pending={Boolean(pending.theorieBehaald)}
             onChange={(v) => update("theorieBehaald", v)}
           />
-          <Toggle
-            label="Machtiging geregeld"
-            checked={pre.machtigingGeregeld}
-            pending={Boolean(pending.machtigingGeregeld)}
-            onChange={(v) => update("machtigingGeregeld", v)}
+          <Segmented
+            label="Machtiging"
+            value={pre.machtigingStatus}
+            pending={Boolean(pending.machtigingStatus)}
+            options={MACHTIGING_STATUSES.map((s) => ({
+              value: s,
+              label: MACHTIGING_STATUS_LABEL[s],
+            }))}
+            onChange={(v) => update("machtigingStatus", v as MachtigingStatus)}
           />
           <Toggle
             label="Gezondheidsverklaring vereist"
@@ -220,5 +236,52 @@ function Toggle({
         />
       </span>
     </button>
+  );
+}
+
+function Segmented({
+  label,
+  value,
+  options,
+  pending,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  pending: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-card px-3 py-2">
+      <div className="mb-1.5 text-sm text-muted-foreground">{label}</div>
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className="grid grid-cols-3 gap-1"
+      >
+        {options.map((opt) => {
+          const active = opt.value === value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              disabled={pending}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                "rounded px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-60",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

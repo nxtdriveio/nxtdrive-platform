@@ -6,8 +6,10 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   AGENDA_APPOINTMENT_TYPES,
+  AGENDA_APPOINTMENT_RESULTS,
   isStudentLinkedType,
   type AgendaAppointmentType,
+  type AgendaAppointmentResult,
 } from "@/lib/agenda/types";
 
 // Shared agenda-appointment server actions, used by both the backoffice agenda
@@ -201,5 +203,69 @@ export async function deleteAppointment(formData: FormData) {
   revalidatePath("/backoffice/agenda");
   revalidatePath("/instructor/week");
   revalidatePath("/instructor");
+  redirect(redirectTo);
+}
+
+function parseResult(
+  raw: FormDataEntryValue | null,
+): AgendaAppointmentResult | null {
+  const v = String(raw ?? "");
+  return (AGENDA_APPOINTMENT_RESULTS as readonly string[]).includes(v)
+    ? (v as AgendaAppointmentResult)
+    : null;
+}
+
+// Legt de uitslag (geslaagd/gezakt) van een examen of tussentijdse toets vast.
+// Server-side only via de SECURITY DEFINER RPC; non-admins worden — net als de
+// overige agenda-mutaties — gecontroleerd tegen hun eigen instructor_id.
+export async function setAppointmentResult(formData: FormData) {
+  const { user, tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+
+  const appointmentId = String(formData.get("appointment_id") ?? "");
+  const redirectTo = safeRedirect(
+    formData.get("redirect_to"),
+    "/backoffice/agenda",
+  );
+  const errorTo = safeRedirect(formData.get("error_to"), redirectTo);
+  if (!appointmentId) redirect(redirectTo);
+
+  const result = parseResult(formData.get("result"));
+  if (!result) redirect(`${errorTo}?error=result`);
+  const note = String(formData.get("result_note") ?? "").trim().slice(0, 1000);
+
+  const service = createServiceRoleClient();
+  if (!isAdmin) {
+    const { data: row } = await service
+      .from("agenda_appointments")
+      .select("instructor_id")
+      .eq("id", appointmentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (!row || row.instructor_id !== user.id) {
+      redirect(`${errorTo}?error=forbidden`);
+    }
+  }
+
+  const { error } = await service.rpc("set_appointment_result", {
+    p_appointment_id: appointmentId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_result: result,
+    p_note: note || null,
+  });
+  if (error) {
+    redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/backoffice/agenda");
+  revalidatePath("/backoffice/cbr");
+  revalidatePath("/instructor/week");
+  revalidatePath("/instructor");
+  revalidatePath("/student", "layout");
   redirect(redirectTo);
 }

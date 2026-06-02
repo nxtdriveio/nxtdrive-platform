@@ -26,6 +26,21 @@ export const AGENDA_APPOINTMENT_STATUSES = [
 export type AgendaAppointmentStatus =
   (typeof AGENDA_APPOINTMENT_STATUSES)[number];
 
+// Examen-/toetsuitslag — mirror van DB enum `agenda_appointment_result`.
+export const AGENDA_APPOINTMENT_RESULTS = ["passed", "failed"] as const;
+export type AgendaAppointmentResult =
+  (typeof AGENDA_APPOINTMENT_RESULTS)[number];
+
+export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> = {
+  passed: "Geslaagd",
+  failed: "Gezakt",
+};
+
+// Types waarvoor een uitslag (geslaagd/gezakt) vastgelegd kan worden.
+export function isResultableType(type: AgendaAppointmentType): boolean {
+  return type === "exam" || type === "interim_test";
+}
+
 export const APPOINTMENT_TYPE_LABEL: Record<AgendaAppointmentType, string> = {
   exam: "Examen",
   interim_test: "Tussentijdse toets",
@@ -93,6 +108,10 @@ export type AgendaAppointment = {
   title: string | null;
   location: string | null;
   notes: string | null;
+  result: AgendaAppointmentResult | null;
+  result_note: string | null;
+  result_recorded_at: string | null;
+  result_recorded_by: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

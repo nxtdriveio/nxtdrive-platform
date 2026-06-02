@@ -1,3 +1,17 @@
+/** 3-staps machtigingstatus — mirror van DB enum `cbr_machtiging_status`. */
+export const MACHTIGING_STATUSES = [
+  "nog_nodig",
+  "aangevraagd",
+  "ontvangen",
+] as const;
+export type MachtigingStatus = (typeof MACHTIGING_STATUSES)[number];
+
+export const MACHTIGING_STATUS_LABEL: Record<MachtigingStatus, string> = {
+  nog_nodig: "Nog nodig",
+  aangevraagd: "Aangevraagd",
+  ontvangen: "Ontvangen",
+};
+
 export type CbrCompetency = {
   id: string;
   tenant_id: string;
@@ -27,6 +41,8 @@ export type StudentCbrStatus = {
   student_id: string;
   tenant_id: string;
   theorie_behaald: boolean;
+  /** 3-staps machtigingstatus. `machtiging_geregeld` is de afgeleide spiegel. */
+  machtiging_status: MachtigingStatus;
   machtiging_geregeld: boolean;
   gezondheidsverklaring_vereist: boolean;
   gezondheidsverklaring_geregeld: boolean;

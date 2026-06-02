@@ -17,6 +17,7 @@ import {
   BookOpen,
   CalendarClock,
   CalendarX,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -28,6 +29,7 @@ const nav = [
   { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX },
   { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock },
   { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap },
+  { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck },
   { href: "/backoffice/packages", label: "Pakketten", icon: Package },
   { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car },
   { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen },
