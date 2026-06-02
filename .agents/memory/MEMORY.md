@@ -16,3 +16,4 @@
 - [Student review/social consent](student-review-consent.md) — review_consent is privacy-by-default (NOT NULL false), admin-only via guarded RPC; notes editable by admin+instructor.
 - [my_tenant_ids broad RLS over-exposure](agenda-rls-broad-tenant-branch.md) — a bare `tenant_id in (my_tenant_ids())` SELECT branch leaks to ANY membership row (parents/students); use explicit staff-role + self + guardian branches.
 - [Parent portal dual-role](parent-portal-dual-role.md) — /ouder must call getActiveStudent({preferGuardianChildren:true}) so a student+parent isn't pinned to own row; /student keeps own-row-wins.
+- [Tegoed breakdown buckets](tegoed-breakdown-buckets.md) — gereden vs ingepland derived from lesson_consumed×lesson.status; available==sum(ledger.delta); withheld is informational only.

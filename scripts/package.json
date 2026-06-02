@@ -12,6 +12,7 @@
     "db:add-membership": "tsx ./src/add-membership.ts",
     "db:test-rls-leads": "tsx ./src/test-rls-leads.ts",
     "db:test-rls-credits": "tsx ./src/test-rls-credits.ts",
+    "db:test-rls-products": "tsx ./src/test-rls-products.ts",
     "db:test-rls-lessons": "tsx ./src/test-rls-lessons.ts",
     "db:test-rls-trial-lessons": "tsx ./src/test-rls-trial-lessons.ts",
     "db:test-rls-refill": "tsx ./src/test-rls-refill.ts",

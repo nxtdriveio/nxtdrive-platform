@@ -6,12 +6,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
+import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { getActiveStudent } from "@/lib/students/access";
 import {
   CREDIT_REASON_LABEL,
   formatTegoedDelta,
   type CreditLedgerRow,
   type StudentBalance,
+  type StudentCreditBreakdown,
 } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
@@ -44,10 +46,15 @@ export default async function StudentCreditsPage() {
   }
 
   const supabase = await createServerSupabaseClient();
-  const [balanceRes, ledgerRes] = await Promise.all([
+  const [balanceRes, breakdownRes, ledgerRes] = await Promise.all([
     supabase
       .from("student_credit_balance")
       .select("student_id, balance")
+      .eq("student_id", student.id)
+      .maybeSingle(),
+    supabase
+      .from("student_credit_breakdown")
+      .select("*")
       .eq("student_id", student.id)
       .maybeSingle(),
     supabase
@@ -59,6 +66,7 @@ export default async function StudentCreditsPage() {
   ]);
   const balance =
     ((balanceRes.data as StudentBalance | null)?.balance ?? 0) as number;
+  const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
   const rows = (ledgerRes.data ?? []) as CreditLedgerRow[];
 
   return (
@@ -66,6 +74,8 @@ export default async function StudentCreditsPage() {
       <h1 className="text-2xl font-semibold text-foreground">Mijn tegoed</h1>
 
       <StudentBalanceCard balance={balance} />
+
+      {breakdown ? <CreditBreakdownCard breakdown={breakdown} /> : null}
 
       <Card>
         <CardContent className="space-y-3 pt-5">

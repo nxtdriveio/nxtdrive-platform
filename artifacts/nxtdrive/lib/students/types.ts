@@ -5,6 +5,7 @@ export const CREDIT_REASONS = [
   "lesson_refund",
   "adjustment",
   "opening_balance",
+  "credit_expired",
 ] as const;
 export type CreditReason = (typeof CREDIT_REASONS)[number];
 
@@ -15,6 +16,23 @@ export const CREDIT_REASON_LABEL: Record<CreditReason, string> = {
   lesson_refund: "Les teruggeboekt",
   adjustment: "Handmatige correctie",
   opening_balance: "Beginsaldo",
+  credit_expired: "Tegoed verlopen",
+};
+
+// Per-student tegoed split (all in MINUTES, shown in hours). Mirrors the
+// public.student_credit_breakdown view. `available_minutes` equals the ledger
+// balance: purchased + refunded + adjustments − driven − planned − expired.
+export type StudentCreditBreakdown = {
+  student_id: string;
+  tenant_id: string;
+  purchased_minutes: number;
+  driven_minutes: number;
+  planned_minutes: number;
+  refunded_minutes: number;
+  adjustment_minutes: number;
+  expired_minutes: number;
+  withheld_minutes: number;
+  available_minutes: number;
 };
 
 export type Student = {

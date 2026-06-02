@@ -35,7 +35,9 @@ import {
   type CreditLedgerRow,
   type Student,
   type StudentBalance,
+  type StudentCreditBreakdown,
 } from "@/lib/students/types";
+import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { type Lesson } from "@/lib/lessons/types";
 import { adjustCredits, grantPackageToStudent } from "../actions";
@@ -108,6 +110,13 @@ export default async function StudentDetailPage({
     .eq("student_id", id)
     .maybeSingle();
   const balance = ((balanceRaw as StudentBalance | null)?.balance ?? 0) as number;
+
+  const { data: breakdownRaw } = await supabase
+    .from("student_credit_breakdown")
+    .select("*")
+    .eq("student_id", id)
+    .maybeSingle();
+  const breakdown = breakdownRaw as StudentCreditBreakdown | null;
 
   const { data: packagesRaw } = await supabase
     .from("packages")
@@ -222,6 +231,8 @@ export default async function StudentDetailPage({
           <LessonHistoryCard lessons={dossier.lessons} />
 
           <CommunicationCard communications={dossier.communications} />
+
+          {breakdown ? <CreditBreakdownCard breakdown={breakdown} /> : null}
 
           <Card>
             <CardHeader>
