@@ -17,6 +17,8 @@ import {
   type AssignmentRule,
   type RuleDepartment,
 } from "./assignment-rules-manager";
+import { LeadScorePolicyManager } from "./lead-score-policy-manager";
+import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,8 @@ export default async function SettingsPage({
   ]);
   const departments = (departmentRows ?? []) as RuleDepartment[];
   const rules = (ruleRows ?? []) as AssignmentRule[];
+
+  const leadScorePolicy = await loadLeadScorePolicy(service, tenant.id);
 
   return (
     <div className="space-y-6">
@@ -177,6 +181,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <AssignmentRulesManager departments={departments} rules={rules} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Leadscore-regels</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LeadScorePolicyManager policy={leadScorePolicy} />
         </CardContent>
       </Card>
     </div>

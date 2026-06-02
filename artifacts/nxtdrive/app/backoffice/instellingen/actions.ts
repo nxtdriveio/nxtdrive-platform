@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { setMollieApiKey as storeMollieApiKey } from "@/lib/mollie/secrets";
+import { LEAD_SCORE_WEIGHT_CODES } from "@/lib/leads/lead-score";
+import {
+  LEAD_SCORE_POLICY_KEY,
+  mergeLeadScorePolicy,
+} from "@/lib/leads/lead-score-policy";
+import { recomputeLeadScoresForTenant } from "@/lib/leads/automation";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -162,5 +168,94 @@ export async function deleteAssignmentRule(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export type PolicyActionResult = { ok: boolean; error?: string };
+
+function parseOptionalNumber(value: FormDataEntryValue | null): number | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Persist the tenant's lead scoring policy. The raw form values are passed
+// through mergeLeadScorePolicy so the stored JSON is always sanitised: unknown
+// codes dropped, weights clamped to 0–50, bands clamped to 0–100 and ordered
+// (warm <= hot). Service-role write — RLS bypassed intentionally, tenant_id is
+// always taken from the authenticated membership, never from the client.
+export async function saveLeadScorePolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const weights: Record<string, number> = {};
+  for (const code of LEAD_SCORE_WEIGHT_CODES) {
+    const v = parseOptionalNumber(formData.get(`weight_${code}`));
+    if (v !== null) weights[code] = v;
+  }
+
+  const override = {
+    weights,
+    bands: {
+      warm: parseOptionalNumber(formData.get("band_warm")),
+      hot: parseOptionalNumber(formData.get("band_hot")),
+    },
+  };
+
+  const policy = mergeLeadScorePolicy(override);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: LEAD_SCORE_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  // Recompute persisted lead scores under the new policy so the dashboard
+  // (scores + "Hot (≥N)" KPI) reflects the change immediately. Best-effort:
+  // the policy is already saved, so a recompute hiccup must not fail the save —
+  // the activity sweep reconciles any stragglers later.
+  try {
+    await recomputeLeadScoresForTenant(service, tenant.id, user.id);
+  } catch (err) {
+    console.error("[settings] lead score recompute failed", err);
+  }
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/leads");
+  return { ok: true };
+}
+
+// Reset to the platform defaults by writing the merged default policy
+// (mergeLeadScorePolicy with no override returns DEFAULT_LEAD_SCORE_POLICY).
+export async function resetLeadScorePolicy(): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeLeadScorePolicy(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: LEAD_SCORE_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  try {
+    await recomputeLeadScoresForTenant(service, tenant.id, user.id);
+  } catch (err) {
+    console.error("[settings] lead score recompute failed", err);
+  }
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/leads");
   return { ok: true };
 }

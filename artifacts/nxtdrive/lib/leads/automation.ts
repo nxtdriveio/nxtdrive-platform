@@ -180,6 +180,120 @@ const STATUS_PLANS: Partial<Record<LeadStatus, StatusPlan>> = {
 };
 
 /**
+ * Build the (pure) scoring input from a lead's observable facts. Shared by the
+ * full reconcile and the policy-driven tenant recompute so the score is computed
+ * identically in both. Trial flags come from the lead's status — automation has
+ * already advanced it from the trial rows, so we never re-read trials here.
+ */
+function buildLeadScoreInput(args: {
+  status: LeadStatus;
+  source: string;
+  email: string | null;
+  phone: string | null;
+  intake: IntakeRow | null;
+  lastActivityMs: number | null;
+  nowMs: number;
+}): LeadScoreInput {
+  const { status, source, email, phone, intake, lastActivityMs, nowMs } = args;
+  return {
+    hasPhone: !!phone,
+    hasEmail: !!email,
+    hasIntake: !!intake,
+    theoryPassed: intake?.theory_status === "yes",
+    cbrAuthorized: intake?.cbr_authorization_status === "yes",
+    healthDeclared: intake?.health_declaration_status === "yes",
+    daysUntilDesiredStart: intake?.desired_start_date
+      ? Math.round((new Date(intake.desired_start_date).getTime() - nowMs) / DAY_MS)
+      : null,
+    lessonsPerWeek: intake?.lessons_per_week ?? null,
+    isReferral: source === "referral",
+    trialPlanned: status === "trial_planned",
+    trialConfirmed: status === "trial_confirmed" || status === "trial_completed",
+    trialCompleted: status === "trial_completed",
+    daysSinceActivity:
+      lastActivityMs !== null ? Math.round((nowMs - lastActivityMs) / DAY_MS) : null,
+  };
+}
+
+/**
+ * Recompute and persist `lead_score` + `lead_score_reason` for every lead in a
+ * tenant under the tenant's *current* scoring policy. Used right after a tenant
+ * admin edits the lead_score_policy in settings so the dashboard reflects the
+ * new weights/bands immediately instead of waiting for the next activity sweep.
+ *
+ * Score-only: it leaves status, action_status, priority, next_action_at and
+ * tasks untouched (re-passes the existing next_action_at since that RPC arg is
+ * not coalesced). Idempotent and bounded by tenant_id. Returns the count of
+ * leads processed.
+ */
+export async function recomputeLeadScoresForTenant(
+  service: SupabaseClient,
+  tenantId: string,
+  actor: string | null,
+  nowMs: number = Date.now(),
+): Promise<number> {
+  const policy = await loadLeadScorePolicy(service, tenantId);
+
+  const [{ data: leadsRaw, error: leadsErr }, { data: intakeRaw }] =
+    await Promise.all([
+      service
+        .from("leads")
+        .select("id, status, source, email, phone, last_activity_at, next_action_at")
+        .eq("tenant_id", tenantId),
+      service
+        .from("lead_intake_details")
+        .select(
+          "lead_id, theory_status, cbr_authorization_status, health_declaration_status, desired_start_date, lessons_per_week",
+        )
+        .eq("tenant_id", tenantId),
+    ]);
+  if (leadsErr) throw leadsErr;
+
+  const intakeByLead = new Map<string, IntakeRow>();
+  for (const row of intakeRaw ?? []) {
+    intakeByLead.set((row as { lead_id: string }).lead_id, row as unknown as IntakeRow);
+  }
+
+  let updated = 0;
+  for (const lead of leadsRaw ?? []) {
+    const leadId = lead.id as string;
+    const lastActivityMs = lead.last_activity_at
+      ? new Date(lead.last_activity_at as string).getTime()
+      : null;
+
+    const scoreInput = buildLeadScoreInput({
+      status: lead.status as LeadStatus,
+      source: lead.source as string,
+      email: (lead.email as string | null) ?? null,
+      phone: (lead.phone as string | null) ?? null,
+      intake: intakeByLead.get(leadId) ?? null,
+      lastActivityMs,
+      nowMs,
+    });
+    const { score, reasons } = scoreLead(scoreInput, policy);
+
+    const { error } = await service.rpc("set_lead_automation_fields", {
+      p_lead_id: leadId,
+      p_tenant_id: tenantId,
+      p_actor: actor,
+      p_action_status: null,
+      p_priority: null,
+      p_lead_score: score,
+      p_lead_score_reason: reasons,
+      // Not coalesced by the RPC — re-pass the existing value so it is preserved.
+      p_next_action_at: (lead.next_action_at as string | null) ?? null,
+      p_touch_activity: false,
+    });
+    if (error) {
+      console.error("[lead-automation] score recompute failed", { tenantId, leadId }, error);
+      continue;
+    }
+    updated++;
+  }
+  return updated;
+}
+
+/**
  * Best-effort reconcile used by server actions: never let an automation failure
  * break the user-facing flow (the mutation that triggered it already succeeded).
  */
@@ -341,26 +455,15 @@ export async function runLeadAutomationRules(
     ? new Date(refreshed.last_activity_at as string).getTime()
     : null;
 
-  const scoreInput: LeadScoreInput = {
-    hasPhone: !!lead.phone,
-    hasEmail: !!lead.email,
-    hasIntake: !!intake,
-    theoryPassed: intake?.theory_status === "yes",
-    cbrAuthorized: intake?.cbr_authorization_status === "yes",
-    healthDeclared: intake?.health_declaration_status === "yes",
-    daysUntilDesiredStart: intake?.desired_start_date
-      ? Math.round(
-          (new Date(intake.desired_start_date).getTime() - nowMs) / DAY_MS,
-        )
-      : null,
-    lessonsPerWeek: intake?.lessons_per_week ?? null,
-    isReferral: lead.source === "referral",
-    trialPlanned: newStatus === "trial_planned",
-    trialConfirmed: newStatus === "trial_confirmed" || newStatus === "trial_completed",
-    trialCompleted: newStatus === "trial_completed",
-    daysSinceActivity:
-      lastActivity !== null ? Math.round((nowMs - lastActivity) / DAY_MS) : null,
-  };
+  const scoreInput = buildLeadScoreInput({
+    status: newStatus,
+    source: lead.source,
+    email: lead.email,
+    phone: lead.phone,
+    intake,
+    lastActivityMs: lastActivity,
+    nowMs,
+  });
   const { score, reasons } = scoreLead(scoreInput, scorePolicy);
 
   // 6. Resolve the operational plan for the current status.
