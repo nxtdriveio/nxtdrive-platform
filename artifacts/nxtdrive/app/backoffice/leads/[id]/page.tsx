@@ -34,6 +34,16 @@ import {
   type LeadEvent,
   type LeadIntakeDetail,
 } from "@/lib/leads/types";
+import {
+  analyzeIntake,
+  INTAKE_ATTENTION_CATEGORY_LABEL,
+  INTAKE_LABEL_INFO,
+  INTAKE_RECOMMENDED_STEP_LABEL,
+  type IntakeAttentionPoint,
+  type IntakeLabel,
+  type IntakeRecommendedStep,
+  type LeadIntakeAnalysis,
+} from "@/lib/leads/intake-analysis";
 import { addNote, convertLeadToStudent, updateStatus } from "../actions";
 import { formatEuros, type Package } from "@/lib/packages/types";
 
@@ -86,6 +96,60 @@ export default async function LeadDetailPage({
     .eq("tenant_id", tenant.id)
     .maybeSingle();
   const intake = (intakeRaw ?? null) as LeadIntakeDetail | null;
+
+  // Fase 1B — intake analysis. Read the stored analysis; if it is missing but
+  // intake answers exist (e.g. leads created before this feature), compute and
+  // persist it now (idempotent backfill) so the block always shows.
+  let analysis: LeadIntakeAnalysis | null = null;
+  if (intake) {
+    const { data: analysisRaw } = await supabase
+      .from("lead_intake_analysis")
+      .select("*")
+      .eq("lead_id", id)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    analysis = (analysisRaw ?? null) as LeadIntakeAnalysis | null;
+
+    if (!analysis) {
+      const computed = analyzeIntake({
+        city: intake.city,
+        pickup_location: intake.pickup_location,
+        has_driving_experience: intake.has_driving_experience,
+        had_lessons_before: intake.had_lessons_before,
+        has_done_exam: intake.has_done_exam,
+        theory_status: intake.theory_status,
+        health_declaration_status: intake.health_declaration_status,
+        cbr_authorization_status: intake.cbr_authorization_status,
+        preferred_days: intake.preferred_days,
+        preferred_times: intake.preferred_times,
+        desired_start_date: intake.desired_start_date,
+        lessons_per_week: intake.lessons_per_week,
+        pace: intake.pace,
+        has_anxiety: intake.has_anxiety,
+      });
+      await createServiceRoleClient().rpc("upsert_lead_intake_analysis", {
+        p_lead_id: id,
+        p_tenant_id: tenant.id,
+        p_labels: computed.labels,
+        p_score: computed.score,
+        p_attention_points: computed.attention_points,
+        p_summary: computed.summary,
+        p_recommended_step: computed.recommended_step,
+      });
+      analysis = {
+        id: "",
+        lead_id: id,
+        tenant_id: tenant.id,
+        labels: computed.labels,
+        score: computed.score,
+        attention_points: computed.attention_points,
+        summary: computed.summary,
+        recommended_step: computed.recommended_step,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+  }
 
   // For the "Klant maken" panel — only fetched when an admin views the page.
   const isAdmin = (await import("@/lib/auth/session")).rolesForTenant(
@@ -174,6 +238,8 @@ export default async function LeadDetailPage({
               ) : null}
             </CardContent>
           </Card>
+
+          {analysis ? <IntakeAnalysisCard analysis={analysis} /> : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}
 
@@ -354,6 +420,92 @@ function fmtDate(value: string | null): string | null {
   if (!value) return null;
   const t = Date.parse(value);
   return Number.isNaN(t) ? value : intakeDateFmt.format(new Date(t));
+}
+
+function IntakeAnalysisCard({ analysis }: { analysis: LeadIntakeAnalysis }) {
+  const labels = analysis.labels.filter(
+    (l): l is IntakeLabel => l in INTAKE_LABEL_INFO,
+  );
+  const points = analysis.attention_points as IntakeAttentionPoint[];
+  const step =
+    analysis.recommended_step in INTAKE_RECOMMENDED_STEP_LABEL
+      ? INTAKE_RECOMMENDED_STEP_LABEL[
+          analysis.recommended_step as IntakeRecommendedStep
+        ]
+      : analysis.recommended_step;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Intake-analyse</CardTitle>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+            Aandachtsscore
+            <span className="font-semibold text-primary">{analysis.score}</span>
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <p className="text-sm leading-relaxed text-foreground">
+          {analysis.summary}
+        </p>
+
+        {labels.length > 0 ? (
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              Labels
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {labels.map((l) => (
+                <Badge key={l} variant={INTAKE_LABEL_INFO[l].variant}>
+                  {INTAKE_LABEL_INFO[l].label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            Aandachtspunten
+          </h3>
+          {points.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Geen bijzondere aandachtspunten.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {points.map((p) => (
+                <li
+                  key={p.code}
+                  className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 p-2.5 text-sm"
+                >
+                  <div className="flex-1">
+                    <span className="text-foreground">{p.label}</span>
+                    <span className="ml-2 text-xs uppercase tracking-wide text-muted-foreground">
+                      {INTAKE_ATTENTION_CATEGORY_LABEL[p.category] ?? p.category}
+                    </span>
+                  </div>
+                  <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-xs font-semibold text-warning">
+                    +{p.points}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            Aanbevolen vervolgstap
+          </h3>
+          <p className="inline-flex items-center rounded-md bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary">
+            {step}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function IntakeCard({ intake }: { intake: LeadIntakeDetail }) {

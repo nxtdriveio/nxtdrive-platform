@@ -7,3 +7,4 @@
 - [App Router optimistic state](app-router-optimistic-state.md) — client useState survives refresh/revalidate; reconcile boards from props via a full-field signature effect + snapshot rollback, not router.refresh alone.
 - [Task create-then-link atomicity](task-create-then-link-atomicity.md) — entity-launcher createTask archives the new task if the follow-up link RPC fails, to avoid orphan tasks.
 - [Supabase RPC grant lockdown](supabase-rpc-grants.md) — service-role-only RPCs must revoke execute from anon AND authenticated (not just PUBLIC), or actor can be forged; fix applied envs via new forward migration (runner tracks by filename).
+- [Intake-analyse mapping](intake-analysis-mapping.md) — Fase 1B engine: failed_exam_before = has_done_exam (no pass/fail field), recommended_step always plan_trial_lesson for new leads, idempotent backfill-on-read.

@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { analyzeIntake } from "@/lib/leads/intake-analysis";
 import {
   INTAKE_APPLICANT_TYPES,
   INTAKE_DAYPARTS,
@@ -182,7 +183,7 @@ export async function submitIntake(formData: FormData) {
   const userAgent = hdrs.get("user-agent") ?? null;
 
   // Transactional RPC: lead + intake detail + lead_event + audit_log atomically.
-  const { error: rpcErr } = await service.rpc("create_lead_with_intake", {
+  const { data: leadId, error: rpcErr } = await service.rpc("create_lead_with_intake", {
     p_tenant_id: tenant.id,
     p_source: source,
     p_full_name: full_name,
@@ -215,6 +216,38 @@ export async function submitIntake(formData: FormData) {
 
   if (rpcErr) {
     err(slug, "Er ging iets mis bij het versturen. Probeer het opnieuw.");
+  }
+
+  // Fase 1B — derive and persist the intake analysis (labels, score, summary,
+  // recommended next step). Deterministic + idempotent; a failure here must not
+  // lose the lead, so we best-effort it after the lead is safely stored.
+  if (typeof leadId === "string") {
+    const analysis = analyzeIntake({
+      city,
+      pickup_location,
+      has_driving_experience,
+      had_lessons_before,
+      has_done_exam,
+      theory_status,
+      health_declaration_status,
+      cbr_authorization_status,
+      preferred_days,
+      preferred_times,
+      desired_start_date,
+      lessons_per_week,
+      pace,
+      has_anxiety,
+    });
+
+    await service.rpc("upsert_lead_intake_analysis", {
+      p_lead_id: leadId,
+      p_tenant_id: tenant.id,
+      p_labels: analysis.labels,
+      p_score: analysis.score,
+      p_attention_points: analysis.attention_points,
+      p_summary: analysis.summary,
+      p_recommended_step: analysis.recommended_step,
+    });
   }
 
   redirect(`/intake/${slug}/thanks`);
