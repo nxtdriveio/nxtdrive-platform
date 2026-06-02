@@ -17,6 +17,28 @@ import { parseEnvFromArgv, bannerFor } from "./lib/db-env.js";
 
 type Outcome = { name: string; ok: boolean; detail?: string };
 
+type PgError = { code?: string; message?: string } | null;
+
+/**
+ * A mutation RPC is properly locked down only when the `anon` role is blocked
+ * by PRIVILEGE — Postgres reports 42501 (insufficient_privilege), surfaced by
+ * PostgREST as "permission denied for function ...". A generic runtime error
+ * (e.g. a raised "not authorized" exception, P0001) means the RPC is still
+ * callable and would have run if the arguments had been valid — that does NOT
+ * prove the execute grant was revoked, so it must fail this assertion.
+ */
+function isExecuteRevoked(error: PgError): boolean {
+  if (!error) return false;
+  if (error.code === "42501") return true;
+  return /permission denied for function/i.test(error.message ?? "");
+}
+
+function describePrivError(error: PgError): string {
+  if (!error) return "no error returned — RPC is callable!";
+  if (isExecuteRevoked(error)) return error.message ?? "permission denied";
+  return `wrong failure mode (not a privilege block): ${error.message ?? error.code ?? "unknown"}`;
+}
+
 async function main(): Promise<void> {
   const env = parseEnvFromArgv(process.argv);
   console.log(`${bannerFor(env)} — running lessons RLS/RPC tests`);
@@ -434,8 +456,8 @@ async function main(): Promise<void> {
     });
     results.push({
       name: "anon CANNOT call schedule_lesson RPC (execute revoked)",
-      ok: error !== null,
-      detail: error ? error.message : "no error returned — RPC is callable!",
+      ok: isExecuteRevoked(error),
+      detail: describePrivError(error),
     });
   }
   {
@@ -448,8 +470,8 @@ async function main(): Promise<void> {
     });
     results.push({
       name: "anon CANNOT call set_lesson_progress RPC (execute revoked)",
-      ok: error !== null,
-      detail: error ? error.message : "no error returned — RPC is callable!",
+      ok: isExecuteRevoked(error),
+      detail: describePrivError(error),
     });
   }
 

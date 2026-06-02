@@ -184,12 +184,17 @@ begin
 end;
 $$;
 
--- Re-assert the service-role-only lockdown (idempotent; create-or-replace keeps
--- privileges, but we keep this explicit to match migration 0023).
+-- Re-assert the service-role-only lockdown. `create or replace` keeps the old
+-- privileges, but the recreated signature must be locked down exactly like
+-- migration 0023: REVOKE FROM public alone is NOT enough, because Supabase
+-- default privileges auto-GRANT EXECUTE to `anon` and `authenticated` on any
+-- public-schema function — a logged-in JWT could otherwise call this
+-- SECURITY DEFINER mutation directly via PostgREST. Revoke from those roles
+-- explicitly and grant only to service_role.
 revoke all on function public.schedule_lesson(
   uuid, uuid, uuid, uuid, timestamptz, integer, integer, text, text,
   double precision, double precision, text
-) from public;
+) from public, anon, authenticated;
 grant execute on function public.schedule_lesson(
   uuid, uuid, uuid, uuid, timestamptz, integer, integer, text, text,
   double precision, double precision, text
