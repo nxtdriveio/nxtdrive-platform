@@ -27,13 +27,18 @@ export type AgendaAppointmentStatus =
   (typeof AGENDA_APPOINTMENT_STATUSES)[number];
 
 // Examen-/toetsuitslag — mirror van DB enum `agenda_appointment_result`.
-export const AGENDA_APPOINTMENT_RESULTS = ["passed", "failed"] as const;
+export const AGENDA_APPOINTMENT_RESULTS = [
+  "passed",
+  "failed",
+  "no_show",
+] as const;
 export type AgendaAppointmentResult =
   (typeof AGENDA_APPOINTMENT_RESULTS)[number];
 
 export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> = {
   passed: "Geslaagd",
   failed: "Gezakt",
+  no_show: "Niet verschenen",
 };
 
 // Types waarvoor een uitslag (geslaagd/gezakt) vastgelegd kan worden.

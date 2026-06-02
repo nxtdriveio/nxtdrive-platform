@@ -269,3 +269,92 @@ export async function setAppointmentResult(formData: FormData) {
   revalidatePath("/student", "layout");
   redirect(redirectTo);
 }
+
+// Legt de examenvoorbereiding (ophaaltijd/-locatie, afvinkbare documentenlijst,
+// aandachtspunten) van een examen of tussentijdse toets vast. Server-side only
+// via de SECURITY DEFINER RPC; non-admins worden gecontroleerd tegen hun eigen
+// instructor_id, net als de overige agenda-mutaties.
+export async function setExamAppointmentDetails(formData: FormData) {
+  const { user, tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+
+  const appointmentId = String(formData.get("appointment_id") ?? "");
+  const redirectTo = safeRedirect(
+    formData.get("redirect_to"),
+    "/backoffice/agenda",
+  );
+  const errorTo = safeRedirect(formData.get("error_to"), redirectTo);
+  if (!appointmentId) redirect(redirectTo);
+
+  const pickupRaw = String(formData.get("pickup_at") ?? "").trim();
+  const pickupAt = pickupRaw ? new Date(pickupRaw) : null;
+  if (pickupAt && Number.isNaN(pickupAt.getTime())) {
+    redirect(`${errorTo}?error=pickup_at`);
+  }
+  const pickupLocation = String(formData.get("pickup_location") ?? "")
+    .trim()
+    .slice(0, 500);
+  const examDayNotes = String(formData.get("exam_day_notes") ?? "")
+    .trim()
+    .slice(0, 2000);
+
+  // Afvinkbare documentenlijst komt als JSON-string binnen; valideer naar een
+  // schone {code,label,checked}[] zodat een malformede waarde nooit doorlekt.
+  const documents: { code: string; label: string; checked: boolean }[] = [];
+  const docsRaw = formData.get("required_documents");
+  if (typeof docsRaw === "string" && docsRaw.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(docsRaw);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (!item || typeof item !== "object") continue;
+          const r = item as Record<string, unknown>;
+          const code = typeof r.code === "string" ? r.code.trim().slice(0, 60) : "";
+          const label =
+            typeof r.label === "string" ? r.label.trim().slice(0, 200) : "";
+          if (!code || !label) continue;
+          documents.push({ code, label, checked: r.checked === true });
+        }
+      }
+    } catch {
+      redirect(`${errorTo}?error=documents`);
+    }
+  }
+
+  const service = createServiceRoleClient();
+  if (!isAdmin) {
+    const { data: row } = await service
+      .from("agenda_appointments")
+      .select("instructor_id")
+      .eq("id", appointmentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (!row || row.instructor_id !== user.id) {
+      redirect(`${errorTo}?error=forbidden`);
+    }
+  }
+
+  const { error } = await service.rpc("set_exam_appointment_details", {
+    p_appointment_id: appointmentId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_pickup_at: pickupAt ? pickupAt.toISOString() : null,
+    p_pickup_location: pickupLocation || null,
+    p_required_documents: documents,
+    p_exam_day_notes: examDayNotes || null,
+  });
+  if (error) {
+    redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/backoffice/agenda");
+  revalidatePath("/backoffice/cbr");
+  revalidatePath("/instructor/week");
+  revalidatePath("/instructor");
+  revalidatePath("/student", "layout");
+  redirect(redirectTo);
+}

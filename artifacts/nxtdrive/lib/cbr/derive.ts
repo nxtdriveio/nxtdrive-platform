@@ -21,7 +21,8 @@ export type CbrExamStatus =
   | "examen_gepland" // toekomstig gepland examen
   | "afgerond" // afgeronde toets, (nog) geen examen gepland of behaald
   | "geslaagd" // laatste afgeronde examen behaald
-  | "gezakt"; // laatste afgeronde examen gezakt, geen nieuw examen gepland
+  | "gezakt" // laatste afgeronde examen gezakt, geen nieuw examen gepland
+  | "niet_verschenen"; // laatste afgeronde examen: niet verschenen, niets nieuws gepland
 
 export const CBR_EXAM_STATUS_LABEL: Record<CbrExamStatus, string> = {
   geen: "Nog geen examen",
@@ -30,6 +31,7 @@ export const CBR_EXAM_STATUS_LABEL: Record<CbrExamStatus, string> = {
   afgerond: "Toets afgerond",
   geslaagd: "Geslaagd",
   gezakt: "Gezakt — herexamen nodig",
+  niet_verschenen: "Niet verschenen — opnieuw plannen",
 };
 
 export type CbrStatusTone =
@@ -46,6 +48,7 @@ export const CBR_EXAM_STATUS_TONE: Record<CbrExamStatus, CbrStatusTone> = {
   afgerond: "warning",
   geslaagd: "success",
   gezakt: "danger",
+  niet_verschenen: "danger",
 };
 
 /** Minimale afspraak-invoer voor de afleiding (alleen examen/TTT relevant). */
@@ -134,6 +137,8 @@ export function deriveCbrExamStatus(
     examStatus = "toets_gepland";
   } else if (lastCompletedExam?.result === "failed") {
     examStatus = "gezakt";
+  } else if (lastCompletedExam?.result === "no_show") {
+    examStatus = "niet_verschenen";
   } else if (lastCompletedToets) {
     examStatus = "afgerond";
   } else {

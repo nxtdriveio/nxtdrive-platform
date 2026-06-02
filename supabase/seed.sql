@@ -23,6 +23,31 @@ select
 from demo
 on conflict (tenant_id, key) do nothing;
 
+-- Default examenvoorbereidingsbeleid (Examenflow A — tenant-configurable, never
+-- hardcoded). Mirrors DEFAULT_EXAM_PREP_POLICY in lib/exam/policy.ts.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.tenant_settings (tenant_id, key, value)
+select
+  demo.id,
+  'exam_preparation_policy',
+  jsonb_build_object(
+    'required_documents', jsonb_build_array(
+      jsonb_build_object('code', 'id', 'label', 'Geldig identiteitsbewijs (paspoort, ID-kaart of rijbewijs)'),
+      jsonb_build_object('code', 'theory_certificate', 'label', 'Geldig theoriecertificaat'),
+      jsonb_build_object('code', 'glasses', 'label', 'Bril of lenzen (indien van toepassing)')
+    ),
+    'exam_day_tips', jsonb_build_array(
+      'Zorg dat je goed uitgerust en ruim op tijd bent.',
+      'Neem een geldig identiteitsbewijs mee.',
+      'Blijf rustig en rijd zoals je het geleerd hebt.',
+      'Stel gerust vragen als een instructie onduidelijk is.'
+    )
+  )
+from demo
+on conflict (tenant_id, key) do nothing;
+
 -- Default lead scoring policy (Fase 1B — tenant-configurable, never hardcoded).
 -- Mirrors DEFAULT_LEAD_SCORE_POLICY in lib/leads/lead-score.ts.
 with demo as (

@@ -97,6 +97,29 @@ test("gezakt mét nieuw gepland examen → kop=examen_gepland, uitslag blijft zi
   assert.equal(d.lastExamAt, past(10));
 });
 
+test("niet verschenen zonder nieuw examen → niet_verschenen", () => {
+  const d = deriveCbrExamStatus(
+    [appt("exam", "completed", past(2), "no_show")],
+    NOW,
+  );
+  assert.equal(d.examStatus, "niet_verschenen");
+  assert.equal(d.lastExamResult, "no_show");
+  assert.equal(d.lastExamAt, past(2));
+});
+
+test("niet verschenen mét nieuw gepland examen → kop=examen_gepland, uitslag blijft", () => {
+  const d = deriveCbrExamStatus(
+    [
+      appt("exam", "completed", past(6), "no_show"),
+      appt("exam", "planned", future(10)),
+    ],
+    NOW,
+  );
+  assert.equal(d.examStatus, "examen_gepland");
+  assert.equal(d.lastExamResult, "no_show");
+  assert.equal(d.lastExamAt, past(6));
+});
+
 test("alleen afgeronde toets → afgerond", () => {
   const d = deriveCbrExamStatus(
     [appt("interim_test", "completed", past(5), "passed")],

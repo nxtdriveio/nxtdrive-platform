@@ -17,6 +17,7 @@
     "db:test-rls-trial-lessons": "tsx ./src/test-rls-trial-lessons.ts",
     "db:test-rls-refill": "tsx ./src/test-rls-refill.ts",
     "db:test-rls-exam-invite": "tsx ./src/test-rls-exam-invite.ts",
+    "db:test-rls-exam-prep": "tsx ./src/test-rls-exam-prep.ts",
     "db:test-rls-agenda": "tsx ./src/test-rls-agenda.ts",
     "db:test-rls-cbr": "tsx ./src/test-rls-cbr.ts",
     "db:test-rls-instructor": "tsx ./src/test-rls-instructor.ts",
