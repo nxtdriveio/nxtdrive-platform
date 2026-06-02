@@ -442,6 +442,125 @@ export function renderPaymentReminder(
   );
 }
 
+const EXAM_NOUN: Record<"exam" | "interim_test", string> = {
+  exam: "examen",
+  interim_test: "tussentijdse toets",
+};
+
+export type ExamInvitationData = {
+  studentName: string;
+  examType: "exam" | "interim_test";
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+  expiresAt: string | Date | null;
+};
+
+export function renderExamInvitation(
+  branding: EmailBranding,
+  data: ExamInvitationData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const when = formatDateTimeNl(data.startsAt);
+  const expires = data.expiresAt ? formatDateTimeNl(data.expiresAt) : "";
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+    exam_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+    expires_at: expires,
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const expiresLine = expires
+    ? `<p style="color:#475569">Reageer vóór <strong>${escapeHtml(expires)}</strong> — daarna vervalt de uitnodiging.</p>`
+    : "";
+  const subject = `Examenmoment beschikbaar — ${noun} op ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Er is een ${escapeHtml(noun)} beschikbaar op <strong>${escapeHtml(when)}</strong> en we bieden dit moment aan jou aan.</p>
+    ${locationLine}
+    ${instructorLine}
+    ${expiresLine}
+    <p>Log in op je leerlingomgeving om dit moment te <strong>bevestigen</strong> of <strong>af te wijzen</strong>. Een examen kost geen lestegoed.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Er is een ${noun} beschikbaar op ${when} en we bieden dit moment aan jou aan.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    (expires ? `\nReageer vóór ${expires} — daarna vervalt de uitnodiging.\n` : "") +
+    `\nLog in op je leerlingomgeving om dit moment te bevestigen of af te wijzen. Een examen kost geen lestegoed.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type ExamConfirmedData = {
+  studentName: string;
+  examType: "exam" | "interim_test";
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+export function renderExamConfirmed(
+  branding: EmailBranding,
+  data: ExamConfirmedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+    exam_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Je ${noun} is bevestigd — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Top! Je ${escapeHtml(noun)} is bevestigd op <strong>${escapeHtml(when)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>Veel succes! Kun je toch niet komen? Neem dan tijdig contact met ons op.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Top! Je ${noun} is bevestigd op ${when}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nVeel succes! Kun je toch niet komen? Neem dan tijdig contact met ons op.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;

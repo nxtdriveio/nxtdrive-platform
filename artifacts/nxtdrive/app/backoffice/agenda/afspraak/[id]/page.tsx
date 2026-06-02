@@ -116,6 +116,7 @@ export default async function EditAppointmentPage({
       !appt!.result ? (
         <ExamCandidateSuggestions
           tenantId={tenant.id}
+          appointmentId={appt!.id}
           slotType={appt!.type as "exam" | "interim_test"}
           startsAt={appt!.starts_at}
           durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}

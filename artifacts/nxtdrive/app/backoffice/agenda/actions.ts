@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
-import { notifyLessonRefillInvitation } from "@/lib/notifications/dispatch";
+import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
+import {
+  notifyLessonRefillInvitation,
+  notifyExamInvitation,
+} from "@/lib/notifications/dispatch";
 
 export async function scheduleLesson(formData: FormData) {
   const { user, tenant, roles } = await requireActiveTenant([
@@ -208,6 +212,96 @@ export async function cancelRefillInvitation(
 
   revalidatePath("/backoffice/agenda");
   if (sourceLessonId) revalidatePath(`/backoffice/agenda/${sourceLessonId}`);
+  return { ok: true };
+}
+
+/**
+ * Invite a single suitable student to an open exam moment (Task #102). Loads the
+ * tenant's exam-invitation policy and forwards enabled / validity / max-
+ * concurrent to the locked create RPC, which re-validates the moment is still
+ * open, enforces the rules and prevents duplicate invitations. On success the
+ * student is notified by email (degrades gracefully). Nothing is booked here —
+ * the student confirms in their PWA, and an exam never consumes credit.
+ */
+export async function inviteExamCandidate(
+  formData: FormData,
+): Promise<RefillActionResult> {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+
+  const appointmentId = String(formData.get("appointment_id") ?? "").trim();
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const scoreRaw = parseInt(String(formData.get("score") ?? "0"), 10);
+  const score = Number.isFinite(scoreRaw) ? scoreRaw : 0;
+
+  if (!appointmentId || !studentId) {
+    return { ok: false, error: "Ontbrekende gegevens voor de uitnodiging." };
+  }
+
+  const service = createServiceRoleClient();
+  const policy = await loadExamInvitationPolicy(service, tenant.id);
+  if (!policy.enabled) {
+    return {
+      ok: false,
+      error: "Examenuitnodigingen staan uit in de instellingen.",
+    };
+  }
+
+  const { data: invitationId, error } = await service.rpc(
+    "create_exam_invitation",
+    {
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_appointment_id: appointmentId,
+      p_student_id: studentId,
+      p_enabled: policy.enabled,
+      p_valid_minutes: policy.valid_minutes,
+      p_max_candidates: policy.max_candidates,
+      p_score: score,
+      p_reason: reason || null,
+    },
+  );
+  if (error || !invitationId) {
+    return { ok: false, error: error?.message ?? "Uitnodigen mislukt." };
+  }
+
+  await notifyExamInvitation(service, tenant.id, invitationId as string);
+
+  revalidatePath("/backoffice/agenda");
+  revalidatePath(`/backoffice/agenda/afspraak/${appointmentId}`);
+  return { ok: true };
+}
+
+/**
+ * Cancel an open exam invitation (staff-only). The locked cancel RPC marks it
+ * cancelled and writes the audit row.
+ */
+export async function cancelExamInvitation(
+  formData: FormData,
+): Promise<RefillActionResult> {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const invitationId = String(formData.get("invitation_id") ?? "").trim();
+  const appointmentId = String(formData.get("appointment_id") ?? "").trim();
+  if (!invitationId) return { ok: false, error: "Uitnodiging ontbreekt." };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("cancel_exam_invitation", {
+    p_invitation_id: invitationId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/agenda");
+  if (appointmentId) {
+    revalidatePath(`/backoffice/agenda/afspraak/${appointmentId}`);
+  }
   return { ok: true };
 }
 

@@ -9,6 +9,8 @@ import {
   renderTrialLessonConfirmed,
   renderLessonRefillInvitation,
   renderLessonRefillConfirmed,
+  renderExamInvitation,
+  renderExamConfirmed,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -686,5 +688,141 @@ export async function notifyLessonRefillConfirmed(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt },
+  });
+}
+
+/**
+ * Load an exam invitation + its student (recipient) and the exam moment for a
+ * notification. Returns null when the invitation does not belong to the tenant.
+ * Tenant-scoped throughout.
+ */
+async function loadExamInvitationForNotify(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{
+  studentEmail: string;
+  studentName: string;
+  examType: "exam" | "interim_test";
+  startsAt: string;
+  location: string | null;
+  instructorId: string | null;
+  expiresAt: string | null;
+} | null> {
+  const { data: inv } = await service
+    .from("exam_invitations")
+    .select("id, student_id, appointment_id, expires_at")
+    .eq("id", invitationId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!inv) return null;
+
+  const { data: appt } = await service
+    .from("agenda_appointments")
+    .select("type, starts_at, location, instructor_id")
+    .eq("id", inv.appointment_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!appt) return null;
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", inv.student_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  return {
+    studentEmail: (student?.email as string | null) ?? "",
+    studentName: (student?.full_name as string | null) ?? "cursist",
+    examType: appt.type as "exam" | "interim_test",
+    startsAt: appt.starts_at as string,
+    location: (appt.location as string | null) ?? null,
+    instructorId: (appt.instructor_id as string | null) ?? null,
+    expiresAt: (inv.expires_at as string | null) ?? null,
+  };
+}
+
+/**
+ * Invite a student to an open exam moment. Idempotent per invitation id:
+ * re-sending for the same invitation never double-sends. Degrades gracefully
+ * (skipped) when the student has no email or email delivery is not configured.
+ */
+export async function notifyExamInvitation(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const inv = await loadExamInvitationForNotify(service, tenantId, invitationId);
+  if (!inv) return { outcome: "skipped" };
+
+  const instructorName = await instructorNameFor(service, inv.instructorId);
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "exam_invitation");
+  const email = renderExamInvitation(
+    branding,
+    {
+      studentName: inv.studentName,
+      examType: inv.examType,
+      startsAt: inv.startsAt,
+      location: inv.location,
+      instructorName,
+      expiresAt: inv.expiresAt,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "exam_invitation",
+    recipientEmail: inv.studentEmail,
+    dedupeKey: `exam_invitation:invitation:${invitationId}`,
+    relatedType: "exam_invitation",
+    relatedId: invitationId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: inv.startsAt, exam_type: inv.examType },
+  });
+}
+
+/**
+ * Confirm a booked exam moment to the student after they accepted the
+ * invitation. Idempotent per invitation id: confirming twice (or a retried
+ * call) never double-sends. Degrades gracefully (skipped) when the student has
+ * no email or email delivery is not configured.
+ */
+export async function notifyExamConfirmed(
+  service: SupabaseClient,
+  tenantId: string,
+  invitationId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const inv = await loadExamInvitationForNotify(service, tenantId, invitationId);
+  if (!inv) return { outcome: "skipped" };
+
+  const instructorName = await instructorNameFor(service, inv.instructorId);
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "exam_confirmed");
+  const email = renderExamConfirmed(
+    branding,
+    {
+      studentName: inv.studentName,
+      examType: inv.examType,
+      startsAt: inv.startsAt,
+      location: inv.location,
+      instructorName,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "exam_confirmed",
+    recipientEmail: inv.studentEmail,
+    dedupeKey: `exam_confirmed:invitation:${invitationId}`,
+    relatedType: "exam_invitation",
+    relatedId: invitationId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: inv.startsAt, exam_type: inv.examType },
   });
 }

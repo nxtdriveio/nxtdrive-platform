@@ -117,3 +117,42 @@ export async function respondRefillInvitation(
   revalidatePath("/student", "layout");
   return {};
 }
+
+/**
+ * Lets a student (or guardian) accept or decline an exam-moment invitation. The
+ * locked `respond_exam_invitation` RPC re-validates ownership, lazily expires
+ * stale invitations, and on accept links the student to the exam appointment
+ * after re-validating it is still open — NO credit ledger / NO lesson, because
+ * an exam does not consume credit. This action only forwards the actor and, on a
+ * successful accept, fires the confirmation email.
+ */
+export async function respondExamInvitation(
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { tenant, user } = await requireActiveTenant(["student", "parent"]);
+  const invitationId = String(formData.get("invitation_id") ?? "").trim();
+  const response = String(formData.get("response") ?? "").trim();
+  if (!invitationId) return { error: "invitation_id ontbreekt" };
+  if (!["accept", "decline"].includes(response)) {
+    return { error: "Ongeldige keuze" };
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("respond_exam_invitation", {
+    p_invitation_id: invitationId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_accept: response === "accept",
+  });
+  if (error) return { error: error.message };
+
+  if (response === "accept") {
+    const { notifyExamConfirmed } = await import(
+      "@/lib/notifications/dispatch"
+    );
+    await notifyExamConfirmed(service, tenant.id, invitationId);
+  }
+
+  revalidatePath("/student", "layout");
+  return {};
+}

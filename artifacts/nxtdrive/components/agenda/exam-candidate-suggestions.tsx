@@ -1,12 +1,19 @@
 import Link from "next/link";
-import { GraduationCap, Clock, Ban, TrendingUp } from "lucide-react";
+import { GraduationCap, Clock, Ban, TrendingUp, MailCheck } from "lucide-react";
 import { ADVICE_LABELS } from "@workspace/leskaart";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { suggestExamCandidatesForSlot } from "@/lib/lesson-planning/exam-candidates";
 import type { ExamSlotType } from "@/lib/lesson-planning/exam-candidates";
+import {
+  listOpenExamInvitationsForAppointment,
+  listResolvedExamInvitationsForAppointment,
+  type AppointmentExamInvitation,
+} from "@/lib/exam-invitations/invitations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { InviteExamCandidateButton } from "@/components/agenda/invite-exam-candidate-button";
+import { CancelExamInvitationButton } from "@/components/agenda/cancel-exam-invitation-button";
 import { formatTegoed } from "@/lib/students/types";
 import {
   CBR_EXAM_STATUS_LABEL,
@@ -14,6 +21,35 @@ import {
   type CbrExamStatus,
   type CbrStatusTone,
 } from "@/lib/cbr/derive";
+
+const expiryFmt = new Intl.DateTimeFormat("nl-NL", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const RESOLVED_STATUS_LABEL: Record<
+  AppointmentExamInvitation["status"],
+  string
+> = {
+  invited: "Uitgenodigd",
+  confirmed: "Bevestigd",
+  declined: "Afgewezen",
+  cancelled: "Ingetrokken",
+  expired: "Verlopen",
+};
+
+const RESOLVED_STATUS_TONE: Record<
+  AppointmentExamInvitation["status"],
+  "primary" | "success" | "warning" | "default"
+> = {
+  invited: "primary",
+  confirmed: "success",
+  declined: "warning",
+  cancelled: "default",
+  expired: "default",
+};
 
 // ---------------------------------------------------------------------------
 // Task #101 — "Slimme examenkandidaat-voorstellen". For an available exam /
@@ -25,6 +61,7 @@ import {
 
 type Props = {
   tenantId: string;
+  appointmentId: string;
   slotType: ExamSlotType;
   startsAt: string; // ISO
   durationMin: number;
@@ -59,19 +96,30 @@ const STATUS_BADGE_VARIANT: Record<
 
 export async function ExamCandidateSuggestions({
   tenantId,
+  appointmentId,
   slotType,
   startsAt,
   durationMin,
   excludeStudentId,
 }: Props) {
   const supabase = await createServerSupabaseClient();
-  const { eligible, blocked } = await suggestExamCandidatesForSlot(supabase, {
-    tenantId,
-    startsAt,
-    durationMin,
-    slotType,
-    excludeStudentId,
-  });
+  const [{ eligible, blocked }, openInvitations, resolvedInvitations] =
+    await Promise.all([
+      suggestExamCandidatesForSlot(supabase, {
+        tenantId,
+        startsAt,
+        durationMin,
+        slotType,
+        excludeStudentId,
+      }),
+      listOpenExamInvitationsForAppointment(supabase, tenantId, appointmentId),
+      listResolvedExamInvitationsForAppointment(
+        supabase,
+        tenantId,
+        appointmentId,
+      ),
+    ]);
+  const invitedStudentIds = new Set(openInvitations.map((i) => i.studentId));
 
   const noun = SLOT_NOUN[slotType];
 
@@ -144,17 +192,96 @@ export async function ExamCandidateSuggestions({
                       ) : null}
                     </div>
                   </div>
-                  <Link
-                    href={`/backoffice/leerlingen/${encodeURIComponent(c.student_id)}`}
-                    className={buttonVariants({ size: "sm", variant: "outline" })}
-                  >
-                    Bekijk dossier →
-                  </Link>
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                    {invitedStudentIds.has(c.student_id) ? (
+                      <Badge variant="primary">Uitgenodigd</Badge>
+                    ) : (
+                      <InviteExamCandidateButton
+                        appointmentId={appointmentId}
+                        studentId={c.student_id}
+                        score={c.score}
+                        reason={c.reason}
+                      />
+                    )}
+                    <Link
+                      href={`/backoffice/leerlingen/${encodeURIComponent(c.student_id)}`}
+                      className={buttonVariants({ size: "sm", variant: "outline" })}
+                    >
+                      Bekijk dossier →
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
+
+        {/* Open invitations for this moment ------------------------------- */}
+        {openInvitations.length > 0 ? (
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <MailCheck className="h-3.5 w-3.5" aria-hidden />
+              Openstaande uitnodigingen
+            </h3>
+            <ul className="space-y-2">
+              {openInvitations.map((inv) => (
+                <li
+                  key={inv.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {inv.studentName}
+                      </span>
+                      <Badge variant={inv.expired ? "warning" : "primary"}>
+                        {inv.expired ? "Verlopen" : "Uitgenodigd"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Reageer vóór {expiryFmt.format(new Date(inv.expiresAt))}
+                    </p>
+                  </div>
+                  <CancelExamInvitationButton
+                    invitationId={inv.id}
+                    appointmentId={appointmentId}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {/* Invitation status history ------------------------------------- */}
+        {resolvedInvitations.length > 0 ? (
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Uitnodigingsstatus
+            </h3>
+            <ul className="space-y-2">
+              {resolvedInvitations.map((inv) => (
+                <li
+                  key={inv.id}
+                  className="flex flex-col gap-1 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {inv.studentName}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {inv.respondedAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        {expiryFmt.format(new Date(inv.respondedAt))}
+                      </span>
+                    ) : null}
+                    <Badge variant={RESOLVED_STATUS_TONE[inv.status]}>
+                      {RESOLVED_STATUS_LABEL[inv.status]}
+                    </Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {/* Blocked students (unmet preconditions) -------------------------- */}
         {blocked.length > 0 ? (

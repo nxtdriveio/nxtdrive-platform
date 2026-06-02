@@ -14,7 +14,10 @@ import { RecentPracticeCard } from "@/components/skills/RecentPracticeCard";
 import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
+import { ExamInvitations } from "@/components/student/exam-invitations";
 import { listOpenInvitationsForStudent } from "@/lib/lesson-refill/invitations";
+import { listOpenExamInvitationsForStudent } from "@/lib/exam-invitations/invitations";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadStudentTheoryHomework } from "@/lib/theory/data";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
@@ -110,6 +113,16 @@ export default async function StudentHomePage() {
       loadStudentCbrSummary(supabase, tenant.id, student.id),
     ]);
 
+  // Exam invitations: the exam appointment is not yet linked to the student, so
+  // it is not RLS-readable by the student until they confirm. Ownership is
+  // already established above (getActiveStudent → student.id), so resolve open
+  // invitations with a service-role client bounded to this tenant + student.
+  const examInvitations = await listOpenExamInvitationsForStudent(
+    createServiceRoleClient(),
+    tenant.id,
+    student.id,
+  );
+
   const instructorNames = await getInstructorNames([
     ...(nextLesson ? [nextLesson.instructor_id] : []),
     ...upcoming.map((l) => l.instructor_id),
@@ -127,6 +140,8 @@ export default async function StudentHomePage() {
       </div>
 
       <RefillInvitations invitations={refillInvitations} />
+
+      <ExamInvitations invitations={examInvitations} />
 
       {nextLesson ? (
         <Card className="border-primary/40 bg-primary-soft/40">
