@@ -61,6 +61,7 @@ import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { TrialLessonSection } from "./trial-lesson-section";
+import { IntakeTaskButtons } from "./intake-task-buttons";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
 import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 
@@ -303,7 +304,9 @@ export default async function LeadDetailPage({
             </CardContent>
           </Card>
 
-          {analysis ? <IntakeAnalysisCard analysis={analysis} /> : null}
+          {analysis ? (
+            <IntakeAnalysisCard analysis={analysis} leadId={lead.id} />
+          ) : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}
 
@@ -613,7 +616,13 @@ function fmtDate(value: string | null): string | null {
   return Number.isNaN(t) ? value : intakeDateFmt.format(new Date(t));
 }
 
-function IntakeAnalysisCard({ analysis }: { analysis: LeadIntakeAnalysis }) {
+function IntakeAnalysisCard({
+  analysis,
+  leadId,
+}: {
+  analysis: LeadIntakeAnalysis;
+  leadId: string;
+}) {
   const labels = analysis.labels.filter(
     (l): l is IntakeLabel => l in INTAKE_LABEL_INFO,
   );
@@ -684,6 +693,12 @@ function IntakeAnalysisCard({ analysis }: { analysis: LeadIntakeAnalysis }) {
               ))}
             </ul>
           )}
+          {points.length > 0 ? (
+            <IntakeTaskButtons
+              leadId={leadId}
+              points={points.map((p) => ({ code: p.code, label: p.label }))}
+            />
+          ) : null}
         </div>
 
         <div>

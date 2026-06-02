@@ -9,3 +9,4 @@
 - [Supabase RPC grant lockdown](supabase-rpc-grants.md) — service-role-only RPCs must revoke execute from anon AND authenticated (not just PUBLIC), or actor can be forged; fix applied envs via new forward migration (runner tracks by filename).
 - [Intake-analyse mapping](intake-analysis-mapping.md) — Fase 1B engine: failed_exam_before = has_done_exam (no pass/fail field), recommended_step always plan_trial_lesson for new leads, idempotent backfill-on-read.
 - [Lead funnel automation](lead-funnel-automation.md) — forward-only funnel from observable facts (manual placeholders never auto-overridden); idempotent auto-tasks via tasks.dedupe_key partial-unique index.
+- [Intake attention-points → tasks](intake-attention-tasks.md) — one-click aandachtspunt→task: task_type='manual' (survives sweep), dedupe_key lead:{id}:intake:{code}, routed via resolve_task_assignment.

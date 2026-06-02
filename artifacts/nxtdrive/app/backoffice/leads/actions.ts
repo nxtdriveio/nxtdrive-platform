@@ -4,8 +4,22 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { LEAD_STATUSES, LEAD_SOURCES, type LeadSource, type LeadStatus } from "@/lib/leads/types";
+import {
+  LEAD_STATUSES,
+  LEAD_SOURCES,
+  type Lead,
+  type LeadIntakeDetail,
+  type LeadSource,
+  type LeadStatus,
+} from "@/lib/leads/types";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
+import {
+  analyzeIntake,
+  intakeAttentionDedupeKey,
+  intakeAttentionTask,
+  type IntakeAttentionPoint,
+  type LeadIntakeAnalysis,
+} from "@/lib/leads/intake-analysis";
 
 export async function convertLeadToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -289,6 +303,146 @@ export async function createLeadManual(formData: FormData) {
 
   revalidatePath("/backoffice/leads");
   redirect(`/backoffice/leads/${leadId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Task #58 — intake "aandachtspunten" → one-click backoffice tasks.
+//
+// Re-derives the attention points server-side (source of truth: the lead's
+// intake answers), so the caller can only ever create tasks for points that
+// genuinely apply. Each point becomes an idempotent, lead-linked task routed
+// via the tenant's assignment rules. Clicking twice is a no-op.
+// ---------------------------------------------------------------------------
+
+export type CreateIntakeTasksResult = {
+  ok: boolean;
+  created: number;
+  existing: number;
+  error?: string;
+};
+
+export async function createTasksFromIntakePoints(
+  leadId: string,
+  codes: string[],
+): Promise<CreateIntakeTasksResult> {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+
+  if (!leadId || !Array.isArray(codes) || codes.length === 0) {
+    return { ok: false, created: 0, existing: 0, error: "Geen aandachtspunten opgegeven." };
+  }
+
+  const service = createServiceRoleClient();
+
+  // Lead must belong to this tenant (also gives us the name for task titles).
+  const { data: leadRaw } = await service
+    .from("leads")
+    .select("id, full_name")
+    .eq("id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!leadRaw) {
+    return { ok: false, created: 0, existing: 0, error: "Lead niet gevonden." };
+  }
+  const lead = leadRaw as Pick<Lead, "id" | "full_name">;
+
+  // Source of truth for which attention points exist: stored analysis, or a
+  // fresh compute from the intake answers when no analysis row exists yet.
+  const { data: analysisRaw } = await service
+    .from("lead_intake_analysis")
+    .select("attention_points")
+    .eq("lead_id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  let points = (analysisRaw as { attention_points: IntakeAttentionPoint[] } | null)
+    ?.attention_points;
+
+  if (!points) {
+    const { data: intakeRaw } = await service
+      .from("lead_intake_details")
+      .select("*")
+      .eq("lead_id", leadId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    const intake = intakeRaw as LeadIntakeDetail | null;
+    if (!intake) {
+      return { ok: false, created: 0, existing: 0, error: "Geen intake beschikbaar." };
+    }
+    points = analyzeIntake({
+      city: intake.city,
+      pickup_location: intake.pickup_location,
+      has_driving_experience: intake.has_driving_experience,
+      had_lessons_before: intake.had_lessons_before,
+      has_done_exam: intake.has_done_exam,
+      theory_status: intake.theory_status,
+      health_declaration_status: intake.health_declaration_status,
+      cbr_authorization_status: intake.cbr_authorization_status,
+      preferred_days: intake.preferred_days,
+      preferred_times: intake.preferred_times,
+      desired_start_date: intake.desired_start_date,
+      lessons_per_week: intake.lessons_per_week,
+      pace: intake.pace,
+      has_anxiety: intake.has_anxiety,
+    }).attention_points;
+  }
+
+  const requested = new Set(codes);
+  const targets = points.filter((p) => requested.has(p.code));
+  if (targets.length === 0) {
+    return { ok: false, created: 0, existing: 0, error: "Aandachtspunt niet (meer) van toepassing." };
+  }
+
+  let created = 0;
+  let existing = 0;
+
+  for (const point of targets) {
+    const dedupeKey = intakeAttentionDedupeKey(leadId, point.code);
+
+    // Was an open task already covering this point before we called the RPC?
+    const { data: before } = await service
+      .from("tasks")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("dedupe_key", dedupeKey)
+      .is("archived_at", null)
+      .maybeSingle();
+
+    const task = intakeAttentionTask(point, lead.full_name);
+    const { error } = await service.rpc("ensure_lead_intake_task", {
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_lead_id: leadId,
+      p_dedupe_key: dedupeKey,
+      p_title: task.title,
+      p_description: task.description,
+      p_priority: task.priority,
+      p_due_date: null,
+    });
+
+    if (error) {
+      // Unique-violation = a concurrent click already created it: treat as existing.
+      if (error.code === "23505") {
+        existing += 1;
+        continue;
+      }
+      return {
+        ok: false,
+        created,
+        existing,
+        error: "Taak aanmaken mislukt. Probeer het opnieuw.",
+      };
+    }
+
+    if (before) existing += 1;
+    else created += 1;
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/taken");
+  return { ok: true, created, existing };
 }
 
 export async function completeLeadTask(formData: FormData) {
