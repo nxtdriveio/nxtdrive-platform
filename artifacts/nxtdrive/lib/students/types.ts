@@ -50,3 +50,28 @@ export type StudentBalance = {
   tenant_id: string;
   balance: number;
 };
+
+// Tegoed is stored internally in MINUTES (exact — lessons consume whole minutes)
+// and displayed to users in hours ("uren"). 90 minutes => "1,5 uur".
+const HOURS_FMT = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 2 });
+
+/** Format a minute amount as a Dutch decimal number of hours (e.g. 90 => "1,5"). */
+export function formatHours(minutes: number): string {
+  return HOURS_FMT.format(minutes / 60);
+}
+
+/** Format a minute amount as a labelled tegoed value (e.g. 90 => "1,5 uur"). */
+export function formatTegoed(minutes: number): string {
+  return `${formatHours(minutes)} uur`;
+}
+
+/** Format a signed ledger delta in minutes (e.g. -60 => "−1 uur", 90 => "+1,5 uur"). */
+export function formatTegoedDelta(minutes: number): string {
+  const sign = minutes > 0 ? "+" : minutes < 0 ? "−" : "";
+  return `${sign}${formatHours(Math.abs(minutes))} uur`;
+}
+
+/** Convert a (possibly decimal) number of hours to whole minutes for storage. */
+export function hoursToMinutes(hours: number): number {
+  return Math.round(hours * 60);
+}

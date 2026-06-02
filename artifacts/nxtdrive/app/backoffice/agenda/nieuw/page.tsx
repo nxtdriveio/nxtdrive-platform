@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Student, StudentBalance } from "@/lib/students/types";
+import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { scheduleLesson } from "../actions";
 import { LessonLocationField } from "./location-field";
 
@@ -88,7 +88,7 @@ export default async function NewLessonPage({
           Les plannen
         </h1>
         <p className="text-sm text-muted-foreground">
-          Trekt direct credits af bij de leerling.
+          Schrijft direct tegoed (uren) af op basis van de lesduur.
         </p>
       </div>
 
@@ -153,7 +153,7 @@ export default async function NewLessonPage({
                       const bal = balanceMap.get(s.id) ?? 0;
                       return (
                         <option key={s.id} value={s.id}>
-                          {s.full_name} — saldo: {bal}
+                          {s.full_name} — saldo: {formatTegoed(bal)}
                         </option>
                       );
                     })}
@@ -194,18 +194,9 @@ export default async function NewLessonPage({
                     <option value="90">90</option>
                     <option value="120">120</option>
                   </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="credits_cost">Credits</Label>
-                  <Input
-                    id="credits_cost"
-                    name="credits_cost"
-                    type="number"
-                    min={1}
-                    required
-                    defaultValue={1}
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    Het tegoed wordt automatisch met de lesduur verrekend.
+                  </p>
                 </div>
               </div>
 

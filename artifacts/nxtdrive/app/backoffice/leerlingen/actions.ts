@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { hoursToMinutes } from "@/lib/students/types";
 
 export async function grantPackageToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -28,7 +29,9 @@ export async function grantPackageToStudent(formData: FormData) {
 export async function adjustCredits(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");
-  const delta = parseInt(String(formData.get("delta") ?? "0"), 10);
+  // Admin enters a number of hours (may be decimal); tegoed is stored in minutes.
+  const deltaHours = parseFloat(String(formData.get("delta") ?? "0"));
+  const delta = hoursToMinutes(deltaHours);
   const note = String(formData.get("note") ?? "").trim().slice(0, 200);
   if (!studentId || !Number.isFinite(delta) || delta === 0 || !note) {
     redirect(`/backoffice/leerlingen/${studentId || ""}`);

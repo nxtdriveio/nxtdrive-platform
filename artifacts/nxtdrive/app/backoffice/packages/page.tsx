@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatEuros, type Package } from "@/lib/packages/types";
+import { formatTegoed } from "@/lib/students/types";
 import { createPackage, togglePackageActive } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function PackagesPage() {
           Pakketten
         </h1>
         <p className="text-sm text-muted-foreground">
-          Definieer credit-pakketten die je aan studenten kunt toekennen.
+          Definieer uren-pakketten die je aan studenten kunt toekennen.
         </p>
       </div>
 
@@ -43,7 +44,7 @@ export default async function PackagesPage() {
                 <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Naam</th>
-                    <th className="px-4 py-3 font-medium">Credits</th>
+                    <th className="px-4 py-3 font-medium">Uren</th>
                     <th className="px-4 py-3 font-medium">Prijs</th>
                     <th className="px-4 py-3 font-medium">Geldigheid</th>
                     <th className="px-4 py-3 font-medium">Status</th>
@@ -57,7 +58,7 @@ export default async function PackagesPage() {
                         {p.name}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {p.credits_total}
+                        {formatTegoed(p.credits_total)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatEuros(p.price_cents)}
@@ -113,12 +114,13 @@ export default async function PackagesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="credits_total">Credits</Label>
+                  <Label htmlFor="credits_total">Uren</Label>
                   <Input
                     id="credits_total"
                     name="credits_total"
                     type="number"
-                    min={1}
+                    step="0.5"
+                    min={0.5}
                     required
                     placeholder="30"
                   />

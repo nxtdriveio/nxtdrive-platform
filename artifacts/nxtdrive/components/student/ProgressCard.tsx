@@ -5,6 +5,7 @@ import {
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
+import { formatTegoed } from "@/lib/students/types";
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
@@ -100,9 +101,9 @@ export function StudentProgressCard({
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">Credits</span>
+              <span className="text-muted-foreground">Tegoed</span>
               <span className="font-semibold text-foreground tabular-nums">
-                {lesson.credits_cost}
+                {formatTegoed(lesson.credits_cost)}
               </span>
             </div>
           </div>

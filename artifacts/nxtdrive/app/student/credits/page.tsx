@@ -9,6 +9,7 @@ import { StudentBalanceCard } from "@/components/student/BalanceCard";
 import { getActiveStudent } from "@/lib/students/access";
 import {
   CREDIT_REASON_LABEL,
+  formatTegoedDelta,
   type CreditLedgerRow,
   type StudentBalance,
 } from "@/lib/students/types";
@@ -96,8 +97,7 @@ export default async function StudentCreditsPage() {
                       </div>
                     </div>
                     <Badge variant={positive ? "success" : "warning"}>
-                      {positive ? "+" : ""}
-                      {r.delta}
+                      {formatTegoedDelta(r.delta)}
                     </Badge>
                     {lessonHref ? (
                       <ChevronRight

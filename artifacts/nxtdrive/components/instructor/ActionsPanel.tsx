@@ -15,6 +15,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { formatTegoed } from "@/lib/students/types";
 import {
   completeLessonAction,
   cancelLessonAction,
@@ -242,7 +243,7 @@ export function InstructorActionsPanel({
             <p className="text-xs text-muted-foreground">
               Annulering nu ({hoursBefore.toFixed(1)} u vooraf): refund{" "}
               <span className="font-medium text-foreground">
-                {refundPreview} credit(s)
+                {formatTegoed(refundPreview)}
               </span>{" "}
               volgens beleid van deze rijschool.
             </p>

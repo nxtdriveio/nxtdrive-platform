@@ -6,6 +6,7 @@ import {
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
+import { formatTegoed } from "@/lib/students/types";
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
@@ -64,7 +65,7 @@ export function StudentLessonCard({
           {lesson.location ?? "Locatie volgt"}
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          {durMin} min · {lesson.credits_cost} credits
+          {durMin} min · {formatTegoed(lesson.credits_cost)}
           {instructorName ? ` · ${instructorName}` : ""}
         </div>
       </div>

@@ -4,11 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { hoursToMinutes } from "@/lib/students/types";
 
 export async function createPackage(formData: FormData) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const name = String(formData.get("name") ?? "").trim().slice(0, 200);
-  const credits = parseInt(String(formData.get("credits_total") ?? "0"), 10);
+  // Packages are sized in hours in the UI; stored as minutes.
+  const hours = parseFloat(String(formData.get("credits_total") ?? "0"));
+  const credits = hoursToMinutes(hours);
   const priceEuros = parseFloat(String(formData.get("price_euros") ?? "0"));
   const validDaysRaw = String(formData.get("valid_days") ?? "").trim();
   const validDays = validDaysRaw === "" ? null : parseInt(validDaysRaw, 10);

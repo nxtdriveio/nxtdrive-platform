@@ -3,7 +3,7 @@ import { Mail, Phone, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import type { Student } from "@/lib/students/types";
+import { formatTegoed, type Student } from "@/lib/students/types";
 
 export function InstructorStudentCard({
   student,
@@ -43,8 +43,8 @@ export function InstructorStudentCard({
               ) : null}
             </div>
           </div>
-          <Badge variant={balance > 5 ? "success" : balance > 0 ? "warning" : "danger"}>
-            {balance} credits
+          <Badge variant={balance > 300 ? "success" : balance > 0 ? "warning" : "danger"}>
+            {formatTegoed(balance)}
           </Badge>
         </div>
 

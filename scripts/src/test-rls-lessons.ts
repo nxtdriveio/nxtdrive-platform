@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     .insert({
       tenant_id: tenantId,
       name: `Lesson Test Pack ${Date.now()}`,
-      credits_total: 2,
+      credits_total: 120, // 120 minutes = 2 uur tegoed
       price_cents: 5000,
       active: true,
     })
@@ -110,7 +110,9 @@ async function main(): Promise<void> {
     p_package_id: pack1.id,
   });
 
-  // ---- 2. insufficient credits rejected ----------------------------------
+  // ---- 2. insufficient tegoed rejected -----------------------------------
+  // Tegoed is consumed by lesson duration in minutes; a 180-min lesson costs
+  // more than the 120-min balance, so it must be rejected.
   {
     const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const tooExpensive = await serviceClient.rpc("schedule_lesson", {
@@ -119,8 +121,8 @@ async function main(): Promise<void> {
       p_instructor_id: instructorId,
       p_student_id: student.id,
       p_starts_at: future.toISOString(),
-      p_duration_min: 60,
-      p_credits_cost: 99,
+      p_duration_min: 180,
+      p_credits_cost: 180,
       p_location: null,
       p_notes: null,
     });
@@ -129,7 +131,7 @@ async function main(): Promise<void> {
       .select("id")
       .eq("student_id", student.id);
     results.push({
-      name: "schedule_lesson rejects insufficient credits",
+      name: "schedule_lesson rejects insufficient tegoed",
       ok:
         tooExpensive.error !== null && (anyLessons ?? []).length === 0,
       detail:
@@ -138,7 +140,7 @@ async function main(): Promise<void> {
     });
   }
 
-  // ---- 3. successful schedule deducts credits ----------------------------
+  // ---- 3. successful schedule deducts tegoed by duration -----------------
   let lessonId: string | null = null;
   {
     const start = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7d ahead
@@ -149,7 +151,7 @@ async function main(): Promise<void> {
       p_student_id: student.id,
       p_starts_at: start.toISOString(),
       p_duration_min: 60,
-      p_credits_cost: 1,
+      p_credits_cost: 60,
       p_location: "Testlocatie",
       p_notes: null,
     });
@@ -165,11 +167,11 @@ async function main(): Promise<void> {
       .eq("action", "lesson.scheduled")
       .eq("target_id", lessonId ?? "");
     results.push({
-      name: "schedule_lesson succeeds and deducts credit",
+      name: "schedule_lesson succeeds and deducts tegoed (120 − 60 = 60)",
       ok:
         !ok.error &&
         lessonId !== null &&
-        (balRow?.balance ?? -1) === 1 &&
+        (balRow?.balance ?? -1) === 60 &&
         (audit ?? []).length === 1,
       detail: ok.error
         ? ok.error.message
@@ -217,12 +219,12 @@ async function main(): Promise<void> {
   // ---- 5. cancellation tiers (100% / 50% / 0%) ---------------------------
   // We rely on the seed policy: 72h→100, 24h→50, 0h→0.
   async function scheduleAt(hoursAhead: number): Promise<string | null> {
-    // Grant 1 fresh credit so the student can afford another lesson.
+    // Grant fresh tegoed so the student can afford another lesson.
     await serviceClient.rpc("grant_package", {
       p_student_id: student!.id,
       p_tenant_id: tenantId,
       p_actor: instructorId,
-      p_package_id: pack1!.id, // 2 credits each call — plenty
+      p_package_id: pack1!.id, // 120 min each call — plenty
     });
     const start = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
     const res = await serviceClient.rpc("schedule_lesson", {
@@ -231,17 +233,18 @@ async function main(): Promise<void> {
       p_instructor_id: instructorId,
       p_student_id: student!.id,
       p_starts_at: start.toISOString(),
-      p_duration_min: 30, // short to avoid overlap with hour-ahead slot
-      p_credits_cost: 1,
+      p_duration_min: 30, // 30-min lesson costs 30 min tegoed
+      p_credits_cost: 30,
       p_location: null,
       p_notes: null,
     });
     return (res.data as string | null) ?? null;
   }
 
+  // Refund is a percentage of the lesson cost (30 min): 100%→30, 50%→15, 0%→0.
   for (const [hoursAhead, expectedRefund, label] of [
-    [100, 1, "100% tier (≥72h)"],
-    [40, 1, "50% tier (≥24h, rounds 0.5→1)"],
+    [100, 30, "100% tier (≥72h)"],
+    [40, 15, "50% tier (≥24h)"],
     [2, 0, "0% tier (<24h)"],
   ] as const) {
     const lid = await scheduleAt(hoursAhead);
@@ -286,7 +289,7 @@ async function main(): Promise<void> {
       .insert({
         tenant_id: tenantId,
         name: `Single ${Date.now()}`,
-        credits_total: 1,
+        credits_total: 60, // exactly one 60-min lesson worth of tegoed
         price_cents: 2500,
         active: true,
       })

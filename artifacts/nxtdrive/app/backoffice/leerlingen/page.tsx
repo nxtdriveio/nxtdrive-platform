@@ -3,7 +3,7 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Student, StudentBalance } from "@/lib/students/types";
+import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ export default async function StudentsPage() {
           Leerlingen
         </h1>
         <p className="text-sm text-muted-foreground">
-          Alle leerlingen van {tenant.name} met hun creditsaldo.
+          Alle leerlingen van {tenant.name} met hun tegoed (uren).
         </p>
       </div>
 
@@ -77,14 +77,14 @@ export default async function StudentsPage() {
                     <td className="px-4 py-3">
                       <Badge
                         variant={
-                          balance > 5
+                          balance > 300
                             ? "success"
                             : balance > 0
                               ? "warning"
                               : "danger"
                         }
                       >
-                        {balance} credits
+                        {formatTegoed(balance)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">

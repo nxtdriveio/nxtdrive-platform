@@ -18,6 +18,7 @@ import {
   type CancellationPolicy,
   type Lesson,
 } from "@/lib/lessons/types";
+import { formatTegoed } from "@/lib/students/types";
 import { cancelLesson, completeLesson } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -144,8 +145,8 @@ export default async function LessonDetailPage({
                 value={lesson.location ?? "—"}
               />
               <Field
-                label="Credits"
-                value={`${lesson.credits_cost}`}
+                label="Tegoed"
+                value={formatTegoed(lesson.credits_cost)}
               />
               {lesson.cancellation_reason ? (
                 <Field
@@ -157,7 +158,7 @@ export default async function LessonDetailPage({
               lesson.refunded_credits > 0 ? (
                 <Field
                   label="Refund"
-                  value={`+${lesson.refunded_credits} credit(s)`}
+                  value={`+${formatTegoed(lesson.refunded_credits)}`}
                 />
               ) : null}
               {lesson.notes ? (
@@ -188,7 +189,7 @@ export default async function LessonDetailPage({
                       Markeer als voltooid
                     </Button>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Credits zijn al afgeschreven bij het plannen.
+                      Tegoed is al afgeschreven bij het plannen.
                     </p>
                   </form>
                 </CardContent>
@@ -205,7 +206,7 @@ export default async function LessonDetailPage({
                       Bij annulering nu ({hoursBefore.toFixed(1)} u vooraf):
                       refund {refundPct}% ={" "}
                       <span className="font-medium text-foreground">
-                        {wouldRefund} credit(s)
+                        {formatTegoed(wouldRefund)}
                       </span>
                       .
                     </p>

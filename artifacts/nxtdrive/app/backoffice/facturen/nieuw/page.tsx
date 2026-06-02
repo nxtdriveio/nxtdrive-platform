@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Student } from "@/lib/students/types";
+import { formatTegoed, type Student } from "@/lib/students/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { createInvoice } from "../actions";
 
@@ -147,7 +147,7 @@ export default async function NewInvoicePage({
                       <option value="">Geen pakket — vrije regel hieronder</option>
                       {packages.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} — {p.credits_total} credits ·{" "}
+                          {p.name} — {formatTegoed(p.credits_total)} ·{" "}
                           {formatEuros(p.price_cents)}
                         </option>
                       ))}

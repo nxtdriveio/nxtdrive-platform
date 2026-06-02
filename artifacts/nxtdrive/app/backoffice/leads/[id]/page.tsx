@@ -60,6 +60,7 @@ import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
+import { formatTegoed } from "@/lib/students/types";
 import { TrialLessonSection } from "./trial-lesson-section";
 import { IntakeTaskButtons } from "./intake-task-buttons";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
@@ -483,7 +484,7 @@ export default async function LeadDetailPage({
                         <option value="">Geen pakket — alleen leerling aanmaken</option>
                         {activePackages.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name} — {p.credits_total} credits ·{" "}
+                            {p.name} — {formatTegoed(p.credits_total)} ·{" "}
                             {formatEuros(p.price_cents)}
                           </option>
                         ))}

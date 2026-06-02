@@ -13,7 +13,6 @@ export async function scheduleLesson(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const credits = parseInt(String(formData.get("credits_cost") ?? "1"), 10);
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
 
@@ -36,9 +35,6 @@ export async function scheduleLesson(formData: FormData) {
   if (!Number.isFinite(duration) || duration < 15) {
     redirect("/backoffice/agenda/nieuw?error=duration");
   }
-  if (!Number.isFinite(credits) || credits < 1) {
-    redirect("/backoffice/agenda/nieuw?error=credits");
-  }
 
   // Combine local datetime as ISO string. Browser submits date as YYYY-MM-DD
   // and time as HH:mm; we keep it in the server's TZ which is UTC. For demo
@@ -56,7 +52,6 @@ export async function scheduleLesson(formData: FormData) {
     p_student_id: studentId,
     p_starts_at: startsAt.toISOString(),
     p_duration_min: duration,
-    p_credits_cost: credits,
     p_location: location || null,
     p_notes: notes || null,
     p_location_lat: locationLat,
