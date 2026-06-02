@@ -8,7 +8,8 @@ export type NotificationType =
   | "lesson_refill_confirmed"
   | "payment_reminder"
   | "exam_invitation"
-  | "exam_confirmed";
+  | "exam_confirmed"
+  | "exam_planned";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

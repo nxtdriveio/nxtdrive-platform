@@ -11,6 +11,7 @@ import {
   renderLessonRefillConfirmed,
   renderExamInvitation,
   renderExamConfirmed,
+  renderExamPlanned,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -824,5 +825,71 @@ export async function notifyExamConfirmed(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt, exam_type: inv.examType },
+  });
+}
+
+/**
+ * Confirm to the student that an exam moment has been planned for them (the
+ * appointment carries their student_id). Idempotent per appointment id: planning
+ * twice (or a retried action / a later edit) never double-sends — the dedupe key
+ * is the appointment, not the edit. Degrades gracefully (skipped) when the
+ * student has no email or email delivery is not configured. Only exam /
+ * interim_test appointments with a linked student qualify; anything else returns
+ * 'skipped' without enqueueing.
+ */
+export async function notifyExamPlanned(
+  service: SupabaseClient,
+  tenantId: string,
+  appointmentId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: appt } = await service
+    .from("agenda_appointments")
+    .select("type, status, starts_at, location, instructor_id, student_id")
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!appt) return { outcome: "skipped" };
+
+  const type = appt.type as string;
+  if (type !== "exam" && type !== "interim_test") return { outcome: "skipped" };
+  if (appt.status !== "planned") return { outcome: "skipped" };
+  const studentId = appt.student_id as string | null;
+  if (!studentId) return { outcome: "skipped" };
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const instructorName = await instructorNameFor(
+    service,
+    (appt.instructor_id as string | null) ?? null,
+  );
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "exam_planned");
+  const email = renderExamPlanned(
+    branding,
+    {
+      studentName: (student?.full_name as string | null) ?? "cursist",
+      examType: type as "exam" | "interim_test",
+      startsAt: appt.starts_at as string,
+      location: (appt.location as string | null) ?? null,
+      instructorName,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "exam_planned",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `exam_planned:appointment:${appointmentId}`,
+    relatedType: "agenda_appointment",
+    relatedId: appointmentId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: appt.starts_at, exam_type: type },
   });
 }

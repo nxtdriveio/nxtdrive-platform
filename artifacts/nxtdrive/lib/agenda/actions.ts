@@ -69,7 +69,7 @@ export async function createAppointment(formData: FormData) {
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
 
   const service = createServiceRoleClient();
-  const { error } = await service.rpc("create_agenda_appointment", {
+  const { data: newId, error } = await service.rpc("create_agenda_appointment", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
     p_instructor_id: instructorId,
@@ -85,11 +85,33 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
 
+  // White-label-bewuste "examen ingepland"-mail naar de leerling. Idempotent
+  // per afspraak (dedupe op appointment id) en faalt nooit de planactie:
+  // degradeert stil naar 'skipped' zonder mailprovider of leerling-e-mail.
+  if (studentId && (type === "exam" || type === "interim_test") && newId) {
+    await maybeNotifyExamPlanned(service, tenant.id, String(newId));
+  }
+
   revalidatePath("/backoffice/agenda");
   revalidatePath("/instructor/week");
   revalidatePath("/instructor");
   if (studentId) revalidatePath(`/backoffice/leerlingen/${studentId}`);
   redirect(redirectTo);
+}
+
+// Fire-and-forget wrapper: een mislukte notificatie mag de planning nooit
+// blokkeren. De dispatch zelf is al idempotent en degradeert naar 'skipped'.
+async function maybeNotifyExamPlanned(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  appointmentId: string,
+) {
+  try {
+    const { notifyExamPlanned } = await import("@/lib/notifications/dispatch");
+    await notifyExamPlanned(service, tenantId, appointmentId);
+  } catch {
+    // Bewust ingeslikt: notificaties zijn best-effort, planning is leidend.
+  }
 }
 
 export async function updateAppointment(formData: FormData) {
@@ -154,6 +176,13 @@ export async function updateAppointment(formData: FormData) {
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // Idempotent per afspraak: een latere wijziging her-zendt nooit (zelfde
+  // dedupe key). Stuurt alleen alsnog als planning→examen met leerling pas
+  // bij deze edit compleet werd.
+  if (studentId && (type === "exam" || type === "interim_test")) {
+    await maybeNotifyExamPlanned(service, tenant.id, appointmentId);
   }
 
   revalidatePath("/backoffice/agenda");

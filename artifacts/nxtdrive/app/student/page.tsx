@@ -24,6 +24,8 @@ import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { StudentCbrCard } from "@/components/student/StudentCbrCard";
+import { loadStudentExamPrep } from "@/lib/exam/data";
+import { ExamPrepCard } from "@/components/student/ExamPrepCard";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
 
@@ -123,6 +125,15 @@ export default async function StudentHomePage() {
     student.id,
   );
 
+  // Examenvoorbereiding: alleen laden zodra er een examen gepland staat (de
+  // afgeleide CBR-status is de bron). RLS staat de leerling/voogd toe het eigen
+  // examenmoment, het detail en het tenant-beleid te lezen.
+  const examPrep =
+    cbrSummary.derived.examStatus === "examen_gepland" ||
+    cbrSummary.derived.examStatus === "toets_gepland"
+      ? await loadStudentExamPrep(supabase, tenant.id, student.id)
+      : null;
+
   const instructorNames = await getInstructorNames([
     ...(nextLesson ? [nextLesson.instructor_id] : []),
     ...upcoming.map((l) => l.instructor_id),
@@ -175,6 +186,14 @@ export default async function StudentHomePage() {
       <StudentReadinessCard readiness={readiness} />
 
       <StudentCbrCard summary={cbrSummary} />
+
+      {examPrep ? (
+        <ExamPrepCard
+          prep={examPrep}
+          preconditions={cbrSummary.preconditions}
+          balance={balance}
+        />
+      ) : null}
 
       <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
 

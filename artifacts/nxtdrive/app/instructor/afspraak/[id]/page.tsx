@@ -7,6 +7,9 @@ import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { ExamSignalsPanel } from "@/components/exam/exam-signals-panel";
+import { loadExamSignals } from "@/lib/exam/data";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { updateAppointment, deleteAppointment } from "@/lib/agenda/actions";
 import {
   APPOINTMENT_TYPE_LABEL,
@@ -58,6 +61,12 @@ export default async function EditInstructorAppointmentPage({
     .order("full_name", { ascending: true });
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
 
+  const examSignals = await loadExamSignals(
+    createServiceRoleClient(),
+    tenant.id,
+    appt!.id,
+  );
+
   return (
     <div className="space-y-6">
       <Link
@@ -81,6 +90,13 @@ export default async function EditInstructorAppointmentPage({
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
           Bewerken mislukt: {decodeURIComponent(sp.error)}
         </Card>
+      ) : null}
+
+      {examSignals ? (
+        <ExamSignalsPanel
+          appointmentId={appt!.id}
+          signals={examSignals.signals}
+        />
       ) : null}
 
       <Card>

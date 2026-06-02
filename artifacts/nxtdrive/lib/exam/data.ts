@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExamAppointmentDetails, ExamRequiredDocument } from "./types";
+import { mergeRequiredDocuments, initRequiredDocuments } from "./types";
+import { loadExamPrepPolicy, type ExamPreparationPolicy } from "./policy";
+import {
+  deriveExamSignals,
+  loadExamSignalPolicy,
+  type ExamSignal,
+} from "./signals";
+import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 
 // ---------------------------------------------------------------------------
 // Examenflow A — read-only loader voor het examenvoorbereidingsdetail.
@@ -102,4 +110,229 @@ export async function loadExamAppointmentDetailsMap(
     result.set(row.appointment_id, mapRow(row));
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Examenflow B — read-only leerlingbundel voor het voorbereidingsscherm.
+//
+// Bundelt het eerstvolgende geplande examen/TTT van de leerling met het
+// (RLS-leesbare) voorbereidingsdetail, het tenant-beleid (documenten + tips) en
+// de laatst gereden lessen. Pass de RLS-scoped server client: de leerling/voogd
+// mag de eigen afspraak, het detail en tenant_settings lezen. Read-only.
+// ---------------------------------------------------------------------------
+
+export type StudentExamRecentLesson = {
+  id: string;
+  startsAt: string;
+};
+
+export type StudentExamPrep = {
+  appointmentId: string;
+  examType: "exam" | "interim_test";
+  startsAt: string;
+  location: string | null;
+  /** Aantal geplande (toekomstige) lessen tussen nu en het examen. */
+  prepLessonsPlanned: number;
+  details: ExamAppointmentDetails | null;
+  policy: ExamPreparationPolicy;
+  /** Documentenlijst, samengevoegd uit beleid + opgeslagen afvinkstatus. */
+  documents: ExamRequiredDocument[];
+  recentLessons: StudentExamRecentLesson[];
+};
+
+type NextExamRow = {
+  id: string;
+  type: string;
+  starts_at: string;
+  location: string | null;
+};
+
+/**
+ * Bouwt de voorbereidingsbundel voor het eerstvolgende geplande examen/TTT van
+ * één leerling. Geeft `null` als er geen toekomstig examenmoment gepland staat.
+ */
+export async function loadStudentExamPrep(
+  client: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+  now: Date = new Date(),
+): Promise<StudentExamPrep | null> {
+  const nowIso = now.toISOString();
+  const { data: apptData, error: apptErr } = await client
+    .from("agenda_appointments")
+    .select("id, type, starts_at, location")
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId)
+    .in("type", ["exam", "interim_test"])
+    .eq("status", "planned")
+    .gte("starts_at", nowIso)
+    .order("starts_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (apptErr) {
+    throw new Error(
+      `exam: load next exam failed (tenant=${tenantId} student=${studentId}): ${apptErr.message}`,
+    );
+  }
+  if (!apptData) return null;
+  const appt = apptData as NextExamRow;
+
+  const [details, policy, prepCountRes, recentRes] = await Promise.all([
+    loadExamAppointmentDetails(client, tenantId, appt.id),
+    loadExamPrepPolicy(client, tenantId),
+    client
+      .from("lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .eq("status", "planned")
+      .gte("starts_at", nowIso)
+      .lt("starts_at", appt.starts_at),
+    client
+      .from("lessons")
+      .select("id, starts_at")
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .eq("status", "completed")
+      .lt("starts_at", nowIso)
+      .order("starts_at", { ascending: false })
+      .limit(3),
+  ]);
+
+  if (recentRes.error) {
+    throw new Error(
+      `exam: load recent lessons failed (tenant=${tenantId} student=${studentId}): ${recentRes.error.message}`,
+    );
+  }
+
+  const documents =
+    details && details.requiredDocuments.length > 0
+      ? mergeRequiredDocuments(policy, details.requiredDocuments)
+      : initRequiredDocuments(policy);
+
+  return {
+    appointmentId: appt.id,
+    examType: appt.type as "exam" | "interim_test",
+    startsAt: appt.starts_at,
+    location: appt.location,
+    prepLessonsPlanned: prepCountRes.count ?? 0,
+    details,
+    policy,
+    documents,
+    recentLessons: ((recentRes.data ?? []) as { id: string; starts_at: string }[]).map(
+      (l) => ({ id: l.id, startsAt: l.starts_at }),
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Examenflow B — feiten verzamelen + schoolsignalen afleiden voor één examen.
+//
+// Bundelt de observeerbare feiten (theoriestatus, tegoed, geplande
+// voorbereidingslessen, afgeleide examenrijpheid) rond een gepland examen/TTT en
+// draait de pure engine (deriveExamSignals). Pass de service client: de
+// aanroeper (backoffice/instructeur) is al staf-geautoriseerd en tenant-bounded.
+// Read-only. Geeft `null` als de afspraak geen gepland examen-/toetsmoment met
+// gekoppelde leerling is.
+// ---------------------------------------------------------------------------
+
+export type ExamSignalsForAppointment = {
+  appointmentId: string;
+  studentId: string;
+  examType: "exam" | "interim_test";
+  examAt: string;
+  daysUntil: number;
+  signals: ExamSignal[];
+};
+
+type SignalApptRow = {
+  id: string;
+  type: string;
+  status: string;
+  starts_at: string;
+  student_id: string | null;
+};
+
+export async function loadExamSignals(
+  client: SupabaseClient,
+  tenantId: string,
+  appointmentId: string,
+  now: Date = new Date(),
+): Promise<ExamSignalsForAppointment | null> {
+  const { data: apptData, error: apptErr } = await client
+    .from("agenda_appointments")
+    .select("id, type, status, starts_at, student_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", appointmentId)
+    .maybeSingle();
+  if (apptErr) {
+    throw new Error(
+      `exam: load signal appointment failed (tenant=${tenantId} appointment=${appointmentId}): ${apptErr.message}`,
+    );
+  }
+  if (!apptData) return null;
+  const appt = apptData as SignalApptRow;
+
+  // Alleen geplande, toekomstige examen-/toetsmomenten met een leerling.
+  if (appt.type !== "exam" && appt.type !== "interim_test") return null;
+  if (appt.status !== "planned") return null;
+  if (!appt.student_id) return null;
+  if (Date.parse(appt.starts_at) < now.getTime()) return null;
+
+  const studentId = appt.student_id;
+  const nowIso = now.toISOString();
+
+  const [statusRes, balanceRes, prepRes, policy, readiness] = await Promise.all([
+    client
+      .from("student_cbr_status")
+      .select("theorie_behaald")
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .maybeSingle(),
+    client
+      .from("student_credit_balance")
+      .select("balance")
+      .eq("student_id", studentId)
+      .maybeSingle(),
+    client
+      .from("lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .eq("status", "planned")
+      .gte("starts_at", nowIso)
+      .lt("starts_at", appt.starts_at),
+    loadExamSignalPolicy(client, tenantId),
+    loadStudentReadiness(client, tenantId, studentId),
+  ]);
+
+  const theorieBehaald = Boolean(
+    (statusRes.data as { theorie_behaald?: boolean | null } | null)
+      ?.theorie_behaald,
+  );
+  const creditBalance =
+    ((balanceRes.data as { balance?: number | null } | null)?.balance ?? 0) as number;
+
+  const result = deriveExamSignals(
+    {
+      examType: appt.type,
+      examAt: appt.starts_at,
+      prepLessonsPlanned: prepRes.count ?? 0,
+      theorieBehaald,
+      creditBalance,
+      readinessAdvice: readiness.advice,
+    },
+    policy,
+    now,
+  );
+
+  return {
+    appointmentId: appt.id,
+    studentId,
+    examType: result.examType,
+    examAt: result.examAt,
+    daysUntil: result.daysUntil,
+    signals: result.signals,
+  };
 }

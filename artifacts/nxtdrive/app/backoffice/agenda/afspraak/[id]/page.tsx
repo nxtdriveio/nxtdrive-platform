@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
 import { ExamCandidateSuggestions } from "@/components/agenda/exam-candidate-suggestions";
+import { ExamSignalsPanel } from "@/components/exam/exam-signals-panel";
+import { loadExamSignals } from "@/lib/exam/data";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   updateAppointment,
   deleteAppointment,
@@ -67,6 +70,12 @@ export default async function EditAppointmentPage({
 
   const linked = isStudentLinkedType(appt!.type);
 
+  const examSignals = await loadExamSignals(
+    createServiceRoleClient(),
+    tenant.id,
+    appt!.id,
+  );
+
   return (
     <div className="space-y-6">
       <Link
@@ -121,6 +130,13 @@ export default async function EditAppointmentPage({
           startsAt={appt!.starts_at}
           durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
           excludeStudentId={appt!.student_id}
+        />
+      ) : null}
+
+      {examSignals ? (
+        <ExamSignalsPanel
+          appointmentId={appt!.id}
+          signals={examSignals.signals}
         />
       ) : null}
 

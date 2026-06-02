@@ -19,3 +19,4 @@
 - [Tegoed breakdown buckets](tegoed-breakdown-buckets.md) — gereden vs ingepland derived from lesson_consumed×lesson.status; available==sum(ledger.delta); withheld is informational only.
 - [CBR machtiging 3-state + result](cbr-machtiging-3state.md) — machtiging enum keeps legacy boolean as derived mirror (ontvangen⇒true); derived exam status is forward-looking but must always still surface the last exam outcome+advice.
 - [Exam-candidate (CBR) engine](exam-candidate-engine.md) — separate non-route slot→student engine for exam moments; 3-way verdict (excluded silently / blocked-with-reason / eligible), readiness-led scoring on the existing lesson_planning_policy.
+- [Exam signals (Examenflow B)](exam-signals-engine.md) — signals derived by one pure engine; convert action re-derives server-side, idempotent on exam:{appt}:{code}.

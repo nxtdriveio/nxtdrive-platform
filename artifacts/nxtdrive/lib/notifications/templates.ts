@@ -561,6 +561,59 @@ export function renderExamConfirmed(
   );
 }
 
+export type ExamPlannedData = {
+  studentName: string;
+  examType: "exam" | "interim_test";
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+export function renderExamPlanned(
+  branding: EmailBranding,
+  data: ExamPlannedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+    exam_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Je ${noun} is ingepland — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je ${escapeHtml(noun)} staat ingepland op <strong>${escapeHtml(when)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>In je leerlingomgeving vind je een handig voorbereidingsoverzicht: de benodigde documenten, een aftelindicator en tips voor de examendag. Bekijk het en bereid je rustig voor.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je ${noun} staat ingepland op ${when}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nIn je leerlingomgeving vind je een handig voorbereidingsoverzicht: de benodigde documenten, een aftelindicator en tips voor de examendag.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;
