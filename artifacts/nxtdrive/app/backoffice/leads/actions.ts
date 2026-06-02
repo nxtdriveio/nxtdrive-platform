@@ -13,6 +13,7 @@ import {
   type LeadStatus,
 } from "@/lib/leads/types";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
+import { LEAD_ELIGIBLE_STATUSES } from "@/lib/lesson-planning/candidates";
 import { notifyTrialLessonConfirmed } from "@/lib/notifications/dispatch";
 import {
   analyzeIntake,
@@ -119,6 +120,103 @@ export async function confirmTrialLesson(formData: FormData) {
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/agenda");
   redirect(`/backoffice/leads/${leadId}`);
+}
+
+/**
+ * Task #92 — book a (provisional) trial lesson for a lead on a freed slot. Used
+ * by the "slim herbezetten" flow when the planner picks a lead candidate for a
+ * cancelled lesson's slot. Provisional only — never auto-confirmed; the planner
+ * still confirms via the normal trial flow. Service role (mutation).
+ */
+export async function bookTrialAtSlot(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "").trim();
+  const instructorId = String(formData.get("instructor_id") ?? "").trim();
+  const startsAt = String(formData.get("starts_at") ?? "").trim();
+  const durationRaw = Number(formData.get("duration_min"));
+  const pickupLocation =
+    String(formData.get("pickup_location") ?? "").trim() || null;
+  if (!leadId || !instructorId || !startsAt) {
+    redirect(leadId ? `/backoffice/leads/${leadId}` : "/backoffice/leads");
+  }
+  // The RPC only accepts 60/90/120-minute trials.
+  const durationMin = [60, 90, 120].includes(durationRaw) ? durationRaw : 60;
+  const startMs = Date.parse(startsAt);
+  if (Number.isNaN(startMs)) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+  // The freed slot must still be in the future. The UI checks this too, but the
+  // form input is bypassable so re-validate server-side before mutating.
+  if (startMs <= Date.now()) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  const service = createServiceRoleClient();
+
+  // The lead must belong to this tenant AND still be trial-eligible. These
+  // mirror the candidate engine's eligibility (open status, not yet a student,
+  // no active trial) — never trust the form to have respected them.
+  const { data: lead } = await service
+    .from("leads")
+    .select("id, status")
+    .eq("id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!lead) redirect("/backoffice/leads");
+  if (
+    !(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes(
+      (lead as { status: string }).status,
+    )
+  ) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  // Already converted to a student → no trial lesson.
+  const { data: linkedStudent } = await service
+    .from("students")
+    .select("id")
+    .eq("lead_id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (linkedStudent) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  // A lead that already holds an active (provisional/confirmed) trial is skipped.
+  const { data: activeTrial } = await service
+    .from("trial_lessons")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("lead_id", leadId)
+    .in("status", ["provisional", "confirmed"])
+    .maybeSingle();
+  if (activeTrial) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  const { error } = await service.rpc("book_trial_lesson", {
+    p_lead_id: leadId,
+    p_tenant_id: tenant.id,
+    p_instructor_id: instructorId,
+    p_starts_at: new Date(startMs).toISOString(),
+    p_duration_min: durationMin,
+    p_pickup_location: pickupLocation,
+    p_score: 0,
+    p_reason: "Herbezetting vrijgekomen moment",
+  });
+  if (error) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  // Advance the funnel to trial_planned + queue the "bevestig proefles" task.
+  await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(`/backoffice/leads/${leadId}?trial=planned`);
 }
 
 export async function rejectTrialLesson(formData: FormData) {

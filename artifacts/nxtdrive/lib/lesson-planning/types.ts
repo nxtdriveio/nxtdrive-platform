@@ -30,6 +30,14 @@ export type CandidateScoreFactor = {
     | "recent_cancellation"
     | "idle_with_credit"
     | "ample_credit"
+    // Lead (trial-lesson) factors — Task #92, used when ranking trial-wanting
+    // leads for a freed slot alongside existing students.
+    | "lead_preferred_day"
+    | "lead_preferred_time"
+    | "lead_desired_start"
+    | "lead_fast_track"
+    | "lead_anxious"
+    | "lead_high_score"
     // Route intelligence factors (reused from the trial planner).
     | "route_near_previous"
     | "route_near_next"
@@ -63,4 +71,28 @@ export type StudentCandidate = {
   factors: CandidateScoreFactor[];
   reason: string;
   route: CandidateRouteInsight | null;
+};
+
+// Task #92 — a scored LEAD candidate for a freed slot. Leads who want a trial
+// lesson are ranked alongside students; the planner books a (provisional) trial
+// via the normal flow. Never persisted — advisory only.
+export type LeadCandidate = {
+  lead_id: string;
+  full_name: string;
+  lead_score: number;
+  // The trial duration to prefill (the freed slot's length, clamped to a valid
+  // trial duration of 60/90/120 minutes).
+  trial_duration_min: number;
+  pickup_location: string | null;
+  score: number;
+  factors: CandidateScoreFactor[];
+  reason: string;
+  route: CandidateRouteInsight | null;
+};
+
+// Combined advisory result for a freed slot: best-fit students + trial-wanting
+// leads, each list ranked best-first.
+export type SlotCandidates = {
+  students: StudentCandidate[];
+  leads: LeadCandidate[];
 };

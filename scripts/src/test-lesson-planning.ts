@@ -22,6 +22,7 @@
 import type {
   CandidateInput,
   CandidateTravel,
+  LeadCandidateInput,
   SlotInfo,
 } from "../../artifacts/nxtdrive/lib/lesson-planning/candidates.ts";
 import type { LessonPlanPolicy } from "../../artifacts/nxtdrive/lib/lesson-planning/policy.ts";
@@ -34,7 +35,9 @@ const {
   slotMatchesDayparts,
   isEligible,
   scoreCandidateBase,
+  scoreLeadBase,
   applyRouteToCandidate,
+  LEAD_ELIGIBLE_STATUSES,
   DEFAULT_LESSON_PLAN_POLICY,
 } = candMod;
 
@@ -415,6 +418,194 @@ check(
   check(
     "route: long computed leg → detour factor",
     hasFactor(rDetour.factors, "route_detour"),
+  );
+}
+
+// ===== scoreLeadBase ======================================================
+{
+  // MORNING = 2026-07-15 Wednesday 10:00 UTC → weekday "wed", daypart "morning".
+  const slot = slotAt(MORNING, 90);
+
+  function leadInput(over: Partial<LeadCandidateInput> = {}): LeadCandidateInput {
+    return {
+      leadId: "l1",
+      fullName: "Test Lead",
+      leadScore: 0,
+      preferredDays: [],
+      preferredTimes: [],
+      desiredStartMs: null,
+      fastTrack: false,
+      hasAnxiety: false,
+      notRushed: false,
+      ...over,
+    };
+  }
+
+  // Nothing matches → score 0, no factors.
+  const none = scoreLeadBase(leadInput(), slot, policy);
+  check(
+    "lead: nothing matches → 0 points, no factors",
+    none.score === 0 && none.factors.length === 0,
+    `score=${none.score}`,
+  );
+
+  // Preferred day.
+  const day = scoreLeadBase(leadInput({ preferredDays: ["wed"] }), slot, policy);
+  check(
+    "lead: preferred day factor",
+    hasFactor(day.factors, "lead_preferred_day") &&
+      day.score === policy.lead_preferred_day_points,
+    `score=${day.score}`,
+  );
+  // Wrong day → no factor.
+  const wrongDay = scoreLeadBase(
+    leadInput({ preferredDays: ["mon"] }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: non-matching day → no factor",
+    !hasFactor(wrongDay.factors, "lead_preferred_day"),
+  );
+
+  // Preferred daypart.
+  const time = scoreLeadBase(
+    leadInput({ preferredTimes: ["morning"] }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: preferred daypart factor",
+    hasFactor(time.factors, "lead_preferred_time") &&
+      time.score === policy.lead_preferred_time_points,
+    `score=${time.score}`,
+  );
+
+  // Weekend preference matches a Saturday slot.
+  const weekendSlot = slotAt(SATURDAY, 90);
+  const weekend = scoreLeadBase(
+    leadInput({ preferredTimes: ["weekend"] }),
+    weekendSlot,
+    policy,
+  );
+  check(
+    "lead: weekend preference matches saturday",
+    hasFactor(weekend.factors, "lead_preferred_time"),
+  );
+
+  // Desired start within window (slot day on/after desired, within window days).
+  const inWindow = scoreLeadBase(
+    leadInput({ desiredStartMs: MORNING - 3 * 86400000 }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: slot within desired-start window → factor",
+    hasFactor(inWindow.factors, "lead_desired_start"),
+  );
+  // Desired start AFTER the slot → not yet, no factor.
+  const beforeWindow = scoreLeadBase(
+    leadInput({ desiredStartMs: MORNING + 10 * 86400000 }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: slot before desired start → no factor",
+    !hasFactor(beforeWindow.factors, "lead_desired_start"),
+  );
+  // Desired start too far in the past (beyond window) → no factor.
+  const pastWindow = scoreLeadBase(
+    leadInput({
+      desiredStartMs: MORNING - (policy.lead_desired_window_days + 5) * 86400000,
+    }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: slot beyond desired-start window → no factor",
+    !hasFactor(pastWindow.factors, "lead_desired_start"),
+  );
+
+  // Fast-track.
+  const fast = scoreLeadBase(leadInput({ fastTrack: true }), slot, policy);
+  check(
+    "lead: fast-track factor",
+    hasFactor(fast.factors, "lead_fast_track"),
+  );
+
+  // Anxious AND not rushed → factor; anxious but rushed → none.
+  const anxious = scoreLeadBase(
+    leadInput({ hasAnxiety: true, notRushed: true }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: anxious + not rushed → factor",
+    hasFactor(anxious.factors, "lead_anxious"),
+  );
+  const anxiousRushed = scoreLeadBase(
+    leadInput({ hasAnxiety: true, notRushed: false }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: anxious but rushed → no factor",
+    !hasFactor(anxiousRushed.factors, "lead_anxious"),
+  );
+
+  // High lead score at/above threshold → factor; below → none.
+  const hot = scoreLeadBase(
+    leadInput({ leadScore: policy.lead_high_score_min }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: hot lead (>= threshold) → high_score factor",
+    hasFactor(hot.factors, "lead_high_score"),
+  );
+  const cold = scoreLeadBase(
+    leadInput({ leadScore: policy.lead_high_score_min - 1 }),
+    slot,
+    policy,
+  );
+  check(
+    "lead: cold lead (< threshold) → no high_score factor",
+    !hasFactor(cold.factors, "lead_high_score"),
+  );
+
+  // Score equals the sum of its factor points.
+  const combo = scoreLeadBase(
+    leadInput({
+      preferredDays: ["wed"],
+      preferredTimes: ["morning"],
+      fastTrack: true,
+      leadScore: 100,
+    }),
+    slot,
+    policy,
+  );
+  const comboSum = combo.factors.reduce((s, f) => s + f.points, 0);
+  check(
+    "lead: total equals sum of factor points",
+    combo.score === comboSum && combo.factors.length === 4,
+    `score=${combo.score} sum=${comboSum} factors=${combo.factors.length}`,
+  );
+}
+
+// ===== LEAD_ELIGIBLE_STATUSES =============================================
+{
+  check(
+    "eligibility: only open lead statuses are candidate-eligible",
+    LEAD_ELIGIBLE_STATUSES.includes("new") &&
+      LEAD_ELIGIBLE_STATUSES.includes("contacted") &&
+      LEAD_ELIGIBLE_STATUSES.includes("intake_completed") &&
+      LEAD_ELIGIBLE_STATUSES.includes("trial_offered") &&
+      LEAD_ELIGIBLE_STATUSES.includes("follow_up"),
+  );
+  check(
+    "eligibility: closed/won lead statuses are NOT eligible",
+    !(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes("converted") &&
+      !(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes("dropped"),
   );
 }
 

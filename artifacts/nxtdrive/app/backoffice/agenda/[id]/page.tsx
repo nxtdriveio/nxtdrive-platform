@@ -19,6 +19,7 @@ import {
 } from "@/lib/lessons/types";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { formatTegoed } from "@/lib/students/types";
+import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
 import { cancelLesson, completeLesson } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +82,20 @@ export default async function LessonDetailPage({
   );
   const refundPct = refundPctForHours(policy, hoursBefore);
   const wouldRefund = Math.round((lesson.credits_cost * refundPct) / 100);
+
+  // Task #92 — only surface "slim herbezetten" when this freed slot is still in
+  // the future. The duration is derived from the cancelled lesson's window.
+  const durationMin = Math.max(
+    0,
+    Math.round(
+      (new Date(lesson.ends_at).getTime() - startsAt.getTime()) / (1000 * 60),
+    ),
+  );
+  const isCancelled =
+    lesson.status === "cancelled_with_refund" ||
+    lesson.status === "cancelled_no_refund";
+  const showRefill =
+    isCancelled && startsAt.getTime() > Date.now() && durationMin > 0;
 
   return (
     <div className="space-y-6">
@@ -240,6 +255,17 @@ export default async function LessonDetailPage({
           )}
         </div>
       </div>
+
+      {showRefill ? (
+        <SlotStudentSuggestions
+          tenantId={tenant.id}
+          instructorId={lesson.instructor_id}
+          instructorName={instructor?.full_name ?? undefined}
+          startsAt={lesson.starts_at}
+          durationMin={durationMin}
+          excludeAppointmentId={lesson.id}
+        />
+      ) : null}
     </div>
   );
 }

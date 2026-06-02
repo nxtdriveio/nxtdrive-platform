@@ -36,6 +36,8 @@ import type {
   CandidateRouteInsight,
   CandidateRouteStatus,
   CandidateScoreFactor,
+  LeadCandidate,
+  SlotCandidates,
   StudentCandidate,
 } from "./types";
 
@@ -58,6 +60,17 @@ function dayPartForHour(hour: number): "morning" | "afternoon" | "evening" {
 function isWeekend(jsDay: number): boolean {
   return jsDay === 0 || jsDay === 6;
 }
+
+// JS getUTCDay() (0=Sun) → intake weekday code (mirrors the trial planner).
+const JS_DAY_TO_WEEKDAY: Record<number, string> = {
+  0: "sun",
+  1: "mon",
+  2: "tue",
+  3: "wed",
+  4: "thu",
+  5: "fri",
+  6: "sat",
+};
 
 function startOfUtcDay(ms: number): number {
   const d = new Date(ms);
@@ -334,8 +347,11 @@ export function applyRouteToCandidate(
   };
 }
 
-function reasonFromFactors(factors: CandidateScoreFactor[]): string {
-  if (factors.length === 0) return "Beschikbaar met voldoende tegoed.";
+function reasonFromFactors(
+  factors: CandidateScoreFactor[],
+  fallback = "Beschikbaar met voldoende tegoed.",
+): string {
+  if (factors.length === 0) return fallback;
   return factors.map((f) => f.label).join(" · ");
 }
 
@@ -376,41 +392,19 @@ function apptsOnDay(dayStart: number, busy: BusyInterval[]): number {
   return busy.filter((b) => b.start < dayEnd && b.end > dayStart).length;
 }
 
-export type SuggestStudentsArgs = {
-  tenantId: string;
-  instructorId: string;
-  startsAt: string; // ISO
-  durationMin: number;
-  // The free_block appointment being planned, excluded from neighbour/overlap
-  // calculations (it marks the slot, it is not an occupant).
-  excludeAppointmentId?: string;
-  limit?: number;
-};
-
 /**
- * Suggest ranked student candidates for a freed slot. Reads only — pass a
- * tenant-scoped (RLS) server client or the service role. Never mutates. Returns
- * at most `limit` candidates, best first.
+ * Load the instructor's busy intervals (planned lessons + active trials +
+ * planned appointments) for the slot's day, used for neighbour reasoning and
+ * day-density buffers. Shared by the student and lead orchestrations so both see
+ * the same agenda. The free_block appointment marking the slot is excluded.
  */
-export async function suggestStudentsForSlot(
+async function loadInstructorBusy(
   client: SupabaseClient,
-  args: SuggestStudentsArgs,
-): Promise<StudentCandidate[]> {
-  const { tenantId, instructorId } = args;
-  const startMs = Date.parse(args.startsAt);
-  if (Number.isNaN(startMs)) return [];
-  const durationMin = args.durationMin;
-  if (!Number.isFinite(durationMin) || durationMin < 15) return [];
-  const endMs = startMs + durationMin * 60 * 1000;
-  const slot: SlotInfo = { startMs, endMs, durationMin };
-  const limit = args.limit ?? 6;
-
-  const policy = await loadLessonPlanPolicy(client, tenantId);
-  const now = Date.now();
-
-  // --- Instructor busy intervals (for neighbours + day density) ----------
-  // A wide day window around the slot is enough for neighbour reasoning.
-  const dayStart = startOfUtcDay(startMs);
+  tenantId: string,
+  instructorId: string,
+  dayStart: number,
+  excludeAppointmentId?: string,
+): Promise<BusyInterval[]> {
   const winStartIso = new Date(dayStart).toISOString();
   const winEndIso = new Date(dayStart + 86400000).toISOString();
   const busy: BusyInterval[] = [];
@@ -457,8 +451,8 @@ export async function suggestStudentsForSlot(
     .eq("status", "planned")
     .gte("starts_at", winStartIso)
     .lte("starts_at", winEndIso);
-  if (args.excludeAppointmentId) {
-    apptQuery = apptQuery.neq("id", args.excludeAppointmentId);
+  if (excludeAppointmentId) {
+    apptQuery = apptQuery.neq("id", excludeAppointmentId);
   }
   const { data: instrAppts } = await apptQuery;
   for (const a of instrAppts ?? []) {
@@ -469,6 +463,104 @@ export async function suggestStudentsForSlot(
       lng: null,
     });
   }
+
+  return busy;
+}
+
+/**
+ * One directional Google matrix call for a pool of candidate coordinates against
+ * the slot's neighbours. origins = [prev?, ...coords]; destinations =
+ * [next?, ...coords]; so prev→candidate_i = m[0][1+i] and candidate_i→next =
+ * m[1+i][0]. Returns per-pool-index driving minutes; empty maps when the Routes
+ * API is unconfigured or there are no usable coordinates. Shared by both the
+ * student and lead orchestrations to keep route work bounded (one call each).
+ */
+async function resolveMatrix(
+  poolCoords: (LatLng | null)[],
+  prevCoord: LatLng | null,
+  nextCoord: LatLng | null,
+): Promise<{ toMins: Map<number, number>; fromMins: Map<number, number> }> {
+  const toMins = new Map<number, number>();
+  const fromMins = new Map<number, number>();
+  if (
+    isRoutesApiConfigured() &&
+    (prevCoord || nextCoord) &&
+    poolCoords.some((c) => c !== null)
+  ) {
+    const idxWithCoord = poolCoords
+      .map((c, i) => ({ c, i }))
+      .filter((x): x is { c: LatLng; i: number } => x.c !== null);
+    const coords = idxWithCoord.map((x) => x.c);
+    const origins = [prevCoord ?? nextCoord!, ...coords];
+    const destinations = [nextCoord ?? prevCoord!, ...coords];
+    const matrix = await computeRouteMatrix(origins, destinations);
+    idxWithCoord.forEach((x, j) => {
+      if (prevCoord) {
+        const m = matrix[0]?.[1 + j];
+        if (m != null) toMins.set(x.i, m);
+      }
+      if (nextCoord) {
+        const m = matrix[1 + j]?.[0];
+        if (m != null) fromMins.set(x.i, m);
+      }
+    });
+  }
+  return { toMins, fromMins };
+}
+
+function legFor(
+  coord: LatLng | null,
+  neighbour: LatLng | null,
+  computed: number | undefined,
+): { min: number; km: number; estimated: boolean } | null {
+  if (!coord || !neighbour) return null;
+  const km = haversineKm(coord, neighbour);
+  if (computed != null) return { min: computed, km, estimated: false };
+  return { min: estimateMinutesFromKm(km), km, estimated: true };
+}
+
+export type SuggestStudentsArgs = {
+  tenantId: string;
+  instructorId: string;
+  startsAt: string; // ISO
+  durationMin: number;
+  // The free_block appointment being planned, excluded from neighbour/overlap
+  // calculations (it marks the slot, it is not an occupant).
+  excludeAppointmentId?: string;
+  limit?: number;
+};
+
+/**
+ * Suggest ranked student candidates for a freed slot. Reads only — pass a
+ * tenant-scoped (RLS) server client or the service role. Never mutates. Returns
+ * at most `limit` candidates, best first.
+ */
+export async function suggestStudentsForSlot(
+  client: SupabaseClient,
+  args: SuggestStudentsArgs,
+): Promise<StudentCandidate[]> {
+  const { tenantId, instructorId } = args;
+  const startMs = Date.parse(args.startsAt);
+  if (Number.isNaN(startMs)) return [];
+  const durationMin = args.durationMin;
+  if (!Number.isFinite(durationMin) || durationMin < 15) return [];
+  const endMs = startMs + durationMin * 60 * 1000;
+  const slot: SlotInfo = { startMs, endMs, durationMin };
+  const limit = args.limit ?? 6;
+
+  const policy = await loadLessonPlanPolicy(client, tenantId);
+  const now = Date.now();
+
+  // --- Instructor busy intervals (for neighbours + day density) ----------
+  // A wide day window around the slot is enough for neighbour reasoning.
+  const dayStart = startOfUtcDay(startMs);
+  const busy = await loadInstructorBusy(
+    client,
+    tenantId,
+    instructorId,
+    dayStart,
+    args.excludeAppointmentId,
+  );
 
   // --- Active students + balances ----------------------------------------
   const { data: studentsRaw } = await client
@@ -670,45 +762,13 @@ export async function suggestStudentsForSlot(
     bufferMin = Math.max(bufferMin, policy.route_busy_region_buffer_min);
   }
 
-  // One directional matrix: origins = [prev?, ...coords]; destinations =
-  // [next?, ...coords]. prev→student_i = m[0][1+i]; student_i→next = m[1+i][0].
+  // One directional matrix call for the whole pool (bounds Google usage).
   const poolCoords = pool.map((p) => p.coord);
-  const toMins = new Map<number, number>(); // pool index → prev→student minutes
-  const fromMins = new Map<number, number>(); // pool index → student→next minutes
-  if (
-    isRoutesApiConfigured() &&
-    (prevCoord || nextCoord) &&
-    poolCoords.some((c) => c !== null)
-  ) {
-    const idxWithCoord = poolCoords
-      .map((c, i) => ({ c, i }))
-      .filter((x): x is { c: LatLng; i: number } => x.c !== null);
-    const coords = idxWithCoord.map((x) => x.c);
-    const origins = [prevCoord ?? nextCoord!, ...coords];
-    const destinations = [nextCoord ?? prevCoord!, ...coords];
-    const matrix = await computeRouteMatrix(origins, destinations);
-    idxWithCoord.forEach((x, j) => {
-      if (prevCoord) {
-        const m = matrix[0]?.[1 + j];
-        if (m != null) toMins.set(x.i, m);
-      }
-      if (nextCoord) {
-        const m = matrix[1 + j]?.[0];
-        if (m != null) fromMins.set(x.i, m);
-      }
-    });
-  }
-
-  function legFor(
-    coord: LatLng | null,
-    neighbour: LatLng | null,
-    computed: number | undefined,
-  ): { min: number; km: number; estimated: boolean } | null {
-    if (!coord || !neighbour) return null;
-    const km = haversineKm(coord, neighbour);
-    if (computed != null) return { min: computed, km, estimated: false };
-    return { min: estimateMinutesFromKm(km), km, estimated: true };
-  }
+  const { toMins, fromMins } = await resolveMatrix(
+    poolCoords,
+    prevCoord,
+    nextCoord,
+  );
 
   const ranked: StudentCandidate[] = [];
   pool.forEach((p, i) => {
@@ -737,6 +797,366 @@ export async function suggestStudentsForSlot(
     (a, b) => b.score - a.score || a.full_name.localeCompare(b.full_name),
   );
   return ranked.slice(0, limit);
+}
+
+// ---------------------------------------------------------------------------
+// Task #92 — lead (trial-lesson) candidates for a freed slot.
+//
+// A freed slot can just as well be filled by an open lead who still wants a
+// trial lesson. Leads are ranked from their intake profile (preferred days /
+// times, desired start, pace, anxiety) plus the same route intelligence as
+// students. Advisory only: the planner books a (provisional) trial via the
+// normal flow — nothing is auto-booked.
+// ---------------------------------------------------------------------------
+
+// Lead statuses that may still be offered a (new) trial lesson: open, pre-trial
+// stages plus follow-up. Anything from `trial_planned` onward already has — or
+// has passed — a trial, and converted/dropped are terminal.
+export const LEAD_ELIGIBLE_STATUSES = [
+  "new",
+  "contacted",
+  "intake_completed",
+  "trial_offered",
+  "follow_up",
+] as const;
+
+// Valid trial-lesson durations enforced by the book_trial_lesson RPC. A freed
+// slot of any length is snapped to the nearest valid trial duration.
+const TRIAL_DURATIONS = [60, 90, 120] as const;
+
+function clampTrialDuration(min: number): number {
+  let best: number = TRIAL_DURATIONS[0];
+  let bestDiff = Infinity;
+  for (const o of TRIAL_DURATIONS) {
+    const diff = Math.abs(o - min);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = o;
+    }
+  }
+  return best;
+}
+
+// Everything the lead base score needs, pre-loaded by the caller.
+export type LeadCandidateInput = {
+  leadId: string;
+  fullName: string;
+  leadScore: number;
+  // Intake weekday codes (mon..sun) the lead prefers.
+  preferredDays: string[];
+  // Intake dayparts (morning/afternoon/evening/weekend) the lead prefers.
+  preferredTimes: string[];
+  // Desired start as start-of-day epoch ms, or null when not given.
+  desiredStartMs: number | null;
+  // Lead wants to go fast (intake pace = "fast").
+  fastTrack: boolean;
+  hasAnxiety: boolean;
+  // True when the slot has generous buffer either side (resolved by the caller),
+  // so an anxious learner is not rushed between appointments.
+  notRushed: boolean;
+};
+
+/**
+ * Score a lead's non-route factors for a freed slot. Pure + synchronous; mirrors
+ * `scoreCandidateBase` for students. Route factors are added later by
+ * applyRouteToCandidate.
+ */
+export function scoreLeadBase(
+  c: LeadCandidateInput,
+  slot: SlotInfo,
+  policy: LessonPlanPolicy,
+): { score: number; factors: CandidateScoreFactor[] } {
+  const factors: CandidateScoreFactor[] = [];
+  const d = new Date(slot.startMs);
+  const weekday = JS_DAY_TO_WEEKDAY[d.getUTCDay()]!;
+  const daypart = dayPartForHour(d.getUTCHours());
+
+  if (c.preferredDays.includes(weekday)) {
+    factors.push({
+      key: "lead_preferred_day",
+      points: policy.lead_preferred_day_points,
+      label: "Voorkeursdag",
+    });
+  }
+
+  const timeMatch =
+    c.preferredTimes.includes(daypart) ||
+    (isWeekend(d.getUTCDay()) && c.preferredTimes.includes("weekend"));
+  if (timeMatch) {
+    factors.push({
+      key: "lead_preferred_time",
+      points: policy.lead_preferred_time_points,
+      label: "Voorkeursdagdeel",
+    });
+  }
+
+  if (c.desiredStartMs !== null) {
+    const slotDay = startOfUtcDay(slot.startMs);
+    const windowEnd =
+      c.desiredStartMs + policy.lead_desired_window_days * 86400000;
+    if (slotDay >= c.desiredStartMs && slotDay <= windowEnd) {
+      factors.push({
+        key: "lead_desired_start",
+        points: policy.lead_desired_start_points,
+        label: "Past bij gewenste startdatum",
+      });
+    }
+  }
+
+  if (c.fastTrack) {
+    factors.push({
+      key: "lead_fast_track",
+      points: policy.lead_fast_track_points,
+      label: "Wil snel starten",
+    });
+  }
+
+  if (c.hasAnxiety && c.notRushed) {
+    factors.push({
+      key: "lead_anxious",
+      points: policy.lead_anxious_points,
+      label: "Rustige planning voor faalangst",
+    });
+  }
+
+  if (c.leadScore >= policy.lead_high_score_min) {
+    factors.push({
+      key: "lead_high_score",
+      points: policy.lead_high_score_points,
+      label: "Kansrijke lead",
+    });
+  }
+
+  const score = factors.reduce((sum, f) => sum + f.points, 0);
+  return { score, factors };
+}
+
+export type SuggestLeadsArgs = {
+  tenantId: string;
+  instructorId: string;
+  startsAt: string; // ISO
+  durationMin: number;
+  // The free_block appointment being planned, excluded from neighbour/overlap.
+  excludeAppointmentId?: string;
+  limit?: number;
+};
+
+/**
+ * Suggest ranked LEAD candidates for a freed slot. Reads only — pass a
+ * tenant-scoped (RLS) server client or the service role. Never mutates. Returns
+ * at most `limit` leads, best first. Each carries the trial duration to prefill
+ * (the slot length, snapped to a valid trial duration).
+ */
+export async function suggestLeadsForSlot(
+  client: SupabaseClient,
+  args: SuggestLeadsArgs,
+): Promise<LeadCandidate[]> {
+  const { tenantId, instructorId } = args;
+  const startMs = Date.parse(args.startsAt);
+  if (Number.isNaN(startMs)) return [];
+  const durationMin = args.durationMin;
+  if (!Number.isFinite(durationMin) || durationMin < 15) return [];
+  const endMs = startMs + durationMin * 60 * 1000;
+  const slot: SlotInfo = { startMs, endMs, durationMin };
+  const limit = args.limit ?? 6;
+  const trialDuration = clampTrialDuration(durationMin);
+
+  const policy = await loadLessonPlanPolicy(client, tenantId);
+  const dayStart = startOfUtcDay(startMs);
+  const busy = await loadInstructorBusy(
+    client,
+    tenantId,
+    instructorId,
+    dayStart,
+    args.excludeAppointmentId,
+  );
+
+  // --- Eligible leads ----------------------------------------------------
+  const { data: leadsRaw } = await client
+    .from("leads")
+    .select("id, full_name, status, lead_score")
+    .eq("tenant_id", tenantId)
+    .in("status", LEAD_ELIGIBLE_STATUSES as unknown as string[]);
+  const leads = (leadsRaw ?? []) as {
+    id: string;
+    full_name: string;
+    status: string;
+    lead_score: number | null;
+  }[];
+  if (leads.length === 0) return [];
+  const leadIds = leads.map((l) => l.id);
+
+  // Leads that already hold an active (provisional/confirmed) trial are skipped.
+  const withActiveTrial = new Set<string>();
+  const { data: activeTrials } = await client
+    .from("trial_lessons")
+    .select("lead_id")
+    .eq("tenant_id", tenantId)
+    .in("status", ["provisional", "confirmed"])
+    .in("lead_id", leadIds);
+  for (const t of activeTrials ?? []) {
+    if (t.lead_id) withActiveTrial.add(t.lead_id as string);
+  }
+
+  // Intake profile per lead (preferences + pickup coordinates).
+  const intakeByLead = new Map<
+    string,
+    {
+      preferred_days: string[] | null;
+      preferred_times: string[] | null;
+      desired_start_date: string | null;
+      pace: string | null;
+      has_anxiety: boolean | null;
+      pickup_location: string | null;
+      pickup_lat: number | null;
+      pickup_lng: number | null;
+    }
+  >();
+  const { data: intakeRaw } = await client
+    .from("lead_intake_details")
+    .select(
+      "lead_id, preferred_days, preferred_times, desired_start_date, pace, has_anxiety, pickup_location, pickup_lat, pickup_lng",
+    )
+    .eq("tenant_id", tenantId)
+    .in("lead_id", leadIds);
+  for (const r of intakeRaw ?? []) {
+    intakeByLead.set(r.lead_id as string, {
+      preferred_days: (r.preferred_days as string[] | null) ?? null,
+      preferred_times: (r.preferred_times as string[] | null) ?? null,
+      desired_start_date: (r.desired_start_date as string | null) ?? null,
+      pace: (r.pace as string | null) ?? null,
+      has_anxiety: (r.has_anxiety as boolean | null) ?? null,
+      pickup_location: (r.pickup_location as string | null) ?? null,
+      pickup_lat: (r.pickup_lat as number | null) ?? null,
+      pickup_lng: (r.pickup_lng as number | null) ?? null,
+    });
+  }
+
+  // --- Slot neighbours + buffer (shared across the pool) -----------------
+  const { prev, next } = neighboursByTime(startMs, endMs, busy);
+  const prevCoord = prev ? asCoord(prev.lat, prev.lng) : null;
+  const nextCoord = next ? asCoord(next.lat, next.lng) : null;
+  const prevGapMin = prev ? (startMs - prev.end) / 60000 : null;
+  const nextGapMin = next ? (next.start - endMs) / 60000 : null;
+
+  let bufferMin = policy.route_min_buffer_min;
+  if (apptsOnDay(dayStart, busy) >= policy.route_busy_region_min_appts) {
+    bufferMin = Math.max(bufferMin, policy.route_busy_region_buffer_min);
+  }
+  // "Not rushed" = both neighbour gaps comfortably exceed a generous buffer (or
+  // there is no neighbour at all) — the calm planning an anxious learner needs.
+  const anxietyBuffer = Math.max(
+    bufferMin * 2,
+    policy.route_busy_region_buffer_min,
+  );
+  const notRushed =
+    (prevGapMin === null || prevGapMin >= anxietyBuffer) &&
+    (nextGapMin === null || nextGapMin >= anxietyBuffer);
+
+  // --- Base scoring ------------------------------------------------------
+  type ScoredLead = {
+    input: LeadCandidateInput;
+    coord: LatLng | null;
+    pickupLocation: string | null;
+    baseScore: number;
+    factors: CandidateScoreFactor[];
+  };
+  const scored: ScoredLead[] = [];
+  for (const l of leads) {
+    if (withActiveTrial.has(l.id)) continue;
+    const intake = intakeByLead.get(l.id);
+    const parsedStart = intake?.desired_start_date
+      ? Date.parse(intake.desired_start_date)
+      : NaN;
+    const desiredStartMs = Number.isNaN(parsedStart)
+      ? null
+      : startOfUtcDay(parsedStart);
+    const input: LeadCandidateInput = {
+      leadId: l.id,
+      fullName: l.full_name,
+      leadScore: l.lead_score ?? 0,
+      preferredDays: (intake?.preferred_days ?? []).filter(
+        (x): x is string => typeof x === "string",
+      ),
+      preferredTimes: (intake?.preferred_times ?? []).filter(
+        (x): x is string => typeof x === "string",
+      ),
+      desiredStartMs,
+      fastTrack: intake?.pace === "fast",
+      hasAnxiety: intake?.has_anxiety === true,
+      notRushed,
+    };
+    const { score, factors } = scoreLeadBase(input, slot, policy);
+    scored.push({
+      input,
+      coord: asCoord(intake?.pickup_lat, intake?.pickup_lng),
+      pickupLocation: intake?.pickup_location ?? null,
+      baseScore: score,
+      factors,
+    });
+  }
+  if (scored.length === 0) return [];
+
+  scored.sort(
+    (a, b) =>
+      b.baseScore - a.baseScore ||
+      a.input.fullName.localeCompare(b.input.fullName),
+  );
+  const pool = scored.slice(0, policy.route_max_candidates);
+
+  // --- Route scoring (single Google matrix call) -------------------------
+  const poolCoords = pool.map((p) => p.coord);
+  const { toMins, fromMins } = await resolveMatrix(
+    poolCoords,
+    prevCoord,
+    nextCoord,
+  );
+
+  const ranked: LeadCandidate[] = [];
+  pool.forEach((p, i) => {
+    const travel: CandidateTravel = {
+      to: legFor(p.coord, prevCoord, toMins.get(i)),
+      from: legFor(p.coord, nextCoord, fromMins.get(i)),
+      prevGapMin,
+      nextGapMin,
+      bufferMin,
+    };
+    const route = applyRouteToCandidate(travel, policy, true);
+    if (route.reject) return; // route-infeasible (computed) → never suggested
+    const factors = [...p.factors, ...route.factors];
+    ranked.push({
+      lead_id: p.input.leadId,
+      full_name: p.input.fullName,
+      lead_score: p.input.leadScore,
+      trial_duration_min: trialDuration,
+      pickup_location: p.pickupLocation,
+      score: p.baseScore + route.scoreDelta,
+      factors,
+      reason: reasonFromFactors(factors, "Beschikbaar voor proefles."),
+      route: travel.to || travel.from ? route.insight : null,
+    });
+  });
+
+  ranked.sort(
+    (a, b) => b.score - a.score || a.full_name.localeCompare(b.full_name),
+  );
+  return ranked.slice(0, limit);
+}
+
+/**
+ * Combined advisory result for a freed slot: best-fit existing students AND
+ * trial-wanting leads, each list ranked best-first. Runs both engines in
+ * parallel. Reads only — never mutates.
+ */
+export async function suggestSlotCandidates(
+  client: SupabaseClient,
+  args: SuggestStudentsArgs,
+): Promise<SlotCandidates> {
+  const [students, leads] = await Promise.all([
+    suggestStudentsForSlot(client, args),
+    suggestLeadsForSlot(client, args),
+  ]);
+  return { students, leads };
 }
 
 export { DEFAULT_LESSON_PLAN_POLICY };

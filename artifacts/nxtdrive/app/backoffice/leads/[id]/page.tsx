@@ -47,6 +47,7 @@ import {
 } from "@/lib/leads/intake-analysis";
 import {
   addNote,
+  bookTrialAtSlot,
   convertLeadToStudent,
   markLeadLost,
   scheduleLeadFollowUp,
@@ -80,10 +81,13 @@ const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
 
 export default async function LeadDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
 
   const supabase = await createServerSupabaseClient();
@@ -285,6 +289,32 @@ export default async function LeadDetailPage({
     ];
   }
 
+  // Task #92 — "slim herbezetten" deep-link. When the planner picks this lead
+  // for a freed slot, the candidate panel links here with the slot prefilled.
+  // We only offer the prefilled trial booking when the lead can still take one
+  // (no active trial, not yet a student) and the slot is in the future.
+  const pick = (k: string): string => {
+    const v = sp[k];
+    return (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+  };
+  const refillStartRaw = pick("trial_start");
+  const refillStartMs = refillStartRaw ? Date.parse(refillStartRaw) : NaN;
+  const refillDurationRaw = Number(pick("trial_duration"));
+  const refillDuration = [60, 90, 120].includes(refillDurationRaw)
+    ? refillDurationRaw
+    : 60;
+  const refillInstructor = pick("trial_instructor");
+  const showTrialRefill =
+    !existingStudent &&
+    !activeTrial &&
+    !!refillInstructor &&
+    !Number.isNaN(refillStartMs) &&
+    refillStartMs > Date.now();
+  const refillInstructorName = refillInstructor
+    ? (instructorNames[refillInstructor] ??
+      (pick("trial_instructor_name") || "Instructeur"))
+    : "";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -352,6 +382,55 @@ export default async function LeadDetailPage({
           ) : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}
+
+          {showTrialRefill ? (
+            <Card className="border-primary/40 bg-primary-soft/40">
+              <CardHeader>
+                <CardTitle>Proefles inplannen op vrijgekomen moment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Dit moment kwam vrij door een annulering. Plan hier een
+                  voorlopige proefles voor deze lead — bevestigen doe je daarna
+                  zoals altijd.
+                </p>
+                <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                  <Field
+                    label="Moment"
+                    value={dateTimeFmt.format(new Date(refillStartMs))}
+                  />
+                  <Field label="Duur" value={`${refillDuration} min`} />
+                  <Field label="Instructeur" value={refillInstructorName} />
+                </dl>
+                <form action={bookTrialAtSlot} className="mt-4">
+                  <input type="hidden" name="lead_id" value={lead.id} />
+                  <input
+                    type="hidden"
+                    name="instructor_id"
+                    value={refillInstructor}
+                  />
+                  <input
+                    type="hidden"
+                    name="starts_at"
+                    value={new Date(refillStartMs).toISOString()}
+                  />
+                  <input
+                    type="hidden"
+                    name="duration_min"
+                    value={refillDuration}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_location"
+                    value={intake?.pickup_location ?? ""}
+                  />
+                  <Button type="submit" size="sm">
+                    Voorlopige proefles inplannen
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
 
           {!existingStudent ? (
             <TrialLessonSection

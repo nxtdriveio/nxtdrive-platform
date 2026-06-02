@@ -15,6 +15,7 @@ import {
   Car,
   BookOpen,
   CalendarClock,
+  CalendarX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -23,6 +24,7 @@ const nav = [
   { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard },
   { href: "/backoffice/leads", label: "Leads", icon: Inbox },
   { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX },
   { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock },
   { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap },
   { href: "/backoffice/packages", label: "Pakketten", icon: Package },
@@ -43,6 +45,16 @@ export function BackofficeSidebar({
 }) {
   const pathname = usePathname();
 
+  // Most-specific match wins so nested routes (e.g. /agenda/herbezetten) don't
+  // also highlight their parent (/agenda).
+  const activeHref = nav
+    .filter((item) =>
+      item.href === "/backoffice"
+        ? pathname === "/backoffice"
+        : pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center gap-2 border-b border-border px-5">
@@ -59,10 +71,7 @@ export function BackofficeSidebar({
 
       <nav className="flex-1 space-y-0.5 px-2">
         {nav.map((item) => {
-          const active =
-            item.href === "/backoffice"
-              ? pathname === "/backoffice"
-              : pathname.startsWith(item.href);
+          const active = item.href === activeHref;
           const Icon = item.icon;
           return (
             <Link

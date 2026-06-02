@@ -50,6 +50,25 @@ export type LessonPlanPolicy = {
   // How many top base-scored candidates get route-refined (bounds Google calls).
   route_max_candidates: number;
 
+  // --- Lead (trial-lesson) weights — Task #92 ----------------------------
+  // Scoring weights for ranking trial-wanting LEADS for a freed slot. These
+  // mirror the student weights but for the intake profile of an open lead.
+  // Slot weekday is one of the lead's preferred days.
+  lead_preferred_day_points: number;
+  // Slot daypart is one of the lead's preferred times (or weekend).
+  lead_preferred_time_points: number;
+  // Slot falls within the lead's desired start window.
+  lead_desired_start_points: number;
+  // How many days after the desired start date still counts as "in window".
+  lead_desired_window_days: number;
+  // Lead wants to go fast (pace = fast) — a near-term freed slot suits them.
+  lead_fast_track_points: number;
+  // Lead is anxious AND the slot has generous buffer around it (not rushed).
+  lead_anxious_points: number;
+  // Lead's lead_score is at/above `lead_high_score_min` (a hot lead).
+  lead_high_score_points: number;
+  lead_high_score_min: number;
+
   // --- Eligibility -------------------------------------------------------
   // When true, a student whose preferred dayparts are set but do not include the
   // slot's daypart is excluded entirely (hard filter). Default false: dayparts
@@ -77,6 +96,14 @@ export const DEFAULT_LESSON_PLAN_POLICY: LessonPlanPolicy = {
   route_busy_region_buffer_min: 20,
   route_busy_region_min_appts: 4,
   route_max_candidates: 12,
+  lead_preferred_day_points: 20,
+  lead_preferred_time_points: 18,
+  lead_desired_start_points: 14,
+  lead_desired_window_days: 21,
+  lead_fast_track_points: 10,
+  lead_anxious_points: 12,
+  lead_high_score_points: 10,
+  lead_high_score_min: 60,
   require_daypart_match: false,
 };
 
@@ -103,12 +130,19 @@ const POINT_KEYS = [
   "route_near_points",
   "route_fits_points",
   "route_detour_points",
+  "lead_preferred_day_points",
+  "lead_preferred_time_points",
+  "lead_desired_start_points",
+  "lead_fast_track_points",
+  "lead_anxious_points",
+  "lead_high_score_points",
 ] as const;
 
 const DAY_KEYS = [
   "exam_soon_days",
   "recent_cancellation_days",
   "idle_days",
+  "lead_desired_window_days",
 ] as const;
 
 // Remaining numeric tunables with bespoke ranges.
@@ -120,6 +154,7 @@ const RANGED_KEYS: Record<string, { min: number; max: number }> = {
   route_busy_region_buffer_min: { min: 0, max: 240 },
   route_busy_region_min_appts: { min: 1, max: 50 },
   route_max_candidates: { min: 1, max: 50 },
+  lead_high_score_min: { min: 0, max: 100 },
 };
 
 /**
