@@ -170,6 +170,28 @@ export const LEAD_EVENT_LABEL: Record<LeadEventType, string> = {
   task_completed: "Taak afgerond",
 };
 
+// Short, plain-language "next best action" hint per funnel status (Fase 1B —
+// Task #56). Derived purely from the lead's current status, so it is available
+// for every lead in the list/detail without an extra query. Mirrors the
+// operational STATUS_PLANS in lib/leads/automation.ts.
+export const LEAD_NEXT_ACTION_HINT: Record<LeadStatus, string> = {
+  new: "Bel deze nieuwe aanvraag",
+  contacted: "Wachten op reactie van de lead",
+  intake_completed: "Beoordeel de intake en plan een proefles",
+  trial_offered: "Wachten op keuze proeflesmoment",
+  trial_planned: "Bevestig het gekozen proeflesmoment",
+  trial_confirmed: "Geef de proefles",
+  trial_completed: "Maak de beoordeling",
+  assessment_pending: "Maak de beoordeling",
+  assessment_done: "Stuur het pakketadvies",
+  package_advised: "Volg de betaling op",
+  payment_pending: "Volg de betaling op",
+  paid: "Zet de lead om naar leerling",
+  converted: "Afgerond — klant geworden",
+  follow_up: "Later opvolgen",
+  dropped: "Afgehaakt",
+};
+
 export const LEAD_STATUS_VARIANT: Record<
   LeadStatus,
   "info" | "warning" | "primary" | "success" | "danger" | "default"

@@ -64,18 +64,54 @@ const RULES: Rule[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Tenant-configurable scoring policy (Fase 1B — Task #56).
+//
+// The point value of every rule and the warm/hot band thresholds are platform
+// defaults that a tenant may override via tenant_settings key `lead_score_policy`
+// (loaded + sanitised server-side in lead-score-policy.ts). Rule *conditions*
+// stay in code (deterministic, no AI); only the weights + bands are tunable, so
+// a school can emphasise what matters to them — never hardcoded per school.
+// ---------------------------------------------------------------------------
+
+export type LeadScoreWeightCode = (typeof RULES)[number]["code"];
+
+export type LeadScorePolicy = {
+  /** Point value per rule code. */
+  weights: Record<string, number>;
+  /** Score band thresholds (inclusive lower bounds). warm <= hot. */
+  bands: { warm: number; hot: number };
+};
+
+/** The set of rule codes a tenant override may set (anything else is ignored). */
+export const LEAD_SCORE_WEIGHT_CODES: readonly string[] = RULES.map((r) => r.code);
+
+/** Human labels for each weight code (for a future settings UI / docs). */
+export const LEAD_SCORE_WEIGHT_LABEL: Record<string, string> = Object.fromEntries(
+  RULES.map((r) => [r.code, r.label]),
+);
+
+export const DEFAULT_LEAD_SCORE_POLICY: LeadScorePolicy = {
+  weights: Object.fromEntries(RULES.map((r) => [r.code, r.points])),
+  bands: { warm: 30, hot: 60 },
+};
+
 export type LeadScoreResult = {
   score: number;
   reasons: LeadScoreReason[];
 };
 
-export function scoreLead(input: LeadScoreInput): LeadScoreResult {
+export function scoreLead(
+  input: LeadScoreInput,
+  policy: LeadScorePolicy = DEFAULT_LEAD_SCORE_POLICY,
+): LeadScoreResult {
   const reasons: LeadScoreReason[] = [];
   let total = 0;
   for (const rule of RULES) {
     if (rule.when(input)) {
-      total += rule.points;
-      reasons.push({ code: rule.code, label: rule.label, points: rule.points });
+      const points = policy.weights[rule.code] ?? rule.points;
+      total += points;
+      reasons.push({ code: rule.code, label: rule.label, points });
     }
   }
   const score = Math.max(0, Math.min(100, total));
@@ -83,8 +119,11 @@ export function scoreLead(input: LeadScoreInput): LeadScoreResult {
 }
 
 /** Coarse band for badge colour / sorting hints. */
-export function leadScoreBand(score: number): "cold" | "warm" | "hot" {
-  if (score >= 60) return "hot";
-  if (score >= 30) return "warm";
+export function leadScoreBand(
+  score: number,
+  policy: LeadScorePolicy = DEFAULT_LEAD_SCORE_POLICY,
+): "cold" | "warm" | "hot" {
+  if (score >= policy.bands.hot) return "hot";
+  if (score >= policy.bands.warm) return "warm";
   return "cold";
 }

@@ -11,6 +11,7 @@ import {
   INTAKE_TRANSMISSIONS,
   LEAD_ACTION_STATUS_LABEL,
   LEAD_ACTION_STATUS_VARIANT,
+  LEAD_NEXT_ACTION_HINT,
   LEAD_SOURCES,
   LEAD_SOURCE_LABEL,
   LEAD_STATUS_LABEL,
@@ -24,7 +25,8 @@ import {
   TASK_PRIORITY_LABEL,
   type TaskPriority,
 } from "@/lib/tasks/types";
-import { leadScoreBand } from "@/lib/leads/lead-score";
+import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
+import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import {
   getLeadKpis,
   getLeadsForTab,
@@ -103,8 +105,9 @@ export default async function LeadsPage({
 
   const supabase = await createServerSupabaseClient();
   const now = Date.now();
+  const scorePolicy = await loadLeadScorePolicy(supabase, tenant.id);
   const [kpis, leads] = await Promise.all([
-    getLeadKpis(supabase, tenant.id, now),
+    getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot),
     getLeadsForTab(supabase, tenant.id, tab, now, filters),
   ]);
 
@@ -130,7 +133,7 @@ export default async function LeadsPage({
         <Kpi label="Te laat" value={kpis.overdueCount} accent="danger" />
         <Kpi label="Open" value={kpis.openCount} />
         <Kpi label="Wachten op lead" value={kpis.waitingCount} />
-        <Kpi label="Hot (≥60)" value={kpis.hotCount} accent="warning" />
+        <Kpi label={`Hot (≥${scorePolicy.bands.hot})`} value={kpis.hotCount} accent="warning" />
         <Kpi label="Gewonnen" value={kpis.wonCount} accent="success" />
       </div>
 
@@ -291,7 +294,7 @@ export default async function LeadsPage({
         ) : (
           <ul className="divide-y divide-border">
             {leads.map((l) => (
-              <LeadRow key={l.id} lead={l} now={now} />
+              <LeadRow key={l.id} lead={l} now={now} scorePolicy={scorePolicy} />
             ))}
           </ul>
         )}
@@ -327,14 +330,23 @@ function Kpi({
   );
 }
 
-function LeadRow({ lead, now }: { lead: Lead; now: number }) {
+function LeadRow({
+  lead,
+  now,
+  scorePolicy,
+}: {
+  lead: Lead;
+  now: number;
+  scorePolicy: LeadScorePolicy;
+}) {
   const overdue =
     lead.next_action_at !== null &&
     new Date(lead.next_action_at).getTime() < now &&
     lead.action_status !== "closed";
-  const band = leadScoreBand(lead.lead_score);
+  const band = leadScoreBand(lead.lead_score, scorePolicy);
   const scoreVariant =
     band === "hot" ? "warning" : band === "warm" ? "info" : "default";
+  const nextAction = LEAD_NEXT_ACTION_HINT[lead.status];
 
   return (
     <li>
@@ -358,6 +370,12 @@ function LeadRow({ lead, now }: { lead: Lead; now: number }) {
             {LEAD_SOURCE_LABEL[lead.source]} ·{" "}
             {lead.email ?? lead.phone ?? "geen contact"}
             {lead.city ? ` · ${lead.city}` : ""}
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground">
+            <span aria-hidden className="text-primary">
+              →
+            </span>
+            <span className="truncate font-medium">{nextAction}</span>
           </div>
         </div>
 

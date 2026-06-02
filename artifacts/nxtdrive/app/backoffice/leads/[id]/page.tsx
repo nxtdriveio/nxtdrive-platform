@@ -56,8 +56,9 @@ import {
   LEAD_ACTION_STATUS_LABEL,
   LEAD_ACTION_STATUS_VARIANT,
 } from "@/lib/leads/types";
-import { leadScoreBand } from "@/lib/leads/lead-score";
-import type { LeadScoreReason } from "@/lib/leads/types";
+import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
+import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
+import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { TrialLessonSection } from "./trial-lesson-section";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
@@ -95,6 +96,8 @@ export default async function LeadDetailPage({
     createServiceRoleClient(),
     tenant.id,
   );
+
+  const scorePolicy = await loadLeadScorePolicy(supabase, tenant.id);
 
   const { data: eventsRaw } = await supabase
     .from("lead_events")
@@ -370,7 +373,7 @@ export default async function LeadDetailPage({
         </div>
 
         <div className="space-y-6">
-          <SmartFollowUpCard lead={lead} />
+          <SmartFollowUpCard lead={lead} scorePolicy={scorePolicy} />
 
           <Card>
             <CardHeader>
@@ -459,15 +462,22 @@ export default async function LeadDetailPage({
   );
 }
 
-function SmartFollowUpCard({ lead }: { lead: Lead }) {
+function SmartFollowUpCard({
+  lead,
+  scorePolicy,
+}: {
+  lead: Lead;
+  scorePolicy: LeadScorePolicy;
+}) {
   const reasons = Array.isArray(lead.lead_score_reason)
     ? (lead.lead_score_reason as LeadScoreReason[])
     : [];
-  const band = leadScoreBand(lead.lead_score);
+  const band = leadScoreBand(lead.lead_score, scorePolicy);
   const scoreVariant =
     band === "hot" ? "warning" : band === "warm" ? "info" : "default";
   const isClosed = lead.status === "converted" || lead.status === "dropped";
   const todayIso = new Date().toISOString().slice(0, 10);
+  const nextAction = LEAD_NEXT_ACTION_HINT[lead.status];
 
   return (
     <Card>
@@ -492,6 +502,15 @@ function SmartFollowUpCard({ lead }: { lead: Lead }) {
           <Badge variant={LEAD_ACTION_STATUS_VARIANT[lead.action_status]}>
             {LEAD_ACTION_STATUS_LABEL[lead.action_status]}
           </Badge>
+        </div>
+
+        <div className="rounded-md border border-primary/30 bg-primary-soft/60 p-3">
+          <div className="text-xs uppercase tracking-wide text-primary">
+            Volgende beste actie
+          </div>
+          <div className="mt-1 text-sm font-medium text-foreground">
+            {nextAction}
+          </div>
         </div>
 
         {lead.next_action_at ? (

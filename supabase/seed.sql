@@ -23,6 +23,36 @@ select
 from demo
 on conflict (tenant_id, key) do nothing;
 
+-- Default lead scoring policy (Fase 1B — tenant-configurable, never hardcoded).
+-- Mirrors DEFAULT_LEAD_SCORE_POLICY in lib/leads/lead-score.ts.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.tenant_settings (tenant_id, key, value)
+select
+  demo.id,
+  'lead_score_policy',
+  jsonb_build_object(
+    'weights', jsonb_build_object(
+      'phone',            10,
+      'email',             5,
+      'intake',           15,
+      'theory',           10,
+      'cbr',               5,
+      'health',            5,
+      'soon',             15,
+      'intensity',         5,
+      'referral',          5,
+      'trial_planned',    15,
+      'trial_confirmed',  10,
+      'trial_completed',  10,
+      'fresh',            10
+    ),
+    'bands', jsonb_build_object('warm', 30, 'hot', 60)
+  )
+from demo
+on conflict (tenant_id, key) do nothing;
+
 -- Default (non-whitelabel) branding row so the join always succeeds.
 with demo as (
   select id from public.tenants where slug = 'demo-academy'

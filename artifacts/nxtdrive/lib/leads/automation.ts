@@ -8,6 +8,7 @@ import {
 } from "@/lib/leads/types";
 import type { TaskPriority, TaskType } from "@/lib/tasks/types";
 import { scoreLead, type LeadScoreInput } from "@/lib/leads/lead-score";
+import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 
 // ---------------------------------------------------------------------------
 // Slimme Opvolging — the lead automation engine (Task #54).
@@ -300,6 +301,9 @@ export async function runLeadAutomationRules(
   const intake = (intakeRaw as IntakeRow | null) ?? null;
   const trials = (trialsRaw as TrialRow[] | null) ?? [];
 
+  // Tenant-configurable scoring policy (platform defaults + tenant override).
+  const scorePolicy = await loadLeadScorePolicy(service, tenantId);
+
   // 4. Forward-only status derivation. Never override preserved states:
   // terminal (converted/dropped) or the manual parking state `follow_up`.
   const { status: factStatus, trialStartsAt } = deriveFactStatus(
@@ -357,7 +361,7 @@ export async function runLeadAutomationRules(
     daysSinceActivity:
       lastActivity !== null ? Math.round((nowMs - lastActivity) / DAY_MS) : null,
   };
-  const { score, reasons } = scoreLead(scoreInput);
+  const { score, reasons } = scoreLead(scoreInput, scorePolicy);
 
   // 6. Resolve the operational plan for the current status.
   //

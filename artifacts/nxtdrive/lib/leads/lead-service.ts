@@ -6,6 +6,7 @@ import type {
   LeadEvent,
   LeadStatus,
 } from "@/lib/leads/types";
+import { DEFAULT_LEAD_SCORE_POLICY } from "@/lib/leads/lead-score";
 
 // ---------------------------------------------------------------------------
 // Dashboard read layer (Task #54). Server-component reads of the denormalised
@@ -229,6 +230,7 @@ export async function getLeadKpis(
   client: SupabaseClient,
   tenantId: string,
   now: number = Date.now(),
+  hotThreshold: number = DEFAULT_LEAD_SCORE_POLICY.bands.hot,
 ): Promise<LeadKpis> {
   const base = () => client.from("leads").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
   const endToday = endOfTodayIso(now);
@@ -248,7 +250,7 @@ export async function getLeadKpis(
       .lt("next_action_at", nowIso),
     base().eq("status", "converted"),
     base().eq("status", "dropped"),
-    base().in("status", OPEN_STATUSES as unknown as string[]).gte("lead_score", 60),
+    base().in("status", OPEN_STATUSES as unknown as string[]).gte("lead_score", hotThreshold),
   ]);
 
   return {
