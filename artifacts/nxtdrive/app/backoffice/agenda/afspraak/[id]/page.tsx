@@ -7,6 +7,7 @@ import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
 import { updateAppointment, deleteAppointment } from "@/lib/agenda/actions";
 import {
   APPOINTMENT_TYPE_LABEL,
@@ -91,6 +92,16 @@ export default async function EditAppointmentPage({
         >
           Open leerlingdossier →
         </Link>
+      ) : null}
+
+      {appt!.type === "free_block" ? (
+        <SlotStudentSuggestions
+          tenantId={tenant.id}
+          instructorId={appt!.instructor_id}
+          startsAt={appt!.starts_at}
+          durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
+          excludeAppointmentId={appt!.id}
+        />
       ) : null}
 
       <Card>

@@ -19,7 +19,14 @@ type Instructor = { id: string; full_name: string | null };
 export default async function NewLessonPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; student_id?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    student_id?: string;
+    instructor_id?: string;
+    date?: string;
+    time?: string;
+    duration_min?: string;
+  }>;
 }) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const sp = await searchParams;
@@ -70,8 +77,28 @@ export default async function NewLessonPage({
   const now = new Date();
   now.setMinutes(0, 0, 0);
   now.setHours(now.getHours() + 1);
-  const defaultDate = now.toISOString().slice(0, 10);
-  const defaultTime = now.toISOString().slice(11, 16);
+  // Prefill from query params (e.g. the "stel leerling voor" flow), validated
+  // before use; fall back to the next round hour.
+  const prefillDate = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "")
+    ? sp.date!
+    : now.toISOString().slice(0, 10);
+  const prefillTime = /^\d{2}:\d{2}$/.test(sp.time ?? "")
+    ? sp.time!
+    : now.toISOString().slice(11, 16);
+  const defaultDate = prefillDate;
+  const defaultTime = prefillTime;
+  const prefillInstructorId =
+    sp.instructor_id && instructors.some((i) => i.id === sp.instructor_id)
+      ? sp.instructor_id
+      : (instructors[0]?.id ?? "");
+  const durationOptions = ["45", "60", "90", "120"];
+  const defaultDuration = durationOptions.includes(sp.duration_min ?? "")
+    ? sp.duration_min!
+    : "60";
+  const prefillStudentId =
+    sp.student_id && students.some((s) => s.id === sp.student_id)
+      ? sp.student_id
+      : (students[0]?.id ?? "");
 
   return (
     <div className="space-y-6">
@@ -130,7 +157,7 @@ export default async function NewLessonPage({
                   <Select
                     id="instructor_id"
                     name="instructor_id"
-                    defaultValue={instructors[0]?.id ?? ""}
+                    defaultValue={prefillInstructorId}
                     required
                   >
                     {instructors.map((i) => (
@@ -146,7 +173,7 @@ export default async function NewLessonPage({
                   <Select
                     id="student_id"
                     name="student_id"
-                    defaultValue={sp.student_id ?? students[0]!.id}
+                    defaultValue={prefillStudentId}
                     required
                   >
                     {students.map((s) => {
@@ -187,7 +214,7 @@ export default async function NewLessonPage({
                   <Select
                     id="duration_min"
                     name="duration_min"
-                    defaultValue="60"
+                    defaultValue={defaultDuration}
                   >
                     <option value="45">45</option>
                     <option value="60">60</option>
