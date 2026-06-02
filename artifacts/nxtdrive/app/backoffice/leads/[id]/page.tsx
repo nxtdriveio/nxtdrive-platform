@@ -46,6 +46,9 @@ import {
 } from "@/lib/leads/intake-analysis";
 import { addNote, convertLeadToStudent, updateStatus } from "../actions";
 import { formatEuros, type Package } from "@/lib/packages/types";
+import { TrialLessonSection } from "./trial-lesson-section";
+import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
+import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 
 export const dynamic = "force-dynamic";
 
@@ -177,6 +180,51 @@ export default async function LeadDetailPage({
     "id" | "name" | "credits_total" | "price_cents" | "active"
   >[];
 
+  // Fase 2 — Slimme Proeflesplanner. Trial lessons are tenant-readable via RLS.
+  const { data: trialRaw } = await supabase
+    .from("trial_lessons")
+    .select(
+      "id, lead_id, tenant_id, instructor_id, starts_at, ends_at, duration_min, status, pickup_location, score, reason, created_at, updated_at",
+    )
+    .eq("lead_id", id)
+    .eq("tenant_id", tenant.id)
+    .order("created_at", { ascending: false });
+  const trials = (trialRaw ?? []) as TrialLesson[];
+
+  // Always surface the top suggestions for an open lead so the backoffice can
+  // see the intake profile + the chosen moment + alternative moments together
+  // (the suggestion engine excludes any slot that overlaps the active trial).
+  let trialSuggestions: TrialSuggestion[] = [];
+  if (!existingStudent) {
+    trialSuggestions = await generateTrialLessonSuggestions(
+      createServiceRoleClient(),
+      id,
+      3,
+    );
+  }
+
+  // Resolve instructor display names (profiles RLS only exposes the caller's own
+  // row, so read via service role bounded by this tenant's membership).
+  const instructorNames: Record<string, string> = {};
+  const instructorIds = Array.from(
+    new Set([
+      ...trials.map((t) => t.instructor_id),
+      ...trialSuggestions.map((s) => s.instructor_id),
+    ]),
+  );
+  if (instructorIds.length > 0) {
+    const { data: profilesRaw } = await createServiceRoleClient()
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", instructorIds);
+    for (const p of (profilesRaw ?? []) as {
+      id: string;
+      full_name: string | null;
+    }[]) {
+      instructorNames[p.id] = p.full_name ?? "Instructeur";
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -242,6 +290,15 @@ export default async function LeadDetailPage({
           {analysis ? <IntakeAnalysisCard analysis={analysis} /> : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}
+
+          {!existingStudent ? (
+            <TrialLessonSection
+              leadId={lead.id}
+              instructorNames={instructorNames}
+              trials={trials}
+              suggestions={trialSuggestions}
+            />
+          ) : null}
 
           <Card>
             <CardHeader>

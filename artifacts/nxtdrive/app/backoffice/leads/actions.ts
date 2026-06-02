@@ -61,6 +61,104 @@ export async function updateStatus(formData: FormData) {
   redirect(`/backoffice/leads/${leadId}`);
 }
 
+// ---------------------------------------------------------------------------
+// Fase 2 — Slimme Proeflesplanner: backoffice trial-lesson actions.
+// ---------------------------------------------------------------------------
+
+const TRIAL_DURATIONS = [60, 90, 120] as const;
+
+export async function confirmTrialLesson(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const trialId = String(formData.get("trial_id") ?? "");
+  if (!leadId || !trialId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("confirm_trial_lesson", {
+    p_trial_id: trialId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+export async function rejectTrialLesson(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const trialId = String(formData.get("trial_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!leadId || !trialId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("reject_trial_lesson", {
+    p_trial_id: trialId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_reason: reason,
+  });
+  if (error) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
+export async function rescheduleTrialLesson(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "");
+  const trialId = String(formData.get("trial_id") ?? "");
+  const date = String(formData.get("date") ?? "").trim();
+  const time = String(formData.get("time") ?? "").trim();
+  const durationRaw = Number.parseInt(String(formData.get("duration_min") ?? ""), 10);
+  const pickup =
+    String(formData.get("pickup_location") ?? "").trim().slice(0, 200) || null;
+  if (!leadId || !trialId) redirect("/backoffice/leads");
+
+  const duration = (TRIAL_DURATIONS as readonly number[]).includes(durationRaw)
+    ? durationRaw
+    : 60;
+
+  // Combine the local date + time into an ISO timestamp.
+  const startsAt = new Date(`${date}T${time}:00`);
+  if (!date || !time || Number.isNaN(startsAt.getTime())) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("reschedule_trial_lesson", {
+    p_trial_id: trialId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_starts_at: startsAt.toISOString(),
+    p_duration_min: duration,
+    p_pickup_location: pickup,
+  });
+  if (error) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(`/backoffice/leads/${leadId}`);
+}
+
 export async function addNote(formData: FormData) {
   const { user, tenant } = await requireActiveTenant([
     "tenant_admin",

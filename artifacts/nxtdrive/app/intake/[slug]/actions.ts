@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { analyzeIntake } from "@/lib/leads/intake-analysis";
+import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
   INTAKE_DAYPARTS,
@@ -250,5 +251,76 @@ export async function submitIntake(formData: FormData) {
     });
   }
 
+  // Fase 2 — hand the prospect to the trial-lesson planner with their lead id so
+  // the thank-you page can offer up to 3 suggested proefles-slots.
+  if (typeof leadId === "string") {
+    redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}`);
+  }
   redirect(`/intake/${slug}/thanks`);
+}
+
+/**
+ * Fase 2 — the prospect picks one of the suggested trial-lesson slots from the
+ * public thank-you page. Public/unauthenticated, so it runs as service role and
+ * re-validates the chosen slot server-side (never trusting client values) before
+ * storing it as `provisional` via the book_trial_lesson RPC.
+ */
+export async function chooseTrialLesson(formData: FormData) {
+  const slug = String(formData.get("tenant_slug") ?? "").trim();
+  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) {
+    redirect("/");
+  }
+  const leadId = String(formData.get("lead_id") ?? "").trim();
+  const instructorId = String(formData.get("instructor_id") ?? "").trim();
+  const startsAt = String(formData.get("starts_at") ?? "").trim();
+  if (!leadId || !instructorId || !startsAt) {
+    redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}`);
+  }
+
+  const service = createServiceRoleClient();
+
+  // The lead must belong to this tenant slug.
+  const { data: tenant } = await service
+    .from("tenants")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!tenant) redirect(`/intake/${slug}/thanks`);
+
+  const { data: lead } = await service
+    .from("leads")
+    .select("id")
+    .eq("id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!lead) redirect(`/intake/${slug}/thanks`);
+
+  const valid = await validateChosenSlot(service, leadId, {
+    instructorId,
+    startsAt,
+  });
+  if (!valid) {
+    // Slot no longer free / invalid — bounce back so a new set is shown.
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
+  const { error } = await service.rpc("book_trial_lesson", {
+    p_lead_id: leadId,
+    p_tenant_id: tenant.id,
+    p_instructor_id: valid.instructorId,
+    p_starts_at: valid.startsAt,
+    p_duration_min: valid.durationMin,
+    p_pickup_location: valid.pickupLocation,
+    p_score: valid.score,
+    p_reason: valid.reason,
+  });
+  if (error) {
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
+  redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&booked=1`);
 }

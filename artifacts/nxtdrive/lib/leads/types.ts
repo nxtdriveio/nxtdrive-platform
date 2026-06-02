@@ -24,6 +24,10 @@ export const LEAD_EVENT_TYPES = [
   "assigned",
   "note",
   "contacted",
+  "trial_requested",
+  "trial_confirmed",
+  "trial_rescheduled",
+  "trial_rejected",
 ] as const;
 export type LeadEventType = (typeof LEAD_EVENT_TYPES)[number];
 
@@ -51,6 +55,10 @@ export const LEAD_EVENT_LABEL: Record<LeadEventType, string> = {
   assigned: "Toegewezen",
   note: "Notitie",
   contacted: "Contact gehad",
+  trial_requested: "Proefles aangevraagd",
+  trial_confirmed: "Proefles bevestigd",
+  trial_rescheduled: "Proefles verzet",
+  trial_rejected: "Proefles afgewezen",
 };
 
 export const LEAD_STATUS_VARIANT: Record<
