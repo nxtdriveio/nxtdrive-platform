@@ -61,6 +61,15 @@ export function AppointmentForm({
   );
   // In edit mode the type is immutable (the DB RPC does not change it).
   const typeLocked = mode === "edit";
+  // The instructor is also immutable in edit mode — update_agenda_appointment
+  // keeps the original instructor. Show a read-only display instead of a select
+  // so the form never offers an affordance the backend ignores.
+  const instructorLocked = mode === "edit";
+  const lockedInstructorName =
+    (instructors?.find((i) => i.id === defaults?.instructorId)?.full_name ??
+      ownInstructor?.full_name) ||
+    "Instructeur";
+  const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
   const showStudent = isStudentLinkedType(type);
 
   return (
@@ -72,8 +81,8 @@ export function AppointmentForm({
       ) : null}
       {/* When the type select is disabled it is not submitted — mirror it. */}
       {typeLocked ? <input type="hidden" name="type" value={type} /> : null}
-      {!instructors && ownInstructor ? (
-        <input type="hidden" name="instructor_id" value={ownInstructor.id} />
+      {(!instructors || instructorLocked) && lockedInstructorId ? (
+        <input type="hidden" name="instructor_id" value={lockedInstructorId} />
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -95,7 +104,7 @@ export function AppointmentForm({
           </Select>
         </div>
 
-        {instructors ? (
+        {instructors && !instructorLocked ? (
           <div className="space-y-1.5">
             <Label htmlFor="instructor_id">Instructeur</Label>
             <Select
@@ -111,11 +120,13 @@ export function AppointmentForm({
               ))}
             </Select>
           </div>
-        ) : ownInstructor ? (
+        ) : instructors || ownInstructor ? (
           <div className="space-y-1.5">
             <Label>Instructeur</Label>
             <div className="flex h-10 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
-              {ownInstructor.full_name ?? "Jij"}
+              {instructorLocked
+                ? lockedInstructorName
+                : (ownInstructor?.full_name ?? "Jij")}
             </div>
           </div>
         ) : null}
