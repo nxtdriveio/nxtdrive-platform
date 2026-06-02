@@ -28,6 +28,7 @@
     "test-route-scoring": "tsx ./src/test-route-scoring.ts",
     "test-lesson-planning": "tsx ./src/test-lesson-planning.ts",
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",
+    "test-cancellation-policy": "tsx ./src/test-cancellation-policy.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

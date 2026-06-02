@@ -104,7 +104,13 @@ export type LessonNote = {
 };
 
 export type CancellationTier = { hours_before: number; refund_pct: number };
-export type CancellationPolicy = { tiers: CancellationTier[] };
+export type CancellationPolicy = {
+  tiers: CancellationTier[];
+  // Minimum hours of notice a student must give to self-cancel. Stored for the
+  // upcoming student self-cancellation flow; the staff cancel_lesson RPC does
+  // not gate on it. 0 = no minimum.
+  min_notice_hours: number;
+};
 
 export function refundPctForHours(
   policy: CancellationPolicy | null,

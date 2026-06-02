@@ -11,6 +11,10 @@ import {
   mergeLeadScorePolicy,
 } from "@/lib/leads/lead-score-policy";
 import { recomputeLeadScoresForTenant } from "@/lib/leads/automation";
+import {
+  CANCELLATION_POLICY_KEY,
+  mergeCancellationPolicy,
+} from "@/lib/lessons/cancellation-policy";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -228,6 +232,109 @@ export async function saveLeadScorePolicy(
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/backoffice/leads");
+  return { ok: true };
+}
+
+// --- Annuleringsbeleid (Task #91) ------------------------------------------
+// The cancel_lesson RPC reads tenant_settings key `cancellation_policy`. We
+// validate the incoming tiers strictly (clear message on bad input) and store
+// the sanitised result via the service role so the JSON can never corrupt the
+// refund calculation. Tenant-configurable, never hardcoded.
+
+export async function saveCancellationPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const tiersRaw = formData.get("tiers");
+  if (typeof tiersRaw !== "string" || tiersRaw.trim() === "") {
+    return { ok: false, error: "Ongeldige drempels." };
+  }
+  let parsedTiers: unknown;
+  try {
+    parsedTiers = JSON.parse(tiersRaw);
+  } catch {
+    return { ok: false, error: "Ongeldige drempels." };
+  }
+  if (!Array.isArray(parsedTiers)) {
+    return { ok: false, error: "Ongeldige drempels." };
+  }
+
+  const seen = new Set<number>();
+  for (const tier of parsedTiers) {
+    if (!tier || typeof tier !== "object") {
+      return { ok: false, error: "Een drempel is ongeldig." };
+    }
+    const r = tier as Record<string, unknown>;
+    const hours = Number(r.hours_before);
+    const pct = Number(r.refund_pct);
+    if (!Number.isFinite(hours) || hours < 0) {
+      return { ok: false, error: "Uur vooraf moet 0 of hoger zijn." };
+    }
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      return { ok: false, error: "Percentage moet tussen 0 en 100 liggen." };
+    }
+    const rounded = Math.round(hours);
+    if (seen.has(rounded)) {
+      return {
+        ok: false,
+        error: "Twee drempels hebben hetzelfde aantal uur vooraf.",
+      };
+    }
+    seen.add(rounded);
+  }
+
+  const minNoticeRaw = formData.get("min_notice_hours");
+  const minNotice =
+    typeof minNoticeRaw === "string" && minNoticeRaw.trim() !== ""
+      ? Number(minNoticeRaw)
+      : 0;
+  if (!Number.isFinite(minNotice) || minNotice < 0) {
+    return {
+      ok: false,
+      error: "De minimale opzegtermijn moet 0 of hoger zijn.",
+    };
+  }
+
+  const policy = mergeCancellationPolicy({
+    tiers: parsedTiers,
+    min_notice_hours: minNotice,
+  });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: CANCELLATION_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/agenda");
+  return { ok: true };
+}
+
+export async function resetCancellationPolicy(): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeCancellationPolicy(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: CANCELLATION_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/agenda");
   return { ok: true };
 }
 

@@ -19,6 +19,8 @@ import {
 } from "./assignment-rules-manager";
 import { LeadScorePolicyManager } from "./lead-score-policy-manager";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
+import { CancellationPolicyManager } from "./cancellation-policy-manager";
+import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,7 @@ export default async function SettingsPage({
   const rules = (ruleRows ?? []) as AssignmentRule[];
 
   const leadScorePolicy = await loadLeadScorePolicy(service, tenant.id);
+  const cancellationPolicy = await loadCancellationPolicy(service, tenant.id);
 
   return (
     <div className="space-y-6">
@@ -190,6 +193,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <LeadScorePolicyManager policy={leadScorePolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Annuleringsbeleid</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CancellationPolicyManager policy={cancellationPolicy} />
         </CardContent>
       </Card>
     </div>

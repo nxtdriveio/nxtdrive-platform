@@ -15,9 +15,9 @@ import {
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
   refundPctForHours,
-  type CancellationPolicy,
   type Lesson,
 } from "@/lib/lessons/types";
+import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { formatTegoed } from "@/lib/students/types";
 import { cancelLesson, completeLesson } from "../actions";
 
@@ -72,13 +72,7 @@ export default async function LessonDetailPage({
     .eq("id", lesson.instructor_id)
     .maybeSingle();
 
-  const { data: policyRow } = await supabase
-    .from("tenant_settings")
-    .select("value")
-    .eq("tenant_id", tenant.id)
-    .eq("key", "cancellation_policy")
-    .maybeSingle();
-  const policy = (policyRow?.value ?? null) as CancellationPolicy | null;
+  const policy = await loadCancellationPolicy(supabase, tenant.id);
 
   const startsAt = new Date(lesson.starts_at);
   const hoursBefore = Math.max(
