@@ -46,6 +46,9 @@ type State = {
   applicant_type: string;
   date_of_birth: string;
   city: string;
+  city_lat: string;
+  city_lng: string;
+  city_place_id: string;
   pickup_location: string;
   pickup_lat: string;
   pickup_lng: string;
@@ -78,6 +81,9 @@ const INITIAL: State = {
   applicant_type: "student",
   date_of_birth: "",
   city: "",
+  city_lat: "",
+  city_lng: "",
+  city_place_id: "",
   pickup_location: "",
   pickup_lat: "",
   pickup_lng: "",
@@ -236,6 +242,9 @@ export function IntakeWizard({
         <input type="hidden" name="phone" value={state.phone} />
         <input type="hidden" name="date_of_birth" value={state.date_of_birth} />
         <input type="hidden" name="city" value={state.city} />
+        <input type="hidden" name="city_lat" value={state.city_lat} />
+        <input type="hidden" name="city_lng" value={state.city_lng} />
+        <input type="hidden" name="city_place_id" value={state.city_place_id} />
         <input type="hidden" name="pickup_location" value={state.pickup_location} />
         <input type="hidden" name="pickup_lat" value={state.pickup_lat} />
         <input type="hidden" name="pickup_lng" value={state.pickup_lng} />
@@ -357,12 +366,29 @@ export function IntakeWizard({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="city">Woonplaats</Label>
-                <Input
+                <PlacesAutocomplete
                   id="city"
-                  autoComplete="address-level2"
+                  types={["(cities)"]}
                   placeholder="Bijv. Den Haag"
                   value={state.city}
-                  onChange={(e) => set("city", e.target.value)}
+                  onChange={(text) =>
+                    setState((prev) => ({
+                      ...prev,
+                      city: text,
+                      city_lat: "",
+                      city_lng: "",
+                      city_place_id: "",
+                    }))
+                  }
+                  onResolve={(place) =>
+                    setState((prev) => ({
+                      ...prev,
+                      city: place.address,
+                      city_lat: place.lat != null ? String(place.lat) : "",
+                      city_lng: place.lng != null ? String(place.lng) : "",
+                      city_place_id: place.placeId ?? "",
+                    }))
+                  }
                 />
               </div>
             </div>

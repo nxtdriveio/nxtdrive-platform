@@ -110,6 +110,14 @@ export async function submitIntake(formData: FormData) {
     oneOf(formData.get("applicant_type"), INTAKE_APPLICANT_TYPES) ?? "student";
   const date_of_birth = dateOrNull(slug, formData.get("date_of_birth"), "geboortedatum");
   const city = trimOrNull(formData.get("city"), 200);
+  // Task #57 — structured city data from Google Places (graceful: all null when
+  // Places is absent or the visitor just typed a free-text city).
+  const city_lat = coordOrNull(formData.get("city_lat"), 90);
+  const city_lng = coordOrNull(formData.get("city_lng"), 180);
+  const city_has_coords = city_lat !== null && city_lng !== null;
+  const city_place_id = city_has_coords
+    ? trimOrNull(formData.get("city_place_id"), 300)
+    : null;
   const pickup_location = trimOrNull(formData.get("pickup_location"), 200);
   // Fase 3 — precise pickup coordinates (graceful: all null when Places absent).
   const pickup_lat = coordOrNull(formData.get("pickup_lat"), 90);
@@ -240,6 +248,9 @@ export async function submitIntake(formData: FormData) {
     p_pickup_lng: pickup_lng,
     p_pickup_place_id: pickup_place_id,
     p_pickup_formatted_address: pickup_formatted_address,
+    p_city_lat: city_lat,
+    p_city_lng: city_lng,
+    p_city_place_id: city_place_id,
   });
 
   if (rpcErr) {

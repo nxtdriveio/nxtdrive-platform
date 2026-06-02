@@ -80,6 +80,7 @@ export function PlacesAutocomplete({
   value,
   placeholder,
   country = "nl",
+  types = ["geocode"],
   onChange,
   onResolve,
 }: {
@@ -87,6 +88,11 @@ export function PlacesAutocomplete({
   value: string;
   placeholder?: string;
   country?: string;
+  /**
+   * Google Places autocomplete result types. Defaults to "geocode" (full
+   * addresses). Pass ["(cities)"] to suggest cities only.
+   */
+  types?: string[];
   /** Called on every keystroke with the raw text (coords become unknown). */
   onChange: (text: string) => void;
   /** Called when the user picks a suggestion (or types, with null coords). */
@@ -103,7 +109,7 @@ export function PlacesAutocomplete({
       if (cancelled || !google || !inputRef.current) return;
       const ac = new google.maps.places.Autocomplete(inputRef.current, {
         fields: ["place_id", "formatted_address", "geometry"],
-        types: ["geocode"],
+        types,
         componentRestrictions: { country },
       });
       ac.addListener("place_changed", () => {
@@ -123,7 +129,7 @@ export function PlacesAutocomplete({
     return () => {
       cancelled = true;
     };
-  }, [country]);
+  }, [country, types.join(",")]);
 
   return (
     <Input
