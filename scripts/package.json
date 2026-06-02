@@ -15,6 +15,7 @@
     "db:test-rls-lessons": "tsx ./src/test-rls-lessons.ts",
     "db:test-rls-trial-lessons": "tsx ./src/test-rls-trial-lessons.ts",
     "db:test-rls-instructor": "tsx ./src/test-rls-instructor.ts",
+    "db:test-rls-availability": "tsx ./src/test-rls-availability.ts",
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",
     "db:test-rls-invoices": "tsx ./src/test-rls-invoices.ts",
     "db:test-mollie-flow": "tsx ./src/test-mollie-flow.ts",
@@ -24,6 +25,7 @@
     "db:test-readiness": "tsx ./src/test-readiness.ts",
     "db:test-intake-analysis": "tsx ./src/test-intake-analysis.ts",
     "test-route-scoring": "tsx ./src/test-route-scoring.ts",
+    "test-availability-compute": "tsx ./src/test-availability-compute.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

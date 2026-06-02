@@ -27,6 +27,7 @@ export type Student = {
   phone: string | null;
   postcode: string | null;
   notes: string | null;
+  preferred_dayparts: string[] | null;
   active: boolean;
   created_at: string;
   updated_at: string;

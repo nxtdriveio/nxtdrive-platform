@@ -17,6 +17,9 @@ import {
   type AgendaTrialLesson,
 } from "@/lib/trial-lessons/agenda";
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
+import { AvailabilityBanner } from "@/components/agenda/availability-banner";
+import { loadFreeSpaceForRange } from "@/lib/availability/service";
+import { dateKey } from "@/lib/availability/compute";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +70,13 @@ export default async function AgendaPage({
   const lessons = (lessonsRaw ?? []) as Lesson[];
 
   const trials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: weekStart,
+    to: weekEnd,
+  });
+
+  // Background availability: union across all instructors ("someone is free").
+  const freeSpace = await loadFreeSpaceForRange(supabase, {
     tenantId: tenant.id,
     from: weekStart,
     to: weekEnd,
@@ -186,6 +196,9 @@ export default async function AgendaPage({
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {dayFmt.format(day.date)}
             </div>
+            <AvailabilityBanner
+              intervals={freeSpace.get(dateKey(day.date)) ?? []}
+            />
             {day.items.length === 0 ? (
               <div className="text-xs text-muted-foreground">—</div>
             ) : (

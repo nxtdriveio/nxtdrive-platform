@@ -26,6 +26,11 @@ import {
   type Lesson,
 } from "@/lib/lessons/types";
 import { adjustCredits, grantPackageToStudent } from "../actions";
+import { saveStudentDaypartPreference } from "@/lib/availability/actions";
+import {
+  STUDENT_DAYPARTS,
+  STUDENT_DAYPART_LABEL,
+} from "@/lib/availability/types";
 
 export const dynamic = "force-dynamic";
 
@@ -317,6 +322,43 @@ export default async function StudentDetailPage({
                   </div>
                   <Button type="submit" size="sm" className="w-full">
                     Correctie boeken
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isAdmin ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Voorkeur dagdelen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  action={saveStudentDaypartPreference}
+                  className="space-y-3"
+                >
+                  <input type="hidden" name="student_id" value={student.id} />
+                  <div className="space-y-2">
+                    {STUDENT_DAYPARTS.map((d) => (
+                      <label
+                        key={d}
+                        className="flex items-center gap-2 text-sm text-foreground"
+                      >
+                        <input
+                          type="checkbox"
+                          name={`daypart_${d}`}
+                          defaultChecked={
+                            student.preferred_dayparts?.includes(d) ?? false
+                          }
+                          className="h-4 w-4 rounded border-border"
+                        />
+                        {STUDENT_DAYPART_LABEL[d]}
+                      </label>
+                    ))}
+                  </div>
+                  <Button type="submit" size="sm" className="w-full">
+                    Voorkeur opslaan
                   </Button>
                 </form>
               </CardContent>
