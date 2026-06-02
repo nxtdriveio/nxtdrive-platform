@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, ClipboardList, CalendarClock } from "lucide-react";
+import { Bell, ClipboardList, CalendarClock, ListTodo, Zap } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -31,18 +31,25 @@ export function InstructorTopBar({
           {tenantName}
         </span>
       </div>
-      <div className="hidden text-sm font-medium capitalize text-foreground md:block">
+      <div className="hidden text-sm font-medium capitalize text-foreground lg:block">
         {today}
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <Link
+          href="/backoffice/taken"
           aria-label="Notificaties"
           className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <Bell className="h-4 w-4" aria-hidden />
           <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-        </button>
+        </Link>
+        <Link
+          href="/backoffice/taken"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted"
+        >
+          <ListTodo className="h-4 w-4" aria-hidden />
+          <span className="hidden sm:inline">Taken</span>
+        </Link>
         <Link
           href="/instructor/beschikbaarheid"
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted"
@@ -57,7 +64,14 @@ export function InstructorTopBar({
           <ClipboardList className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">Weekplanning</span>
         </Link>
-        <span className="hidden truncate text-xs text-muted-foreground lg:inline">
+        <Link
+          href="#acties"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Zap className="h-4 w-4" aria-hidden />
+          <span className="hidden sm:inline">Acties</span>
+        </Link>
+        <span className="hidden truncate text-xs text-muted-foreground xl:inline">
           {userLabel}
         </span>
       </div>

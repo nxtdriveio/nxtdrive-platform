@@ -439,6 +439,97 @@ async function main(): Promise<void> {
     }
   }
 
+  // ---- 6d. instructor may only schedule their OWN lessons ----------------
+  {
+    // A real (non-admin) instructor user in demo-academy.
+    const insEmail = `inst-${Date.now()}@nxtdrive.test`;
+    const { data: insCreated } = await serviceClient.auth.admin.createUser({
+      email: insEmail,
+      email_confirm: true,
+      password: "test-pass-1234",
+    });
+    const newInstructorId = insCreated?.user?.id;
+    const otherInstructorId = instructorId; // an existing tenant member
+    if (newInstructorId && newInstructorId !== otherInstructorId) {
+      await serviceClient.from("memberships").insert({
+        user_id: newInstructorId,
+        tenant_id: tenantId,
+        role: "instructor",
+      });
+      const { data: insStudent } = await serviceClient
+        .from("students")
+        .insert({
+          tenant_id: tenantId,
+          full_name: `Inst Own Student ${Date.now()}`,
+        })
+        .select("id")
+        .single();
+      await serviceClient.rpc("grant_package", {
+        p_student_id: insStudent!.id,
+        p_tenant_id: tenantId,
+        p_actor: newInstructorId,
+        p_package_id: pack1.id,
+      });
+
+      // (a) own lesson — allowed
+      const ownStart = new Date(
+        Date.now() + 300 * 60 * 60 * 1000,
+      ).toISOString();
+      const own = await serviceClient.rpc("schedule_lesson", {
+        p_tenant_id: tenantId,
+        p_actor: newInstructorId,
+        p_instructor_id: newInstructorId,
+        p_student_id: insStudent!.id,
+        p_starts_at: ownStart,
+        p_duration_min: 60,
+        p_credits_cost: 60,
+        p_location: null,
+        p_notes: null,
+      });
+      results.push({
+        name: "instructor can schedule their OWN lesson",
+        ok: !own.error && typeof own.data === "string",
+        detail: own.error?.message ?? `lesson=${own.data}`,
+      });
+
+      // (b) for a DIFFERENT instructor — rejected by ownership guard
+      const otherStart = new Date(
+        Date.now() + 320 * 60 * 60 * 1000,
+      ).toISOString();
+      const forOther = await serviceClient.rpc("schedule_lesson", {
+        p_tenant_id: tenantId,
+        p_actor: newInstructorId,
+        p_instructor_id: otherInstructorId,
+        p_student_id: insStudent!.id,
+        p_starts_at: otherStart,
+        p_duration_min: 60,
+        p_credits_cost: 60,
+        p_location: null,
+        p_notes: null,
+      });
+      results.push({
+        name: "instructor CANNOT schedule for another instructor",
+        ok: forOther.error !== null,
+        detail:
+          forOther.error?.message ?? "cross-instructor schedule accepted!",
+      });
+
+      await serviceClient
+        .from("lessons")
+        .delete()
+        .eq("student_id", insStudent!.id);
+      await serviceClient.from("students").delete().eq("id", insStudent!.id);
+      await serviceClient
+        .from("memberships")
+        .delete()
+        .eq("user_id", newInstructorId)
+        .eq("tenant_id", tenantId);
+    }
+    if (newInstructorId) {
+      await serviceClient.auth.admin.deleteUser(newInstructorId);
+    }
+  }
+
   // ---- RPC execute grant lockdown (migration 0023) -----------------------
   // The mutation RPCs must be service-role only. Calling them with the anon
   // key (which authenticates as the `anon` PostgREST role) must fail.

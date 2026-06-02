@@ -39,6 +39,28 @@ async function loadOwnedLesson(
   return { lesson, userId: user.id, tenantId: tenant.id };
 }
 
+export async function startLessonAction(formData: FormData): Promise<void> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") {
+    redirect(`/instructor/${lessonId}?error=${encodeURIComponent(ctx)}`);
+  }
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("start_lesson", {
+    p_lesson_id: lessonId,
+    p_tenant_id: ctx.tenantId,
+    p_actor: ctx.userId,
+  });
+  if (error) {
+    redirect(
+      `/instructor/${lessonId}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath("/instructor");
+  redirect(`/instructor/${lessonId}`);
+}
+
 export async function completeLessonAction(formData: FormData): Promise<void> {
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);

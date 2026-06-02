@@ -1,9 +1,25 @@
 import Link from "next/link";
-import { Mail, Phone, User } from "lucide-react";
+import { Mail, Phone, User, MessageCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { formatTegoed, type Student } from "@/lib/students/types";
+import { cn } from "@/lib/utils";
+
+/**
+ * Normalise a Dutch phone number to E.164-ish digits for wa.me links.
+ * "06 12345678" / "0612345678" -> "31612345678". Falls back to digit-stripped
+ * input when the format is unexpected. Returns null when there is nothing
+ * dialable so the WhatsApp/Bellen buttons can hide gracefully.
+ */
+function toWhatsAppNumber(phone: string | null): string | null {
+  if (!phone) return null;
+  let digits = phone.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+")) digits = digits.slice(1);
+  else if (digits.startsWith("00")) digits = digits.slice(2);
+  else if (digits.startsWith("0")) digits = `31${digits.slice(1)}`;
+  return digits.length >= 8 ? digits : null;
+}
 
 export function InstructorStudentCard({
   student,
@@ -12,6 +28,8 @@ export function InstructorStudentCard({
   student: Pick<Student, "id" | "full_name" | "email" | "phone" | "active">;
   balance: number;
 }) {
+  const waNumber = toWhatsAppNumber(student.phone);
+
   return (
     <Card>
       <CardContent className="space-y-4 pt-5">
@@ -43,18 +61,45 @@ export function InstructorStudentCard({
               ) : null}
             </div>
           </div>
-          <Badge variant={balance > 300 ? "success" : balance > 0 ? "warning" : "danger"}>
+          <Badge
+            variant={balance > 300 ? "success" : balance > 0 ? "warning" : "danger"}
+          >
             {formatTegoed(balance)}
           </Badge>
         </div>
 
-        <Link
-          href={`/backoffice/leerlingen/${student.id}`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <User className="h-4 w-4" aria-hidden />
-          Profiel openen
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/backoffice/leerlingen/${student.id}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <User className="h-4 w-4" aria-hidden />
+            Profiel openen
+          </Link>
+          {student.phone ? (
+            <a
+              href={`tel:${student.phone.replace(/\s+/g, "")}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Phone className="h-4 w-4" aria-hidden />
+              Bellen
+            </a>
+          ) : null}
+          {waNumber ? (
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "text-success",
+              )}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              WhatsApp
+            </a>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

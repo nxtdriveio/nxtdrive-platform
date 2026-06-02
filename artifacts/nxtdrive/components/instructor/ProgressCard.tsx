@@ -5,7 +5,12 @@ import {
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
-import { formatTegoed } from "@/lib/students/types";
+import { formatTegoed, formatHours } from "@/lib/students/types";
+import { formatEuros } from "@/lib/invoices/types";
+import type {
+  CockpitProgress,
+  CockpitPayment,
+} from "@/lib/instructor/cockpit-data";
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
@@ -51,21 +56,57 @@ function Ring({ pct }: { pct: number }) {
   );
 }
 
+function PaymentBadge({ payment }: { payment: CockpitPayment }) {
+  if (payment.state === "outstanding") {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2">
+        <span className="text-xs text-muted-foreground">Betaling</span>
+        <span className="flex items-center gap-2">
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {formatEuros(payment.outstandingCents)}
+          </span>
+          <Badge variant="warning">Openstaand</Badge>
+        </span>
+      </div>
+    );
+  }
+  if (payment.state === "paid") {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-success/40 bg-success/5 px-3 py-2">
+        <span className="text-xs text-muted-foreground">Betaling</span>
+        <span className="flex items-center gap-2">
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {formatEuros(payment.paidCents)}
+          </span>
+          <Badge variant="success">Betaald</Badge>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+      <span className="text-xs text-muted-foreground">Betaling</span>
+      <Badge variant="default">Geen facturen</Badge>
+    </div>
+  );
+}
+
 export function InstructorProgressCard({
   lesson,
-  balance,
   progressScore,
+  progress,
+  payment,
 }: {
   lesson: Lesson;
-  balance: number;
   progressScore: number | null;
+  progress: CockpitProgress;
+  payment: CockpitPayment;
 }) {
   const durMin = Math.round(
     (new Date(lesson.ends_at).getTime() -
       new Date(lesson.starts_at).getTime()) /
       60000,
   );
-  const pct = progressScore != null ? (progressScore / 10) * 100 : 0;
 
   return (
     <Card>
@@ -87,28 +128,50 @@ export function InstructorProgressCard({
         </div>
 
         <div className="flex items-center gap-4">
-          <Ring pct={pct} />
-          <div className="flex-1 space-y-1.5 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">Voortgangscore</span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {progressScore != null ? `${progressScore} / 10` : "—"}
-              </span>
+          <Ring pct={progress.ringPct} />
+          <div className="flex-1 space-y-2 text-sm">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                Voortgang in lesuren
+              </div>
+              <div className="font-semibold text-foreground">
+                {formatHours(progress.completedMinutes)} /{" "}
+                {formatHours(progress.purchasedMinutes)} uur
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">Tegoed deze les</span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatTegoed(lesson.credits_cost)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">Saldo leerling</span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatTegoed(balance)}
-              </span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                <div className="text-[11px] text-muted-foreground">Lesuren</div>
+                <div className="font-semibold tabular-nums text-foreground">
+                  {formatHours(progress.completedMinutes)} uur
+                </div>
+              </div>
+              <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                <div className="text-[11px] text-muted-foreground">Tegoed</div>
+                <div className="font-semibold tabular-nums text-foreground">
+                  {formatHours(progress.balanceMinutes)} uur
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        <div className="space-y-1.5 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Voortgangscore</span>
+            <span className="font-semibold tabular-nums text-foreground">
+              {progressScore != null ? `${progressScore} / 10` : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Tegoed deze les</span>
+            <span className="font-semibold tabular-nums text-foreground">
+              {formatTegoed(lesson.credits_cost)}
+            </span>
+          </div>
+        </div>
+
+        <PaymentBadge payment={payment} />
 
         {lesson.location ? (
           <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">

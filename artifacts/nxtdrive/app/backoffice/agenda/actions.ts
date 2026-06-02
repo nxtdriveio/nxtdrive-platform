@@ -8,9 +8,18 @@ import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { notifyLessonRefillInvitation } from "@/lib/notifications/dispatch";
 
 export async function scheduleLesson(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
 
-  const instructorId = String(formData.get("instructor_id") ?? "");
+  // Admins may schedule for any instructor; a plain instructor is always pinned
+  // to themselves, regardless of what the form submitted.
+  const instructorId = isAdmin
+    ? String(formData.get("instructor_id") ?? "")
+    : user.id;
   const studentId = String(formData.get("student_id") ?? "");
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");

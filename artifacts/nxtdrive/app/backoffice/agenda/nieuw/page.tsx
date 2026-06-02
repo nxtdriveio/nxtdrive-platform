@@ -28,28 +28,41 @@ export default async function NewLessonPage({
     duration_min?: string;
   }>;
 }) {
-  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
   const sp = await searchParams;
 
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
 
-  // Instructors = users in this tenant with instructor or tenant_admin role.
-  const { data: membershipsRaw } = await service
-    .from("memberships")
-    .select("user_id, role")
-    .eq("tenant_id", tenant.id)
-    .in("role", ["instructor", "tenant_admin"]);
-  const instructorIds = Array.from(
-    new Set((membershipsRaw ?? []).map((m) => m.user_id as string)),
-  );
-  const { data: profilesRaw } = instructorIds.length
-    ? await service
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", instructorIds)
-    : { data: [] };
-  const instructors = (profilesRaw ?? []) as Instructor[];
+  // Admins may pick any instructor in the tenant; a plain instructor only ever
+  // schedules for themselves (and the server action enforces this too).
+  let instructors: Instructor[];
+  if (isAdmin) {
+    const { data: membershipsRaw } = await service
+      .from("memberships")
+      .select("user_id, role")
+      .eq("tenant_id", tenant.id)
+      .in("role", ["instructor", "tenant_admin"]);
+    const instructorIds = Array.from(
+      new Set((membershipsRaw ?? []).map((m) => m.user_id as string)),
+    );
+    const { data: profilesRaw } = instructorIds.length
+      ? await service
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", instructorIds)
+      : { data: [] };
+    instructors = (profilesRaw ?? []) as Instructor[];
+  } else {
+    instructors = [
+      { id: user.id, full_name: user.profile?.full_name ?? "Jij" },
+    ];
+  }
 
   // Students with balance for selection.
   const { data: studentsRaw } = await supabase

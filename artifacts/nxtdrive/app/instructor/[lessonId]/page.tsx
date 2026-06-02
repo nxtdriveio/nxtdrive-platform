@@ -28,6 +28,10 @@ import type { Student, StudentBalance } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import {
+  loadCockpitProgress,
+  loadCockpitPayment,
+} from "@/lib/instructor/cockpit-data";
 
 export const dynamic = "force-dynamic";
 
@@ -127,6 +131,11 @@ export default async function InstructorLessonPage({
     .maybeSingle();
   const balance = ((balanceRaw as StudentBalance | null)?.balance ?? 0) as number;
 
+  const [cockpitProgress, cockpitPayment] = await Promise.all([
+    loadCockpitProgress(supabase, tenant.id, lesson.student_id, balance),
+    loadCockpitPayment(supabase, tenant.id, lesson.student_id),
+  ]);
+
   const { data: policyRow } = await supabase
     .from("tenant_settings")
     .select("value")
@@ -218,7 +227,9 @@ export default async function InstructorLessonPage({
 
         <InstructorActionsPanel
           lessonId={lesson.id}
-          isPlanned={lesson.status === "planned"}
+          studentId={lesson.student_id}
+          studentPhone={student?.phone ?? null}
+          status={lesson.status}
           refundPreview={refundPreview}
           hoursBefore={hoursBefore}
           currentScore={lesson.progress_score}
@@ -294,8 +305,9 @@ export default async function InstructorLessonPage({
       <div className="space-y-4">
         <InstructorProgressCard
           lesson={lesson}
-          balance={balance}
           progressScore={lesson.progress_score}
+          progress={cockpitProgress}
+          payment={cockpitPayment}
         />
         {student ? (
           <ExamReadinessPanel studentId={student.id} readiness={readiness} />

@@ -1,5 +1,6 @@
 export const LESSON_STATUSES = [
   "planned",
+  "in_progress",
   "completed",
   "cancelled_with_refund",
   "cancelled_no_refund",
@@ -9,6 +10,7 @@ export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
 export const LESSON_STATUS_LABEL: Record<LessonStatus, string> = {
   planned: "Gepland",
+  in_progress: "Bezig",
   completed: "Voltooid",
   cancelled_with_refund: "Geannuleerd (refund)",
   cancelled_no_refund: "Geannuleerd",
@@ -20,6 +22,7 @@ export const LESSON_STATUS_VARIANT: Record<
   "success" | "warning" | "danger" | "info" | "default"
 > = {
   planned: "info",
+  in_progress: "warning",
   completed: "success",
   cancelled_with_refund: "warning",
   cancelled_no_refund: "danger",
