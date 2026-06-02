@@ -75,6 +75,25 @@ export type LessonPlanPolicy = {
   lead_high_score_points: number;
   lead_high_score_min: number;
 
+  // --- Exam-candidate weights — Task #101 --------------------------------
+  // CBR-aware ranking of existing students for an available exam / interim-test
+  // moment. Hard CBR preconditions (theorie/machtiging/gezondheidsverklaring/
+  // tegoed) gate eligibility; these weights only rank the eligible pool.
+  // Student is "examenwaardig" per the L1 readiness engine.
+  exam_ready_points: number;
+  // Student is "bijna examenrijp".
+  exam_near_ready_points: number;
+  // Student is "niet examenrijp" — still advisory-eligible, but down-weighted.
+  exam_not_ready_points: number;
+  // Student failed a previous exam and needs a re-exam (herexamen) — urgent.
+  exam_failed_before_points: number;
+  // Student is (near-)ready but has no exam planned yet — waiting, give priority.
+  exam_waiting_points: number;
+  // Slot daypart matches one of the student's preferred dayparts.
+  exam_preferred_daypart_points: number;
+  // One or more critical safety skills are still below threshold ("aandachtspunt").
+  exam_critical_gap_points: number;
+
   // --- Eligibility -------------------------------------------------------
   // When true, a student whose preferred dayparts are set but do not include the
   // slot's daypart is excluded entirely (hard filter). Default false: dayparts
@@ -112,6 +131,13 @@ export const DEFAULT_LESSON_PLAN_POLICY: LessonPlanPolicy = {
   lead_anxious_points: 12,
   lead_high_score_points: 10,
   lead_high_score_min: 60,
+  exam_ready_points: 35,
+  exam_near_ready_points: 20,
+  exam_not_ready_points: -15,
+  exam_failed_before_points: 20,
+  exam_waiting_points: 15,
+  exam_preferred_daypart_points: 10,
+  exam_critical_gap_points: -10,
   require_daypart_match: false,
 };
 
@@ -146,6 +172,13 @@ const POINT_KEYS = [
   "lead_fast_track_points",
   "lead_anxious_points",
   "lead_high_score_points",
+  "exam_ready_points",
+  "exam_near_ready_points",
+  "exam_not_ready_points",
+  "exam_failed_before_points",
+  "exam_waiting_points",
+  "exam_preferred_daypart_points",
+  "exam_critical_gap_points",
 ] as const;
 
 const DAY_KEYS = [

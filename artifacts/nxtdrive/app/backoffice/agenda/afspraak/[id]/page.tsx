@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
+import { ExamCandidateSuggestions } from "@/components/agenda/exam-candidate-suggestions";
 import {
   updateAppointment,
   deleteAppointment,
@@ -107,6 +108,18 @@ export default async function EditAppointmentPage({
           startsAt={appt!.starts_at}
           durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
           excludeAppointmentId={appt!.id}
+        />
+      ) : null}
+
+      {isResultableType(appt!.type) &&
+      appt!.status === "planned" &&
+      !appt!.result ? (
+        <ExamCandidateSuggestions
+          tenantId={tenant.id}
+          slotType={appt!.type as "exam" | "interim_test"}
+          startsAt={appt!.starts_at}
+          durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
+          excludeStudentId={appt!.student_id}
         />
       ) : null}
 

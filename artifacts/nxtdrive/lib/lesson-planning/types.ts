@@ -42,6 +42,15 @@ export type CandidateScoreFactor = {
     | "lead_fast_track"
     | "lead_anxious"
     | "lead_high_score"
+    // Exam-candidate factors — Task #101, CBR-aware ranking of existing students
+    // for an available exam / interim-test moment.
+    | "exam_ready"
+    | "exam_near_ready"
+    | "exam_not_ready"
+    | "exam_failed_before"
+    | "exam_waiting"
+    | "exam_preferred_daypart"
+    | "exam_critical_gap"
     // Route intelligence factors (reused from the trial planner).
     | "route_near_previous"
     | "route_near_next"
@@ -103,4 +112,47 @@ export type LeadCandidate = {
 export type SlotCandidates = {
   students: StudentCandidate[];
   leads: LeadCandidate[];
+};
+
+// ---------------------------------------------------------------------------
+// Task #101 — exam-candidate ranking. Given an available exam / interim-test
+// moment in the agenda, advise the best-fit existing STUDENTS, CBR-aware. Purely
+// advisory: nothing is booked or invited (a separate follow-up handles that).
+// ---------------------------------------------------------------------------
+
+// A scored, exam-eligible student for an available exam moment.
+export type ExamCandidate = {
+  student_id: string;
+  full_name: string;
+  balance_min: number;
+  // Readiness verdict + 0..100 score from the L1 engine (null when not yet
+  // evaluated, e.g. no skill data).
+  readiness_advice:
+    | "niet_examenrijp"
+    | "bijna_examenrijp"
+    | "examenwaardig"
+    | null;
+  readiness_pct: number | null;
+  // Derived CBR exam status (geen/examen_gepland/gezakt/...).
+  exam_status: string;
+  score: number;
+  factors: CandidateScoreFactor[];
+  reason: string;
+};
+
+// A student who is NOT exam-eligible because of an unmet CBR precondition. Shown
+// explicitly (with reasons) rather than silently dropped, so the planner knows
+// who is close. Students who are simply irrelevant (already passed, already have
+// an exam planned, or busy over the slot) are omitted entirely.
+export type BlockedExamCandidate = {
+  student_id: string;
+  full_name: string;
+  blockers: string[];
+};
+
+// Advisory result for an available exam moment: eligible candidates ranked
+// best-first + blocked students (with reasons), closest-to-ready first.
+export type ExamSlotCandidates = {
+  eligible: ExamCandidate[];
+  blocked: BlockedExamCandidate[];
 };
