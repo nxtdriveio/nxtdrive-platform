@@ -5,7 +5,8 @@ export type NotificationType =
   | "trial_lesson_received"
   | "trial_lesson_confirmed"
   | "lesson_refill_invitation"
-  | "lesson_refill_confirmed";
+  | "lesson_refill_confirmed"
+  | "payment_reminder";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

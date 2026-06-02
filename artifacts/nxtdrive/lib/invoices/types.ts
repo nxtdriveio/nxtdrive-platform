@@ -23,11 +23,24 @@ export const INVOICE_STATUS_VARIANT: Record<
   cancelled: "warning",
 };
 
+export const INVOICE_KINDS = ["invoice", "credit_note"] as const;
+export type InvoiceKind = (typeof INVOICE_KINDS)[number];
+
+export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
+  invoice: "Factuur",
+  credit_note: "Creditfactuur",
+};
+
 export type Invoice = {
   id: string;
   tenant_id: string;
   student_id: string;
   invoice_no: number;
+  kind: InvoiceKind;
+  credit_of_invoice_id: string | null;
+  installment_plan_id: string | null;
+  installment_no: number | null;
+  installment_count: number | null;
   status: InvoiceStatus;
   issued_at: string | null;
   due_date: string | null;
@@ -45,6 +58,17 @@ export type Invoice = {
   created_at: string;
   updated_at: string;
 };
+
+/** Human label for an installment invoice, e.g. "Termijn 2 van 4". */
+export function installmentLabel(invoice: {
+  installment_no: number | null;
+  installment_count: number | null;
+}): string | null {
+  if (invoice.installment_no === null || invoice.installment_count === null) {
+    return null;
+  }
+  return `Termijn ${invoice.installment_no} van ${invoice.installment_count}`;
+}
 
 export type InvoiceLine = {
   id: string;

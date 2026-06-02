@@ -12,6 +12,7 @@ import {
   INVOICE_STATUS_LABEL,
   displayStatus,
   formatEuros,
+  installmentLabel,
   type Invoice,
   type InvoiceStatus,
 } from "@/lib/invoices/types";
@@ -77,13 +78,21 @@ export default async function FacturenListPage({
             Beheer concepten, openstaande en betaalde facturen.
           </p>
         </div>
-        <Link
-          href="/backoffice/facturen/nieuw"
-          className={buttonVariants({ size: "sm" })}
-        >
-          <Plus className="mr-1 h-4 w-4" aria-hidden />
-          Nieuwe factuur
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/backoffice/facturen/termijn"
+            className={buttonVariants({ size: "sm", variant: "secondary" })}
+          >
+            Termijnfactuur
+          </Link>
+          <Link
+            href="/backoffice/facturen/nieuw"
+            className={buttonVariants({ size: "sm" })}
+          >
+            <Plus className="mr-1 h-4 w-4" aria-hidden />
+            Nieuwe factuur
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
@@ -132,6 +141,14 @@ export default async function FacturenListPage({
                       >
                         #{String(inv.invoice_no).padStart(4, "0")}
                       </Link>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {inv.kind === "credit_note" ? (
+                          <Badge variant="warning">Credit</Badge>
+                        ) : null}
+                        {installmentLabel(inv) ? (
+                          <Badge variant="info">{installmentLabel(inv)}</Badge>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {student?.full_name ?? "—"}

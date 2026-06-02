@@ -21,12 +21,14 @@ import {
   DISPLAY_STATUS_VARIANT,
   displayStatus,
   formatEuros,
+  installmentLabel,
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
 import type { Student } from "@/lib/students/types";
 import {
   addInvoiceLine,
+  createCreditNote,
   removeInvoiceLine,
   setInvoiceStatus,
   updateInvoiceDraft,
@@ -63,6 +65,8 @@ export default async function InvoiceDetailPage({
   const mollieFlag = typeof sp.mollie === "string" ? sp.mollie : null;
   const mollieError =
     typeof sp.mollie_error === "string" ? sp.mollie_error : null;
+  const creditError =
+    typeof sp.credit_error === "string" ? sp.credit_error : null;
   const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
@@ -102,9 +106,43 @@ export default async function InvoiceDetailPage({
     | (Pick<Student, "id" | "full_name" | "email">)
     | null;
 
+  // Credit-note relationships: an existing credit note for this invoice, or —
+  // if this IS a credit note — the original it credits.
+  const [existingCreditRes, originalRes] = await Promise.all([
+    invoice.kind === "invoice"
+      ? supabase
+          .from("invoices")
+          .select("id, invoice_no")
+          .eq("credit_of_invoice_id", invoice.id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    invoice.credit_of_invoice_id
+      ? supabase
+          .from("invoices")
+          .select("id, invoice_no")
+          .eq("id", invoice.credit_of_invoice_id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const existingCredit = existingCreditRes.data as
+    | { id: string; invoice_no: number }
+    | null;
+  const creditOriginal = originalRes.data as
+    | { id: string; invoice_no: number }
+    | null;
+
   const display = displayStatus(invoice);
   const isDraft = invoice.status === "draft";
   const isOpen = invoice.status === "open";
+  const isCreditNote = invoice.kind === "credit_note";
+  const termijn = installmentLabel(invoice);
+  const canCredit =
+    isAdmin &&
+    invoice.kind === "invoice" &&
+    (invoice.status === "open" || invoice.status === "paid") &&
+    !existingCredit;
 
   return (
     <div className="space-y-6">
@@ -116,11 +154,48 @@ export default async function InvoiceDetailPage({
         Terug naar facturen
       </Link>
 
+      {creditError ? (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          Creditfactuur aanmaken mislukt: {creditError}
+        </p>
+      ) : null}
+      {isCreditNote && creditOriginal ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+          Dit is een creditfactuur bij{" "}
+          <Link
+            href={`/backoffice/facturen/${creditOriginal.id}`}
+            className="font-medium underline"
+          >
+            factuur #{String(creditOriginal.invoice_no).padStart(4, "0")}
+          </Link>
+          .
+        </p>
+      ) : null}
+      {existingCredit ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+          Er is een creditfactuur voor deze factuur:{" "}
+          <Link
+            href={`/backoffice/facturen/${existingCredit.id}`}
+            className="font-medium underline"
+          >
+            creditfactuur #{String(existingCredit.invoice_no).padStart(4, "0")}
+          </Link>
+          .
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Factuur #{String(invoice.invoice_no).padStart(4, "0")}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {isCreditNote ? "Creditfactuur" : "Factuur"} #
+              {String(invoice.invoice_no).padStart(4, "0")}
+            </h1>
+            {termijn ? <Badge variant="info">{termijn}</Badge> : null}
+            {isCreditNote ? (
+              <Badge variant="warning">Creditfactuur</Badge>
+            ) : null}
+          </div>
           <p className="text-sm text-muted-foreground">
             {student ? (
               <Link
@@ -371,12 +446,48 @@ export default async function InvoiceDetailPage({
             </Card>
           ) : null}
 
-          {isOpen && isAdmin ? (
+          {isOpen && isAdmin && !isCreditNote ? (
             <MolliePaymentCard
               invoice={invoice}
               flag={mollieFlag}
               error={mollieError}
             />
+          ) : null}
+
+          {canCredit ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Creditfactuur</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Maak een creditfactuur om deze factuur volledig te crediteren.
+                  De creditfactuur krijgt een eigen nummer met negatieve
+                  bedragen en verrekent automatisch het openstaande saldo.
+                </p>
+                <form action={createCreditNote} className="space-y-3">
+                  <input type="hidden" name="invoice_id" value={invoice.id} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reason">Reden (optioneel)</Label>
+                    <Textarea
+                      id="reason"
+                      name="reason"
+                      rows={2}
+                      maxLength={2000}
+                      placeholder="bv. Foutief gefactureerd"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant="secondary"
+                    className="w-full"
+                  >
+                    Creditfactuur aanmaken
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           ) : null}
 
           {isAdmin ? (

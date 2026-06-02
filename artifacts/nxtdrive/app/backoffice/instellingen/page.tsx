@@ -25,6 +25,8 @@ import { RefillPolicyManager } from "./refill-policy-manager";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { ParentPortalManager } from "./parent-portal-manager";
 import { loadParentPortalVisibility } from "@/lib/parent-portal/visibility";
+import { PaymentReminderManager } from "./payment-reminder-manager";
+import { loadPaymentReminderPolicy } from "@/lib/invoices/payment-reminder-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,10 @@ export default async function SettingsPage({
   const cancellationPolicy = await loadCancellationPolicy(service, tenant.id);
   const refillPolicy = await loadRefillPolicy(service, tenant.id);
   const parentPortalVisibility = await loadParentPortalVisibility(
+    service,
+    tenant.id,
+  );
+  const paymentReminderPolicy = await loadPaymentReminderPolicy(
     service,
     tenant.id,
   );
@@ -229,6 +235,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <ParentPortalManager visibility={parentPortalVisibility} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Betaalherinneringen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PaymentReminderManager policy={paymentReminderPolicy} />
         </CardContent>
       </Card>
     </div>

@@ -24,6 +24,10 @@ import {
   PARENT_PORTAL_VISIBILITY_KEY,
   mergeParentPortalVisibility,
 } from "@/lib/parent-portal/visibility";
+import {
+  PAYMENT_REMINDER_POLICY_KEY,
+  mergePaymentReminderPolicy,
+} from "@/lib/invoices/payment-reminder-policy";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -488,5 +492,68 @@ export async function resetParentPortalVisibility(): Promise<PolicyActionResult>
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/ouder", "layout");
+  return { ok: true };
+}
+
+// --- Betaalherinneringen (Module 6) ----------------------------------------
+// Tenant-configurable cadence for overdue-payment reminders. The cron job reads
+// these from tenant_settings key `payment_reminder`. Raw form values pass
+// through mergePaymentReminderPolicy so the stored JSON is always sanitised:
+// enabled coerced to boolean, days clamped to a sorted, de-duplicated list of
+// positive day offsets. Service-role write — tenant_id always from the
+// authenticated membership.
+
+export async function savePaymentReminderPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const enabledRaw = formData.get("enabled");
+  const enabled = enabledRaw === "true" || enabledRaw === "on";
+
+  const daysRaw = formData.get("days");
+  let days: unknown = [];
+  if (typeof daysRaw === "string" && daysRaw.trim() !== "") {
+    try {
+      days = JSON.parse(daysRaw);
+    } catch {
+      return { ok: false, error: "Ongeldige herinneringsmomenten." };
+    }
+  }
+
+  const policy = mergePaymentReminderPolicy({ enabled, days });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: PAYMENT_REMINDER_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function resetPaymentReminderPolicy(): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergePaymentReminderPolicy(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: PAYMENT_REMINDER_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
   return { ok: true };
 }

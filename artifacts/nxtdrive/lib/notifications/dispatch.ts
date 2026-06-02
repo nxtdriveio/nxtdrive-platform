@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadEmailBranding } from "./branding";
 import {
   renderPaymentConfirmation,
+  renderPaymentReminder,
   renderLessonReminder,
   renderTaskAssigned,
   renderTrialLessonReceived,
@@ -218,6 +219,80 @@ export async function notifyInvoicePaid(
     payload: {
       invoice_no: invoice.invoice_no,
       amount_cents: invoice.total_cents,
+    },
+  });
+}
+
+/**
+ * Send an overdue-payment reminder for an open invoice. Idempotent per
+ * (invoice, step): the dedupe key includes the step day offset, so each cadence
+ * step (e.g. 1/7/14 days after due_date) sends at most once while a later step
+ * still fires its own reminder. No-op (returns "not_paid") if the invoice is
+ * not open or has no due_date. White-label aware via branding; degrades
+ * gracefully (skipped) when the student has no email or email is not
+ * configured.
+ */
+export async function notifyPaymentReminder(
+  service: SupabaseClient,
+  tenantId: string,
+  invoiceId: string,
+  stepDays: number,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: invoice } = await service
+    .from("invoices")
+    .select("id, status, kind, invoice_no, total_cents, due_date, student_id")
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (
+    !invoice ||
+    invoice.status !== "open" ||
+    invoice.kind !== "invoice" ||
+    !invoice.due_date
+  ) {
+    return { outcome: "not_paid" };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", invoice.student_id)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const due = new Date(invoice.due_date as string);
+  const daysOverdue = Math.max(
+    0,
+    Math.floor((Date.now() - due.getTime()) / 86_400_000),
+  );
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "payment_reminder");
+  const email = renderPaymentReminder(
+    branding,
+    {
+      studentName: (student?.full_name as string | undefined) ?? "cursist",
+      invoiceNo: invoice.invoice_no as number,
+      amountCents: invoice.total_cents as number,
+      dueDate: (invoice.due_date as string | null) ?? null,
+      daysOverdue,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "payment_reminder",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `payment_reminder:invoice:${invoiceId}:step:${stepDays}`,
+    relatedType: "invoice",
+    relatedId: invoiceId,
+    email,
+    fromName: branding.tenantName,
+    payload: {
+      invoice_no: invoice.invoice_no,
+      amount_cents: invoice.total_cents,
+      step_days: stepDays,
     },
   });
 }

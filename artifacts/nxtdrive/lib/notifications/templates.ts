@@ -394,6 +394,54 @@ export function renderLessonRefillConfirmed(
   );
 }
 
+export type PaymentReminderData = {
+  studentName: string;
+  invoiceNo: number;
+  amountCents: number;
+  dueDate: string | null;
+  daysOverdue: number;
+};
+
+export function renderPaymentReminder(
+  branding: EmailBranding,
+  data: PaymentReminderData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const amount = formatEuro(data.amountCents);
+  const due = formatDateNl(data.dueDate);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    invoice_no: String(data.invoiceNo),
+    amount,
+    due_date: due,
+    days_overdue: String(data.daysOverdue),
+  };
+
+  const dueLine = due
+    ? `<p>De vervaldatum was <strong>${escapeHtml(due)}</strong>.</p>`
+    : "";
+  const subject = `Herinnering: factuur ${data.invoiceNo} staat nog open`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Onze administratie laat zien dat factuur <strong>#${escapeHtml(String(data.invoiceNo))}</strong> van <strong>${escapeHtml(amount)}</strong> nog niet is voldaan.</p>
+    ${dueLine}
+    <p>Wil je de betaling zo snel mogelijk in orde maken? Heb je al betaald, dan kun je dit bericht als niet verzonden beschouwen.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Onze administratie laat zien dat factuur #${data.invoiceNo} van ${amount} nog niet is voldaan.\n` +
+    (due ? `De vervaldatum was ${due}.\n` : "") +
+    `\nWil je de betaling zo snel mogelijk in orde maken? Heb je al betaald, dan kun je dit bericht als niet verzonden beschouwen.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;
