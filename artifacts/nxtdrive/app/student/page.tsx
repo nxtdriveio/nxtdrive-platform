@@ -24,6 +24,7 @@ import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { StudentCbrCard } from "@/components/student/StudentCbrCard";
+import { StudentExamResultCard } from "@/components/student/StudentExamResultCard";
 import { loadStudentExamPrep } from "@/lib/exam/data";
 import { ExamPrepCard } from "@/components/student/ExamPrepCard";
 import type { Lesson } from "@/lib/lessons/types";
@@ -184,6 +185,17 @@ export default async function StudentHomePage() {
       )}
 
       <StudentReadinessCard readiness={readiness} />
+
+      {cbrSummary.derived.lastExamResult ? (
+        <StudentExamResultCard
+          result={cbrSummary.derived.lastExamResult}
+          examAt={cbrSummary.derived.lastExamAt}
+          studentName={student.full_name}
+          tenantName={tenant.name}
+          lastExamNote={cbrSummary.lastExamNote}
+          initialConsent={student.review_consent}
+        />
+      ) : null}
 
       <StudentCbrCard summary={cbrSummary} />
 

@@ -105,6 +105,43 @@ export async function generateLessonReportAction(
   }
 }
 
+/**
+ * Pick the weakest leaves across the leskaart: critical-below-niveau-8 first,
+ * then the lowest scored, then a few not-yet-scored, capped at 8.
+ */
+function pickWeakestSkills(
+  categories: Awaited<
+    ReturnType<typeof loadInstructorLeskaart>
+  >["categories"],
+): WeakSkill[] {
+  const allLeaves = categories.flatMap((c) =>
+    c.subcategories.flatMap((s) =>
+      s.leaves.map((l) => ({
+        label: l.label,
+        score: l.currentScore,
+        isCritical: l.isCritical,
+      })),
+    ),
+  );
+  const criticalBelow = allLeaves.filter(
+    (l) => l.isCritical && (l.score == null || l.score < 8),
+  );
+  const scoredAsc = allLeaves
+    .filter((l) => l.score != null)
+    .sort((a, b) => (a.score as number) - (b.score as number));
+  const notScored = allLeaves.filter((l) => l.score == null && !l.isCritical);
+
+  const seen = new Set<string>();
+  const weakestSkills: WeakSkill[] = [];
+  for (const l of [...criticalBelow, ...scoredAsc, ...notScored]) {
+    if (seen.has(l.label)) continue;
+    seen.add(l.label);
+    weakestSkills.push(l);
+    if (weakestSkills.length >= 8) break;
+  }
+  return weakestSkills;
+}
+
 export async function analyzeProgressAction(
   formData: FormData,
 ): Promise<{ analysis?: ProgressAnalysis; error?: string }> {
@@ -131,38 +168,61 @@ export async function analyzeProgressAction(
     const studentName =
       (studentRes.data?.full_name as string | undefined) ?? "de leerling";
 
-    // Flatten all gradable leaves and pick the weakest: critical-below-niveau-8
-    // first, then the lowest scored, then a few not-yet-scored, capped at 8.
-    const allLeaves = leskaart.categories.flatMap((c) =>
-      c.subcategories.flatMap((s) =>
-        s.leaves.map((l) => ({
-          label: l.label,
-          score: l.currentScore,
-          isCritical: l.isCritical,
-        })),
-      ),
-    );
-    const criticalBelow = allLeaves.filter(
-      (l) => l.isCritical && (l.score == null || l.score < 8),
-    );
-    const scoredAsc = allLeaves
-      .filter((l) => l.score != null)
-      .sort((a, b) => (a.score as number) - (b.score as number));
-    const notScored = allLeaves.filter((l) => l.score == null && !l.isCritical);
-
-    const seen = new Set<string>();
-    const weakestSkills: WeakSkill[] = [];
-    for (const l of [...criticalBelow, ...scoredAsc, ...notScored]) {
-      if (seen.has(l.label)) continue;
-      seen.add(l.label);
-      weakestSkills.push(l);
-      if (weakestSkills.length >= 8) break;
-    }
-
     const analysis = await analyzeStudentProgress({
       studentName,
       readiness,
-      weakestSkills,
+      weakestSkills: pickWeakestSkills(leskaart.categories),
+    });
+    return { analysis };
+  } catch (err) {
+    return { error: aiErrorMessage(err) };
+  }
+}
+
+/**
+ * Examenflow C — on-demand AI herexamen-analyse keyed by student (not lesson).
+ * Used in the backoffice retake card after a failed exam. Reuses the advisory
+ * engine; nothing is persisted. The leskaart rollup drives the weakest skills,
+ * so the latest lesson id (if any) is only passed to satisfy the loader.
+ */
+export async function analyzeRetakeAction(
+  studentId: string,
+): Promise<{ analysis?: ProgressAnalysis; error?: string }> {
+  if (!studentId) return { error: "student_id ontbreekt" };
+  const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const service = createServiceRoleClient();
+
+  // Confirm the student belongs to the active tenant before any AI call.
+  const { data: studentRow, error: studentErr } = await service
+    .from("students")
+    .select("id, full_name")
+    .eq("id", studentId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (studentErr) return { error: studentErr.message };
+  if (!studentRow) return { error: "Leerling niet gevonden" };
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: latestLesson } = await supabase
+      .from("lessons")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", studentId)
+      .order("starts_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const latestLessonId = (latestLesson?.id as string | undefined) ?? "";
+
+    const [readiness, leskaart] = await Promise.all([
+      loadStudentReadiness(supabase, tenant.id, studentId),
+      loadInstructorLeskaart(supabase, tenant.id, studentId, latestLessonId),
+    ]);
+
+    const analysis = await analyzeStudentProgress({
+      studentName: (studentRow.full_name as string | undefined) ?? "de leerling",
+      readiness,
+      weakestSkills: pickWeakestSkills(leskaart.categories),
     });
     return { analysis };
   } catch (err) {

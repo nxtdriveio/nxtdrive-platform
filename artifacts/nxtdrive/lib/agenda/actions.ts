@@ -114,6 +114,22 @@ async function maybeNotifyExamPlanned(
   }
 }
 
+// Fire-and-forget wrapper voor de uitslag-mail (geslaagd/gezakt). Idempotent en
+// degradeert naar 'skipped'; een mislukte mail mag het vastleggen van de uitslag
+// nooit blokkeren.
+async function maybeNotifyExamResult(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  appointmentId: string,
+) {
+  try {
+    const { notifyExamResult } = await import("@/lib/notifications/dispatch");
+    await notifyExamResult(service, tenantId, appointmentId);
+  } catch {
+    // Bewust ingeslikt: notificaties zijn best-effort, de uitslag is leidend.
+  }
+}
+
 export async function updateAppointment(formData: FormData) {
   const { user, tenant, roles } = await requireActiveTenant([
     "tenant_admin",
@@ -290,6 +306,10 @@ export async function setAppointmentResult(formData: FormData) {
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
+
+  // Examenflow C: stuur de uitslag-mail (geslaagd/gezakt). Idempotent per
+  // (afspraak, uitslag) en best-effort — een mislukte mail blokkeert niets.
+  await maybeNotifyExamResult(service, tenant.id, appointmentId);
 
   revalidatePath("/backoffice/agenda");
   revalidatePath("/backoffice/cbr");

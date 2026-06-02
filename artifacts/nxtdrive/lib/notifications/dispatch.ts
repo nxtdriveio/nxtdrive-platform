@@ -12,6 +12,8 @@ import {
   renderExamInvitation,
   renderExamConfirmed,
   renderExamPlanned,
+  renderExamResultPassed,
+  renderExamResultFailed,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -891,5 +893,65 @@ export async function notifyExamPlanned(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: appt.starts_at, exam_type: type },
+  });
+}
+
+/**
+ * Examenflow C — uitslag-mail na een afgerond examen/TTT. Stuurt een
+ * felicitatie (geslaagd) of een empathisch bericht (gezakt). Idempotent per
+ * (afspraak, uitslag): de dedupe key bevat de uitslag, zodat een correctie van
+ * geslaagd↔gezakt elk nog precies één mail oplevert. Degradeert naar 'skipped'
+ * bij geen leerling/e-mail of een uitslag zonder eigen mail (no_show).
+ */
+export async function notifyExamResult(
+  service: SupabaseClient,
+  tenantId: string,
+  appointmentId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: appt } = await service
+    .from("agenda_appointments")
+    .select("type, status, result, student_id")
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!appt) return { outcome: "skipped" };
+
+  const type = appt.type as string;
+  if (type !== "exam" && type !== "interim_test") return { outcome: "skipped" };
+  if (appt.status !== "completed") return { outcome: "skipped" };
+  const result = appt.result as string | null;
+  if (result !== "passed" && result !== "failed") return { outcome: "skipped" };
+  const studentId = appt.student_id as string | null;
+  if (!studentId) return { outcome: "skipped" };
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const notifType = result === "passed" ? "exam_passed" : "exam_failed";
+  const override = await loadOverride(service, tenantId, notifType);
+  const renderData = {
+    studentName: (student?.full_name as string | null) ?? "cursist",
+    examType: type as "exam" | "interim_test",
+  };
+  const email =
+    result === "passed"
+      ? renderExamResultPassed(branding, renderData, override)
+      : renderExamResultFailed(branding, renderData, override);
+
+  return dispatch(service, {
+    tenantId,
+    type: notifType,
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `exam_result:appointment:${appointmentId}:${result}`,
+    relatedType: "agenda_appointment",
+    relatedId: appointmentId,
+    email,
+    fromName: branding.tenantName,
+    payload: { exam_type: type, result },
   });
 }

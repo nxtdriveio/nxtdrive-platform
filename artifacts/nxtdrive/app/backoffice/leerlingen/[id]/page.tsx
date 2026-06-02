@@ -15,6 +15,9 @@ import { Input, Label } from "@/components/ui/input";
 import { StudentStatusBar } from "@/components/students/StudentStatusBar";
 import { StudentNotesCard } from "@/components/students/StudentNotesCard";
 import { StudentConsentCard } from "@/components/students/StudentConsentCard";
+import { BackofficeExamCloseoutCard } from "@/components/students/BackofficeExamCloseoutCard";
+import { BackofficeRetakeCard } from "@/components/students/BackofficeRetakeCard";
+import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { StudentDocumentsCard } from "@/components/students/StudentDocumentsCard";
 import { GuardianManagerCard } from "@/components/students/GuardianManagerCard";
 import {
@@ -141,6 +144,13 @@ export default async function StudentDetailPage({
 
   const cbr = dossier.cbrStatus;
   const nextLessonAt = upcomingLessons[0]?.starts_at ?? null;
+
+  // Examenflow C — post-exam close-out / retake cards keyed off the recorded result.
+  const cbrSummary = await loadStudentCbrSummary(supabase, tenant.id, id);
+  const examResult = cbrSummary.derived.lastExamResult;
+  const openInvoiceCount = dossier.invoices.filter(
+    (i) => i.status === "open",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -282,6 +292,21 @@ export default async function StudentDetailPage({
 
         <div className="space-y-6">
           <CbrStatusCard status={dossier.cbrStatus} checklist={dossier.cbrChecklist} />
+
+          {examResult === "passed" && isAdmin ? (
+            <BackofficeExamCloseoutCard
+              studentId={student.id}
+              openInvoiceCount={openInvoiceCount}
+              studentActive={student.active}
+            />
+          ) : null}
+
+          {examResult === "failed" ? (
+            <BackofficeRetakeCard
+              studentId={student.id}
+              lastExamNote={cbrSummary.lastExamNote}
+            />
+          ) : null}
 
           <InvoicesCard
             invoices={dossier.invoices}

@@ -614,6 +614,87 @@ export function renderExamPlanned(
   );
 }
 
+export type ExamResultData = {
+  studentName: string;
+  examType: "exam" | "interim_test";
+};
+
+/**
+ * Geslaagd — felicitatie + zachte uitnodiging om in de leerlingomgeving een
+ * review te delen en (optioneel, AVG-expliciet) toestemming voor social media te
+ * geven. Geen lestegoed-/factuurdetails: die staan los in de backoffice.
+ */
+export function renderExamResultPassed(
+  branding: EmailBranding,
+  data: ExamResultData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+  };
+
+  const subject = `Gefeliciteerd — je bent geslaagd voor je ${noun}! 🎉`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p><strong>Gefeliciteerd!</strong> Je bent geslaagd voor je ${escapeHtml(noun)}. Wat een mooie prestatie — geniet ervan!</p>
+    <p>Trots op je resultaat? In je leerlingomgeving kun je een review achterlaten en, als je dat wilt, toestemming geven om je succes op social media te delen. Je vindt daar ook een deelbare badge en een tip-een-vriend-link.</p>
+    <p>Nogmaals gefeliciteerd en veilig op weg!</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Gefeliciteerd! Je bent geslaagd voor je ${noun}. Wat een mooie prestatie — geniet ervan!\n\n` +
+    `Trots op je resultaat? In je leerlingomgeving kun je een review achterlaten en, als je dat wilt, toestemming geven om je succes op social media te delen. Je vindt daar ook een deelbare badge en een tip-een-vriend-link.\n\n` +
+    `Nogmaals gefeliciteerd en veilig op weg!\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+/**
+ * Gezakt — empathisch bericht. Geen oordeel, gericht op het vervolg: feedback,
+ * een herexamen plannen en samen verder werken. Concrete planning loopt via de
+ * backoffice; de mail nodigt alleen uit om de draad weer op te pakken.
+ */
+export function renderExamResultFailed(
+  branding: EmailBranding,
+  data: ExamResultData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+  };
+
+  const subject = `Je ${noun} — even balen, samen pakken we de draad weer op`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je ${escapeHtml(noun)} is deze keer helaas niet gelukt. Vervelend, maar het zegt niets over wat je al kunt — bijna iedereen heeft wel eens een mindere dag.</p>
+    <p>Je instructeur neemt de uitslag met je door en bespreekt waar nog winst te halen valt. We plannen samen een herexamen en een paar gerichte lessen, zodat je goed voorbereid weer gaat.</p>
+    <p>Kop op — we gaan ervoor. Tot snel!</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je ${noun} is deze keer helaas niet gelukt. Vervelend, maar het zegt niets over wat je al kunt — bijna iedereen heeft wel eens een mindere dag.\n\n` +
+    `Je instructeur neemt de uitslag met je door en bespreekt waar nog winst te halen valt. We plannen samen een herexamen en een paar gerichte lessen, zodat je goed voorbereid weer gaat.\n\n` +
+    `Kop op — we gaan ervoor. Tot snel!\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type LessonReminderData = {
   studentName: string;
   startsAt: string | Date;

@@ -386,9 +386,95 @@ async function main(): Promise<void> {
     }
   }
 
+  // ---- 12. self-service review consent (Examenflow C) -------------------
+  // set_student_review_consent_self: anon rejected; the student's own user can
+  // set it; an unrelated user (no student/guardian link) is rejected.
+  const consentUserIds: string[] = [];
+  {
+    // anon CANNOT call it (execute revoked from anon)
+    const anonRes = await anonClient.rpc("set_student_review_consent_self", {
+      p_student_id: zero,
+      p_tenant_id: zero,
+      p_actor: zero,
+      p_consent: true,
+    });
+    results.push({
+      name: "anon CANNOT call set_student_review_consent_self (execute revoked)",
+      ok: anonRes.error !== null,
+      detail: anonRes.error ? anonRes.error.message : "RPC is callable!",
+    });
+
+    // Provision a student WITH a linked user account.
+    const subjEmail = `cbr-consent-subject-${Date.now()}@nxtdrive.test`;
+    const { data: subjUser } = await serviceClient.auth.admin.createUser({
+      email: subjEmail,
+      email_confirm: true,
+      password: "test-pass-1234",
+    });
+    const subjectUserId = subjUser?.user?.id;
+    if (subjectUserId) consentUserIds.push(subjectUserId);
+
+    const consentStudentId = await makeStudent(tenantId);
+    createdStudentIds.push(consentStudentId);
+    await serviceClient
+      .from("students")
+      .update({ user_id: subjectUserId })
+      .eq("id", consentStudentId);
+
+    // The subject (student's own user) CAN set their own consent.
+    const okRes = await serviceClient.rpc("set_student_review_consent_self", {
+      p_student_id: consentStudentId,
+      p_tenant_id: tenantId,
+      p_actor: subjectUserId,
+      p_consent: true,
+    });
+    const { data: afterRow } = await serviceClient
+      .from("students")
+      .select("review_consent, review_consent_by")
+      .eq("id", consentStudentId)
+      .maybeSingle();
+    results.push({
+      name: "set_student_review_consent_self: subject can set own consent",
+      ok:
+        !okRes.error &&
+        afterRow?.review_consent === true &&
+        afterRow?.review_consent_by === subjectUserId,
+      detail: okRes.error
+        ? okRes.error.message
+        : `consent=${afterRow?.review_consent}`,
+    });
+
+    // An unrelated user (no student/guardian link) is rejected.
+    const strangerEmail = `cbr-consent-stranger-${Date.now()}@nxtdrive.test`;
+    const { data: strangerUser } = await serviceClient.auth.admin.createUser({
+      email: strangerEmail,
+      email_confirm: true,
+      password: "test-pass-1234",
+    });
+    const strangerUserId = strangerUser?.user?.id;
+    if (strangerUserId) consentUserIds.push(strangerUserId);
+    const strangerRes = await serviceClient.rpc(
+      "set_student_review_consent_self",
+      {
+        p_student_id: consentStudentId,
+        p_tenant_id: tenantId,
+        p_actor: strangerUserId,
+        p_consent: false,
+      },
+    );
+    results.push({
+      name: "set_student_review_consent_self: unrelated actor rejected",
+      ok: strangerRes.error !== null,
+      detail: strangerRes.error?.message ?? "unrelated actor accepted!",
+    });
+  }
+
   // ---- cleanup -----------------------------------------------------------
   for (const aid of createdApptIds) {
     await serviceClient.from("agenda_appointments").delete().eq("id", aid);
+  }
+  for (const uid of consentUserIds) {
+    await serviceClient.auth.admin.deleteUser(uid).catch(() => undefined);
   }
   for (const sid of createdStudentIds) {
     await serviceClient.from("student_cbr_status").delete().eq("student_id", sid);

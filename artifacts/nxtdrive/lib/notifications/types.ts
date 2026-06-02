@@ -9,7 +9,9 @@ export type NotificationType =
   | "payment_reminder"
   | "exam_invitation"
   | "exam_confirmed"
-  | "exam_planned";
+  | "exam_planned"
+  | "exam_passed"
+  | "exam_failed";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

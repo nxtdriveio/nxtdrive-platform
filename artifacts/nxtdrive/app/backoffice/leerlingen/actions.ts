@@ -77,6 +77,26 @@ export async function setStudentReviewConsent(formData: FormData) {
   redirect(`/backoffice/leerlingen/${studentId}`);
 }
 
+// Examenflow C — rond het traject af na een geslaagd examen (leerling op
+// inactief). Admin-only; de geguarde RPC her-controleert en audit logt.
+export async function finishStudentTraject(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const studentId = String(formData.get("student_id") ?? "");
+  if (!studentId) redirect("/backoffice/leerlingen");
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("finish_student_traject", {
+    p_student_id: studentId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+  });
+  if (error) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  revalidatePath(`/backoffice/leerlingen/${studentId}`);
+  revalidatePath("/backoffice/leerlingen");
+  redirect(`/backoffice/leerlingen/${studentId}`);
+}
+
 export async function adjustCredits(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");

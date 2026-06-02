@@ -361,6 +361,34 @@ async function main(): Promise<void> {
       });
     }
 
+    // --- 11. new post-exam notification types are accepted ----------------
+    // Task #105 (Examenflow C) — the CHECK constraints must permit the
+    // geslaagd/gezakt message types.
+    for (const examType of ["exam_passed", "exam_failed"] as const) {
+      const exKey = `${examType}:test:${stamp}`;
+      const { data: exEnq, error: exErr } = await serviceClient.rpc(
+        "enqueue_notification",
+        {
+          p_tenant_id: tenantId,
+          p_channel: "email",
+          p_type: examType,
+          p_recipient_email: "student@example.com",
+          p_subject: "Examenuitslag",
+          p_dedupe_key: exKey,
+          p_related_type: "agenda_appointment",
+          p_related_id: `appt-${stamp}`,
+          p_payload: { test: true },
+        },
+      );
+      const exRow = (exEnq as { id: string; status: string }[] | null)?.[0];
+      if (exRow?.id) createdLogIds.push(exRow.id);
+      results.push({
+        name: `enqueue_notification accepts '${examType}' type`,
+        ok: !exErr && !!exRow && exRow.status === "queued",
+        detail: exErr ? exErr.message : `status=${exRow?.status}`,
+      });
+    }
+
     await demoMember.auth.signOut();
     await otherMember.auth.signOut();
   } finally {
