@@ -11,6 +11,7 @@ import {
   ClipboardList,
   BarChart3,
   Receipt,
+  Calculator,
   Settings,
   Car,
   BookOpen,
@@ -33,6 +34,7 @@ const nav = [
   { href: "/backoffice/taken", label: "Taken", icon: ClipboardList },
   { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3 },
   { href: "/backoffice/facturen", label: "Facturen", icon: Receipt },
+  { href: "/backoffice/boekhouding", label: "Boekhouding", icon: Calculator },
   { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings },
 ];
 

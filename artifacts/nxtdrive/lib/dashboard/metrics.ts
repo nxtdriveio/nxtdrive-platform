@@ -47,7 +47,7 @@ export function amsterdamYmd(date: Date): string {
 }
 
 /** UTC instant corresponding to local midnight (00:00 Amsterdam) of `ymd`. */
-function startOfDayUtc(ymd: string): Date {
+export function startOfDayUtc(ymd: string): Date {
   const guess = new Date(`${ymd}T00:00:00Z`);
   const offset = tzOffsetMs(guess);
   return new Date(guess.getTime() - offset);
