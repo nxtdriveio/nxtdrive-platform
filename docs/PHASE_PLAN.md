@@ -38,7 +38,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 | Platform admin (basis) | 🟡 | `app/admin/page.tsx` — tenants lijst + plan/white-label status; nog geen feature flags/abonnementsbeheer |
 | Tenant backoffice + navigatie | ✅ | `app/backoffice/layout.tsx`, dashboard, instellingen |
 | White-label branding | ✅ (Elite-feature, gating later) | `tenant_branding`, `components/brand-provider.tsx`, `instellingen/actions.ts` |
-| Module 1 — CRM & Leads + Intake | ✅ | `0007`–`0009`, `app/intake/[slug]`, `app/backoffice/leads`, `convert_lead_to_student` |
+| Module 1 — CRM & Leads + Intake | ✅ (intake = 5-staps wizard) | `0007`–`0009`, `0035_lead_intake_details` (getypte intake-velden + `create_lead_with_intake` RPC), `app/intake/[slug]` (wizard), `app/backoffice/leads` (incl. intake-kaart op lead-detail), `convert_lead_to_student` |
 | Module 2 — Leerlingenbeheer (+ouders) | ✅ | `0011`, `0019_student_guardians`, `app/backoffice/leerlingen` |
 | Module 3 — Planning / lessen | ✅ | `0014`–`0016`, `app/backoffice/agenda`, `schedule/cancel/complete_lesson` RPC |
 | Module 4 — Pakketten | ✅ | `0010`, `app/backoffice/packages`, `grant_package` |

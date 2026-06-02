@@ -12,13 +12,27 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  INTAKE_APPLICANT_TYPE_LABEL,
+  INTAKE_DAYPART_LABEL,
+  INTAKE_LICENSE_GOAL_LABEL,
+  INTAKE_PACE_LABEL,
+  INTAKE_STATUS_LABEL,
+  INTAKE_TRANSMISSION_LABEL,
+  INTAKE_WEEKDAY_LABEL,
   LEAD_EVENT_LABEL,
   LEAD_SOURCE_LABEL,
   LEAD_STATUSES,
   LEAD_STATUS_LABEL,
   LEAD_STATUS_VARIANT,
+  type IntakeDaypart,
+  type IntakeLicenseGoal,
+  type IntakePace,
+  type IntakeStatus,
+  type IntakeTransmission,
+  type IntakeWeekday,
   type Lead,
   type LeadEvent,
+  type LeadIntakeDetail,
 } from "@/lib/leads/types";
 import { addNote, convertLeadToStudent, updateStatus } from "../actions";
 import { formatEuros, type Package } from "@/lib/packages/types";
@@ -64,6 +78,14 @@ export default async function LeadDetailPage({
     .order("created_at", { ascending: false })
     .limit(50);
   const events = (eventsRaw ?? []) as LeadEvent[];
+
+  const { data: intakeRaw } = await supabase
+    .from("lead_intake_details")
+    .select("*")
+    .eq("lead_id", id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  const intake = (intakeRaw ?? null) as LeadIntakeDetail | null;
 
   // For the "Klant maken" panel — only fetched when an admin views the page.
   const isAdmin = (await import("@/lib/auth/session")).rolesForTenant(
@@ -152,6 +174,8 @@ export default async function LeadDetailPage({
               ) : null}
             </CardContent>
           </Card>
+
+          {intake ? <IntakeCard intake={intake} /> : null}
 
           <Card>
             <CardHeader>
@@ -310,6 +334,152 @@ function Field({
         {label}
       </dt>
       <dd className="mt-1 text-foreground">{value ?? "—"}</dd>
+    </div>
+  );
+}
+
+function yesNoUnknown(v: boolean | null | undefined): string {
+  if (v === true) return "Ja";
+  if (v === false) return "Nee";
+  return "Onbekend";
+}
+
+const intakeDateFmt = new Intl.DateTimeFormat("nl-NL", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
+function fmtDate(value: string | null): string | null {
+  if (!value) return null;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? value : intakeDateFmt.format(new Date(t));
+}
+
+function IntakeCard({ intake }: { intake: LeadIntakeDetail }) {
+  const days = intake.preferred_days
+    .map((d) => INTAKE_WEEKDAY_LABEL[d as IntakeWeekday] ?? d)
+    .join(", ");
+  const times = intake.preferred_times
+    .map((t) => INTAKE_DAYPART_LABEL[t as IntakeDaypart] ?? t)
+    .join(", ");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Intake-gegevens</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <Section title="Persoon">
+          <Field
+            label="Aanmelder"
+            value={INTAKE_APPLICANT_TYPE_LABEL[intake.applicant_type]}
+          />
+          <Field label="Geboortedatum" value={fmtDate(intake.date_of_birth)} />
+          <Field label="Woonplaats" value={intake.city} />
+          <Field label="Wijk / ophaallocatie" value={intake.pickup_location} />
+        </Section>
+
+        <Section title="Rijopleiding">
+          <Field
+            label="Rijbewijsdoel"
+            value={
+              intake.license_goal
+                ? INTAKE_LICENSE_GOAL_LABEL[intake.license_goal as IntakeLicenseGoal]
+                : null
+            }
+          />
+          <Field
+            label="Schakel / automaat"
+            value={
+              intake.transmission
+                ? INTAKE_TRANSMISSION_LABEL[intake.transmission as IntakeTransmission]
+                : null
+            }
+          />
+          <Field
+            label="Al rijervaring"
+            value={yesNoUnknown(intake.has_driving_experience)}
+          />
+          <Field
+            label="Eerder rijles gehad"
+            value={yesNoUnknown(intake.had_lessons_before)}
+          />
+          <Field label="Al examen gedaan" value={yesNoUnknown(intake.has_done_exam)} />
+          <Field
+            label="Theorie gehaald"
+            value={INTAKE_STATUS_LABEL[intake.theory_status as IntakeStatus]}
+          />
+          <Field
+            label="Gezondheidsverklaring"
+            value={INTAKE_STATUS_LABEL[intake.health_declaration_status as IntakeStatus]}
+          />
+          <Field
+            label="CBR-machtiging"
+            value={INTAKE_STATUS_LABEL[intake.cbr_authorization_status as IntakeStatus]}
+          />
+        </Section>
+
+        <Section title="Beschikbaarheid">
+          <Field label="Voorkeursdagen" value={days || null} />
+          <Field label="Voorkeurstijden" value={times || null} />
+          <Field
+            label="Gewenste startdatum"
+            value={fmtDate(intake.desired_start_date)}
+          />
+          <Field
+            label="Lessen per week"
+            value={
+              intake.lessons_per_week != null ? String(intake.lessons_per_week) : null
+            }
+          />
+        </Section>
+        {intake.weekly_availability ? (
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+              Beschikbaarheid per week
+            </dt>
+            <dd className="mt-1 whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground">
+              {intake.weekly_availability}
+            </dd>
+          </div>
+        ) : null}
+
+        <Section title="Leerprofiel">
+          <Field
+            label="Tempo"
+            value={intake.pace ? INTAKE_PACE_LABEL[intake.pace as IntakePace] : null}
+          />
+          <Field label="Faalangst" value={yesNoUnknown(intake.has_anxiety)} />
+        </Section>
+        {intake.remarks ? (
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+              Bijzonderheden
+            </dt>
+            <dd className="mt-1 whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground">
+              {intake.remarks}
+            </dd>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+        {title}
+      </h3>
+      <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">{children}</dl>
     </div>
   );
 }
