@@ -431,6 +431,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@workspace/leads-analysis':
+        specifier: workspace:*
+        version: link:../../lib/leads-analysis
       '@workspace/leskaart':
         specifier: workspace:*
         version: link:../../lib/leskaart
@@ -518,6 +521,8 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
+  lib/leads-analysis: {}
+
   lib/leskaart: {}
 
   scripts:
@@ -525,6 +530,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@workspace/leads-analysis':
+        specifier: workspace:*
+        version: link:../lib/leads-analysis
       '@workspace/leskaart':
         specifier: workspace:*
         version: link:../lib/leskaart

@@ -299,15 +299,22 @@ export const INTAKE_LICENSE_GOAL_LABEL: Record<IntakeLicenseGoal, string> = {
   other: "Anders",
 };
 
-export const INTAKE_PACES = ["relaxed", "fast"] as const;
-export type IntakePace = (typeof INTAKE_PACES)[number];
+// Intake answer enums are owned by the shared @workspace/leads-analysis lib
+// (single source of truth for the scoring engine); re-exported here with their
+// UI labels so the app keeps importing them from one place.
+export {
+  INTAKE_PACES,
+  INTAKE_STATUSES,
+  type IntakePace,
+  type IntakeStatus,
+} from "@workspace/leads-analysis";
+import type { IntakePace, IntakeStatus } from "@workspace/leads-analysis";
+
 export const INTAKE_PACE_LABEL: Record<IntakePace, string> = {
   relaxed: "Rustig traject",
   fast: "Snel traject",
 };
 
-export const INTAKE_STATUSES = ["yes", "no", "unknown"] as const;
-export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
 export const INTAKE_STATUS_LABEL: Record<IntakeStatus, string> = {
   yes: "Ja",
   no: "Nee",

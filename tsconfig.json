@@ -10,6 +10,9 @@
       "path": "./lib/leskaart"
     },
     {
+      "path": "./lib/leads-analysis"
+    },
+    {
       "path": "./lib/api-client-react"
     },
     {
