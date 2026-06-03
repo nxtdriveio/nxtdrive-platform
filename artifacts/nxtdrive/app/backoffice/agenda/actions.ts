@@ -10,6 +10,7 @@ import {
   notifyLessonRefillInvitation,
   notifyExamInvitation,
   notifyLessonCancelled,
+  notifyParentsLessonScheduled,
 } from "@/lib/notifications/dispatch";
 
 export async function scheduleLesson(formData: FormData) {
@@ -77,6 +78,16 @@ export async function scheduleLesson(formData: FormData) {
   if (error || !lessonId) {
     const code = encodeURIComponent(error?.message ?? "unknown");
     redirect(`/backoffice/agenda/nieuw?error=${code}`);
+  }
+
+  // Task #131 — meld de gekoppelde voogd(en) dat er een rijles voor hun kind is
+  // ingepland. Best-effort + idempotent per (les, voogd); respecteert de per-
+  // school zichtbaarheid van de 'planning'-sectie in het ouderportaal. Een
+  // mislukte melding mag de planning nooit blokkeren.
+  try {
+    await notifyParentsLessonScheduled(service, tenant.id, lessonId as string);
+  } catch (err) {
+    console.error("[agenda] notifyParentsLessonScheduled failed", err);
   }
 
   revalidatePath("/backoffice/agenda");

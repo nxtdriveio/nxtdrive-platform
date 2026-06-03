@@ -12,6 +12,7 @@ import {
 import {
   notifyInvoicePaid,
   notifyInvoiceCreated,
+  notifyParentsInvoiceReady,
 } from "@/lib/notifications/dispatch";
 
 function isValidStatus(s: string): s is InvoiceStatus {
@@ -318,6 +319,14 @@ export async function setInvoiceStatus(formData: FormData) {
       await notifyInvoiceCreated(service, tenant.id, invoiceId);
     } catch (err) {
       console.error("[facturen] notifyInvoiceCreated failed", err);
+    }
+    // Task #131 — meld ook de gekoppelde voogd(en) dat er een factuur voor hun
+    // kind klaarstaat. Best-effort + idempotent per (factuur, voogd); respecteert
+    // de per-school zichtbaarheid van de 'facturen'-sectie in het ouderportaal.
+    try {
+      await notifyParentsInvoiceReady(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyParentsInvoiceReady failed", err);
     }
   }
 

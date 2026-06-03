@@ -20,7 +20,9 @@ export type NotificationType =
   | "installment_due"
   | "exam_day_reminder"
   | "review_request"
-  | "chat_message";
+  | "chat_message"
+  | "parent_invoice_ready"
+  | "parent_lesson_scheduled";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

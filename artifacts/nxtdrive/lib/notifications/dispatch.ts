@@ -22,8 +22,14 @@ import {
   renderInstallmentDue,
   renderExamDayReminder,
   renderReviewRequest,
+  renderParentInvoiceReady,
+  renderParentLessonScheduled,
   type LessonReminderData,
 } from "./templates";
+import {
+  loadParentPortalVisibility,
+  type ParentPortalSection,
+} from "@/lib/parent-portal/visibility";
 import {
   getReviewMomentsSettings,
   type ReviewMoment,
@@ -1704,4 +1710,278 @@ export async function maybeFireLessonReviewMoments(
       err,
     });
   }
+}
+
+// ===========================================================================
+// Task #131 — ouder-notificaties (nieuwe factuur / ingeplande les).
+//
+// Parents have a read-only portal (/ouder) but must check it manually. These
+// helpers reuse the existing dispatch layer (white-label-aware, idempotent per
+// stable dedupe key, degrades to 'skipped' without email/recipient) to mail +
+// in-app notify every linked guardian (student_guardians) of the affected child
+// when a new invoice or a scheduled lesson becomes ready.
+//
+// Per-guardian idempotency: the dedupe key embeds the guardian user id so each
+// guardian gets exactly one email + one in-app message per source event, while
+// adding a second guardian later still sends to that new guardian. Sent
+// best-effort: one failing guardian never blocks the others.
+//
+// Per-section visibility: a tenant can hide portal sections via
+// parent_portal_visibility (Task #96). We honour that here — a tenant that hid
+// 'facturen' / 'planning' receives no corresponding parent notification.
+// ===========================================================================
+
+type GuardianRecipient = {
+  userId: string;
+  email: string;
+  name: string;
+};
+
+/**
+ * Resolve every linked guardian of a student into a notification recipient
+ * (auth user id + profile email + name). Tenant-scoped. Returns an empty array
+ * when the child has no guardians. Service-role read: profiles/memberships RLS
+ * only expose the caller's own row, so guardian names/emails must be resolved
+ * with the service client by tenant-bounded ids.
+ */
+async function loadGuardiansForStudent(
+  service: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+): Promise<GuardianRecipient[]> {
+  const { data: links } = await service
+    .from("student_guardians")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId);
+  const userIds = Array.from(
+    new Set(
+      (links ?? [])
+        .map((l) => l.user_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  if (userIds.length === 0) return [];
+
+  const { data: profiles } = await service
+    .from("profiles")
+    .select("id, email, full_name")
+    .in("id", userIds);
+  const byId = new Map(
+    (profiles ?? []).map((p) => [
+      p.id as string,
+      {
+        email: (p.email as string | null) ?? "",
+        name: (p.full_name as string | null) ?? "ouder/verzorger",
+      },
+    ]),
+  );
+
+  return userIds.map((id) => ({
+    userId: id,
+    email: byId.get(id)?.email ?? "",
+    name: byId.get(id)?.name ?? "ouder/verzorger",
+  }));
+}
+
+/**
+ * True when the tenant exposes the given parent-portal section to parents.
+ * Defaults to visible (and never throws) so a settings read error can never
+ * suppress a notification silently.
+ */
+async function parentSectionVisible(
+  service: SupabaseClient,
+  tenantId: string,
+  section: ParentPortalSection,
+): Promise<boolean> {
+  try {
+    const visibility = await loadParentPortalVisibility(service, tenantId);
+    return visibility[section];
+  } catch {
+    return true;
+  }
+}
+
+export type ParentNotifySummary = {
+  outcome: "skipped" | "dispatched";
+  guardians: number;
+  outcomes: DispatchOutcome[];
+};
+
+/**
+ * Notify all linked guardians that a new invoice is ready for their child.
+ * Mirrors notifyInvoiceCreated's guard (open, kind 'invoice', not part of an
+ * installment plan) so opening an installment plan never floods parents. No-op
+ * (skipped) when the tenant hid the 'facturen' section, the invoice does not
+ * qualify, or the child has no guardians. Idempotent per (invoice, guardian).
+ */
+export async function notifyParentsInvoiceReady(
+  service: SupabaseClient,
+  tenantId: string,
+  invoiceId: string,
+): Promise<ParentNotifySummary> {
+  const { data: invoice } = await service
+    .from("invoices")
+    .select(
+      "id, status, kind, invoice_no, total_cents, due_date, student_id, installment_plan_id",
+    )
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (
+    !invoice ||
+    invoice.status !== "open" ||
+    invoice.kind !== "invoice" ||
+    invoice.installment_plan_id !== null
+  ) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  if (!(await parentSectionVisible(service, tenantId, "facturen"))) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const studentId = invoice.student_id as string;
+  const guardians = await loadGuardiansForStudent(service, tenantId, studentId);
+  if (guardians.length === 0) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const childName = (student?.full_name as string | null) ?? "uw kind";
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "parent_invoice_ready");
+
+  const outcomes: DispatchOutcome[] = [];
+  for (const guardian of guardians) {
+    const email = renderParentInvoiceReady(
+      branding,
+      {
+        guardianName: guardian.name,
+        childName,
+        invoiceNo: invoice.invoice_no as number,
+        amountCents: invoice.total_cents as number,
+        dueDate: (invoice.due_date as string | null) ?? null,
+      },
+      override,
+    );
+    const { outcome } = await dispatch(service, {
+      tenantId,
+      type: "parent_invoice_ready",
+      recipientEmail: guardian.email,
+      dedupeKey: `parent_invoice_ready:invoice:${invoiceId}:guardian:${guardian.userId}`,
+      relatedType: "invoice",
+      relatedId: invoiceId,
+      email,
+      fromName: branding.tenantName,
+      payload: {
+        invoice_no: invoice.invoice_no,
+        amount_cents: invoice.total_cents,
+        student_id: studentId,
+      },
+      inApp: {
+        recipientUserId: guardian.userId,
+        title: "Nieuwe factuur",
+        body: `Er staat een nieuwe factuur klaar voor ${childName} (#${invoice.invoice_no}).`,
+        link: "/ouder",
+      },
+    });
+    outcomes.push(outcome);
+  }
+
+  return { outcome: "dispatched", guardians: guardians.length, outcomes };
+}
+
+/**
+ * Notify all linked guardians that a rijles is scheduled for their child. No-op
+ * (skipped) when the tenant hid the 'planning' section, the lesson is not
+ * planned, or the child has no guardians. Idempotent per (lesson, guardian).
+ */
+export async function notifyParentsLessonScheduled(
+  service: SupabaseClient,
+  tenantId: string,
+  lessonId: string,
+): Promise<ParentNotifySummary> {
+  const { data: lesson } = await service
+    .from("lessons")
+    .select("id, status, starts_at, location, instructor_id, student_id")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!lesson || lesson.status !== "planned") {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  if (!(await parentSectionVisible(service, tenantId, "planning"))) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const studentId = lesson.student_id as string;
+  const guardians = await loadGuardiansForStudent(service, tenantId, studentId);
+  if (guardians.length === 0) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const childName = (student?.full_name as string | null) ?? "uw kind";
+
+  const instructorName = await instructorNameFor(
+    service,
+    (lesson.instructor_id as string | null) ?? null,
+  );
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(
+    service,
+    tenantId,
+    "parent_lesson_scheduled",
+  );
+
+  const outcomes: DispatchOutcome[] = [];
+  for (const guardian of guardians) {
+    const email = renderParentLessonScheduled(
+      branding,
+      {
+        guardianName: guardian.name,
+        childName,
+        startsAt: lesson.starts_at as string,
+        location: (lesson.location as string | null) ?? null,
+        instructorName,
+      },
+      override,
+    );
+    const { outcome } = await dispatch(service, {
+      tenantId,
+      type: "parent_lesson_scheduled",
+      recipientEmail: guardian.email,
+      dedupeKey: `parent_lesson_scheduled:lesson:${lessonId}:guardian:${guardian.userId}`,
+      relatedType: "lesson",
+      relatedId: lessonId,
+      email,
+      fromName: branding.tenantName,
+      payload: {
+        starts_at: lesson.starts_at,
+        student_id: studentId,
+      },
+      inApp: {
+        recipientUserId: guardian.userId,
+        title: "Rijles ingepland",
+        body: `Er is een rijles ingepland voor ${childName} op ${formatWhenNL(lesson.starts_at as string)}.`,
+        link: "/ouder",
+      },
+    });
+    outcomes.push(outcome);
+  }
+
+  return { outcome: "dispatched", guardians: guardians.length, outcomes };
 }

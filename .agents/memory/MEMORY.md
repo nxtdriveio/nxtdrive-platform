@@ -25,3 +25,4 @@
 - [Web push channel](web-push-channel.md) — push is the 2nd surface of an in-app notification, fired from dispatchInApp ONLY on was_created=true (inherits in-app idempotency); degrades silently w/o VAPID, prunes dead endpoints.
 - [Student self-cancel lesson](student-self-cancel.md) — students can't reuse staff-only cancel_lesson; dedicated student_cancel_lesson RPC enforces owner/guardian auth + tenant min-notice + policy refund; client preview only, RPC is truth.
 - [auth.uid()-keyed RPCs aren't tenant-scoped](auth-uid-rpc-tenant-scope.md) — my_lesson_instructors etc. span ALL the user's tenants; for a tenant picker filter the table by tenant_id+student_id, never the RPC.
+- [Parent notifications gating](parent-notifications.md) — ouder-meldingen fan out to ALL student_guardians (per-guardian dedupe), resolve emails via service-role, and MUST honor parent_portal_visibility section gating.

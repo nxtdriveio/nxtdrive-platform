@@ -1169,3 +1169,123 @@ export function renderReviewRequest(
     vars,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Task #131 — ouder-notificaties. Voor gekoppelde voogden (student_guardians)
+// van een kind. Andere toon dan de leerling-mails: gericht aan de ouder/voogd,
+// met de naam van het kind, en wijst naar het Ouderportaal (/ouder) i.p.v. de
+// leerlingomgeving. White-label-bewust via dezelfde layout()/applyOverride().
+// ---------------------------------------------------------------------------
+
+export type ParentInvoiceReadyData = {
+  /** Naam van de ouder/voogd (valt terug op "ouder/verzorger"). */
+  guardianName: string;
+  /** Naam van het kind/leerling. */
+  childName: string;
+  invoiceNo: number;
+  amountCents: number;
+  dueDate: string | null;
+};
+
+/**
+ * Nieuwe factuur klaar — meldt de ouder/voogd dat er een factuur voor hun kind
+ * klaarstaat. Geen online-betaallink (het portaal is alleen-lezen); verwijst
+ * naar het Ouderportaal voor de details.
+ */
+export function renderParentInvoiceReady(
+  branding: EmailBranding,
+  data: ParentInvoiceReadyData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const amount = formatEuro(data.amountCents);
+  const due = formatDateNl(data.dueDate);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    guardian_name: data.guardianName,
+    child_name: data.childName,
+    invoice_no: String(data.invoiceNo),
+    amount,
+    due_date: due,
+  };
+
+  const dueLine = due
+    ? `<p>Gelieve het bedrag te voldoen vóór <strong>${escapeHtml(due)}</strong>.</p>`
+    : "";
+  const subject = `Nieuwe factuur voor ${data.childName} staat klaar`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.guardianName)},</p>
+    <p>Er staat een nieuwe factuur klaar voor <strong>${escapeHtml(data.childName)}</strong>: factuur <strong>#${escapeHtml(String(data.invoiceNo))}</strong> van <strong>${escapeHtml(amount)}</strong>.</p>
+    ${dueLine}
+    <p>U vindt de volledige factuur terug in het ouderportaal.</p>`;
+  const text =
+    `Beste ${data.guardianName},\n\n` +
+    `Er staat een nieuwe factuur klaar voor ${data.childName}: factuur #${data.invoiceNo} van ${amount}.\n` +
+    (due ? `Gelieve het bedrag te voldoen vóór ${due}.\n` : "") +
+    `\nU vindt de volledige factuur terug in het ouderportaal.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type ParentLessonScheduledData = {
+  /** Naam van de ouder/voogd (valt terug op "ouder/verzorger"). */
+  guardianName: string;
+  /** Naam van het kind/leerling. */
+  childName: string;
+  startsAt: string;
+  location: string | null;
+  instructorName: string | null;
+};
+
+/**
+ * Rijles ingepland — meldt de ouder/voogd dat er een rijles voor hun kind is
+ * ingepland. Verwijst naar het ouderportaal voor de planning.
+ */
+export function renderParentLessonScheduled(
+  branding: EmailBranding,
+  data: ParentLessonScheduledData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    guardian_name: data.guardianName,
+    child_name: data.childName,
+    lesson_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Rijles ingepland voor ${data.childName} — ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.guardianName)},</p>
+    <p>Er is een rijles ingepland voor <strong>${escapeHtml(data.childName)}</strong> op <strong>${escapeHtml(when)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>De volledige planning vindt u terug in het ouderportaal.</p>`;
+  const text =
+    `Beste ${data.guardianName},\n\n` +
+    `Er is een rijles ingepland voor ${data.childName} op ${when}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nDe volledige planning vindt u terug in het ouderportaal.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
