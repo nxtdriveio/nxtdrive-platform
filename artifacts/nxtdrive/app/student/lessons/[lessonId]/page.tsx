@@ -21,6 +21,7 @@ import {
 } from "@/lib/skills/student-leskaart-data";
 import { loadLessonTheoryHomework } from "@/lib/theory/data";
 import { CancelLessonButton } from "@/components/student/CancelLessonButton";
+import { RescheduleLessonButton } from "@/components/student/RescheduleLessonButton";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import {
   VEHICLE_TRANSMISSION_LABEL,
@@ -233,14 +234,22 @@ export default async function StudentLessonDetailPage({
       ) : null}
 
       {isCancellable ? (
-        <CancelLessonButton
-          lessonId={lesson.id}
-          lessonCredits={lesson.credits_cost}
-          refundCredits={refundCredits}
-          refundPct={refundPct}
-          canCancel={canCancel}
-          minNoticeHours={policy?.min_notice_hours ?? 0}
-        />
+        <>
+          <RescheduleLessonButton
+            lessonId={lesson.id}
+            currentStartsAt={lesson.starts_at}
+            canReschedule={canCancel}
+            minNoticeHours={policy?.min_notice_hours ?? 0}
+          />
+          <CancelLessonButton
+            lessonId={lesson.id}
+            lessonCredits={lesson.credits_cost}
+            refundCredits={refundCredits}
+            refundPct={refundPct}
+            canCancel={canCancel}
+            minNoticeHours={policy?.min_notice_hours ?? 0}
+          />
+        </>
       ) : null}
 
       <LessonNavFooter

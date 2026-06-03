@@ -81,6 +81,94 @@ export async function cancelLesson(
 }
 
 /**
+ * Lets a student (or guardian) reschedule their OWN planned, future lesson to a
+ * new moment without losing credits. The locked `student_reschedule_lesson` RPC
+ * (migration 0085) re-validates ownership, enforces the tenant's
+ * `min_notice_hours` on the original lesson, keeps the same duration (so NO
+ * credit ledger churn), checks the new slot is free for the instructor and
+ * writes an audit row. This action re-checks ownership/status/notice in app-code
+ * for a friendly message, then forwards the actor; the RPC is the source of
+ * truth. The new time is sent as an ISO string (already converted to UTC by the
+ * client from the student's local timezone).
+ */
+export async function rescheduleLesson(
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean; newStartsAt?: string }> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const lessonId = String(formData.get("lesson_id") ?? "").trim();
+  const newStartsRaw = String(formData.get("new_starts_at") ?? "").trim();
+  if (!lessonId) return { error: "lesson_id ontbreekt" };
+  if (!newStartsRaw) return { error: "Kies een nieuwe datum en tijd." };
+  const newStarts = new Date(newStartsRaw);
+  if (Number.isNaN(newStarts.getTime())) {
+    return { error: "Ongeldige datum of tijd." };
+  }
+  if (newStarts.getTime() <= Date.now()) {
+    return { error: "Kies een moment in de toekomst." };
+  }
+
+  const { getActiveStudent } = await import("@/lib/students/access");
+  const { student } = await getActiveStudent(user, tenant.id, roles);
+  if (!student) return { error: "Geen toegang tot dit leerlingdossier." };
+
+  const service = createServiceRoleClient();
+  const { data: lessonRaw, error: loadErr } = await service
+    .from("lessons")
+    .select("*")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenant.id)
+    .eq("student_id", student.id)
+    .maybeSingle();
+  if (loadErr) return { error: loadErr.message };
+  const lesson = lessonRaw as Lesson | null;
+  if (!lesson) return { error: "Les niet gevonden." };
+  if (lesson.status !== "planned") {
+    return { error: "Deze les kan niet meer verzet worden." };
+  }
+
+  const startsAt = new Date(lesson.starts_at).getTime();
+  // Future-only invariant on the original lesson: a lesson at/after its start
+  // time can never be self-rescheduled. The RPC enforces the same guard.
+  if (startsAt <= Date.now()) {
+    return {
+      error:
+        "Deze les is al begonnen of voorbij en kan niet meer verzet worden.",
+    };
+  }
+  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
+  const policy = await loadCancellationPolicy(service, tenant.id);
+  const minNotice =
+    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
+  if (minNotice > 0 && hoursBefore < minNotice) {
+    return {
+      error: `Je kunt deze les niet meer zelf verzetten — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
+    };
+  }
+
+  const { error } = await service.rpc("student_reschedule_lesson", {
+    p_lesson_id: lessonId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_new_starts_at: newStarts.toISOString(),
+  });
+  if (error) {
+    if (/overlaps an existing appointment/i.test(error.message)) {
+      return {
+        error:
+          "Dat moment is niet meer beschikbaar bij je instructeur. Kies een ander tijdstip.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/student", "layout");
+  return { ok: true, newStartsAt: newStarts.toISOString() };
+}
+
+/**
  * Lets a student (or guardian) mark their own theory homework done or open
  * again (Leskaart L4). Cancelling is staff-only and rejected by the RPC. The
  * locked `set_theory_homework_status` RPC re-validates ownership against the
