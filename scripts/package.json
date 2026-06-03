@@ -25,6 +25,7 @@
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",
     "db:test-rls-invoices": "tsx ./src/test-rls-invoices.ts",
     "db:test-invoices-module6": "tsx ./src/test-invoices-module6.ts",
+    "db:test-installment-credit": "tsx ./src/test-installment-credit.ts",
     "db:test-rls-parent-portal": "tsx ./src/test-rls-parent-portal.ts",
     "db:test-rls-documents": "tsx ./src/test-rls-documents.ts",
     "db:test-mollie-flow": "tsx ./src/test-mollie-flow.ts",

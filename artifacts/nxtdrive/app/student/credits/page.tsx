@@ -10,11 +10,16 @@ import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { getActiveStudent } from "@/lib/students/access";
 import {
   CREDIT_REASON_LABEL,
+  formatTegoed,
   formatTegoedDelta,
   type CreditLedgerRow,
   type StudentBalance,
   type StudentCreditBreakdown,
 } from "@/lib/students/types";
+import {
+  INSTALLMENT_CREDIT_MODE_LABEL,
+  loadStudentInstallmentCredit,
+} from "@/lib/invoices/installment-credit";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +74,11 @@ export default async function StudentCreditsPage() {
   const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
   const rows = (ledgerRes.data ?? []) as CreditLedgerRow[];
 
+  const installmentCredits = await loadStudentInstallmentCredit(
+    supabase,
+    student.id,
+  );
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-foreground">Mijn tegoed</h1>
@@ -76,6 +86,43 @@ export default async function StudentCreditsPage() {
       <StudentBalanceCard balance={balance} />
 
       {breakdown ? <CreditBreakdownCard breakdown={breakdown} /> : null}
+
+      {installmentCredits.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-3 pt-5">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Tegoed in termijnen
+            </div>
+            <ol className="divide-y divide-border">
+              {installmentCredits.map((plan) => (
+                <li key={plan.planId} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-foreground">
+                        {plan.description}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {INSTALLMENT_CREDIT_MODE_LABEL[plan.policy]} ·{" "}
+                        {formatTegoed(plan.packageMinutes)} totaal
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      <Badge variant="success">
+                        {formatTegoed(plan.releasedMinutes)} vrij
+                      </Badge>
+                      {plan.pendingMinutes > 0 ? (
+                        <Badge variant="warning">
+                          {formatTegoed(plan.pendingMinutes)} later
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="space-y-3 pt-5">

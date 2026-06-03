@@ -27,6 +27,8 @@ import { ParentPortalManager } from "./parent-portal-manager";
 import { loadParentPortalVisibility } from "@/lib/parent-portal/visibility";
 import { PaymentReminderManager } from "./payment-reminder-manager";
 import { loadPaymentReminderPolicy } from "@/lib/invoices/payment-reminder-policy";
+import { InstallmentCreditPolicyManager } from "./installment-credit-policy-manager";
+import { loadInstallmentCreditPolicy } from "@/lib/invoices/installment-credit";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,10 @@ export default async function SettingsPage({
     tenant.id,
   );
   const paymentReminderPolicy = await loadPaymentReminderPolicy(
+    service,
+    tenant.id,
+  );
+  const installmentCreditPolicy = await loadInstallmentCreditPolicy(
     service,
     tenant.id,
   );
@@ -244,6 +250,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <PaymentReminderManager policy={paymentReminderPolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Termijn-tegoed</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InstallmentCreditPolicyManager policy={installmentCreditPolicy} />
         </CardContent>
       </Card>
     </div>

@@ -25,7 +25,11 @@ import {
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
-import type { Student } from "@/lib/students/types";
+import { formatTegoed, type Student } from "@/lib/students/types";
+import {
+  INSTALLMENT_CREDIT_MODE_LABEL,
+  loadInvoiceInstallmentCredit,
+} from "@/lib/invoices/installment-credit";
 import {
   addInvoiceLine,
   createCreditNote,
@@ -132,6 +136,12 @@ export default async function InvoiceDetailPage({
   const creditOriginal = originalRes.data as
     | { id: string; invoice_no: number }
     | null;
+
+  const installmentCredit = await loadInvoiceInstallmentCredit(
+    supabase,
+    tenant.id,
+    invoice,
+  );
 
   const display = displayStatus(invoice);
   const isDraft = invoice.status === "draft";
@@ -411,6 +421,51 @@ export default async function InvoiceDetailPage({
             </CardContent>
           </Card>
 
+          {installmentCredit ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Termijn-tegoed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-1 gap-3 text-sm">
+                  <Field
+                    label="Vrijgavebeleid"
+                    value={INSTALLMENT_CREDIT_MODE_LABEL[installmentCredit.policy]}
+                  />
+                  <Field
+                    label="Pakket-tegoed"
+                    value={formatTegoed(installmentCredit.packageMinutes)}
+                  />
+                  <Field
+                    label={`Aandeel termijn ${installmentCredit.installmentNo}/${installmentCredit.installmentCount}`}
+                    value={formatTegoed(installmentCredit.shareMinutes)}
+                  />
+                  <Field
+                    label="Status van dit aandeel"
+                    value={
+                      installmentCredit.released ? (
+                        <Badge variant="success">
+                          Vrijgegeven ·{" "}
+                          {formatTegoed(installmentCredit.releasedMinutes)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning">Nog niet vrijgegeven</Badge>
+                      )
+                    }
+                  />
+                  <Field
+                    label="Schema totaal"
+                    value={`${formatTegoed(
+                      installmentCredit.planReleasedMinutes,
+                    )} vrijgegeven · ${formatTegoed(
+                      installmentCredit.planPendingMinutes,
+                    )} resterend`}
+                  />
+                </dl>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {isDraft && isAdmin ? (
             <Card>
               <CardHeader>
@@ -655,7 +710,13 @@ function MolliePaymentCard({
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value: import("react").ReactNode;
+}) {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">

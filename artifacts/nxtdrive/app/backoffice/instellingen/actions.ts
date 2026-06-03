@@ -28,6 +28,10 @@ import {
   PAYMENT_REMINDER_POLICY_KEY,
   mergePaymentReminderPolicy,
 } from "@/lib/invoices/payment-reminder-policy";
+import {
+  INSTALLMENT_CREDIT_POLICY_KEY,
+  mergeInstallmentCreditPolicy,
+} from "@/lib/invoices/installment-credit";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -548,6 +552,56 @@ export async function resetPaymentReminderPolicy(): Promise<PolicyActionResult> 
     {
       tenant_id: tenant.id,
       key: PAYMENT_REMINDER_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+// --- Termijn-tegoed vrijgavebeleid (Task #112) -----------------------------
+// How a package's tegoed is released across a termijn-schema. The policy is
+// snapshot onto each installment_plan at creation (create_installment_plan reads
+// tenant_settings key `installment_credit_release`), so changing it here only
+// affects NEW plans — existing plans keep their snapshot. Raw form value passes
+// through mergeInstallmentCreditPolicy so the stored JSON is always a valid mode.
+// Service-role write — tenant_id always from the authenticated membership.
+
+export async function saveInstallmentCreditPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeInstallmentCreditPolicy({ mode: formData.get("mode") });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: INSTALLMENT_CREDIT_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function resetInstallmentCreditPolicy(): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeInstallmentCreditPolicy(null);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: INSTALLMENT_CREDIT_POLICY_KEY,
       value: policy,
     },
     { onConflict: "tenant_id,key" },
