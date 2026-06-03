@@ -9,7 +9,10 @@ import {
   parseEurosToCents,
   type InvoiceStatus,
 } from "@/lib/invoices/types";
-import { notifyInvoicePaid } from "@/lib/notifications/dispatch";
+import {
+  notifyInvoicePaid,
+  notifyInvoiceCreated,
+} from "@/lib/notifications/dispatch";
 
 function isValidStatus(s: string): s is InvoiceStatus {
   return (INVOICE_STATUSES as readonly string[]).includes(s);
@@ -306,6 +309,15 @@ export async function setInvoiceStatus(formData: FormData) {
       await notifyInvoicePaid(service, tenant.id, invoiceId);
     } catch (err) {
       console.error("[facturen] notifyInvoicePaid failed", err);
+    }
+  } else if (status === "open") {
+    // Task #107 — meld de leerling dat een nieuwe factuur klaarstaat. Best-effort
+    // + idempotent; termijnfacturen worden bewust overgeslagen (die lopen via de
+    // installment_due cron) zodat het openen van een plan geen N mails oplevert.
+    try {
+      await notifyInvoiceCreated(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyInvoiceCreated failed", err);
     }
   }
 

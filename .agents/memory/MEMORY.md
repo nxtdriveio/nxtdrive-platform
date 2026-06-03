@@ -21,3 +21,4 @@
 - [Exam-candidate (CBR) engine](exam-candidate-engine.md) — separate non-route slot→student engine for exam moments; 3-way verdict (excluded silently / blocked-with-reason / eligible), readiness-led scoring on the existing lesson_planning_policy.
 - [Exam signals (Examenflow B)](exam-signals-engine.md) — signals derived by one pure engine; convert action re-derives server-side, idempotent on exam:{appt}:{code}.
 - [Dev-proxy /api collision](dev-proxy-api-path-collision.md) — shared proxy sends /api to Express api-server, so Next.js /api/* routes are only reachable on the app's own port locally; Caddy routes them fine in prod.
+- [credit_low top-up-epoch dedupe](credit-low-topup-epoch-dedupe.md) — low-credit mail re-arms via dedupe key embedding count of positive ledger deltas; new top-up advances epoch → exactly one fresh mail, zero extra state.

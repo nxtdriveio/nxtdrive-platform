@@ -11,7 +11,14 @@ export type NotificationType =
   | "exam_confirmed"
   | "exam_planned"
   | "exam_passed"
-  | "exam_failed";
+  | "exam_failed"
+  | "intake_received"
+  | "lesson_cancelled"
+  | "invoice_created"
+  | "cbr_authorization_needed"
+  | "credit_low"
+  | "installment_due"
+  | "exam_day_reminder";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

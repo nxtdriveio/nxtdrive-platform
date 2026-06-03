@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { notifyCbrAuthorizationNeeded } from "@/lib/notifications/dispatch";
 import type { Lesson } from "@/lib/lessons/types";
 
 type ActionResult = { error?: string };
@@ -436,6 +437,16 @@ export async function setStudentCbrStatusAction(
     p_gezondheidsverklaring_geregeld: gvGeregeld,
   });
   if (error) return { error: error.message };
+
+  // Task #107 — als de machtiging nog geregeld moet worden, vraag de leerling
+  // per e-mail om dit in MijnCBR te doen. Best-effort + idempotent per leerling.
+  if (machtigingStatus === "nog_nodig") {
+    try {
+      await notifyCbrAuthorizationNeeded(service, tenant.id, studentId);
+    } catch (e) {
+      console.error("[instructor] notifyCbrAuthorizationNeeded failed", e);
+    }
+  }
 
   revalidatePath("/instructor", "layout");
   revalidatePath("/student", "layout");

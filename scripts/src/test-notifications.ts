@@ -389,6 +389,67 @@ async function main(): Promise<void> {
       });
     }
 
+    // --- 12. Task #107 — the seven new catalogue types are accepted ---------
+    // The 0072 CHECK widen must permit every new type, and a re-enqueue with the
+    // same (tenant, dedupe_key) must stay idempotent (exactly once per event).
+    const newTypes = [
+      { type: "intake_received", related: "lead" },
+      { type: "lesson_cancelled", related: "lesson" },
+      { type: "invoice_created", related: "invoice" },
+      { type: "cbr_authorization_needed", related: "student" },
+      { type: "credit_low", related: "student" },
+      { type: "installment_due", related: "invoice" },
+      { type: "exam_day_reminder", related: "agenda_appointment" },
+    ] as const;
+    for (const { type, related } of newTypes) {
+      const key = `${type}:test:${stamp}`;
+      const args = {
+        p_tenant_id: tenantId,
+        p_channel: "email",
+        p_type: type,
+        p_recipient_email: "cursist@example.com",
+        p_subject: "Test",
+        p_dedupe_key: key,
+        p_related_type: related,
+        p_related_id: `${related}-${stamp}`,
+        p_payload: { test: true },
+      };
+      const { data: enq, error: enqErr } = await serviceClient.rpc(
+        "enqueue_notification",
+        args,
+      );
+      const row = (
+        enq as { id: string; status: string; was_created: boolean }[] | null
+      )?.[0];
+      if (row?.id) createdLogIds.push(row.id);
+      results.push({
+        name: `enqueue_notification accepts '${type}' type (was_created=true)`,
+        ok:
+          !enqErr &&
+          !!row &&
+          row.was_created === true &&
+          row.status === "queued",
+        detail: enqErr ? enqErr.message : `status=${row?.status}`,
+      });
+
+      // Re-enqueue must be idempotent for this type too.
+      const { data: enqAgain } = await serviceClient.rpc(
+        "enqueue_notification",
+        args,
+      );
+      const rowAgain = (
+        enqAgain as { id: string; was_created: boolean }[] | null
+      )?.[0];
+      results.push({
+        name: `re-enqueue '${type}' is idempotent (was_created=false, same id)`,
+        ok:
+          !!rowAgain &&
+          rowAgain.was_created === false &&
+          rowAgain.id === row?.id,
+        detail: `id_match=${rowAgain?.id === row?.id} created=${rowAgain?.was_created}`,
+      });
+    }
+
     await demoMember.auth.signOut();
     await otherMember.auth.signOut();
   } finally {

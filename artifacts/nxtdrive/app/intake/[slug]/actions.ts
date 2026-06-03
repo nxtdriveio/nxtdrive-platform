@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { analyzeIntake } from "@/lib/leads/intake-analysis";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
-import { notifyTrialLessonReceived } from "@/lib/notifications/dispatch";
+import {
+  notifyTrialLessonReceived,
+  notifyIntakeReceived,
+} from "@/lib/notifications/dispatch";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -294,6 +297,17 @@ export async function submitIntake(formData: FormData) {
   // to intake_completed, score the lead and queue the "beoordeel intake" task.
   if (typeof leadId === "string") {
     await reconcileLeadSafe(service, tenant.id, leadId, null);
+  }
+
+  // Task #107 — bevestig de ontvangst van de aanvraag per e-mail. Best-effort +
+  // idempotent: een fout hier mag de lead nooit verliezen, en het degradeert
+  // netjes (skipped) wanneer SendGrid nog niet is gekoppeld of er geen e-mail is.
+  if (typeof leadId === "string") {
+    try {
+      await notifyIntakeReceived(service, tenant.id, leadId);
+    } catch (e) {
+      console.error("[intake] notifyIntakeReceived failed", e);
+    }
   }
 
   // Fase 2 — hand the prospect to the trial-lesson planner with their lead id so

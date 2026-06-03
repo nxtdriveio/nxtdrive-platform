@@ -9,6 +9,7 @@ import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
 import {
   notifyLessonRefillInvitation,
   notifyExamInvitation,
+  notifyLessonCancelled,
 } from "@/lib/notifications/dispatch";
 
 export async function scheduleLesson(formData: FormData) {
@@ -322,6 +323,15 @@ export async function cancelLesson(formData: FormData) {
     p_reason: reason || null,
   });
   if (error) redirect(`/backoffice/agenda/${lessonId}?error=cancel`);
+
+  // Task #107 — meld de leerling dat de les is geannuleerd (incl. wel/geen
+  // tegoedrestitutie). Best-effort + idempotent; een fout hier mag de annulering
+  // nooit laten mislukken en moet vóór de redirect() (die throwt) draaien.
+  try {
+    await notifyLessonCancelled(service, tenant.id, lessonId);
+  } catch (e) {
+    console.error("[agenda] notifyLessonCancelled failed", e);
+  }
 
   revalidatePath("/backoffice/agenda");
   revalidatePath(`/backoffice/agenda/${lessonId}`);

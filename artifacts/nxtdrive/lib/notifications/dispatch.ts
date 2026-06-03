@@ -14,6 +14,13 @@ import {
   renderExamPlanned,
   renderExamResultPassed,
   renderExamResultFailed,
+  renderIntakeReceived,
+  renderLessonCancelled,
+  renderInvoiceCreated,
+  renderCbrAuthorizationNeeded,
+  renderCreditLow,
+  renderInstallmentDue,
+  renderExamDayReminder,
   type LessonReminderData,
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
@@ -953,5 +960,389 @@ export async function notifyExamResult(
     email,
     fromName: branding.tenantName,
     payload: { exam_type: type, result },
+  });
+}
+
+/**
+ * Task #107 — bevestig aan een nieuwe prospect dat hun intake-aanvraag is
+ * ontvangen. Idempotent per lead id: een herhaalde aanroep stuurt nooit dubbel.
+ * Degradeert naar 'skipped' wanneer de lead geen e-mail heeft of e-mail nog niet
+ * is gekoppeld.
+ */
+export async function notifyIntakeReceived(
+  service: SupabaseClient,
+  tenantId: string,
+  leadId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: lead } = await service
+    .from("leads")
+    .select("full_name, email")
+    .eq("id", leadId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!lead) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "intake_received");
+  const email = renderIntakeReceived(
+    branding,
+    { leadName: (lead.full_name as string | null) ?? "cursist" },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "intake_received",
+    recipientEmail: (lead.email as string | null) ?? "",
+    dedupeKey: `intake_received:lead:${leadId}`,
+    relatedType: "lead",
+    relatedId: leadId,
+    email,
+    fromName: branding.tenantName,
+    payload: {},
+  });
+}
+
+/**
+ * Task #107 — meld de leerling dat een geplande rijles is geannuleerd, inclusief
+ * of het lestegoed is teruggestort. Idempotent per les id. No-op (skipped) als de
+ * les niet bestaat of (nog) niet geannuleerd is, of de leerling geen e-mail heeft.
+ */
+export async function notifyLessonCancelled(
+  service: SupabaseClient,
+  tenantId: string,
+  lessonId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: lesson } = await service
+    .from("lessons")
+    .select("id, status, starts_at, location, student_id, instructor_id")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!lesson) return { outcome: "skipped" };
+
+  const status = lesson.status as string;
+  if (status !== "cancelled_with_refund" && status !== "cancelled_no_refund") {
+    return { outcome: "skipped" };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", lesson.student_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const instructorName = await instructorNameFor(
+    service,
+    (lesson.instructor_id as string | null) ?? null,
+  );
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "lesson_cancelled");
+  const email = renderLessonCancelled(
+    branding,
+    {
+      studentName: (student?.full_name as string | null) ?? "cursist",
+      startsAt: lesson.starts_at as string,
+      location: (lesson.location as string | null) ?? null,
+      instructorName,
+      refunded: status === "cancelled_with_refund",
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "lesson_cancelled",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `lesson_cancelled:lesson:${lessonId}`,
+    relatedType: "lesson",
+    relatedId: lessonId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: lesson.starts_at, status },
+  });
+}
+
+/**
+ * Task #107 — meld de leerling dat een nieuwe (geopende) factuur klaarstaat.
+ * Idempotent per factuur id. No-op (skipped) als de factuur niet open is, een
+ * creditnota is, of onderdeel is van een termijnschema (die loopt via
+ * installment_due, zodat het openen van een plan niet N mails ineens oplevert).
+ */
+export async function notifyInvoiceCreated(
+  service: SupabaseClient,
+  tenantId: string,
+  invoiceId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: invoice } = await service
+    .from("invoices")
+    .select(
+      "id, status, kind, invoice_no, total_cents, due_date, student_id, installment_plan_id",
+    )
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (
+    !invoice ||
+    invoice.status !== "open" ||
+    invoice.kind !== "invoice" ||
+    invoice.installment_plan_id !== null
+  ) {
+    return { outcome: "skipped" };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", invoice.student_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "invoice_created");
+  const email = renderInvoiceCreated(
+    branding,
+    {
+      studentName: (student?.full_name as string | null) ?? "cursist",
+      invoiceNo: invoice.invoice_no as number,
+      amountCents: invoice.total_cents as number,
+      dueDate: (invoice.due_date as string | null) ?? null,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "invoice_created",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `invoice_created:invoice:${invoiceId}`,
+    relatedType: "invoice",
+    relatedId: invoiceId,
+    email,
+    fromName: branding.tenantName,
+    payload: {
+      invoice_no: invoice.invoice_no,
+      amount_cents: invoice.total_cents,
+    },
+  });
+}
+
+/**
+ * Task #107 — vraag de leerling om de CBR-machtiging te regelen. Idempotent per
+ * leerling id: herhaalde 'nog_nodig'-opslag stuurt nooit dubbel. Bekende
+ * trade-off: de dedupe key is stabiel per leerling, dus na een latere
+ * status-wisseling (ontvangen → opnieuw nog_nodig) wordt niet nogmaals gemaild.
+ */
+export async function notifyCbrAuthorizationNeeded(
+  service: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!student) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(
+    service,
+    tenantId,
+    "cbr_authorization_needed",
+  );
+  const email = renderCbrAuthorizationNeeded(
+    branding,
+    { studentName: (student.full_name as string | null) ?? "cursist" },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "cbr_authorization_needed",
+    recipientEmail: (student.email as string | null) ?? "",
+    dedupeKey: `cbr_authorization_needed:student:${studentId}`,
+    relatedType: "student",
+    relatedId: studentId,
+    email,
+    fromName: branding.tenantName,
+    payload: {},
+  });
+}
+
+/**
+ * Task #107 — attendeer de leerling dat hun lestegoed onder de drempel is gezakt.
+ * Idempotent per (leerling, top-up-epoch): de dedupe key bevat het aantal
+ * positieve ledger-mutaties (bijbestellingen), zodat na een nieuwe aankoop een
+ * volgende keer 'bijna op' opnieuw precies één mail oplevert (re-arm zonder
+ * extra state). De cron levert balans + epoch aan.
+ */
+export async function notifyCreditLow(
+  service: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+  balanceMinutes: number,
+  topupEpoch: number,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!student) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "credit_low");
+  const email = renderCreditLow(
+    branding,
+    {
+      studentName: (student.full_name as string | null) ?? "cursist",
+      balanceMinutes,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "credit_low",
+    recipientEmail: (student.email as string | null) ?? "",
+    dedupeKey: `credit_low:student:${studentId}:topups:${topupEpoch}`,
+    relatedType: "student",
+    relatedId: studentId,
+    email,
+    fromName: branding.tenantName,
+    payload: { balance_minutes: balanceMinutes, topup_epoch: topupEpoch },
+  });
+}
+
+/**
+ * Task #107 — herinner de leerling dat een termijnfactuur bijna vervalt.
+ * Idempotent per factuur id. No-op (skipped) als de factuur niet open is, geen
+ * termijn betreft, of de leerling geen e-mail heeft. Overdue-herinneringen
+ * blijven via notifyPaymentReminder lopen; dit is de heads-up rond de vervaldatum.
+ */
+export async function notifyInstallmentDue(
+  service: SupabaseClient,
+  tenantId: string,
+  invoiceId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: invoice } = await service
+    .from("invoices")
+    .select(
+      "id, status, kind, invoice_no, total_cents, due_date, student_id, installment_plan_id, installment_no, installment_count",
+    )
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (
+    !invoice ||
+    invoice.status !== "open" ||
+    invoice.kind !== "invoice" ||
+    invoice.installment_plan_id === null
+  ) {
+    return { outcome: "skipped" };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", invoice.student_id as string)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "installment_due");
+  const email = renderInstallmentDue(
+    branding,
+    {
+      studentName: (student?.full_name as string | null) ?? "cursist",
+      invoiceNo: invoice.invoice_no as number,
+      amountCents: invoice.total_cents as number,
+      dueDate: (invoice.due_date as string | null) ?? null,
+      installmentNo: (invoice.installment_no as number | null) ?? null,
+      installmentCount: (invoice.installment_count as number | null) ?? null,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "installment_due",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `installment_due:invoice:${invoiceId}`,
+    relatedType: "invoice",
+    relatedId: invoiceId,
+    email,
+    fromName: branding.tenantName,
+    payload: {
+      invoice_no: invoice.invoice_no,
+      amount_cents: invoice.total_cents,
+      installment_no: invoice.installment_no,
+    },
+  });
+}
+
+/**
+ * Task #107 — herinner de leerling kort voor hun examen/TTT aan het moment.
+ * Idempotent per afspraak id. Alleen exam/interim_test-afspraken met status
+ * 'planned' en een gekoppelde leerling komen in aanmerking; anders 'skipped'.
+ */
+export async function notifyExamDayReminder(
+  service: SupabaseClient,
+  tenantId: string,
+  appointmentId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const { data: appt } = await service
+    .from("agenda_appointments")
+    .select("type, status, starts_at, location, instructor_id, student_id")
+    .eq("id", appointmentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!appt) return { outcome: "skipped" };
+
+  const type = appt.type as string;
+  if (type !== "exam" && type !== "interim_test") return { outcome: "skipped" };
+  if (appt.status !== "planned") return { outcome: "skipped" };
+  const studentId = appt.student_id as string | null;
+  if (!studentId) return { outcome: "skipped" };
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const instructorName = await instructorNameFor(
+    service,
+    (appt.instructor_id as string | null) ?? null,
+  );
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "exam_day_reminder");
+  const email = renderExamDayReminder(
+    branding,
+    {
+      studentName: (student?.full_name as string | null) ?? "cursist",
+      examType: type as "exam" | "interim_test",
+      startsAt: appt.starts_at as string,
+      location: (appt.location as string | null) ?? null,
+      instructorName,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "exam_day_reminder",
+    recipientEmail: (student?.email as string | null) ?? "",
+    dedupeKey: `exam_day_reminder:appointment:${appointmentId}`,
+    relatedType: "agenda_appointment",
+    relatedId: appointmentId,
+    email,
+    fromName: branding.tenantName,
+    payload: { starts_at: appt.starts_at, exam_type: type },
   });
 }

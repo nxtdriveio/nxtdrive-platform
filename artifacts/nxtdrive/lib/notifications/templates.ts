@@ -739,3 +739,362 @@ export function renderLessonReminder(
     vars,
   );
 }
+
+// ===========================================================================
+// Task #107 — uitbreiding van de automatische e-mailcatalogus
+// ===========================================================================
+
+export type IntakeReceivedData = {
+  leadName: string;
+};
+
+/**
+ * Aanvraag ontvangen — bevestigt aan de prospect dat hun inschrijving/aanvraag
+ * binnen is en wat de vervolgstap is. Verstuurd vanuit de intake server action.
+ */
+export function renderIntakeReceived(
+  branding: EmailBranding,
+  data: IntakeReceivedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    lead_name: data.leadName,
+  };
+
+  const subject = `We hebben je aanvraag ontvangen`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.leadName)},</p>
+    <p>Bedankt voor je aanmelding bij <strong>${escapeHtml(branding.tenantName)}</strong>. We hebben je aanvraag in goede orde ontvangen.</p>
+    <p>We bekijken je gegevens en nemen zo snel mogelijk contact met je op om de volgende stap te plannen — bijvoorbeeld een proefles of een kennismaking.</p>
+    <p>Heb je in de tussentijd vragen? Reageer gerust op dit bericht.</p>`;
+  const text =
+    `Beste ${data.leadName},\n\n` +
+    `Bedankt voor je aanmelding bij ${branding.tenantName}. We hebben je aanvraag in goede orde ontvangen.\n\n` +
+    `We bekijken je gegevens en nemen zo snel mogelijk contact met je op om de volgende stap te plannen — bijvoorbeeld een proefles of een kennismaking.\n\n` +
+    `Heb je in de tussentijd vragen? Reageer gerust op dit bericht.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type LessonCancelledData = {
+  studentName: string;
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+  refunded: boolean;
+};
+
+/**
+ * Les geannuleerd — meldt de leerling dat een geplande rijles is geannuleerd,
+ * inclusief of het lestegoed is teruggestort. Verstuurd vanuit de annuleer-actie.
+ */
+export function renderLessonCancelled(
+  branding: EmailBranding,
+  data: LessonCancelledData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    lesson_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const refundLine = data.refunded
+    ? `<p>Je lestegoed voor deze les is teruggestort en kun je opnieuw inplannen.</p>`
+    : `<p>Voor deze annulering is geen lestegoed teruggestort. Heb je hier vragen over? Neem dan contact met ons op.</p>`;
+  const subject = `Je rijles van ${when} is geannuleerd`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je geplande rijles op <strong>${escapeHtml(when)}</strong> is geannuleerd.</p>
+    ${locationLine}
+    ${refundLine}
+    <p>Neem gerust contact met ons op om een nieuwe les in te plannen.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je geplande rijles op ${when} is geannuleerd.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.refunded
+      ? `\nJe lestegoed voor deze les is teruggestort en kun je opnieuw inplannen.\n`
+      : `\nVoor deze annulering is geen lestegoed teruggestort. Heb je hier vragen over? Neem dan contact met ons op.\n`) +
+    `\nNeem gerust contact met ons op om een nieuwe les in te plannen.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type InvoiceCreatedData = {
+  studentName: string;
+  invoiceNo: number;
+  amountCents: number;
+  dueDate: string | null;
+};
+
+/**
+ * Factuur klaar — meldt de leerling dat er een nieuwe factuur klaarstaat met het
+ * bedrag en de vervaldatum. Verstuurd wanneer een factuur op 'open' wordt gezet.
+ */
+export function renderInvoiceCreated(
+  branding: EmailBranding,
+  data: InvoiceCreatedData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const amount = formatEuro(data.amountCents);
+  const due = formatDateNl(data.dueDate);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    invoice_no: String(data.invoiceNo),
+    amount,
+    due_date: due,
+  };
+
+  const dueLine = due
+    ? `<p>Gelieve het bedrag te voldoen vóór <strong>${escapeHtml(due)}</strong>.</p>`
+    : "";
+  const subject = `Nieuwe factuur ${data.invoiceNo} staat voor je klaar`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Er staat een nieuwe factuur voor je klaar: factuur <strong>#${escapeHtml(String(data.invoiceNo))}</strong> van <strong>${escapeHtml(amount)}</strong>.</p>
+    ${dueLine}
+    <p>Je vindt de volledige factuur terug in je leerlingomgeving.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Er staat een nieuwe factuur voor je klaar: factuur #${data.invoiceNo} van ${amount}.\n` +
+    (due ? `Gelieve het bedrag te voldoen vóór ${due}.\n` : "") +
+    `\nJe vindt de volledige factuur terug in je leerlingomgeving.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type CbrAuthorizationNeededData = {
+  studentName: string;
+};
+
+/**
+ * Machtiging nodig — vraagt de leerling om bij het CBR de digitale machtiging te
+ * regelen, zodat de rijschool het examen kan reserveren. Verstuurd wanneer de
+ * machtigingsstatus op 'nog_nodig' wordt gezet.
+ */
+export function renderCbrAuthorizationNeeded(
+  branding: EmailBranding,
+  data: CbrAuthorizationNeededData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+  };
+
+  const subject = `Actie nodig: regel je CBR-machtiging`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Om je examen te kunnen reserveren hebben we een <strong>digitale machtiging</strong> van je nodig in MijnCBR.</p>
+    <p>Log in op MijnCBR met je DigiD en machtig <strong>${escapeHtml(branding.tenantName)}</strong>. Zodra de machtiging binnen is, plannen wij je examen in.</p>
+    <p>Kom je er niet uit? Neem dan gerust contact met ons op, dan helpen we je verder.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Om je examen te kunnen reserveren hebben we een digitale machtiging van je nodig in MijnCBR.\n\n` +
+    `Log in op MijnCBR met je DigiD en machtig ${branding.tenantName}. Zodra de machtiging binnen is, plannen wij je examen in.\n\n` +
+    `Kom je er niet uit? Neem dan gerust contact met ons op, dan helpen we je verder.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+/** Minuten lestegoed → leesbare NL-tekst, bijv. "90 minuten" of "1 uur". */
+function formatMinutesNl(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m} minuten`;
+  const hours = Math.floor(m / 60);
+  const rest = m % 60;
+  const hourPart = hours === 1 ? "1 uur" : `${hours} uur`;
+  return rest === 0 ? hourPart : `${hourPart} en ${rest} minuten`;
+}
+
+export type CreditLowData = {
+  studentName: string;
+  balanceMinutes: number;
+};
+
+/**
+ * Lestegoed bijna op — attendeert de leerling erop dat hun resterende lestegoed
+ * onder de drempel is gezakt, zodat ze tijdig kunnen bijbestellen. Verstuurd via
+ * de credit-low cron.
+ */
+export function renderCreditLow(
+  branding: EmailBranding,
+  data: CreditLowData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const remaining = formatMinutesNl(data.balanceMinutes);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    balance: remaining,
+  };
+
+  const subject = `Je lestegoed is bijna op`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je hebt nog <strong>${escapeHtml(remaining)}</strong> aan lestegoed over. Dat is genoeg voor nog maar een korte tijd.</p>
+    <p>Wil je zonder onderbreking doorrijden naar je examen? Bestel dan op tijd een nieuw lespakket bij, dan staat je tegoed weer klaar.</p>
+    <p>Vragen over je tegoed of de mogelijkheden? Neem gerust contact met ons op.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je hebt nog ${remaining} aan lestegoed over. Dat is genoeg voor nog maar een korte tijd.\n\n` +
+    `Wil je zonder onderbreking doorrijden naar je examen? Bestel dan op tijd een nieuw lespakket bij, dan staat je tegoed weer klaar.\n\n` +
+    `Vragen over je tegoed of de mogelijkheden? Neem gerust contact met ons op.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type InstallmentDueData = {
+  studentName: string;
+  invoiceNo: number;
+  amountCents: number;
+  dueDate: string | null;
+  installmentNo: number | null;
+  installmentCount: number | null;
+};
+
+/**
+ * Termijnbetaling open — herinnert de leerling dat een termijnfactuur bijna
+ * vervalt. Aanvulling op de overdue-betaalherinnering (die ná de vervaldatum
+ * loopt): dit is de vriendelijke heads-up rond de vervaldatum. Verstuurd via de
+ * installment-due cron.
+ */
+export function renderInstallmentDue(
+  branding: EmailBranding,
+  data: InstallmentDueData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const amount = formatEuro(data.amountCents);
+  const due = formatDateNl(data.dueDate);
+  const termijn =
+    data.installmentNo && data.installmentCount
+      ? `termijn ${data.installmentNo} van ${data.installmentCount}`
+      : "termijn";
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    invoice_no: String(data.invoiceNo),
+    amount,
+    due_date: due,
+    installment: termijn,
+  };
+
+  const dueLine = due
+    ? `<p>De vervaldatum is <strong>${escapeHtml(due)}</strong>.</p>`
+    : "";
+  const subject = `Herinnering: ${termijn} (factuur ${data.invoiceNo}) staat open`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Dit is een vriendelijke herinnering dat je <strong>${escapeHtml(termijn)}</strong> van <strong>${escapeHtml(amount)}</strong> (factuur <strong>#${escapeHtml(String(data.invoiceNo))}</strong>) binnenkort verloopt.</p>
+    ${dueLine}
+    <p>Heb je al betaald? Dan kun je dit bericht als afgehandeld beschouwen.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Dit is een vriendelijke herinnering dat je ${termijn} van ${amount} (factuur #${data.invoiceNo}) binnenkort verloopt.\n` +
+    (due ? `De vervaldatum is ${due}.\n` : "") +
+    `\nHeb je al betaald? Dan kun je dit bericht als afgehandeld beschouwen.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type ExamDayReminderData = {
+  studentName: string;
+  examType: "exam" | "interim_test";
+  startsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+/**
+ * Examendag-herinnering — herinnert de leerling kort voor hun examen/TTT aan het
+ * moment, de locatie en de instructeur. Verstuurd via de exam-day-reminder cron.
+ */
+export function renderExamDayReminder(
+  branding: EmailBranding,
+  data: ExamDayReminderData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const noun = EXAM_NOUN[data.examType];
+  const when = formatDateTimeNl(data.startsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    exam_type: noun,
+    exam_time: when,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Je instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Herinnering: je ${noun} op ${when}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Dit is een herinnering aan je aankomende <strong>${escapeHtml(noun)}</strong> op <strong>${escapeHtml(when)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>Zorg dat je je legitimatie meeneemt en op tijd aanwezig bent. Succes — je kunt dit!</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Dit is een herinnering aan je aankomende ${noun} op ${when}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Je instructeur: ${data.instructorName}\n` : "") +
+    `\nZorg dat je je legitimatie meeneemt en op tijd aanwezig bent. Succes — je kunt dit!\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
