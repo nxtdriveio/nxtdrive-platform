@@ -25,7 +25,8 @@ path to scale.
 | Domain helpers | hostname normalise/validate, DNS records, TXT verify | `artifacts/nxtdrive/lib/tenant/domains.ts` |
 | TLS gate | Caddy on-demand "ask" endpoint | `artifacts/nxtdrive/app/api/tls-check/route.ts` |
 | Onboarding | backoffice add/verify/remove/primary flow | `app/backoffice/instellingen` (Domeinen card) |
-| Proxy | wildcard + custom-domain site blocks | `infra/Caddyfile.production` |
+| Proxy (custom domains) | custom-domain on-demand site block | `infra/Caddyfile.production` |
+| Proxy (wildcard) | `*.nxtdrive.io` site block (opt-in, needs DNS plugin) | `infra/Caddyfile.wildcard` |
 | Provisioning | on_demand_tls ask, CF token env, plugin notes | `infra/bootstrap.sh` |
 
 ## `tenant_domains` model
@@ -75,13 +76,20 @@ sudo caddy add-package github.com/caddy-dns/cloudflare    # Caddy 2.7+
 sudo sh -c 'echo "CLOUDFLARE_API_TOKEN=<token>" > /etc/caddy/caddy.env'
 sudo chown root:caddy /etc/caddy/caddy.env && sudo chmod 640 /etc/caddy/caddy.env
 
-# 3. Restart
+# 3. Enable the wildcard site block (kept out of the default config so
+#    bootstrap validates on a box without the plugin), then restart
+sudo cp infra/Caddyfile.wildcard /etc/caddy/sites-enabled/wildcard
 sudo systemctl restart caddy
 ```
 
 DNS: add a wildcard record `*.nxtdrive.io → <VPS IP>` (DNS-only / grey cloud).
-The `*.nxtdrive.io` site block in `infra/Caddyfile.production` uses
-`tls { dns cloudflare {env.CLOUDFLARE_API_TOKEN} }`.
+The `*.nxtdrive.io` site block lives in `infra/Caddyfile.wildcard` (separate,
+opt-in file) and uses `tls { dns cloudflare {env.CLOUDFLARE_API_TOKEN} }`. It is
+intentionally **not** enabled by `bootstrap.sh`: the `dns cloudflare` directive
+requires the plugin from step 1, so including it by default would make the
+fresh-box `caddy validate` fail. Until enabled, subdomains fall through to the
+custom-domain on-demand block (whose ask endpoint returns `403` for
+`*.nxtdrive.io`, so no cert is issued and provisioning never breaks).
 
 ### Custom domains — on-demand TLS gated by an "ask"
 

@@ -1,0 +1,56 @@
+# ----------------------------------------------------------------------------
+# Wildcard tenant subdomains — <school>.nxtdrive.io   (OPT-IN)
+#
+# Every driving school is reachable at its own subdomain WITHOUT a per-school
+# Caddy/DNS change. The app resolves the tenant from the host header
+# (lib/tenant/resolve-host.ts). TLS uses a single wildcard certificate obtained
+# via the Cloudflare DNS-01 challenge.
+#
+# This block is DELIBERATELY NOT enabled by bootstrap.sh, because `tls { dns
+# cloudflare }` REQUIRES a Caddy build that includes the cloudflare DNS plugin.
+# On a fresh box without that plugin, `caddy validate` would fail. Enable it
+# only AFTER the one-time setup (see docs/INFRA_ROADMAP.md / bootstrap "Next
+# steps"):
+#   1. sudo caddy add-package github.com/caddy-dns/cloudflare
+#   2. put CLOUDFLARE_API_TOKEN in /etc/caddy/caddy.env
+#   3. sudo cp infra/Caddyfile.wildcard /etc/caddy/sites-enabled/wildcard
+#   4. sudo systemctl restart caddy
+#
+# Until then, tenant subdomains fall through to the custom-domain on-demand
+# catch-all, whose ask endpoint returns 403 for *.nxtdrive.io hosts (no cert) —
+# so subdomains simply have no TLS yet, but provisioning never breaks.
+#
+# The explicit app./staging./nxtdrive.io blocks are more specific and always
+# win over this wildcard.
+# ----------------------------------------------------------------------------
+*.nxtdrive.io {
+        encode gzip zstd
+
+        tls {
+                dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+                resolvers 1.1.1.1
+        }
+
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options "nosniff"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                X-Frame-Options "SAMEORIGIN"
+                -Server
+        }
+
+        reverse_proxy 127.0.0.1:5001 {
+                header_up X-Forwarded-Proto {scheme}
+                header_up X-Forwarded-Host {host}
+                header_up X-Real-IP {remote_host}
+                flush_interval -1
+        }
+
+        log {
+                output file /var/log/caddy/wildcard.nxtdrive.io.log {
+                        roll_size 50mb
+                        roll_keep 5
+                }
+                format json
+        }
+}

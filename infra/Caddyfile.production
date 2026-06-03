@@ -49,42 +49,22 @@ nxtdrive.io {
 # Every driving school is reachable at its own subdomain WITHOUT a per-school
 # Caddy/DNS change. The app resolves the tenant from the host header
 # (lib/tenant/resolve-host.ts). TLS uses a single wildcard certificate obtained
-# via the Cloudflare DNS-01 challenge — this REQUIRES a Caddy build that
-# includes the cloudflare DNS plugin plus CLOUDFLARE_API_TOKEN in the service
-# environment. See docs/INFRA_ROADMAP.md. The explicit app./staging./nxtdrive.io
-# blocks above are more specific and always win over this wildcard.
+# via the Cloudflare DNS-01 challenge, which REQUIRES a Caddy build that includes
+# the cloudflare DNS plugin plus CLOUDFLARE_API_TOKEN in the service environment.
+#
+# Because that plugin is NOT present on a default Caddy install, the wildcard
+# site block lives in a SEPARATE opt-in file: `infra/Caddyfile.wildcard`. It is
+# intentionally not enabled by bootstrap.sh so `caddy validate` succeeds on a
+# fresh box. Enable it as a one-time post-step (see docs/INFRA_ROADMAP.md):
+#   sudo caddy add-package github.com/caddy-dns/cloudflare
+#   # set CLOUDFLARE_API_TOKEN in /etc/caddy/caddy.env
+#   sudo cp infra/Caddyfile.wildcard /etc/caddy/sites-enabled/wildcard
+#   sudo systemctl restart caddy
+#
+# Until enabled, tenant subdomains fall through to the custom-domain on-demand
+# catch-all below (whose ask endpoint returns 403 for *.nxtdrive.io, so no cert
+# is issued — provisioning never breaks).
 # ----------------------------------------------------------------------------
-*.nxtdrive.io {
-        encode gzip zstd
-
-        tls {
-                dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-                resolvers 1.1.1.1
-        }
-
-        header {
-                Strict-Transport-Security "max-age=31536000; includeSubDomains"
-                X-Content-Type-Options "nosniff"
-                Referrer-Policy "strict-origin-when-cross-origin"
-                X-Frame-Options "SAMEORIGIN"
-                -Server
-        }
-
-        reverse_proxy 127.0.0.1:5001 {
-                header_up X-Forwarded-Proto {scheme}
-                header_up X-Forwarded-Host {host}
-                header_up X-Real-IP {remote_host}
-                flush_interval -1
-        }
-
-        log {
-                output file /var/log/caddy/wildcard.nxtdrive.io.log {
-                        roll_size 50mb
-                        roll_keep 5
-                }
-                format json
-        }
-}
 
 # ----------------------------------------------------------------------------
 # Custom tenant domains (white-label) — e.g. rijschoolxyz.nl
