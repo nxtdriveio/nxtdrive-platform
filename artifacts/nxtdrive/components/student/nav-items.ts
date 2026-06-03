@@ -2,7 +2,7 @@ import {
   Home,
   CalendarDays,
   TrendingUp,
-  Wallet,
+  BookOpen,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -18,14 +18,16 @@ export type StudentNavItem = {
 /**
  * Single source of truth for the leerling-PWA hoofdnavigatie, shared by the
  * mobile bottom nav and the desktop sidebar so both always stay in sync.
- * Order = Home · Planning · Voortgang · Betalingen · Profiel.
+ * Order follows the PWA Canon: Home · Lessen · Voortgang · Theorie · Account.
+ * Betalingen is reachable from Home/quick-actions but is not a primary tab
+ * (canon lists it under "eventueel later").
  */
 export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student", label: "Home", icon: Home, exact: true },
-  { href: "/student/lessons", label: "Planning", icon: CalendarDays },
+  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
   { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
-  { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
-  { href: "/student/profile", label: "Profiel", icon: User },
+  { href: "/student/theorie", label: "Theorie", icon: BookOpen },
+  { href: "/student/profile", label: "Account", icon: User },
 ];
 
 /** Whether a nav item matches the current pathname. */

@@ -18,11 +18,13 @@
     "@supabase/supabase-js": "catalog:",
     "@workspace/leads-analysis": "workspace:*",
     "@workspace/leskaart": "workspace:*",
+    "framer-motion": "catalog:",
     "next": "catalog:",
     "openai": "^6.39.1",
     "pdf-lib": "^1.17.1",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "^2.15.4",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

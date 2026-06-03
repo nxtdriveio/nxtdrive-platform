@@ -52,7 +52,7 @@ catalogs:
       specifier: ^0.45.2
       version: 0.45.2
     framer-motion:
-      specifier: ^12.23.24
+      specifier: 12.38.0
       version: 12.38.0
     lucide-react:
       specifier: ^0.545.0
@@ -437,6 +437,9 @@ importers:
       '@workspace/leskaart':
         specifier: workspace:*
         version: link:../../lib/leskaart
+      framer-motion:
+        specifier: 'catalog:'
+        version: 12.38.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next:
         specifier: 'catalog:'
         version: 15.5.18(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -452,6 +455,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.1.0(react@19.1.0)
+      recharts:
+        specifier: ^2.15.4
+        version: 2.15.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       web-push:
         specifier: ^3.6.7
         version: 3.6.7

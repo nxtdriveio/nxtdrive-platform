@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { SkillRadar } from "@/components/charts/SkillRadar";
 import { StudentReadinessCard } from "@/components/skills/StudentReadinessCard";
 import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
 import { StudentTrendCard } from "@/components/skills/StudentTrendCard";
@@ -51,6 +52,25 @@ export default async function StudentVoortgangPage() {
       </div>
 
       <StudentReadinessCard readiness={readiness} />
+
+      {leskaart.categories.length >= 3 ? (
+        <Card>
+          <CardContent className="pt-5">
+            <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+              Vaardigheden in één oogopslag
+            </div>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Je gemiddelde score per onderdeel op de schaal 1–10.
+            </p>
+            <SkillRadar
+              data={leskaart.categories.map((c) => ({
+                label: c.label,
+                value: c.averageScore,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <StudentCategoryProgressCard categories={leskaart.categories} />
 

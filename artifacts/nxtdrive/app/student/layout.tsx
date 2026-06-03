@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
@@ -8,9 +10,27 @@ import { StudentBottomNav } from "@/components/student/BottomNav";
 import { StudentSidebarNav } from "@/components/student/SidebarNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { StudentSplash } from "@/components/pwa/StudentSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
+
+// Per-app PWA metadata (Task #177): the Leerling app links its OWN manifest
+// (not the generic /manifest.webmanifest) and apple-touch-icon, so installs on
+// iOS/Android use the student branding + portrait orientation. Overrides the
+// root layout's manifest/themeColor for everything under /student.
+export const metadata: Metadata = {
+  title: "NXTDRIVE Leerling",
+  manifest: "/student/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Leerling",
+  },
+  icons: { apple: "/icons/student-apple-180.png" },
+};
+
+export const viewport: Viewport = { themeColor: "#0F172A" };
 
 export default async function StudentLayout({
   children,
@@ -59,7 +79,9 @@ export default async function StudentLayout({
       <div className="flex flex-1">
         <StudentSidebarNav />
         <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-8">
-          <div className="mx-auto max-w-2xl lg:max-w-5xl">{children}</div>
+          <div className="mx-auto max-w-2xl lg:max-w-5xl">
+            <Suspense fallback={<StudentSplash />}>{children}</Suspense>
+          </div>
         </main>
       </div>
       <StudentBottomNav />
