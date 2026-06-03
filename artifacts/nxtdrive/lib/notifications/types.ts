@@ -54,3 +54,30 @@ export type DispatchOutcome =
   | "enqueue_failed"
   | "status_update_failed"
   | "not_paid";
+
+/**
+ * The in-app counterpart of a notification: what to show in the bell when the
+ * recipient is a logged-in user. Attached optionally to a dispatch so the same
+ * key event produces both an email and an in-app message without divergence.
+ */
+export type InAppContent = {
+  /** The auth user that should see this in their bell. Null = no in-app copy. */
+  recipientUserId: string | null;
+  title: string;
+  body: string;
+  /** In-app path to the relevant context (e.g. /student/facturen). */
+  link: string | null;
+};
+
+/** A single in-app notification as read back for the bell / overview. */
+export type InAppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  link: string | null;
+  relatedType: string | null;
+  relatedId: string | null;
+  readAt: string | null;
+  createdAt: string;
+};

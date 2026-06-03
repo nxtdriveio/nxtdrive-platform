@@ -25,8 +25,10 @@ import {
 } from "./templates";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
+import { dispatchInApp, formatWhenNL } from "./in-app";
 import type {
   DispatchOutcome,
+  InAppContent,
   NotificationType,
   RenderedEmail,
   TemplateOverride,
@@ -65,17 +67,42 @@ type DispatchParams = {
   email: RenderedEmail;
   fromName: string;
   payload: Record<string, unknown>;
+  /**
+   * Optional in-app copy of this notification. When present with a non-null
+   * recipientUserId, an in-app message is enqueued (idempotently) for that user
+   * in addition to the email. Leave undefined / null for lead-targeted events
+   * where the recipient has no account.
+   */
+  inApp?: InAppContent | null;
 };
 
 /**
  * Idempotently enqueue + attempt-send a single notification, recording the
  * delivery status. Safe to call repeatedly for the same dedupe_key: once a row
  * is 'sent' it is never re-sent.
+ *
+ * The in-app channel (when params.inApp is provided) is dispatched first and is
+ * fully independent of the email outcome: it is idempotent per (tenant, dedupe
+ * key) on its own table, never throws, and degrades to a no-op when there is no
+ * recipient user. So a retried call re-asserts the in-app message without
+ * double-notifying, even if the email was already sent.
  */
 async function dispatch(
   service: SupabaseClient,
   params: DispatchParams,
 ): Promise<{ outcome: DispatchOutcome }> {
+  if (params.inApp) {
+    await dispatchInApp(service, {
+      tenantId: params.tenantId,
+      type: params.type,
+      dedupeKey: params.dedupeKey,
+      relatedType: params.relatedType,
+      relatedId: params.relatedId,
+      payload: params.payload,
+      inApp: params.inApp,
+    });
+  }
+
   const { data, error } = await service.rpc("enqueue_notification", {
     p_tenant_id: params.tenantId,
     p_channel: "email",
@@ -201,7 +228,7 @@ export async function notifyInvoicePaid(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", invoice.student_id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -231,6 +258,12 @@ export async function notifyInvoicePaid(
     payload: {
       invoice_no: invoice.invoice_no,
       amount_cents: invoice.total_cents,
+    },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Betaling ontvangen",
+      body: `Je betaling voor factuur #${invoice.invoice_no} is verwerkt.`,
+      link: "/student/facturen",
     },
   });
 }
@@ -267,7 +300,7 @@ export async function notifyPaymentReminder(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", invoice.student_id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -306,6 +339,12 @@ export async function notifyPaymentReminder(
       amount_cents: invoice.total_cents,
       step_days: stepDays,
     },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Betalingsherinnering",
+      body: `Factuur #${invoice.invoice_no} staat nog open.`,
+      link: "/student/facturen",
+    },
   });
 }
 
@@ -328,7 +367,7 @@ export async function notifyLessonReminder(
 ): Promise<{ outcome: DispatchOutcome }> {
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", lesson.student_id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -353,6 +392,12 @@ export async function notifyLessonReminder(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: lesson.starts_at },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Herinnering: rijles",
+      body: `Je rijles staat gepland op ${formatWhenNL(lesson.starts_at)}.`,
+      link: "/student/lessons",
+    },
   });
 }
 
@@ -429,6 +474,12 @@ export async function notifyTaskAssigned(
     email,
     fromName: branding.tenantName,
     payload: { task_id: taskId, assignee_user_id: assigneeUserId },
+    inApp: {
+      recipientUserId: assigneeUserId,
+      title: "Nieuwe taak toegewezen",
+      body: (task.title as string | null) ?? "Er is een taak aan je toegewezen.",
+      link: "/backoffice/taken",
+    },
   });
 }
 
@@ -573,6 +624,7 @@ async function loadRefillInvitationForNotify(
 ): Promise<{
   studentEmail: string;
   studentName: string;
+  studentUserId: string | null;
   startsAt: string;
   location: string | null;
   instructorId: string | null;
@@ -590,7 +642,7 @@ async function loadRefillInvitationForNotify(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", inv.student_id as string)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -598,6 +650,7 @@ async function loadRefillInvitationForNotify(
   return {
     studentEmail: (student?.email as string | null) ?? "",
     studentName: (student?.full_name as string | null) ?? "cursist",
+    studentUserId: (student?.user_id as string | null) ?? null,
     startsAt: inv.starts_at as string,
     location: (inv.location as string | null) ?? null,
     instructorId: (inv.instructor_id as string | null) ?? null,
@@ -657,6 +710,12 @@ export async function notifyLessonRefillInvitation(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt },
+    inApp: {
+      recipientUserId: inv.studentUserId,
+      title: "Vrijgekomen lesmoment",
+      body: `Er is een rijles vrij op ${formatWhenNL(inv.startsAt)}. Reageer snel.`,
+      link: "/student/lessons",
+    },
   });
 }
 
@@ -698,6 +757,12 @@ export async function notifyLessonRefillConfirmed(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt },
+    inApp: {
+      recipientUserId: inv.studentUserId,
+      title: "Extra les bevestigd",
+      body: `Je extra rijles op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
+      link: "/student/lessons",
+    },
   });
 }
 
@@ -713,6 +778,7 @@ async function loadExamInvitationForNotify(
 ): Promise<{
   studentEmail: string;
   studentName: string;
+  studentUserId: string | null;
   examType: "exam" | "interim_test";
   startsAt: string;
   location: string | null;
@@ -737,7 +803,7 @@ async function loadExamInvitationForNotify(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", inv.student_id as string)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -745,6 +811,7 @@ async function loadExamInvitationForNotify(
   return {
     studentEmail: (student?.email as string | null) ?? "",
     studentName: (student?.full_name as string | null) ?? "cursist",
+    studentUserId: (student?.user_id as string | null) ?? null,
     examType: appt.type as "exam" | "interim_test",
     startsAt: appt.starts_at as string,
     location: (appt.location as string | null) ?? null,
@@ -792,6 +859,12 @@ export async function notifyExamInvitation(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt, exam_type: inv.examType },
+    inApp: {
+      recipientUserId: inv.studentUserId,
+      title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} aangeboden`,
+      body: `Er is een ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} beschikbaar op ${formatWhenNL(inv.startsAt)}.`,
+      link: "/student",
+    },
   });
 }
 
@@ -834,6 +907,12 @@ export async function notifyExamConfirmed(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: inv.startsAt, exam_type: inv.examType },
+    inApp: {
+      recipientUserId: inv.studentUserId,
+      title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} bevestigd`,
+      body: `Je ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
+      link: "/student",
+    },
   });
 }
 
@@ -867,7 +946,7 @@ export async function notifyExamPlanned(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -900,6 +979,12 @@ export async function notifyExamPlanned(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: appt.starts_at, exam_type: type },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: `${type === "exam" ? "Examen" : "Tussentijdse toets"} ingepland`,
+      body: `Er is een ${type === "exam" ? "examen" : "tussentijdse toets"} voor je ingepland op ${formatWhenNL(appt.starts_at as string)}.`,
+      link: "/student",
+    },
   });
 }
 
@@ -933,7 +1018,7 @@ export async function notifyExamResult(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -960,6 +1045,15 @@ export async function notifyExamResult(
     email,
     fromName: branding.tenantName,
     payload: { exam_type: type, result },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: result === "passed" ? "Gefeliciteerd, geslaagd!" : "Examenuitslag",
+      body:
+        result === "passed"
+          ? `Je bent geslaagd voor je ${type === "exam" ? "examen" : "tussentijdse toets"}.`
+          : `Helaas, je ${type === "exam" ? "examen" : "tussentijdse toets"} is niet gehaald. We plannen samen de volgende stap.`,
+      link: "/student",
+    },
   });
 }
 
@@ -1028,7 +1122,7 @@ export async function notifyLessonCancelled(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", lesson.student_id as string)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1061,6 +1155,16 @@ export async function notifyLessonCancelled(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: lesson.starts_at, status },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Rijles geannuleerd",
+      body: `Je rijles van ${formatWhenNL(lesson.starts_at as string)} is geannuleerd${
+        status === "cancelled_with_refund"
+          ? " — je tegoed is teruggestort"
+          : ""
+      }.`,
+      link: "/student/lessons",
+    },
   });
 }
 
@@ -1094,7 +1198,7 @@ export async function notifyInvoiceCreated(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", invoice.student_id as string)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1125,6 +1229,12 @@ export async function notifyInvoiceCreated(
       invoice_no: invoice.invoice_no,
       amount_cents: invoice.total_cents,
     },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Nieuwe factuur",
+      body: `Factuur #${invoice.invoice_no} staat voor je klaar.`,
+      link: "/student/facturen",
+    },
   });
 }
 
@@ -1141,7 +1251,7 @@ export async function notifyCbrAuthorizationNeeded(
 ): Promise<{ outcome: DispatchOutcome }> {
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1169,6 +1279,12 @@ export async function notifyCbrAuthorizationNeeded(
     email,
     fromName: branding.tenantName,
     payload: {},
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "CBR-machtiging nodig",
+      body: "Regel je CBR-machtiging zodat we je examen kunnen aanvragen.",
+      link: "/student",
+    },
   });
 }
 
@@ -1188,7 +1304,7 @@ export async function notifyCreditLow(
 ): Promise<{ outcome: DispatchOutcome }> {
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1215,6 +1331,12 @@ export async function notifyCreditLow(
     email,
     fromName: branding.tenantName,
     payload: { balance_minutes: balanceMinutes, topup_epoch: topupEpoch },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Lestegoed bijna op",
+      body: `Je hebt nog ${balanceMinutes} minuten lestegoed.`,
+      link: "/student/credits",
+    },
   });
 }
 
@@ -1248,7 +1370,7 @@ export async function notifyInstallmentDue(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", invoice.student_id as string)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1282,6 +1404,12 @@ export async function notifyInstallmentDue(
       amount_cents: invoice.total_cents,
       installment_no: invoice.installment_no,
     },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Termijn vervalt binnenkort",
+      body: `Termijnfactuur #${invoice.invoice_no} vervalt binnenkort.`,
+      link: "/student/facturen",
+    },
   });
 }
 
@@ -1311,7 +1439,7 @@ export async function notifyExamDayReminder(
 
   const { data: student } = await service
     .from("students")
-    .select("full_name, email")
+    .select("full_name, email, user_id")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -1344,5 +1472,11 @@ export async function notifyExamDayReminder(
     email,
     fromName: branding.tenantName,
     payload: { starts_at: appt.starts_at, exam_type: type },
+    inApp: {
+      recipientUserId: (student?.user_id as string | null) ?? null,
+      title: "Herinnering: examen",
+      body: `Je ${type === "exam" ? "examen" : "tussentijdse toets"} is op ${formatWhenNL(appt.starts_at as string)}. Succes!`,
+      link: "/student",
+    },
   });
 }

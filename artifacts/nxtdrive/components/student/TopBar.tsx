@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -10,10 +11,12 @@ export function StudentTopBar({
   tenantName,
   userLabel,
   logoUrl,
+  notifications,
 }: {
   tenantName: string;
   userLabel: string;
   logoUrl?: string | null;
+  notifications?: ReactNode;
 }) {
   const today = dateFmt.format(new Date());
   return (
@@ -31,8 +34,11 @@ export function StudentTopBar({
       <div className="hidden text-sm font-medium capitalize text-foreground md:block">
         {today}
       </div>
-      <div className="truncate text-xs text-muted-foreground">
-        {userLabel}
+      <div className="flex items-center gap-3">
+        <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+          {userLabel}
+        </span>
+        {notifications}
       </div>
     </header>
   );

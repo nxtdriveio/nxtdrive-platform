@@ -4,6 +4,8 @@ import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { BackofficeSidebar } from "@/components/backoffice/sidebar";
 import { BackofficeTopbar } from "@/components/backoffice/topbar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,7 @@ export default async function BackofficeLayout({
   const roleLabel = roles
     .map((r) => (r === "tenant_admin" ? "Beheerder" : "Instructeur"))
     .join(" + ");
+  const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   return (
     <BrandProvider
@@ -40,6 +43,9 @@ export default async function BackofficeLayout({
           userLabel={userLabel}
           roleLabel={roleLabel}
           theme={theme}
+          notifications={
+            <NotificationBell items={items} unreadCount={unreadCount} />
+          }
         />
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>

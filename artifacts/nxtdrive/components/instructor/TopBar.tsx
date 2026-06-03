@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ClipboardList, CalendarClock, ListTodo, Zap } from "lucide-react";
+import { ClipboardList, CalendarClock, ListTodo, Zap } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -13,10 +14,12 @@ export function InstructorTopBar({
   tenantName,
   userLabel,
   logoUrl,
+  notifications,
 }: {
   tenantName: string;
   userLabel: string;
   logoUrl?: string | null;
+  notifications?: ReactNode;
 }) {
   const today = dateFmt.format(new Date());
   return (
@@ -35,14 +38,7 @@ export function InstructorTopBar({
         {today}
       </div>
       <div className="flex items-center gap-2">
-        <Link
-          href="/backoffice/taken"
-          aria-label="Notificaties"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <Bell className="h-4 w-4" aria-hidden />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-        </Link>
+        {notifications}
         <Link
           href="/backoffice/taken"
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted"

@@ -1,4 +1,5 @@
-import { Bell, Search } from "lucide-react";
+import type { ReactNode } from "react";
+import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 
@@ -6,10 +7,12 @@ export function BackofficeTopbar({
   userLabel,
   roleLabel,
   theme,
+  notifications,
 }: {
   userLabel: string;
   roleLabel: string;
   theme: Theme;
+  notifications?: ReactNode;
 }) {
   const initials = userLabel
     .split(/[\s@.]+/)
@@ -33,14 +36,7 @@ export function BackofficeTopbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Meldingen"
-        >
-          <Bell className="h-4 w-4" aria-hidden />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-        </button>
+        {notifications}
 
         <ThemeToggle current={theme} />
 
