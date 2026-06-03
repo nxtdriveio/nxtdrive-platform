@@ -1,16 +1,10 @@
-import Link from "next/link";
-import { CalendarDays, GraduationCap } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { StudentLessonCard } from "@/components/student/LessonCard";
-import { StudentBalanceCard } from "@/components/student/BalanceCard";
-import { StudentReadinessCard } from "@/components/skills/StudentReadinessCard";
-import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
-import { StudentTrendCard } from "@/components/skills/StudentTrendCard";
-import { RecentPracticeCard } from "@/components/skills/RecentPracticeCard";
+import { NextLessonCard } from "@/components/student/NextLessonCard";
+import { CreditSummaryCard } from "@/components/student/CreditSummaryCard";
+import { QuickActions } from "@/components/student/QuickActions";
 import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
@@ -20,13 +14,6 @@ import { listOpenExamInvitationsForStudent } from "@/lib/exam-invitations/invita
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadStudentTheoryHomework } from "@/lib/theory/data";
 import { getInstructorNames } from "@/lib/students/instructor-names";
-import { loadStudentReadiness } from "@/lib/skills/readiness-data";
-import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
-import { loadStudentCbrSummary } from "@/lib/cbr/data";
-import { StudentCbrCard } from "@/components/student/StudentCbrCard";
-import { StudentExamResultCard } from "@/components/student/StudentExamResultCard";
-import { loadStudentExamPrep } from "@/lib/exam/data";
-import { ExamPrepCard } from "@/components/student/ExamPrepCard";
 import { ReferralInvite } from "@/components/student/referral-invite";
 import { ReviewRequestBanner } from "@/components/student/review-request-banner";
 import {
@@ -37,20 +24,9 @@ import {
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
 import type { Lesson } from "@/lib/lessons/types";
-import type { StudentBalance } from "@/lib/students/types";
+import type { StudentCreditBreakdown } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
-
-function startOfToday(): Date {
-  const x = new Date();
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function endOfWindow(days: number): Date {
-  const x = startOfToday();
-  x.setDate(x.getDate() + days);
-  return x;
-}
 
 export default async function StudentHomePage() {
   const { user, tenant, roles } = await requireActiveTenant([
@@ -82,8 +58,6 @@ export default async function StudentHomePage() {
 
   const supabase = await createServerSupabaseClient();
   const nowIso = new Date().toISOString();
-  const todayIso = startOfToday().toISOString();
-  const weekEndIso = endOfWindow(7).toISOString();
 
   // Volgende les: eerste geplande les ≥ nu.
   const { data: nextRaw } = await supabase
@@ -97,33 +71,16 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const nextLesson = (nextRaw as Lesson | null) ?? null;
 
-  // Komende 7 dagen: alle lessen vanaf vandaag tot +7 dagen.
-  const { data: upcomingRaw } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("student_id", student.id)
-    .gte("starts_at", todayIso)
-    .lt("starts_at", weekEndIso)
-    .order("starts_at", { ascending: true });
-  const upcoming = ((upcomingRaw ?? []) as Lesson[]).filter(
-    (l) => l.id !== nextLesson?.id,
-  );
-
-  const { data: balanceRow } = await supabase
-    .from("student_credit_balance")
-    .select("student_id, balance")
-    .eq("student_id", student.id)
-    .maybeSingle();
-  const balance = ((balanceRow as StudentBalance | null)?.balance ?? 0) as number;
-
-  const [readiness, leskaart, homework, refillInvitations, cbrSummary] =
-    await Promise.all([
-      loadStudentReadiness(supabase, tenant.id, student.id),
-      loadStudentLeskaart(supabase, tenant.id, student.id),
-      loadStudentTheoryHomework(supabase, tenant.id, student.id),
-      listOpenInvitationsForStudent(supabase, tenant.id, student.id),
-      loadStudentCbrSummary(supabase, tenant.id, student.id),
-    ]);
+  const [breakdownRes, homework, refillInvitations] = await Promise.all([
+    supabase
+      .from("student_credit_breakdown")
+      .select("*")
+      .eq("student_id", student.id)
+      .maybeSingle(),
+    loadStudentTheoryHomework(supabase, tenant.id, student.id),
+    listOpenInvitationsForStudent(supabase, tenant.id, student.id),
+  ]);
+  const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
 
   // Exam invitations: the exam appointment is not yet linked to the student, so
   // it is not RLS-readable by the student until they confirm. Ownership is
@@ -135,19 +92,9 @@ export default async function StudentHomePage() {
     student.id,
   );
 
-  // Examenvoorbereiding: alleen laden zodra er een examen gepland staat (de
-  // afgeleide CBR-status is de bron). RLS staat de leerling/voogd toe het eigen
-  // examenmoment, het detail en het tenant-beleid te lezen.
-  const examPrep =
-    cbrSummary.derived.examStatus === "examen_gepland" ||
-    cbrSummary.derived.examStatus === "toets_gepland"
-      ? await loadStudentExamPrep(supabase, tenant.id, student.id)
-      : null;
-
-  const instructorNames = await getInstructorNames([
-    ...(nextLesson ? [nextLesson.instructor_id] : []),
-    ...upcoming.map((l) => l.instructor_id),
-  ]);
+  const instructorNames = nextLesson
+    ? await getInstructorNames([nextLesson.instructor_id])
+    : new Map<string, string>();
 
   // Task #113 — persoonlijke referrallink (idempotent aangemaakt) + de ongelezen
   // reviewbanner. De referralcode loopt via de service-role RPC (actor = ingelogde
@@ -176,15 +123,18 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const reviewNotificationId = (reviewNotif?.id as string | undefined) ?? null;
 
+  const firstName = student.full_name.split(" ")[0];
+
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Hallo
-        </div>
         <h1 className="text-2xl font-semibold text-foreground">
-          {student.full_name.split(" ")[0]}
+          Welkom terug, {firstName}! 👋
         </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Hier vind je je volgende les, je tegoed en alles wat je snel wilt
+          regelen.
+        </p>
       </div>
 
       {reviewNotificationId ? (
@@ -198,69 +148,24 @@ export default async function StudentHomePage() {
 
       <ExamInvitations invitations={examInvitations} />
 
-      {nextLesson ? (
-        <Card className="border-primary/40 bg-primary-soft/40">
-          <CardContent className="space-y-3 pt-5">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
-              <CalendarDays className="h-4 w-4" aria-hidden />
-              Volgende les
-            </div>
-            <StudentLessonCard
-              lesson={nextLesson}
-              showDate
-              instructorName={instructorNames.get(nextLesson.instructor_id)}
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <CalendarDays className="h-4 w-4" aria-hidden />
-              Volgende les
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Er staat geen les gepland. Neem contact op met je rijschool om
-              een les in te plannen.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <NextLessonCard
+        lessonId={nextLesson?.id ?? null}
+        startsAt={nextLesson?.starts_at ?? null}
+        endsAt={nextLesson?.ends_at ?? null}
+        location={nextLesson?.location ?? null}
+        instructorName={
+          nextLesson ? (instructorNames.get(nextLesson.instructor_id) ?? null) : null
+        }
+      />
 
-      <StudentReadinessCard readiness={readiness} />
+      <CreditSummaryCard
+        availableMinutes={breakdown?.available_minutes ?? 0}
+        purchasedMinutes={breakdown?.purchased_minutes ?? 0}
+      />
 
-      {cbrSummary.derived.lastExamResult ? (
-        <StudentExamResultCard
-          result={cbrSummary.derived.lastExamResult}
-          examAt={cbrSummary.derived.lastExamAt}
-          studentName={student.full_name}
-          tenantName={tenant.name}
-          lastExamNote={cbrSummary.lastExamNote}
-          initialConsent={student.review_consent}
-        />
-      ) : null}
-
-      <StudentCbrCard summary={cbrSummary} />
-
-      {examPrep ? (
-        <ExamPrepCard
-          prep={examPrep}
-          preconditions={cbrSummary.preconditions}
-          balance={balance}
-        />
-      ) : null}
+      <QuickActions />
 
       <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
-
-      {leskaart.recent ? (
-        <RecentPracticeCard recent={leskaart.recent} />
-      ) : null}
-
-      <StudentCategoryProgressCard categories={leskaart.categories} />
-
-      <StudentTrendCard history={leskaart.history} />
-
-      <StudentBalanceCard balance={balance} />
 
       {referralUrl ? (
         <ReferralInvite
@@ -269,47 +174,6 @@ export default async function StudentHomePage() {
           summary={referralSummary}
         />
       ) : null}
-
-      <Card>
-        <CardContent className="space-y-3 pt-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <GraduationCap className="h-4 w-4" aria-hidden />
-              Komende lessen
-            </div>
-            <Link
-              href="/student/lessons"
-              className="text-xs text-primary hover:underline"
-            >
-              Alles bekijken
-            </Link>
-          </div>
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Geen andere geplande lessen.
-            </p>
-          ) : (
-            <ol className="space-y-2">
-              {upcoming.map((l) => (
-                <li key={l.id}>
-                  <StudentLessonCard
-                    lesson={l}
-                    showDate
-                    instructorName={instructorNames.get(l.instructor_id)}
-                  />
-                </li>
-              ))}
-            </ol>
-          )}
-          <Link
-            href="/student/lessons"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <CalendarDays className="h-4 w-4" aria-hidden />
-            Lessen overzicht
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   );
 }

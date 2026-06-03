@@ -3,6 +3,82 @@
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  loadCancellationPolicy,
+  DEFAULT_CANCELLATION_POLICY,
+} from "@/lib/lessons/cancellation-policy";
+import type { Lesson } from "@/lib/lessons/types";
+
+/**
+ * Lets a student (or guardian) cancel their OWN planned, future lesson. The
+ * staff `cancel_lesson` RPC only authorizes staff/platform-admin, so a separate
+ * `student_cancel_lesson` RPC (migration 0077) re-validates ownership against
+ * the acting user, enforces the tenant's `min_notice_hours`, applies the
+ * configurable refund tier and writes the ledger + audit rows. This action
+ * re-checks ownership/status and the notice window in app-code for a friendly
+ * message, then forwards the actor; the RPC remains the source of truth.
+ */
+export async function cancelLesson(
+  formData: FormData,
+): Promise<{ error?: string; refundedCredits?: number }> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const lessonId = String(formData.get("lesson_id") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!lessonId) return { error: "lesson_id ontbreekt" };
+
+  const { getActiveStudent } = await import("@/lib/students/access");
+  const { student } = await getActiveStudent(user, tenant.id, roles);
+  if (!student) return { error: "Geen toegang tot dit leerlingdossier." };
+
+  const service = createServiceRoleClient();
+  const { data: lessonRaw, error: loadErr } = await service
+    .from("lessons")
+    .select("*")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenant.id)
+    .eq("student_id", student.id)
+    .maybeSingle();
+  if (loadErr) return { error: loadErr.message };
+  const lesson = lessonRaw as Lesson | null;
+  if (!lesson) return { error: "Les niet gevonden." };
+  if (lesson.status !== "planned") {
+    return { error: "Deze les kan niet meer geannuleerd worden." };
+  }
+
+  const startsAt = new Date(lesson.starts_at).getTime();
+  // Future-only invariant: a lesson at/after its start time can never be
+  // self-cancelled, independent of the policy (incl. min_notice_hours = 0).
+  // The RPC enforces the same guard as the source of truth.
+  if (startsAt <= Date.now()) {
+    return {
+      error:
+        "Deze les is al begonnen of voorbij en kan niet meer geannuleerd worden.",
+    };
+  }
+  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
+  const policy = await loadCancellationPolicy(service, tenant.id);
+  const minNotice =
+    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
+  if (minNotice > 0 && hoursBefore < minNotice) {
+    return {
+      error: `Je kunt deze les niet meer zelf annuleren — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
+    };
+  }
+
+  const { data: refunded, error } = await service.rpc("student_cancel_lesson", {
+    p_lesson_id: lessonId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_reason: reason || "Geannuleerd door leerling",
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/student", "layout");
+  return { refundedCredits: typeof refunded === "number" ? refunded : 0 };
+}
 
 /**
  * Lets a student (or guardian) mark their own theory homework done or open

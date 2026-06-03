@@ -5,6 +5,7 @@ import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
+import { StudentSidebarNav } from "@/components/student/SidebarNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
@@ -55,9 +56,12 @@ export default async function StudentLayout({
         }
       />
       <ServiceWorkerRegister />
-      <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6">
-        <div className="mx-auto max-w-2xl">{children}</div>
-      </main>
+      <div className="flex flex-1">
+        <StudentSidebarNav />
+        <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-8">
+          <div className="mx-auto max-w-2xl lg:max-w-5xl">{children}</div>
+        </main>
+      </div>
       <StudentBottomNav />
     </BrandProvider>
   );

@@ -20,7 +20,13 @@ import {
   loadStudentLeskaart,
 } from "@/lib/skills/student-leskaart-data";
 import { loadLessonTheoryHomework } from "@/lib/theory/data";
-import { VEHICLE_TRANSMISSION_LABEL, type Lesson } from "@/lib/lessons/types";
+import { CancelLessonButton } from "@/components/student/CancelLessonButton";
+import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
+import {
+  VEHICLE_TRANSMISSION_LABEL,
+  refundPctForHours,
+  type Lesson,
+} from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +65,26 @@ export default async function StudentLessonDetailPage({
     loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
   ]);
   const instructorName = names.get(lesson.instructor_id);
+
+  // Student self-cancellation: only for a planned, future lesson. Refund preview
+  // mirrors the tenant policy tier the student_cancel_lesson RPC will apply, and
+  // canCancel reflects the configurable min-notice window (0 = no minimum).
+  const hoursBefore = Math.max(
+    0,
+    (new Date(lesson.starts_at).getTime() - Date.now()) / 3_600_000,
+  );
+  const isCancellable = lesson.status === "planned" && hoursBefore > 0;
+  const policy = isCancellable
+    ? await loadCancellationPolicy(supabase, tenant.id)
+    : null;
+  const refundPct = policy ? refundPctForHours(policy, hoursBefore) : 0;
+  const refundCredits = Math.max(
+    0,
+    Math.min(lesson.credits_cost, Math.round((lesson.credits_cost * refundPct) / 100)),
+  );
+  const canCancel = isCancellable
+    ? hoursBefore >= (policy?.min_notice_hours ?? 0)
+    : false;
 
   // Prev/next lesson in this student's chronological lesson list.
   const [prevRes, nextRes] = await Promise.all([
@@ -204,6 +230,17 @@ export default async function StudentLessonDetailPage({
             Je instructeur heeft nog geen toelichting gedeeld voor deze les.
           </CardContent>
         </Card>
+      ) : null}
+
+      {isCancellable ? (
+        <CancelLessonButton
+          lessonId={lesson.id}
+          lessonCredits={lesson.credits_cost}
+          refundCredits={refundCredits}
+          refundPct={refundPct}
+          canCancel={canCancel}
+          minNoticeHours={policy?.min_notice_hours ?? 0}
+        />
       ) : null}
 
       <LessonNavFooter
