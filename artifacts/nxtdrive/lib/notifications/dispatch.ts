@@ -16,6 +16,8 @@ import {
   renderExamResultFailed,
   renderIntakeReceived,
   renderLessonCancelled,
+  renderLessonRescheduled,
+  renderLessonRescheduledInstructor,
   renderInvoiceCreated,
   renderCbrAuthorizationNeeded,
   renderCreditLow,
@@ -1178,6 +1180,191 @@ export async function notifyLessonCancelled(
       link: "/student/lessons",
     },
   });
+}
+
+export type LessonRescheduledSummary = {
+  student: DispatchOutcome | "skipped";
+  instructor: DispatchOutcome | "skipped";
+  guardians: DispatchOutcome[];
+};
+
+/**
+ * Task #181 — meld een verzette geplande rijles. Wanneer een leerling/voogd een
+ * eigen geplande les via self-service naar een nieuw moment verplaatst
+ * (student_reschedule_lesson, 0085) wordt niemand vanzelf geïnformeerd. Deze
+ * orchestrator stuurt:
+ *   - een bevestiging (e-mail + in-app) naar de leerling;
+ *   - dezelfde bevestiging naar elke gekoppelde voogd (fan-out), maar alleen als
+ *     de rijschool de parent-portal sectie 'planning' zichtbaar laat (consistent
+ *     met de overige ouder-meldingen);
+ *   - een melding (e-mail + in-app) naar de toegewezen instructeur, zodat zijn
+ *     agenda klopt.
+ *
+ * De OUDE starttijd is na de RPC-update verloren, dus die wordt door de actie
+ * meegegeven (`previousStartsAt`); de NIEUWE tijd wordt uit de les-rij gelezen
+ * (single source of truth). Exact-één-keer per verzetting: de dedupe key bevat
+ * zowel de oude als de nieuwe starttijd, zodat een herhaalde dispatch nooit
+ * dubbel stuurt en een vólgende verzetting opnieuw precies één melding oplevert.
+ */
+export async function notifyLessonRescheduled(
+  service: SupabaseClient,
+  tenantId: string,
+  lessonId: string,
+  previousStartsAt: string,
+): Promise<LessonRescheduledSummary> {
+  const summary: LessonRescheduledSummary = {
+    student: "skipped",
+    instructor: "skipped",
+    guardians: [],
+  };
+
+  const { data: lesson } = await service
+    .from("lessons")
+    .select("id, status, starts_at, location, student_id, instructor_id")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!lesson || lesson.status !== "planned") return summary;
+
+  const newStartsAt = lesson.starts_at as string;
+  const location = (lesson.location as string | null) ?? null;
+  const studentId = lesson.student_id as string;
+  const instructorId = (lesson.instructor_id as string | null) ?? null;
+
+  // Stable, reschedule-specific suffix: a repeated dispatch for the SAME move is
+  // suppressed; a later move (different new time) re-arms a fresh notification.
+  const moveKey = `${previousStartsAt}->${newStartsAt}`;
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email, user_id")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const studentName = (student?.full_name as string | null) ?? "cursist";
+
+  const instructorName = await instructorNameFor(service, instructorId);
+  const branding = await loadEmailBranding(service, tenantId);
+
+  // --- 1. Confirmation to the student ------------------------------------
+  {
+    const override = await loadOverride(service, tenantId, "lesson_rescheduled");
+    const email = renderLessonRescheduled(
+      branding,
+      {
+        studentName,
+        previousStartsAt,
+        newStartsAt,
+        location,
+        instructorName,
+      },
+      override,
+    );
+    const { outcome } = await dispatch(service, {
+      tenantId,
+      type: "lesson_rescheduled",
+      recipientEmail: (student?.email as string | null) ?? "",
+      dedupeKey: `lesson_rescheduled:lesson:${lessonId}:${moveKey}`,
+      relatedType: "lesson",
+      relatedId: lessonId,
+      email,
+      fromName: branding.tenantName,
+      payload: { previous_starts_at: previousStartsAt, starts_at: newStartsAt },
+      inApp: {
+        recipientUserId: (student?.user_id as string | null) ?? null,
+        title: "Rijles verzet",
+        body: `Je rijles is verzet naar ${formatWhenNL(newStartsAt)}.`,
+        link: "/student/lessons",
+      },
+    });
+    summary.student = outcome;
+  }
+
+  // --- 2. Confirmation to every linked guardian (planning-gated) ---------
+  if (await parentSectionVisible(service, tenantId, "planning")) {
+    const guardians = await loadGuardiansForStudent(service, tenantId, studentId);
+    const override = await loadOverride(service, tenantId, "lesson_rescheduled");
+    for (const guardian of guardians) {
+      const email = renderLessonRescheduled(
+        branding,
+        {
+          studentName,
+          previousStartsAt,
+          newStartsAt,
+          location,
+          instructorName,
+        },
+        override,
+      );
+      const { outcome } = await dispatch(service, {
+        tenantId,
+        type: "lesson_rescheduled",
+        recipientEmail: guardian.email,
+        dedupeKey: `lesson_rescheduled:lesson:${lessonId}:${moveKey}:guardian:${guardian.userId}`,
+        relatedType: "lesson",
+        relatedId: lessonId,
+        email,
+        fromName: branding.tenantName,
+        payload: {
+          previous_starts_at: previousStartsAt,
+          starts_at: newStartsAt,
+          student_id: studentId,
+        },
+        inApp: {
+          recipientUserId: guardian.userId,
+          title: "Rijles verzet",
+          body: `De rijles van ${studentName} is verzet naar ${formatWhenNL(newStartsAt)}.`,
+          link: "/ouder",
+        },
+      });
+      summary.guardians.push(outcome);
+    }
+  }
+
+  // --- 3. Notify the assigned instructor ---------------------------------
+  if (instructorId) {
+    const { data: instructor } = await service
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", instructorId)
+      .maybeSingle();
+    const override = await loadOverride(
+      service,
+      tenantId,
+      "lesson_rescheduled_instructor",
+    );
+    const email = renderLessonRescheduledInstructor(
+      branding,
+      {
+        instructorName: (instructor?.full_name as string | null) ?? instructorName,
+        studentName,
+        previousStartsAt,
+        newStartsAt,
+        location,
+      },
+      override,
+    );
+    const { outcome } = await dispatch(service, {
+      tenantId,
+      type: "lesson_rescheduled_instructor",
+      recipientEmail: (instructor?.email as string | null) ?? "",
+      dedupeKey: `lesson_rescheduled_instructor:lesson:${lessonId}:${moveKey}`,
+      relatedType: "lesson",
+      relatedId: lessonId,
+      email,
+      fromName: branding.tenantName,
+      payload: { previous_starts_at: previousStartsAt, starts_at: newStartsAt },
+      inApp: {
+        recipientUserId: instructorId,
+        title: "Rijles verzet",
+        body: `${studentName} heeft een rijles verzet naar ${formatWhenNL(newStartsAt)}.`,
+        link: "/instructor/week",
+      },
+    });
+    summary.instructor = outcome;
+  }
+
+  return summary;
 }
 
 /**

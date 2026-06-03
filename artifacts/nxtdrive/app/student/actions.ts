@@ -148,6 +148,10 @@ export async function rescheduleLesson(
     };
   }
 
+  // Capture the OLD start time before the RPC overwrites the row — the
+  // notification needs the previous moment, which is gone after the update.
+  const previousStartsAt = lesson.starts_at;
+
   const { error } = await service.rpc("student_reschedule_lesson", {
     p_lesson_id: lessonId,
     p_tenant_id: tenant.id,
@@ -163,6 +167,14 @@ export async function rescheduleLesson(
     }
     return { error: error.message };
   }
+
+  // Notify the assigned instructor (their agenda changed) and confirm to the
+  // student/guardian. Idempotent per reschedule (dedupe key embeds old+new
+  // time); never blocks the reschedule itself.
+  const { notifyLessonRescheduled } = await import(
+    "@/lib/notifications/dispatch"
+  );
+  await notifyLessonRescheduled(service, tenant.id, lessonId, previousStartsAt);
 
   revalidatePath("/student", "layout");
   return { ok: true, newStartsAt: newStarts.toISOString() };

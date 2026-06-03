@@ -840,6 +840,124 @@ export function renderLessonCancelled(
   );
 }
 
+export type LessonRescheduledData = {
+  studentName: string;
+  previousStartsAt: string | Date;
+  newStartsAt: string | Date;
+  location: string | null;
+  instructorName: string | null;
+};
+
+/**
+ * Les verzet (leerling/voogd-bevestiging) — meldt dat een geplande rijles naar
+ * een nieuw moment is verplaatst, met de oude én nieuwe tijd. Verstuurd vanuit
+ * de self-service verzet-actie (student_reschedule_lesson).
+ */
+export function renderLessonRescheduled(
+  branding: EmailBranding,
+  data: LessonRescheduledData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const previousWhen = formatDateTimeNl(data.previousStartsAt);
+  const newWhen = formatDateTimeNl(data.newStartsAt);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    previous_lesson_time: previousWhen,
+    new_lesson_time: newWhen,
+    location: data.location ?? "",
+    instructor_name: data.instructorName ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const instructorLine = data.instructorName
+    ? `<p>Instructeur: <strong>${escapeHtml(data.instructorName)}</strong></p>`
+    : "";
+  const subject = `Je rijles is verzet naar ${newWhen}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je rijles is verzet. Het oude moment van <strong>${escapeHtml(previousWhen)}</strong> komt te vervallen.</p>
+    <p>Je nieuwe lesmoment is: <strong>${escapeHtml(newWhen)}</strong>.</p>
+    ${locationLine}
+    ${instructorLine}
+    <p>Je lestegoed blijft ongewijzigd. Tot dan!</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je rijles is verzet. Het oude moment van ${previousWhen} komt te vervallen.\n` +
+    `Je nieuwe lesmoment is: ${newWhen}.\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    (data.instructorName ? `Instructeur: ${data.instructorName}\n` : "") +
+    `\nJe lestegoed blijft ongewijzigd. Tot dan!\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
+export type LessonRescheduledInstructorData = {
+  instructorName: string | null;
+  studentName: string;
+  previousStartsAt: string | Date;
+  newStartsAt: string | Date;
+  location: string | null;
+};
+
+/**
+ * Les verzet (instructeur-melding) — laat de toegewezen instructeur weten dat
+ * een leerling/voogd een geplande rijles naar een nieuw moment heeft verplaatst,
+ * zodat de agenda klopt. Bevat de oude én nieuwe tijd en de leerlingnaam.
+ */
+export function renderLessonRescheduledInstructor(
+  branding: EmailBranding,
+  data: LessonRescheduledInstructorData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const previousWhen = formatDateTimeNl(data.previousStartsAt);
+  const newWhen = formatDateTimeNl(data.newStartsAt);
+  const instructorName = data.instructorName ?? "instructeur";
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    instructor_name: instructorName,
+    student_name: data.studentName,
+    previous_lesson_time: previousWhen,
+    new_lesson_time: newWhen,
+    location: data.location ?? "",
+  };
+
+  const locationLine = data.location
+    ? `<p>Locatie: <strong>${escapeHtml(data.location)}</strong></p>`
+    : "";
+  const subject = `Rijles van ${data.studentName} verzet naar ${newWhen}`;
+  const inner = `
+    <p>Beste ${escapeHtml(instructorName)},</p>
+    <p><strong>${escapeHtml(data.studentName)}</strong> heeft een geplande rijles verzet.</p>
+    <p>Oud moment (vervalt): <strong>${escapeHtml(previousWhen)}</strong></p>
+    <p>Nieuw moment: <strong>${escapeHtml(newWhen)}</strong></p>
+    ${locationLine}
+    <p>Je agenda is bijgewerkt.</p>`;
+  const text =
+    `Beste ${instructorName},\n\n` +
+    `${data.studentName} heeft een geplande rijles verzet.\n` +
+    `Oud moment (vervalt): ${previousWhen}\n` +
+    `Nieuw moment: ${newWhen}\n` +
+    (data.location ? `Locatie: ${data.location}\n` : "") +
+    `\nJe agenda is bijgewerkt.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type InvoiceCreatedData = {
   studentName: string;
   invoiceNo: number;

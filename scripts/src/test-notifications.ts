@@ -400,6 +400,9 @@ async function main(): Promise<void> {
       { type: "credit_low", related: "student" },
       { type: "installment_due", related: "invoice" },
       { type: "exam_day_reminder", related: "agenda_appointment" },
+      // Task #181 — verzette geplande rijles (leerling/voogd + instructeur).
+      { type: "lesson_rescheduled", related: "lesson" },
+      { type: "lesson_rescheduled_instructor", related: "lesson" },
     ] as const;
     for (const { type, related } of newTypes) {
       const key = `${type}:test:${stamp}`;

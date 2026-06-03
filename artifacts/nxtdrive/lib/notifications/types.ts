@@ -22,7 +22,9 @@ export type NotificationType =
   | "review_request"
   | "chat_message"
   | "parent_invoice_ready"
-  | "parent_lesson_scheduled";
+  | "parent_lesson_scheduled"
+  | "lesson_rescheduled"
+  | "lesson_rescheduled_instructor";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 
