@@ -26,6 +26,12 @@ import {
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
+import {
+  PAYMENT_RECORD_COLUMNS,
+  paymentMethodLabel,
+  paymentRecordDate,
+  type PaymentRecord,
+} from "@/lib/invoices/payments";
 import { formatTegoed, type Student } from "@/lib/students/types";
 import {
   INSTALLMENT_CREDIT_MODE_LABEL,
@@ -145,6 +151,18 @@ export default async function InvoiceDetailPage({
     supabase,
     tenant.id,
     invoice,
+  );
+
+  // Payment history — admins + instructors can read payment_records via RLS.
+  const { data: paymentsRaw } = await supabase
+    .from("payment_records")
+    .select(PAYMENT_RECORD_COLUMNS)
+    .eq("invoice_id", invoice.id)
+    .eq("tenant_id", tenant.id);
+  const payments = ((paymentsRaw ?? []) as PaymentRecord[]).sort(
+    (a, b) =>
+      new Date(paymentRecordDate(a)).getTime() -
+      new Date(paymentRecordDate(b)).getTime(),
   );
 
   const display = displayStatus(invoice);
@@ -447,6 +465,71 @@ export default async function InvoiceDetailPage({
               </dl>
             </CardContent>
           </Card>
+
+          {!isCreditNote && payments.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Betalingen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-sm">
+                  <thead className="text-left text-muted-foreground">
+                    <tr>
+                      <th className="py-2 font-medium">Datum</th>
+                      <th className="py-2 font-medium">Methode</th>
+                      <th className="py-2 font-medium text-right">Bedrag</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {payments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="py-2 align-top text-muted-foreground">
+                          {dtFmt.format(new Date(paymentRecordDate(p)))}
+                        </td>
+                        <td className="py-2 align-top text-foreground">
+                          {paymentMethodLabel(p)}
+                          {p.provider === "mollie" && p.mollie_status ? (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({p.mollie_status})
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="py-2 text-right align-top font-medium text-foreground">
+                          {formatEuros(p.amount_cents)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t border-border">
+                    <tr>
+                      <td
+                        colSpan={2}
+                        className="py-2 text-right text-muted-foreground"
+                      >
+                        Totaal betaald
+                      </td>
+                      <td className="py-2 text-right font-semibold text-foreground">
+                        {formatEuros(invoice.amount_paid_cents)}
+                      </td>
+                    </tr>
+                    {remaining > 0 ? (
+                      <tr>
+                        <td
+                          colSpan={2}
+                          className="py-2 text-right text-muted-foreground"
+                        >
+                          Resterend
+                        </td>
+                        <td className="py-2 text-right font-medium text-foreground">
+                          {formatEuros(remaining)}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tfoot>
+                </table>
+              </CardContent>
+            </Card>
+          ) : null}
 
           {installmentCredit ? (
             <Card>

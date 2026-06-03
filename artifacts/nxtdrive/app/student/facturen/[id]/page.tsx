@@ -18,6 +18,12 @@ import {
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
+import {
+  PAYMENT_RECORD_COLUMNS,
+  paymentMethodLabel,
+  paymentRecordDate,
+  type PaymentRecord,
+} from "@/lib/invoices/payments";
 import { payStudentInvoice } from "../payment-actions";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +32,13 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+});
+const dtFmt = new Intl.DateTimeFormat("nl-NL", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 export default async function StudentInvoiceDetailPage({
@@ -73,6 +86,25 @@ export default async function StudentInvoiceDetailPage({
   const display = displayStatus(invoice);
   const remaining = remainingCents(invoice);
   const isPayable = invoice.status === "open" && invoice.kind === "invoice";
+
+  // Payment history. payment_records is staff-only by RLS, so we read it with
+  // the service-role client — safe because we've already verified above that
+  // this invoice belongs to the active student (eq("student_id", student.id)).
+  const payments =
+    invoice.kind === "invoice"
+      ? await (async () => {
+          const { data } = await createServiceRoleClient()
+            .from("payment_records")
+            .select(PAYMENT_RECORD_COLUMNS)
+            .eq("invoice_id", invoice.id)
+            .eq("tenant_id", tenant.id);
+          return ((data ?? []) as PaymentRecord[]).sort(
+            (a, b) =>
+              new Date(paymentRecordDate(a)).getTime() -
+              new Date(paymentRecordDate(b)).getTime(),
+          );
+        })()
+      : [];
 
   // Mollie can be paid online only when the tenant has configured an API key.
   const mollieStatus = isPayable
@@ -158,6 +190,35 @@ export default async function StudentInvoiceDetailPage({
                 {formatEuros(remaining)}
               </span>
             </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {payments.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-3 pt-5">
+            <h2 className="text-sm font-semibold text-foreground">
+              Jouw betalingen
+            </h2>
+            <ul className="divide-y divide-border">
+              {payments.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium text-foreground">
+                      {formatEuros(p.amount_cents)}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {dtFmt.format(new Date(paymentRecordDate(p)))} ·{" "}
+                      {paymentMethodLabel(p, { plain: true })}
+                    </span>
+                  </span>
+                  <Badge variant="success">Voldaan</Badge>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       ) : null}
