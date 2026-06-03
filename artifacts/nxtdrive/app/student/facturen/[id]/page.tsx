@@ -25,6 +25,8 @@ import {
   type PaymentRecord,
 } from "@/lib/invoices/payments";
 import { payStudentInvoice } from "../payment-actions";
+import { PaymentStatusBanner } from "./payment-status-banner";
+import { derivePaymentReturnStatus } from "@/lib/invoices/payment-return";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,7 @@ export default async function StudentInvoiceDetailPage({
     string | string[] | undefined
   >;
   const payError = typeof sp.pay_error === "string" ? sp.pay_error : null;
+  const justPaid = sp.paid === "1";
   const { user, tenant, roles } = await requireActiveTenant([
     "student",
     "parent",
@@ -85,6 +88,19 @@ export default async function StudentInvoiceDetailPage({
   const lines = (linesRes.data ?? []) as InvoiceLine[];
   const display = displayStatus(invoice);
   const remaining = remainingCents(invoice);
+
+  // Post-Mollie return feedback. Mollie redirects back with `?paid=1` whatever
+  // the outcome, and the confirming webhook can land a moment later — so derive
+  // a clear status: settled, still-processing, or failed/cancelled.
+  const paymentReturnStatus = derivePaymentReturnStatus({
+    justPaid,
+    kind: invoice.kind,
+    status: invoice.status,
+    mollieStatus: invoice.mollie_status ?? null,
+    remainingCents: remaining,
+  });
+  const paymentProcessing = paymentReturnStatus === "pending";
+
   const isPayable = invoice.status === "open" && invoice.kind === "invoice";
 
   // Payment history. payment_records is staff-only by RLS, so we read it with
@@ -110,7 +126,8 @@ export default async function StudentInvoiceDetailPage({
   const mollieStatus = isPayable
     ? await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id)
     : { configured: false };
-  const canPayOnline = isPayable && remaining > 0 && mollieStatus.configured;
+  const canPayOnline =
+    isPayable && remaining > 0 && mollieStatus.configured && !paymentProcessing;
 
   const payErrorLabels: Record<string, string> = {
     no_api_key: "Online betalen is nog niet beschikbaar voor deze rijschool.",
@@ -152,6 +169,10 @@ export default async function StudentInvoiceDetailPage({
           </Badge>
         </div>
       </div>
+
+      {paymentReturnStatus ? (
+        <PaymentStatusBanner status={paymentReturnStatus} />
+      ) : null}
 
       {payErrorMsg ? (
         <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">

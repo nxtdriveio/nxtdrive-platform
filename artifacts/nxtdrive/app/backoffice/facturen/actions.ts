@@ -14,6 +14,7 @@ import {
   notifyInvoicePaid,
   notifyInvoiceCreated,
   notifyParentsInvoiceReady,
+  notifyParentsInvoicePaid,
 } from "@/lib/notifications/dispatch";
 
 function isValidStatus(s: string): s is InvoiceStatus {
@@ -345,6 +346,11 @@ export async function recordInvoicePayment(formData: FormData) {
     } catch (err) {
       console.error("[facturen] notifyInvoicePaid failed", err);
     }
+    try {
+      await notifyParentsInvoicePaid(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyParentsInvoicePaid failed", err);
+    }
   }
 
   revalidatePath(`/backoffice/facturen/${invoiceId}`);
@@ -376,6 +382,11 @@ export async function setInvoiceStatus(formData: FormData) {
       await notifyInvoicePaid(service, tenant.id, invoiceId);
     } catch (err) {
       console.error("[facturen] notifyInvoicePaid failed", err);
+    }
+    try {
+      await notifyParentsInvoicePaid(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyParentsInvoicePaid failed", err);
     }
   } else if (status === "open") {
     // Task #107 — meld de leerling dat een nieuwe factuur klaarstaat. Best-effort

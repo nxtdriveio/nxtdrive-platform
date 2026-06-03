@@ -25,6 +25,7 @@ import {
   renderExamDayReminder,
   renderReviewRequest,
   renderParentInvoiceReady,
+  renderParentInvoicePaid,
   renderParentLessonScheduled,
   type LessonReminderData,
 } from "./templates";
@@ -2076,6 +2077,91 @@ export async function notifyParentsInvoiceReady(
         recipientUserId: guardian.userId,
         title: "Nieuwe factuur",
         body: `Er staat een nieuwe factuur klaar voor ${childName} (#${invoice.invoice_no}).`,
+        link: "/ouder",
+      },
+    });
+    outcomes.push(outcome);
+  }
+
+  return { outcome: "dispatched", guardians: guardians.length, outcomes };
+}
+
+/**
+ * Notify all linked guardians that their child's invoice has been paid. The
+ * student already receives payment_confirmation via notifyInvoicePaid; this is
+ * the parent-facing counterpart so a guardian who paid (or wants reassurance)
+ * gets the same confirmation. No-op (skipped) when the invoice is not actually
+ * paid, the tenant hid the 'betalingen' section, or the child has no guardians.
+ * Idempotent per (invoice, guardian): the dedupe key embeds the guardian user
+ * id, so webhook replays and re-recorded payments never double-send.
+ */
+export async function notifyParentsInvoicePaid(
+  service: SupabaseClient,
+  tenantId: string,
+  invoiceId: string,
+): Promise<ParentNotifySummary> {
+  const { data: invoice } = await service
+    .from("invoices")
+    .select("id, status, invoice_no, total_cents, paid_at, student_id")
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!invoice || invoice.status !== "paid") {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  if (!(await parentSectionVisible(service, tenantId, "betalingen"))) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const studentId = invoice.student_id as string;
+  const guardians = await loadGuardiansForStudent(service, tenantId, studentId);
+  if (guardians.length === 0) {
+    return { outcome: "skipped", guardians: 0, outcomes: [] };
+  }
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const childName = (student?.full_name as string | null) ?? "uw kind";
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "parent_invoice_paid");
+
+  const outcomes: DispatchOutcome[] = [];
+  for (const guardian of guardians) {
+    const email = renderParentInvoicePaid(
+      branding,
+      {
+        guardianName: guardian.name,
+        childName,
+        invoiceNo: invoice.invoice_no as number,
+        amountCents: invoice.total_cents as number,
+        paidAt: (invoice.paid_at as string | null) ?? null,
+      },
+      override,
+    );
+    const { outcome } = await dispatch(service, {
+      tenantId,
+      type: "parent_invoice_paid",
+      recipientEmail: guardian.email,
+      dedupeKey: `parent_invoice_paid:invoice:${invoiceId}:guardian:${guardian.userId}`,
+      relatedType: "invoice",
+      relatedId: invoiceId,
+      email,
+      fromName: branding.tenantName,
+      payload: {
+        invoice_no: invoice.invoice_no,
+        amount_cents: invoice.total_cents,
+        student_id: studentId,
+      },
+      inApp: {
+        recipientUserId: guardian.userId,
+        title: "Betaling ontvangen",
+        body: `De betaling voor factuur #${invoice.invoice_no} van ${childName} is verwerkt.`,
         link: "/ouder",
       },
     });

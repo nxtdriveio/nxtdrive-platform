@@ -16,7 +16,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKey } from "@/lib/mollie/secrets";
 import { getPayment, mollieAmountToCents } from "@/lib/mollie/client";
-import { notifyInvoicePaid } from "@/lib/notifications/dispatch";
+import {
+  notifyInvoicePaid,
+  notifyParentsInvoicePaid,
+} from "@/lib/notifications/dispatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,6 +139,14 @@ export async function POST(
     await notifyInvoicePaid(service, tenantId, metaInvoice);
   } catch (err) {
     console.error("[mollie webhook] notifyInvoicePaid failed", err);
+  }
+  // Parent-facing counterpart: notify linked guardians the invoice is paid.
+  // Idempotent per (invoice, guardian) and gated on the 'betalingen' portal
+  // section, so retries never double-send.
+  try {
+    await notifyParentsInvoicePaid(service, tenantId, metaInvoice);
+  } catch (err) {
+    console.error("[mollie webhook] notifyParentsInvoicePaid failed", err);
   }
 
   return new NextResponse("ok", { status: 200 });

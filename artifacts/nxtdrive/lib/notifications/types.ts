@@ -22,6 +22,7 @@ export type NotificationType =
   | "review_request"
   | "chat_message"
   | "parent_invoice_ready"
+  | "parent_invoice_paid"
   | "parent_lesson_scheduled"
   | "lesson_rescheduled"
   | "lesson_rescheduled_instructor";

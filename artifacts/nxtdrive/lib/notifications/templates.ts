@@ -1350,6 +1350,55 @@ export function renderParentInvoiceReady(
   );
 }
 
+export type ParentInvoicePaidData = {
+  /** Naam van de ouder/voogd (valt terug op "ouder/verzorger"). */
+  guardianName: string;
+  /** Naam van het kind/leerling. */
+  childName: string;
+  invoiceNo: number;
+  amountCents: number;
+  paidAt: string | null;
+};
+
+/**
+ * Factuur betaald — meldt de ouder/voogd dat de factuur van hun kind is
+ * voldaan. Geen actie meer nodig; verwijst naar het ouderportaal voor de
+ * betaalhistorie.
+ */
+export function renderParentInvoicePaid(
+  branding: EmailBranding,
+  data: ParentInvoicePaidData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const amount = formatEuro(data.amountCents);
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    guardian_name: data.guardianName,
+    child_name: data.childName,
+    invoice_no: String(data.invoiceNo),
+    amount,
+    paid_at: formatDateTimeNl(data.paidAt),
+  };
+
+  const subject = `Betaling ontvangen — factuur ${data.invoiceNo} van ${data.childName}`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.guardianName)},</p>
+    <p>We hebben de betaling van <strong>${escapeHtml(amount)}</strong> voor factuur <strong>#${escapeHtml(String(data.invoiceNo))}</strong> van <strong>${escapeHtml(data.childName)}</strong> in goede orde ontvangen. Hartelijk dank!</p>
+    <p>U hoeft verder niets te doen — dit bericht dient als bevestiging. De betaalhistorie vindt u terug in het ouderportaal.</p>`;
+  const text =
+    `Beste ${data.guardianName},\n\n` +
+    `We hebben de betaling van ${amount} voor factuur #${data.invoiceNo} van ${data.childName} in goede orde ontvangen. Hartelijk dank!\n\n` +
+    `U hoeft verder niets te doen — dit bericht dient als bevestiging. De betaalhistorie vindt u terug in het ouderportaal.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}
+
 export type ParentLessonScheduledData = {
   /** Naam van de ouder/voogd (valt terug op "ouder/verzorger"). */
   guardianName: string;
