@@ -64,6 +64,8 @@ import { formatEuros, type Package } from "@/lib/packages/types";
 import { formatTegoed } from "@/lib/students/types";
 import { TrialLessonSection } from "./trial-lesson-section";
 import { IntakeTaskButtons } from "./intake-task-buttons";
+import { WhatsAppButton } from "@/components/whatsapp-button";
+import { leadWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
 import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 import { getTrialNeighbours } from "@/lib/trial-lessons/neighbours";
@@ -338,6 +340,10 @@ export default async function LeadDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <WhatsAppButton
+            phone={lead.phone}
+            message={leadWhatsAppMessage(lead.full_name, tenant.name)}
+          />
           <CreateTaskFromEntityButton
             entityType="lead"
             entityId={lead.id}

@@ -49,6 +49,8 @@ import {
   STUDENT_DAYPARTS,
   STUDENT_DAYPART_LABEL,
 } from "@/lib/availability/types";
+import { WhatsAppButton } from "@/components/whatsapp-button";
+import { studentWhatsAppMessage } from "@/lib/notifications/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +174,10 @@ export default async function StudentDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <WhatsAppButton
+            phone={student.phone}
+            message={studentWhatsAppMessage(student.full_name, tenant.name)}
+          />
           <CreateTaskFromEntityButton
             entityType="student"
             entityId={student.id}
