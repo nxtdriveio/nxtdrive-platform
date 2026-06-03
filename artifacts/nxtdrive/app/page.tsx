@@ -1,7 +1,26 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  // Host-based tenant resolution (Task #201). When the request arrives on a
+  // tenant subdomain (`<slug>.nxtdrive.io`) or a *verified* custom domain, the
+  // root serves that tenant's public intake instead of the platform marketing
+  // page. Resolution is purely additive: any unknown/platform host (or a lookup
+  // error) returns null and falls through to the platform landing below.
+  const headerList = await headers();
+  const host =
+    headerList.get("x-forwarded-host") ?? headerList.get("host") ?? null;
+  const tenant = await resolveTenantByHost(createServiceRoleClient(), host);
+  if (tenant) {
+    redirect(`/intake/${tenant.slug}`);
+  }
+
   return (
     <main className="bg-nxt-grid relative min-h-screen overflow-hidden">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center px-6 py-12 text-center">

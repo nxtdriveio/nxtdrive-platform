@@ -42,3 +42,87 @@ nxtdrive.io {
         header Strict-Transport-Security "max-age=31536000; includeSubDomains"
         redir https://rijschool.nxtdrive.io{uri} permanent
 }
+
+# ----------------------------------------------------------------------------
+# Wildcard tenant subdomains — <school>.nxtdrive.io
+#
+# Every driving school is reachable at its own subdomain WITHOUT a per-school
+# Caddy/DNS change. The app resolves the tenant from the host header
+# (lib/tenant/resolve-host.ts). TLS uses a single wildcard certificate obtained
+# via the Cloudflare DNS-01 challenge — this REQUIRES a Caddy build that
+# includes the cloudflare DNS plugin plus CLOUDFLARE_API_TOKEN in the service
+# environment. See docs/INFRA_ROADMAP.md. The explicit app./staging./nxtdrive.io
+# blocks above are more specific and always win over this wildcard.
+# ----------------------------------------------------------------------------
+*.nxtdrive.io {
+        encode gzip zstd
+
+        tls {
+                dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+                resolvers 1.1.1.1
+        }
+
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options "nosniff"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                X-Frame-Options "SAMEORIGIN"
+                -Server
+        }
+
+        reverse_proxy 127.0.0.1:5001 {
+                header_up X-Forwarded-Proto {scheme}
+                header_up X-Forwarded-Host {host}
+                header_up X-Real-IP {remote_host}
+                flush_interval -1
+        }
+
+        log {
+                output file /var/log/caddy/wildcard.nxtdrive.io.log {
+                        roll_size 50mb
+                        roll_keep 5
+                }
+                format json
+        }
+}
+
+# ----------------------------------------------------------------------------
+# Custom tenant domains (white-label) — e.g. rijschoolxyz.nl
+#
+# Caddy serves ANY other HTTPS host here using on-demand TLS: before issuing a
+# certificate it asks the app (on_demand_tls { ask ... } in /etc/caddy/Caddyfile)
+# whether the host is a verified custom domain (tenant_domains.status='active').
+# This catch-all is the least specific block, so it only handles hosts not
+# matched above. Unverified/unknown hosts are rejected by the ask endpoint and
+# never get a cert.
+# ----------------------------------------------------------------------------
+https:// {
+        encode gzip zstd
+
+        tls {
+                on_demand
+        }
+
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options "nosniff"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                X-Frame-Options "SAMEORIGIN"
+                -Server
+        }
+
+        reverse_proxy 127.0.0.1:5001 {
+                header_up X-Forwarded-Proto {scheme}
+                header_up X-Forwarded-Host {host}
+                header_up X-Real-IP {remote_host}
+                flush_interval -1
+        }
+
+        log {
+                output file /var/log/caddy/custom-domains.log {
+                        roll_size 50mb
+                        roll_keep 5
+                }
+                format json
+        }
+}

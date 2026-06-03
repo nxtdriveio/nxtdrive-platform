@@ -22,6 +22,7 @@
     "db:test-rls-agenda": "tsx ./src/test-rls-agenda.ts",
     "db:test-rls-cbr": "tsx ./src/test-rls-cbr.ts",
     "db:test-rls-messages": "tsx ./src/test-rls-messages.ts",
+    "db:test-rls-tenant-domains": "tsx ./src/test-rls-tenant-domains.ts",
     "db:test-rls-reviews": "tsx ./src/test-rls-reviews.ts",
     "db:test-rls-instructor": "tsx ./src/test-rls-instructor.ts",
     "db:test-rls-availability": "tsx ./src/test-rls-availability.ts",

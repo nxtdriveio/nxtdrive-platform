@@ -33,6 +33,12 @@ import { ReviewMomentsManager } from "./review-moments-manager";
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { ContactPhoneManager } from "./contact-phone-manager";
 import { loadContactPhone } from "@/lib/tenant/contact-phone";
+import { DomainsManager, type DomainView } from "./domains-manager";
+import {
+  loadTenantDomains,
+  trafficRecords,
+  verificationRecord,
+} from "@/lib/tenant/domains";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +97,13 @@ export default async function SettingsPage({
     tenant.id,
   );
   const contactPhone = await loadContactPhone(service, tenant.id);
+
+  const tenantDomains = await loadTenantDomains(service, tenant.id);
+  const domainViews: DomainView[] = tenantDomains.map((d) => ({
+    ...d,
+    verifyRecord: verificationRecord(d),
+    trafficRecords: trafficRecords(d.hostname),
+  }));
 
   return (
     <div className="space-y-6">
@@ -286,6 +299,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <ContactPhoneManager phone={contactPhone} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Domeinen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DomainsManager domains={domainViews} />
         </CardContent>
       </Card>
     </div>

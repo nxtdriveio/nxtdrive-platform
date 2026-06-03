@@ -149,11 +149,43 @@ mkdir -p /etc/caddy/sites-enabled
 cp "$WORK_DIR/infra/Caddyfile.staging"    /etc/caddy/sites-enabled/staging
 cp "$WORK_DIR/infra/Caddyfile.production" /etc/caddy/sites-enabled/production
 
+# Caddy environment file — holds CLOUDFLARE_API_TOKEN for the wildcard DNS-01
+# challenge (*.nxtdrive.io). Created empty + locked down; fill it in manually
+# with a Cloudflare API token scoped to Zone:DNS:Edit for nxtdrive.io. The
+# wildcard cert + custom-domain on-demand TLS won't work until this is set and
+# Caddy is built with the cloudflare DNS plugin (see Next steps below).
+if [[ ! -f /etc/caddy/caddy.env ]]; then
+  cat > /etc/caddy/caddy.env <<'ENVEOF'
+# Cloudflare API token (Zone:DNS:Edit for nxtdrive.io) — required for the
+# *.nxtdrive.io wildcard certificate. Leave unset to disable wildcard TLS.
+CLOUDFLARE_API_TOKEN=
+ENVEOF
+fi
+chown root:caddy /etc/caddy/caddy.env
+chmod 640 /etc/caddy/caddy.env
+
+# Load that env file into the caddy service.
+mkdir -p /etc/systemd/system/caddy.service.d
+cat > /etc/systemd/system/caddy.service.d/override.conf <<'DROPEOF'
+[Service]
+EnvironmentFile=-/etc/caddy/caddy.env
+DROPEOF
+systemctl daemon-reload
+
 # Overwrite the main Caddyfile with our managed version. Global options must
 # come first; site definitions live under /etc/caddy/sites-enabled/*.
+# on_demand_tls.ask gates certificate issuance for CUSTOM domains: Caddy asks
+# the production app whether an incoming host is a verified tenant domain before
+# obtaining a cert, so arbitrary hosts can't trigger cert issuance (DoS/abuse).
 cat > /etc/caddy/Caddyfile <<'CADDYEOF'
 {
         email ops@nxtdrive.io
+
+        on_demand_tls {
+                ask http://127.0.0.1:5001/api/tls-check
+                interval 2m
+                burst 5
+        }
 }
 
 import /etc/caddy/sites-enabled/*
@@ -195,9 +227,20 @@ echo "  2. In Cloudflare, create A records pointing to this VPS:"
 echo "       app.nxtdrive.io      -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
 echo "       staging.nxtdrive.io  -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
 echo "       nxtdrive.io          -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
+echo "       *.nxtdrive.io        -> $(curl -fsSL ifconfig.me || echo this-vps-ip)  (wildcard for tenant subdomains)"
 echo "     Use DNS-only (grey cloud) until Caddy obtains TLS certs."
 echo ""
-echo "  3. Set GitHub Actions environment secrets (staging + production),"
+echo "  3. Enable wildcard + custom-domain TLS (one-time):"
+echo "       a. Build Caddy with the Cloudflare DNS plugin:"
+echo "            sudo caddy add-package github.com/caddy-dns/cloudflare"
+echo "          (or rebuild with xcaddy --with github.com/caddy-dns/cloudflare)"
+echo "       b. Put a Cloudflare token (Zone:DNS:Edit for nxtdrive.io) in"
+echo "            /etc/caddy/caddy.env  (CLOUDFLARE_API_TOKEN=...)"
+echo "       c. sudo systemctl restart caddy"
+echo "     Custom domains then verify + serve automatically via the backoffice"
+echo "     domain-onboarding flow. See docs/INFRA_ROADMAP.md."
+echo ""
+echo "  4. Set GitHub Actions environment secrets (staging + production),"
 echo "     then push to 'staging' or 'main' to deploy. See"
 echo "     docs/INFRA_DEPLOYMENT.md for the full runbook."
 echo "============================================================"

@@ -34,6 +34,11 @@ import {
 } from "@/lib/invoices/installment-credit";
 import { REVIEW_MOMENTS, REVIEW_MOMENTS_KEY } from "@/lib/notifications/settings";
 import { CONTACT_PHONE_KEY } from "@/lib/tenant/contact-phone";
+import {
+  checkOwnershipTxt,
+  classifyHostname,
+  normalizeHostname,
+} from "@/lib/tenant/domains";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -735,5 +740,161 @@ export async function saveContactPhone(
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/student", "layout");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Task #201 — Eigen domeinen (multi-tenant domains).
+//
+// Een school koppelt een wildcard-subdomein (<slug>.nxtdrive.io) of een eigen
+// domein (rijschoolxyz.nl). Alle schrijfacties lopen via service-role RPC's die
+// de actor her-valideren (RPC is service_role-only). Verificatie gebeurt hier in
+// de app-laag via een DNS TXT-lookup; pas bij succes zet de RPC de status op
+// 'active'. De tenant_id komt altijd uit de geauthenticeerde membership.
+// ---------------------------------------------------------------------------
+export async function addTenantDomain(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const host = normalizeHostname(String(formData.get("hostname") ?? ""));
+  if (!host) {
+    return { ok: false, error: "Vul een geldige domeinnaam in." };
+  }
+  const classified = classifyHostname(host);
+  if (!classified) {
+    return {
+      ok: false,
+      error: "nxtdrive.io zelf kan niet als domein worden toegevoegd.",
+    };
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("add_tenant_domain", {
+    p_tenant_id: tenant.id,
+    p_hostname: host,
+    p_type: classified.type,
+    p_actor: user.id,
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function verifyTenantDomain(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const domainId = String(formData.get("domain_id") ?? "").trim();
+  if (!domainId) {
+    return { ok: false, error: "Onbekend domein." };
+  }
+
+  const service = createServiceRoleClient();
+  const { data: domain, error: loadErr } = await service
+    .from("tenant_domains")
+    .select("id, tenant_id, hostname, type, status, verification_token")
+    .eq("id", domainId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (loadErr || !domain) {
+    return { ok: false, error: "Domein niet gevonden." };
+  }
+
+  // Subdomeinen van nxtdrive.io vereisen geen DNS-eigendomsbewijs (wij beheren
+  // de zone) — die mogen direct actief.
+  let verified = domain.type === "subdomain";
+  if (!verified) {
+    verified = await checkOwnershipTxt(
+      domain.hostname as string,
+      domain.verification_token as string,
+    );
+  }
+
+  const { error: statusErr } = await service.rpc("set_tenant_domain_status", {
+    p_domain_id: domainId,
+    p_status: verified ? "active" : "failed",
+    p_actor: user.id,
+  });
+  if (statusErr) {
+    return { ok: false, error: statusErr.message };
+  }
+
+  revalidatePath("/backoffice/instellingen");
+  if (!verified) {
+    return {
+      ok: false,
+      error:
+        "Verificatie mislukt: het TXT-record is (nog) niet gevonden. DNS-wijzigingen kunnen even duren.",
+    };
+  }
+  return { ok: true };
+}
+
+export async function removeTenantDomain(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const domainId = String(formData.get("domain_id") ?? "").trim();
+  if (!domainId) {
+    return { ok: false, error: "Onbekend domein." };
+  }
+
+  const service = createServiceRoleClient();
+  // Verify ownership before mutating (RPC also re-checks the actor).
+  const { data: domain } = await service
+    .from("tenant_domains")
+    .select("id")
+    .eq("id", domainId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!domain) {
+    return { ok: false, error: "Domein niet gevonden." };
+  }
+
+  const { error } = await service.rpc("remove_tenant_domain", {
+    p_domain_id: domainId,
+    p_actor: user.id,
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+export async function setPrimaryTenantDomain(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const domainId = String(formData.get("domain_id") ?? "").trim();
+  if (!domainId) {
+    return { ok: false, error: "Onbekend domein." };
+  }
+
+  const service = createServiceRoleClient();
+  const { data: domain } = await service
+    .from("tenant_domains")
+    .select("id")
+    .eq("id", domainId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!domain) {
+    return { ok: false, error: "Domein niet gevonden." };
+  }
+
+  const { error } = await service.rpc("set_primary_tenant_domain", {
+    p_domain_id: domainId,
+    p_actor: user.id,
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/backoffice/instellingen");
   return { ok: true };
 }

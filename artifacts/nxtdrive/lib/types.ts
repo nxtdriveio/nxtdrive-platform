@@ -42,6 +42,22 @@ export type TenantBranding = {
   custom_domain: string | null;
 };
 
+export type TenantDomainType = "subdomain" | "custom";
+
+export type TenantDomainStatus = "pending" | "active" | "failed";
+
+export type TenantDomain = {
+  id: string;
+  tenant_id: string;
+  hostname: string;
+  type: TenantDomainType;
+  status: TenantDomainStatus;
+  verification_token: string;
+  is_primary: boolean;
+  verified_at: string | null;
+  created_at: string;
+};
+
 export type CancellationTier = {
   hours_before: number;
   refund_pct: number;

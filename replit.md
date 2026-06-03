@@ -78,6 +78,7 @@ Subscription tiers (data model ready from day 1, enforcement deferred):
 - GitHub repo: https://github.com/nxtdriveio/nxtdrive-platform.git
 - Branch strategy: `main` → production, `staging` → staging, feature branches → PR into `staging`
 - Full runbook: `docs/INFRA_DEPLOYMENT.md` (deploy/rollback flow, clean DB rebuild, security posture). VPS provisioning: `infra/bootstrap.sh` + `infra/README.md`.
+- Multi-tenant domains: `docs/INFRA_ROADMAP.md` — `tenant_domains` table is the source of truth for host→tenant routing AND Caddy on-demand-TLS gating. Wildcard `*.nxtdrive.io` (Cloudflare DNS-01) for subdomains; on-demand TLS for verified custom domains only via the `/api/tls-check` ask endpoint. Host resolution (`lib/tenant/resolve-host.ts`) is purely additive with a null fallback — never breaks cookie-based active-tenant resolution.
 
 ## Secrets (per environment)
 
