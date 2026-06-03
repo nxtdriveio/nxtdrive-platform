@@ -54,6 +54,27 @@ const manifest = {
       purpose: "maskable",
     },
   ],
+  // PLACEHOLDER screenshots (Task #197). Chrome's richer install dialog and the
+  // Play Store listing show these. `form_factor: "narrow"` = phone/portrait, the
+  // student app's primary surface. Replace the solid-navy placeholders in
+  // public/screenshots/ with real captures before the Play Store upload
+  // (see docs/GOOGLE_PLAY_PUBLISHING.md).
+  screenshots: [
+    {
+      src: "/screenshots/student-1.png",
+      sizes: "1080x1920",
+      type: "image/png",
+      form_factor: "narrow",
+      label: "Home — volgende les, tegoed en voortgang",
+    },
+    {
+      src: "/screenshots/student-2.png",
+      sizes: "1080x1920",
+      type: "image/png",
+      form_factor: "narrow",
+      label: "Voortgang en lessen",
+    },
+  ],
 };
 
 export function GET() {

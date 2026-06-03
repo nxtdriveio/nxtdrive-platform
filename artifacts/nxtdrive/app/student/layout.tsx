@@ -10,6 +10,7 @@ import { StudentBottomNav } from "@/components/student/BottomNav";
 import { StudentSidebarNav } from "@/components/student/SidebarNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { InstallPromptBanner } from "@/components/pwa/InstallPromptBanner";
 import { StudentSplash } from "@/components/pwa/StudentSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
@@ -26,11 +27,34 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Leerling",
+    // iOS ignores the manifest for the launch splash and shows a blank white
+    // screen on "Add to Home Screen" unless apple-touch-startup-image link tags
+    // exist per device size. We ship solid navy (#0F172A) SVG splashes so the
+    // brand experience holds without generating per-device PNG artwork. Covers
+    // the highest-traffic modern iPhones; other devices fall back to the manifest
+    // background_color, which is also #0F172A.
+    startupImage: [
+      {
+        url: "/splash/ios-splash-1170x2532.svg",
+        media:
+          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        url: "/splash/ios-splash-828x1792.svg",
+        media:
+          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+      },
+    ],
   },
   icons: { apple: "/icons/student-apple-180.png" },
 };
 
-export const viewport: Viewport = { themeColor: "#0F172A" };
+export const viewport: Viewport = {
+  themeColor: "#0F172A",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export default async function StudentLayout({
   children,
@@ -76,6 +100,7 @@ export default async function StudentLayout({
         }
       />
       <ServiceWorkerRegister />
+      <InstallPromptBanner app="student" />
       <div className="flex flex-1">
         <StudentSidebarNav />
         <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-8">

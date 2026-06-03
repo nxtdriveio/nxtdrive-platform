@@ -6,6 +6,7 @@ import { BrandProvider } from "@/components/brand-provider";
 import { InstructorSidebar } from "@/components/instructor/Sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { InstallPromptBanner } from "@/components/pwa/InstallPromptBanner";
 import { InstructorSplash } from "@/components/pwa/InstructorSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
@@ -22,11 +23,30 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Instructeur",
+    // iOS launch-splash images (see student layout for the rationale). Solid
+    // navy (#0F172A) SVGs keep the brand experience without per-device PNGs.
+    startupImage: [
+      {
+        url: "/splash/ios-splash-1170x2532.svg",
+        media:
+          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        url: "/splash/ios-splash-828x1792.svg",
+        media:
+          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+      },
+    ],
   },
   icons: { apple: "/icons/instructor-apple-180.png" },
 };
 
-export const viewport: Viewport = { themeColor: "#0F172A" };
+export const viewport: Viewport = {
+  themeColor: "#0F172A",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export default async function InstructorLayout({
   children,
@@ -63,6 +83,7 @@ export default async function InstructorLayout({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <ServiceWorkerRegister />
+        <InstallPromptBanner app="instructor" />
         <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">
           <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
         </main>

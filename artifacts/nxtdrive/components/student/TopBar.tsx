@@ -20,7 +20,12 @@ export function StudentTopBar({
 }) {
   const today = dateFmt.format(new Date());
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/95 px-4 backdrop-blur sm:px-6">
+    // `pt-[env(safe-area-inset-top)]` keeps the bar clear of the iOS status bar
+    // / notch in standalone mode; env() resolves to 0 in a normal browser tab.
+    <header
+      className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/95 px-4 backdrop-blur sm:px-6"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <NxtdriveLogo
           className="text-base"

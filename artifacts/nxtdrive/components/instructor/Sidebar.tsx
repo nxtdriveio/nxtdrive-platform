@@ -108,7 +108,12 @@ export function InstructorSidebar({
       </aside>
 
       {/* Mobile: top bar + horizontal nav strip */}
-      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur md:hidden">
+      {/* `pt-[env(safe-area-inset-top)]` clears the iOS status bar / notch in
+          standalone mode; env() resolves to 0 in a normal browser tab. */}
+      <header
+        className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur md:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
           {notifications}

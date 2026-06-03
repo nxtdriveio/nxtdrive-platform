@@ -3,18 +3,24 @@
  * Two responsibilities:
  *  1. Web push delivery (Task #110) — receives push events, shows notifications.
  *  2. Offline tolerance + app-shell caching for the Leerling & Instructeur PWAs
- *     (Task #177) — precaches each app's offline fallback + icons, serves a
- *     branded offline page when a navigation fails, and caches our own static
- *     assets cache-first.
+ *     (Task #177) — precaches each app's data-free offline fallback + icons,
+ *     serves a branded offline page when a navigation fails, and caches our own
+ *     static assets cache-first.
+ *
+ * Privacy (Task #197): authenticated navigation responses are NEVER written to
+ * the Cache API — they carry private learner data and on a shared device a later
+ * user could read them offline. Offline navigations only ever resolve to the
+ * static, precached offline page (see the fetch handler for the full rationale).
  *
  * Dev-safety: we deliberately do NOT cache-first the Next.js build output
  * (/_next/*) so HMR and fresh deploys are never served stale. Navigations use
- * network-first (always tries the network, only falls back to cache when
- * offline), which keeps the Replit preview live while still degrading nicely
- * offline. Bump CACHE_VERSION to invalidate all caches on the next activate.
+ * network-first (always tries the network, falls back to the offline page when
+ * the network fails), which keeps the Replit preview live while still degrading
+ * nicely offline. Bump CACHE_VERSION to invalidate all caches on the next
+ * activate.
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `nxtdrive-static-${CACHE_VERSION}`;
 const SHELL_CACHE = `nxtdrive-shell-${CACHE_VERSION}`;
 
@@ -109,24 +115,28 @@ self.addEventListener("fetch", (event) => {
   // (Supabase, Google APIs, etc.) directly.
   if (url.origin !== self.location.origin) return;
 
-  // Navigations: network-first, fall back to a cached page, then the branded
+  // Navigations: network-first, then on failure fall back ONLY to the branded
   // offline page, then an inline last resort.
+  //
+  // PRIVACY DECISION (Task #197): we deliberately do NOT cache authenticated
+  // navigation responses. Student/instructor HTML carries private data (name,
+  // lesson overview, credit balance, financial/medical-adjacent learner info).
+  // On a shared device (parent + child on one phone) caching rendered pages in
+  // the Cache API would let a logged-out or different user read the previous
+  // user's page offline. The only navigations we keep are the static, data-free
+  // offline fallback pages (precached at install). This is a conscious DOWNGRADE
+  // of the offline UX — no "last seen page" offline — traded for correct privacy
+  // on an app with private learner data.
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(request);
-          // Cache the last-seen page so offline can show recent content.
-          try {
-            const cache = await caches.open(SHELL_CACHE);
-            cache.put(request, fresh.clone());
-          } catch {
-            /* ignore cache write failures */
-          }
-          return fresh;
+          // No cache write here: authenticated pages must never land in the
+          // Cache API. Return the fresh network response untouched.
+          return await fetch(request);
         } catch {
-          const cached = await caches.match(request);
-          if (cached) return cached;
+          // Offline: serve the precached, data-free fallback for this surface,
+          // never a previously-rendered authenticated page.
           const fallback = await caches.match(offlineFallbackFor(url));
           return fallback || inlineOfflineResponse();
         }

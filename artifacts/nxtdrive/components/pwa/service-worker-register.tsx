@@ -13,9 +13,15 @@ export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* registration failures must never surface to the user */
-    });
+    // `updateViaCache: 'none'` makes the browser bypass its HTTP cache when it
+    // checks /sw.js for updates, so a freshly deployed worker is picked up on the
+    // next navigation instead of waiting out the server's Cache-Control max-age.
+    // Lighthouse and PWA best-practice both expect this.
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .catch(() => {
+        /* registration failures must never surface to the user */
+      });
   }, []);
 
   return null;

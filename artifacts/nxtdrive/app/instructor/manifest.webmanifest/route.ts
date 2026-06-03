@@ -52,6 +52,26 @@ const manifest = {
       purpose: "maskable",
     },
   ],
+  // PLACEHOLDER screenshots (Task #197). `form_factor: "wide"` = tablet/landscape,
+  // the instructor app's primary surface. Replace the solid-navy placeholders in
+  // public/screenshots/ with real captures before the Play Store upload
+  // (see docs/GOOGLE_PLAY_PUBLISHING.md).
+  screenshots: [
+    {
+      src: "/screenshots/instructor-1.png",
+      sizes: "1920x1080",
+      type: "image/png",
+      form_factor: "wide",
+      label: "Vandaag — dagplanning en waarschuwingen",
+    },
+    {
+      src: "/screenshots/instructor-2.png",
+      sizes: "1920x1080",
+      type: "image/png",
+      form_factor: "wide",
+      label: "Dagplanning en leskaart",
+    },
+  ],
 };
 
 export function GET() {
