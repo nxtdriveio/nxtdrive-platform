@@ -64,6 +64,7 @@ import { formatEuros, type Package } from "@/lib/packages/types";
 import { formatTegoed } from "@/lib/students/types";
 import { TrialLessonSection } from "./trial-lesson-section";
 import { IntakeTaskButtons } from "./intake-task-buttons";
+import { AiPackageAdvice } from "@/components/leads/AiPackageAdvice";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { leadWhatsAppMessage } from "@/lib/notifications/whatsapp";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
@@ -385,6 +386,10 @@ export default async function LeadDetailPage({
 
           {analysis ? (
             <IntakeAnalysisCard analysis={analysis} leadId={lead.id} />
+          ) : null}
+
+          {analysis && !existingStudent ? (
+            <AiPackageAdvice leadId={lead.id} />
           ) : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}

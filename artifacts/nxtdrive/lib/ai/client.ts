@@ -1,8 +1,9 @@
 import OpenAI from "openai";
 
-// Replit AI Integrations proxy. Both vars are provisioned by the integration
-// setup; the API key is a proxy placeholder and is only valid together with the
-// base URL.
+// OpenAI direct. We talk to the public OpenAI API with our own key and the
+// default base URL — no proxy. The client is created lazily so a missing key
+// fails inside the caller's try/catch (graceful NL degradation) instead of at
+// module load.
 let client: OpenAI | null = null;
 
 /**
@@ -12,16 +13,15 @@ let client: OpenAI | null = null;
  */
 export function getOpenAIClient(): OpenAI {
   if (client) return client;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (!baseURL || !apiKey) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
     throw new Error(
-      "AI-integratie is niet geconfigureerd (OpenAI-omgevingsvariabelen ontbreken).",
+      "AI-integratie is niet geconfigureerd (OPENAI_API_KEY ontbreekt).",
     );
   }
-  client = new OpenAI({ apiKey, baseURL });
+  client = new OpenAI({ apiKey });
   return client;
 }
 
-export const AI_MODEL = "gpt-5.4";
+export const AI_MODEL = "gpt-4o-mini";
 export const AI_MAX_TOKENS = 8192;

@@ -8,7 +8,9 @@ import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import {
   generateLessonReportDraft,
   analyzeStudentProgress,
+  generateInternalAttention,
   type ProgressAnalysis,
+  type InternalAttention,
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
 import type { Lesson } from "@/lib/lessons/types";
@@ -174,6 +176,91 @@ export async function analyzeProgressAction(
       weakestSkills: pickWeakestSkills(leskaart.categories),
     });
     return { analysis };
+  } catch (err) {
+    return { error: aiErrorMessage(err) };
+  }
+}
+
+/**
+ * Module 15 — on-demand AI interne aandachtspunten (staff-only). Summarizes the
+ * student's RECURRING attention points across recent lessons + notes and gives
+ * concrete advice for the next lesson. Kept separate from the student-facing
+ * lesson report. Reads the structured lesson data the instructor already
+ * produced; nothing is persisted.
+ */
+export async function analyzeInternalAttentionAction(
+  formData: FormData,
+): Promise<{ attention?: InternalAttention; error?: string }> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    // Recent lessons of this student: their attention_points + progress
+    // summaries are the structured signal for "recurring" points.
+    const { data: lessonRows } = await supabase
+      .from("lessons")
+      .select("id, attention_points, progress_summary")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("student_id", ctx.lesson.student_id)
+      .order("starts_at", { ascending: false })
+      .limit(12);
+    const lessons = (lessonRows ?? []) as {
+      id: string;
+      attention_points: string | null;
+      progress_summary: string | null;
+    }[];
+
+    const attentionPoints: string[] = [];
+    for (const l of lessons) {
+      const ap = (l.attention_points ?? "").trim();
+      if (ap) attentionPoints.push(ap);
+      const ps = (l.progress_summary ?? "").trim();
+      if (ps) attentionPoints.push(ps);
+    }
+
+    // Recent lesson notes across these lessons add free-text observations.
+    const lessonIds = lessons.map((l) => l.id);
+    let recentNotes: string[] = [];
+    if (lessonIds.length > 0) {
+      const { data: noteRows } = await supabase
+        .from("lesson_notes")
+        .select("body, created_at")
+        .in("lesson_id", lessonIds)
+        .order("created_at", { ascending: false })
+        .limit(15);
+      recentNotes = ((noteRows ?? []) as { body: string }[])
+        .map((n) => (n.body ?? "").trim())
+        .filter(Boolean);
+    }
+
+    const [studentRes, readiness, leskaart] = await Promise.all([
+      supabase
+        .from("students")
+        .select("full_name")
+        .eq("id", ctx.lesson.student_id)
+        .maybeSingle(),
+      loadStudentReadiness(supabase, ctx.tenantId, ctx.lesson.student_id),
+      loadInstructorLeskaart(
+        supabase,
+        ctx.tenantId,
+        ctx.lesson.student_id,
+        ctx.lesson.id,
+      ),
+    ]);
+    const studentName =
+      (studentRes.data?.full_name as string | undefined) ?? "de leerling";
+
+    const attention = await generateInternalAttention({
+      studentName,
+      attentionPoints,
+      recentNotes,
+      weakestSkills: pickWeakestSkills(leskaart.categories),
+      readiness,
+    });
+    return { attention };
   } catch (err) {
     return { error: aiErrorMessage(err) };
   }

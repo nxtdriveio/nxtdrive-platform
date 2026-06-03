@@ -22,6 +22,10 @@ import {
   type IntakeAttentionPoint,
   type LeadIntakeAnalysis,
 } from "@/lib/leads/intake-analysis";
+import {
+  generatePackageAdvice,
+  type PackageAdvice,
+} from "@/lib/ai/leskaart-advisor";
 
 export async function convertLeadToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -551,6 +555,140 @@ export async function createTasksFromIntakePoints(
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/taken");
   return { ok: true, created, existing };
+}
+
+// ---------------------------------------------------------------------------
+// Module 15 — AI-pakketadvies. On-demand advisory call combining the lead's
+// intake-analysis profile with the tenant's REAL active packages. Advisory only:
+// nothing is persisted, and the model may only recommend from the tenant's own
+// packages. Degrades to a friendly NL message when AI is not configured.
+// ---------------------------------------------------------------------------
+
+function aiAdviceError(err: unknown): string {
+  // Log redacted metadata only — never the full provider error, which can echo
+  // the prompt payload (profile summary / package data).
+  if (err instanceof Error) {
+    console.error(`[Module 15 AI] ${err.name}: ${err.message.slice(0, 200)}`);
+    if (err.message && err.message.length < 160) return err.message;
+  } else {
+    console.error("[Module 15 AI] onbekende fout");
+  }
+  return "De AI-functie is momenteel niet beschikbaar. Probeer het later opnieuw.";
+}
+
+export async function generatePackageAdviceAction(
+  leadId: string,
+): Promise<{ advice?: PackageAdvice; error?: string }> {
+  const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  if (!leadId) return { error: "lead_id ontbreekt." };
+
+  const service = createServiceRoleClient();
+
+  // Lead must belong to this tenant (also gives us the name for the prompt).
+  const { data: leadRaw } = await service
+    .from("leads")
+    .select("id, full_name")
+    .eq("id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!leadRaw) return { error: "Lead niet gevonden." };
+  const lead = leadRaw as Pick<Lead, "id" | "full_name">;
+
+  // Intake-analysis profile: stored row, or a fresh compute from intake answers.
+  const { data: analysisRaw } = await service
+    .from("lead_intake_analysis")
+    .select("labels, score, attention_points, summary, recommended_step")
+    .eq("lead_id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  let analysis = analysisRaw as Pick<
+    LeadIntakeAnalysis,
+    "labels" | "score" | "attention_points" | "summary" | "recommended_step"
+  > | null;
+
+  if (!analysis) {
+    const { data: intakeRaw } = await service
+      .from("lead_intake_details")
+      .select("*")
+      .eq("lead_id", leadId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    const intake = intakeRaw as LeadIntakeDetail | null;
+    if (!intake) {
+      return {
+        error: "Geen intake beschikbaar om een pakketadvies op te baseren.",
+      };
+    }
+    const computed = analyzeIntake({
+      city: intake.city,
+      pickup_location: intake.pickup_location,
+      has_driving_experience: intake.has_driving_experience,
+      had_lessons_before: intake.had_lessons_before,
+      has_done_exam: intake.has_done_exam,
+      theory_status: intake.theory_status,
+      health_declaration_status: intake.health_declaration_status,
+      cbr_authorization_status: intake.cbr_authorization_status,
+      preferred_days: intake.preferred_days,
+      preferred_times: intake.preferred_times,
+      desired_start_date: intake.desired_start_date,
+      lessons_per_week: intake.lessons_per_week,
+      pace: intake.pace,
+      has_anxiety: intake.has_anxiety,
+    });
+    analysis = {
+      labels: computed.labels,
+      score: computed.score,
+      attention_points: computed.attention_points,
+      summary: computed.summary,
+      recommended_step: computed.recommended_step,
+    };
+  }
+
+  // The tenant's actual active packages — the only candidates the advice may use.
+  const { data: pkgRaw, error: pkgErr } = await service
+    .from("packages")
+    .select("name, credits_total, price_cents, category, valid_days")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("credits_total", { ascending: true });
+  if (pkgErr) return { error: "Pakketten konden niet worden geladen." };
+  const packages = (pkgRaw ?? []) as {
+    name: string;
+    credits_total: number;
+    price_cents: number;
+    category: string;
+    valid_days: number | null;
+  }[];
+  if (packages.length === 0) {
+    return {
+      error: "Er zijn nog geen actieve pakketten om een advies op te baseren.",
+    };
+  }
+
+  const points = (analysis.attention_points as IntakeAttentionPoint[]).map(
+    (p) => p.label,
+  );
+
+  try {
+    const advice = await generatePackageAdvice({
+      leadName: lead.full_name,
+      profileSummary: analysis.summary,
+      labels: analysis.labels,
+      attentionPoints: points,
+      recommendedStep: analysis.recommended_step,
+      packages: packages.map((p) => ({
+        name: p.name,
+        creditsTotal: p.credits_total,
+        priceCents: p.price_cents,
+        category: p.category,
+        validDays: p.valid_days,
+      })),
+    });
+    return { advice };
+  } catch (err) {
+    return { error: aiAdviceError(err) };
+  }
 }
 
 export async function completeLeadTask(formData: FormData) {

@@ -14,6 +14,7 @@ import { LessonContextPanel } from "@/components/instructor/LessonContextPanel";
 import { TheoryHomeworkPanel } from "@/components/instructor/TheoryHomeworkPanel";
 import { AiLessonReport } from "@/components/instructor/AiLessonReport";
 import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
+import { AiInternalAttention } from "@/components/instructor/AiInternalAttention";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
 import { loadVehicles, loadLocations, loadLessonContext } from "@/lib/lessons/context-data";
@@ -328,6 +329,7 @@ export default async function InstructorLessonPage({
           />
         ) : null}
         {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
+        {student ? <AiInternalAttention lessonId={lesson.id} /> : null}
         {student && taskLaunch.boards.length > 0 ? (
           <Card>
             <CardContent className="space-y-2 pt-5">
