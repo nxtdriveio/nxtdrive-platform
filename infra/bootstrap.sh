@@ -183,7 +183,6 @@ cat > /etc/caddy/Caddyfile <<'CADDYEOF'
 
         on_demand_tls {
                 ask http://127.0.0.1:5001/api/tls-check
-                burst 5
         }
 }
 
