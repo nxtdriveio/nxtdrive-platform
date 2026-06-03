@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
+import { ReviewForm } from "@/components/student/review-form";
 import { PushToggle } from "@/components/notifications/PushToggle";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,19 @@ export default async function StudentProfilePage() {
     roles,
   );
   const vapidPublicKey = getVapidPublicKey();
+
+  // Eigen review (RLS: een leerling/voogd ziet uitsluitend de eigen review).
+  let existingReview: { rating: number; body: string | null } | null = null;
+  if (student) {
+    const supabase = await createServerSupabaseClient();
+    const { data: reviewRow } = await supabase
+      .from("student_reviews")
+      .select("rating, body")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", student.id)
+      .maybeSingle();
+    existingReview = (reviewRow as { rating: number; body: string | null } | null) ?? null;
+  }
   const isParent = roles.includes("parent") && !roles.includes("student");
   const otherChildren = isParent
     ? accessible.filter((s) => s.id !== student?.id && s.user_id !== user.id)
@@ -92,6 +107,14 @@ export default async function StudentProfilePage() {
           studentId={student.id}
           optIn={student.refill_opt_in}
           preferredDayparts={student.refill_preferred_dayparts ?? []}
+        />
+      ) : null}
+
+      {student ? (
+        <ReviewForm
+          studentId={student.id}
+          initialRating={existingReview?.rating ?? null}
+          initialBody={existingReview?.body ?? null}
         />
       ) : null}
 

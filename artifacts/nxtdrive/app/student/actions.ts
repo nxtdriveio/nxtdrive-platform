@@ -232,3 +232,46 @@ export async function respondExamInvitation(
   revalidatePath("/student", "layout");
   return {};
 }
+
+/**
+ * Lets a student (or guardian) leave or edit their OWN internal review: a 1–5
+ * star rating plus optional text. The mutation is server-side only via the
+ * locked `upsert_student_review` RPC (migration 0080) — one review per student,
+ * editable. Ownership is re-checked in app-code for a friendly message, then the
+ * acting user is forwarded; the RPC remains the source of truth.
+ */
+export async function submitStudentReview(
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean }> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  const rating = Number(formData.get("rating"));
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return { error: "Kies een score van 1 tot 5 sterren." };
+  }
+
+  const { getActiveStudent } = await import("@/lib/students/access");
+  const { student } = await getActiveStudent(user, tenant.id, roles);
+  if (!student || student.id !== studentId) {
+    return { error: "Geen toegang tot dit leerlingdossier." };
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("upsert_student_review", {
+    p_tenant_id: tenant.id,
+    p_student_id: studentId,
+    p_actor: user.id,
+    p_rating: rating,
+    p_body: body || null,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/student/profile");
+  return { ok: true };
+}
