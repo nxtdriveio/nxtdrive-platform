@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2,
   PlayCircle,
   StickyNote,
   TrendingUp,
@@ -26,9 +25,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatTegoed } from "@/lib/students/types";
+import { FinishLessonFlow } from "@/components/instructor/FinishLessonFlow";
+import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 import {
   startLessonAction,
-  completeLessonAction,
   cancelLessonAction,
   markNoShowAction,
   addLessonNoteAction,
@@ -53,21 +53,25 @@ function toWhatsAppNumber(phone: string | null): string | null {
 export function InstructorActionsPanel({
   lessonId,
   studentId,
+  studentName,
   studentPhone,
   status,
   refundPreview,
   hoursBefore,
   currentScore,
   currentSummary,
+  leskaart,
 }: {
   lessonId: string;
   studentId: string;
+  studentName: string;
   studentPhone: string | null;
   status: string;
   refundPreview: number;
   hoursBefore: number;
   currentScore: number | null;
   currentSummary: string | null;
+  leskaart: InstructorLeskaart;
 }) {
   const [open, setOpen] = useState<Panel>(null);
   const [pending, startTransition] = useTransition();
@@ -108,7 +112,7 @@ export function InstructorActionsPanel({
           Acties
         </div>
 
-        {/* Two-step primary flow: Start les -> Les afronden */}
+        {/* Two-step primary flow: Start les -> begeleide "Les afronden"-flow */}
         {canComplete ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             {isPlanned ? (
@@ -117,6 +121,7 @@ export function InstructorActionsPanel({
                 <Button
                   type="submit"
                   size="lg"
+                  variant="outline"
                   className="w-full"
                   disabled={pending}
                 >
@@ -125,19 +130,15 @@ export function InstructorActionsPanel({
                 </Button>
               </form>
             ) : null}
-            <form action={completeLessonAction} className="flex-1">
-              <input type="hidden" name="lesson_id" value={lessonId} />
-              <Button
-                type="submit"
-                size="lg"
-                variant={isInProgress ? "primary" : "outline"}
-                className="w-full"
-                disabled={pending}
-              >
-                <CheckCircle2 className="h-4 w-4" aria-hidden />
-                Les afronden
-              </Button>
-            </form>
+            <div className="flex-1">
+              <FinishLessonFlow
+                lessonId={lessonId}
+                studentName={studentName}
+                leskaart={leskaart}
+                currentScore={currentScore}
+                currentSummary={currentSummary}
+              />
+            </div>
           </div>
         ) : (
           <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">

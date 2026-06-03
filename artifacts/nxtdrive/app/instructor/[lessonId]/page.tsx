@@ -240,12 +240,14 @@ export default async function InstructorLessonPage({
         <InstructorActionsPanel
           lessonId={lesson.id}
           studentId={lesson.student_id}
+          studentName={student?.full_name ?? "Leerling"}
           studentPhone={student?.phone ?? null}
           status={lesson.status}
           refundPreview={refundPreview}
           hoursBefore={hoursBefore}
           currentScore={lesson.progress_score}
           currentSummary={lesson.progress_summary}
+          leskaart={leskaart}
         />
 
         <LessonContextPanel

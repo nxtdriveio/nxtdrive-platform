@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
-import { InstructorTopBar } from "@/components/instructor/TopBar";
+import { InstructorSidebar } from "@/components/instructor/Sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { InstructorSplash } from "@/components/pwa/InstructorSplash";
@@ -51,9 +51,9 @@ export default async function InstructorLayout({
     <BrandProvider
       tenant={tenant}
       branding={branding}
-      className="flex min-h-screen flex-col bg-background text-foreground"
+      className="flex min-h-screen flex-col bg-background text-foreground md:flex-row"
     >
-      <InstructorTopBar
+      <InstructorSidebar
         tenantName={tenant.name}
         userLabel={userLabel}
         logoUrl={logoUrl}
@@ -61,10 +61,12 @@ export default async function InstructorLayout({
           <NotificationBell items={items} unreadCount={unreadCount} />
         }
       />
-      <ServiceWorkerRegister />
-      <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">
-        <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ServiceWorkerRegister />
+        <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">
+          <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
+        </main>
+      </div>
     </BrandProvider>
   );
 }
