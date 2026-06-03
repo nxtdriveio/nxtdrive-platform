@@ -3,8 +3,12 @@ import { ChevronRight } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
+import { payStudentInvoice } from "../facturen/payment-actions";
 import { StudentBalanceCard } from "@/components/student/BalanceCard";
 import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { getActiveStudent } from "@/lib/students/access";
@@ -25,6 +29,7 @@ import {
   DISPLAY_STATUS_VARIANT,
   displayStatus,
   formatEuros,
+  remainingCents,
   type Invoice,
 } from "@/lib/invoices/types";
 
@@ -92,6 +97,19 @@ export default async function StudentBetalingenPage() {
     student.id,
   );
 
+  // A "Betaal nu" shortcut only makes sense for open, still-owed real invoices
+  // when the tenant has Mollie configured. Check the key status once for the
+  // whole list (service role; the key never leaves the server).
+  const isPayable = (inv: Invoice) =>
+    inv.kind === "invoice" &&
+    inv.status === "open" &&
+    remainingCents(inv) > 0;
+  const hasPayable = invoices.some(isPayable);
+  const mollieConfigured = hasPayable
+    ? (await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id))
+        .configured
+    : false;
+
   return (
     <div className="space-y-4">
       <div>
@@ -156,11 +174,16 @@ export default async function StudentBetalingenPage() {
           <ol className="space-y-2">
             {invoices.map((inv) => {
               const display = displayStatus(inv);
+              const remaining = remainingCents(inv);
+              const canPayOnline = mollieConfigured && isPayable(inv);
               return (
-                <li key={inv.id}>
+                <li
+                  key={inv.id}
+                  className="overflow-hidden rounded-lg border border-border bg-card"
+                >
                   <Link
                     href={`/student/facturen/${inv.id}`}
-                    className="block rounded-lg border border-border bg-card p-4 transition hover:bg-muted/50"
+                    className="block p-4 transition hover:bg-muted/50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -187,6 +210,20 @@ export default async function StudentBetalingenPage() {
                       />
                     </div>
                   </Link>
+                  {canPayOnline ? (
+                    <div className="border-t border-border p-3">
+                      <form action={payStudentInvoice}>
+                        <input
+                          type="hidden"
+                          name="invoice_id"
+                          value={inv.id}
+                        />
+                        <Button type="submit" size="sm" className="w-full">
+                          Betaal nu {formatEuros(remaining)}
+                        </Button>
+                      </form>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
