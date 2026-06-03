@@ -18,7 +18,8 @@ export type NotificationType =
   | "cbr_authorization_needed"
   | "credit_low"
   | "installment_due"
-  | "exam_day_reminder";
+  | "exam_day_reminder"
+  | "review_request";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 

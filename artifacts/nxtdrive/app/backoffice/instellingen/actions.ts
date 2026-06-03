@@ -32,6 +32,7 @@ import {
   INSTALLMENT_CREDIT_POLICY_KEY,
   mergeInstallmentCreditPolicy,
 } from "@/lib/invoices/installment-credit";
+import { REVIEW_MOMENTS, REVIEW_MOMENTS_KEY } from "@/lib/notifications/settings";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -609,5 +610,94 @@ export async function resetInstallmentCreditPolicy(): Promise<PolicyActionResult
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Task #113 — reviewmomenten-beleid. Welke automatische reviewverzoek-momenten
+// actief zijn, de lesdrempel voor "na N lessen" en de optionele Google-review-
+// URL. Service-role write; tenant_id altijd uit de geauthenticeerde membership.
+// De opgeslagen JSON wordt door getReviewMomentsSettings opnieuw gesanitiseerd.
+// ---------------------------------------------------------------------------
+export async function saveReviewMomentsPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const activeMoments: Record<string, boolean> = {};
+  for (const moment of REVIEW_MOMENTS) {
+    const raw = formData.get(`moment_${moment}`);
+    activeMoments[moment] = raw === "true" || raw === "on";
+  }
+
+  const thresholdRaw = parseOptionalNumber(formData.get("lesson_threshold"));
+  if (
+    thresholdRaw === null ||
+    thresholdRaw < 1 ||
+    thresholdRaw > 1000 ||
+    !Number.isInteger(thresholdRaw)
+  ) {
+    return {
+      ok: false,
+      error: "De lesdrempel moet een heel getal tussen 1 en 1000 zijn.",
+    };
+  }
+
+  const urlRaw = String(formData.get("google_review_url") ?? "").trim();
+  let googleReviewUrl: string | null = null;
+  if (urlRaw !== "") {
+    try {
+      const u = new URL(urlRaw);
+      if (u.protocol !== "http:" && u.protocol !== "https:") {
+        return { ok: false, error: "De review-URL moet met http(s) beginnen." };
+      }
+      googleReviewUrl = u.toString();
+    } catch {
+      return { ok: false, error: "Vul een geldige review-URL in." };
+    }
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: REVIEW_MOMENTS_KEY,
+      value: {
+        active_moments: activeMoments,
+        lesson_threshold: thresholdRaw,
+        google_review_url: googleReviewUrl,
+      },
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Task #113 — markeer (of ontmarkeer) de beloning van een referral als
+// afgehandeld. Handmatig — er is bewust géén automatische beloningsmotor. De
+// locked RPC (admin-only, geaudit) is de enige schrijfweg.
+// ---------------------------------------------------------------------------
+export async function setReferralRewardHandled(
+  leadId: string,
+  handled: boolean,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const id = String(leadId ?? "").trim();
+  if (!id) return { ok: false, error: "Lead ontbreekt." };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("mark_referral_reward_handled", {
+    p_lead_id: id,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_handled: handled,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/referrals");
   return { ok: true };
 }

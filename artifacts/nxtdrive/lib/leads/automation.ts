@@ -442,6 +442,24 @@ export async function runLeadAutomationRules(
       p_to: newStatus,
     });
     if (error) throw error;
+
+    // Task #113 — reviewverzoek na de proefles: vuur exact bij de overgang naar
+    // trial_completed. Best-effort en idempotent per lead (dedupe key); een
+    // mislukte mail mag de reconcile nooit breken.
+    if (newStatus === "trial_completed") {
+      try {
+        const { notifyLeadReviewRequest } = await import(
+          "@/lib/notifications/dispatch"
+        );
+        await notifyLeadReviewRequest(service, tenantId, leadId);
+      } catch (e) {
+        console.error("[lead-automation] after_trial review failed", {
+          tenantId,
+          leadId,
+          e,
+        });
+      }
+    }
   }
 
   // 5. Score the lead (pure).

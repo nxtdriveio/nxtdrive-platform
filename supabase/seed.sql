@@ -289,3 +289,41 @@ from demo,
    'lead',    '11111111-1111-4111-8111-000000000001'::uuid)
 ) as v(id, task_id, entity_type, entity_id)
 on conflict (id) do nothing;
+
+-- Demo referral code + a referral-attributed lead -------------------------
+-- One personal, shareable code per student. The demo student acts as the
+-- referrer; a new lead comes in via that code (source 'referral').
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.referral_codes (id, tenant_id, student_id, code)
+select '88888888-8888-4888-8888-000000000001'::uuid, demo.id,
+       '44444444-4444-4444-8444-000000000001'::uuid, 'DEMO1234'
+from demo
+on conflict (id) do nothing;
+
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.leads (
+  id, tenant_id, status, source, full_name, email, phone, postcode, message,
+  referred_by_student_id
+)
+select '11111111-1111-4111-8111-000000000006'::uuid, demo.id,
+       'new'::public.lead_status, 'referral'::public.lead_source,
+       'Noa Smit', 'noa.smit@example.nl', '+31666666666', '2666FF',
+       'Aangebracht door een huidige leerling.',
+       '44444444-4444-4444-8444-000000000001'::uuid
+from demo
+on conflict (id) do nothing;
+
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.lead_events (id, lead_id, tenant_id, event_type, payload)
+select '22222222-2222-4222-8222-000000000006'::uuid,
+       '11111111-1111-4111-8111-000000000006'::uuid, demo.id,
+       'created'::public.lead_event_type,
+       jsonb_build_object('source', 'referral', 'code', 'DEMO1234')
+from demo
+on conflict (id) do nothing;

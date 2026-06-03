@@ -18,6 +18,7 @@ import {
   CalendarClock,
   CalendarX,
   BadgeCheck,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -25,6 +26,7 @@ import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 const nav = [
   { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard },
   { href: "/backoffice/leads", label: "Leads", icon: Inbox },
+  { href: "/backoffice/referrals", label: "Referrals", icon: Gift },
   { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX },
   { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock },

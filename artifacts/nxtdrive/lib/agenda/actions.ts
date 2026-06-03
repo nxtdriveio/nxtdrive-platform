@@ -123,8 +123,13 @@ async function maybeNotifyExamResult(
   appointmentId: string,
 ) {
   try {
-    const { notifyExamResult } = await import("@/lib/notifications/dispatch");
+    const { notifyExamResult, maybeFireExamPassedReview } = await import(
+      "@/lib/notifications/dispatch"
+    );
     await notifyExamResult(service, tenantId, appointmentId);
+    // Task #113 — reviewverzoek na een geslaagd rijexamen (idempotent per
+    // afspraak; no-op bij gezakt/TTT of als het moment uit staat).
+    await maybeFireExamPassedReview(service, tenantId, appointmentId);
   } catch {
     // Bewust ingeslikt: notificaties zijn best-effort, de uitslag is leidend.
   }

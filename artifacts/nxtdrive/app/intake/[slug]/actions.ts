@@ -202,6 +202,10 @@ export async function submitIntake(formData: FormData) {
     ? rawSource
     : "website";
 
+  // Task #113 — referralcode uit de doorverwijslink (?ref=). De RPC bepaalt of
+  // de code geldig is en zet dan source='referral' + de doorverwijzende leerling.
+  const referralCode = trimOrNull(formData.get("referral_code"), 40);
+
   const service = createServiceRoleClient();
 
   const { data: tenant, error: tErr } = await service
@@ -291,6 +295,21 @@ export async function submitIntake(formData: FormData) {
       p_summary: analysis.summary,
       p_recommended_step: analysis.recommended_step,
     });
+  }
+
+  // Task #113 — attribueer de referral vóór de automation draait, zodat de lead
+  // met source='referral' wordt gescoord. De RPC negeert ongeldige codes; een
+  // fout hier mag de lead nooit verliezen.
+  if (typeof leadId === "string" && referralCode) {
+    try {
+      await service.rpc("set_lead_referral", {
+        p_lead_id: leadId,
+        p_tenant_id: tenant.id,
+        p_code: referralCode,
+      });
+    } catch (e) {
+      console.error("[intake] set_lead_referral failed", e);
+    }
   }
 
   // Task #54 — run the lead automation engine (system actor): advance the funnel

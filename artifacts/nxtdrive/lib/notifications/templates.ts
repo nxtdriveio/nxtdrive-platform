@@ -1098,3 +1098,74 @@ export function renderExamDayReminder(
     vars,
   );
 }
+
+export type ReviewMomentKey =
+  | "after_trial"
+  | "after_lessons"
+  | "progress_milestone"
+  | "exam_passed"
+  | "traject_finished";
+
+export type ReviewRequestData = {
+  studentName: string;
+  moment: ReviewMomentKey;
+  /** Waar de leerling de review achterlaat (Google-URL of de app). */
+  reviewUrl: string;
+};
+
+/** Moment-specifieke aanhef (waarom we nú om een review vragen). */
+const REVIEW_INTRO: Record<ReviewMomentKey, string> = {
+  after_trial:
+    "Je hebt onlangs je proefles gereden — we hopen dat het je goed is bevallen!",
+  after_lessons:
+    "Je bent inmiddels lekker op weg met je rijlessen. Tijd voor een korte terugblik!",
+  progress_milestone:
+    "Wat een vooruitgang — je nadert het examenniveau. Een mooi moment om terug te kijken!",
+  exam_passed:
+    "Gefeliciteerd met je behaalde rijbewijs! Wat een prestatie.",
+  traject_finished:
+    "Je traject zit erop — bedankt dat we je mochten begeleiden!",
+};
+
+/**
+ * Reviewverzoek — vraagt de leerling vriendelijk om een review op het juiste
+ * moment in hun traject. De CTA wijst naar de tenant-geconfigureerde
+ * Google-review-URL (of, bij afwezigheid, naar de app). White-label-bewust.
+ */
+export function renderReviewRequest(
+  branding: EmailBranding,
+  data: ReviewRequestData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const intro = REVIEW_INTRO[data.moment];
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    intro,
+    review_url: data.reviewUrl,
+  };
+
+  const subject = `Zou je ${branding.tenantName} willen aanbevelen?`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>${escapeHtml(intro)}</p>
+    <p>Zou je een momentje willen nemen om je ervaring met <strong>${escapeHtml(branding.tenantName)}</strong> te delen? Een review helpt andere leerlingen én ons enorm.</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(data.reviewUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">Laat een review achter</a>
+    </p>
+    <p>Alvast hartelijk dank — het kost maar een minuutje!</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `${intro}\n\n` +
+    `Zou je een momentje willen nemen om je ervaring met ${branding.tenantName} te delen? Een review helpt andere leerlingen én ons enorm.\n\n` +
+    `Laat een review achter: ${data.reviewUrl}\n\n` +
+    `Alvast hartelijk dank — het kost maar een minuutje!\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}

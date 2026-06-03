@@ -153,9 +153,11 @@ function SubmitButton() {
 export function IntakeWizard({
   slug,
   serverError,
+  referralCode,
 }: {
   slug: string;
   serverError?: string;
+  referralCode?: string;
 }) {
   const [step, setStep] = React.useState(0);
   const [state, setState] = React.useState<State>(INITIAL);
@@ -272,6 +274,9 @@ export function IntakeWizard({
         <input type="hidden" name="remarks" value={state.remarks} />
         <input type="hidden" name="applicant_type" value={state.applicant_type} />
         <input type="hidden" name="source" value={state.source} />
+        {referralCode && (
+          <input type="hidden" name="referral_code" value={referralCode} />
+        )}
         <input type="hidden" name="license_goal" value={state.license_goal} />
         <input type="hidden" name="transmission" value={state.transmission} />
         <input

@@ -21,8 +21,14 @@ import {
   renderCreditLow,
   renderInstallmentDue,
   renderExamDayReminder,
+  renderReviewRequest,
   type LessonReminderData,
 } from "./templates";
+import {
+  getReviewMomentsSettings,
+  type ReviewMoment,
+} from "./settings";
+import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
 import { dispatchInApp, formatWhenNL } from "./in-app";
@@ -1479,4 +1485,223 @@ export async function notifyExamDayReminder(
       link: "/student",
     },
   });
+}
+
+// ===========================================================================
+// Task #113 — Review- & referralflow. Geautomatiseerde, idempotente
+// reviewverzoeken op de juiste momenten in het traject. Elk moment is
+// tenant-configureerbaar (getReviewMomentsSettings); een inactief moment is een
+// no-op. De CTA wijst naar de tenant-Google-review-URL of valt terug op de app.
+// Idempotent per (leerling/lead, moment) via de dedupe key — een herhaalde
+// trigger stuurt nooit dubbel.
+// ===========================================================================
+
+/** Env-only publieke origin (geen request headers — veilig vanuit cron/sweep). */
+function envPublicOrigin(): string {
+  const override = process.env["NEXT_PUBLIC_APP_URL"];
+  if (override) return override.replace(/\/+$/, "");
+  const deployed = process.env["REPLIT_DOMAINS"]?.split(",")[0]?.trim();
+  if (deployed) return `https://${deployed}`;
+  const dev = process.env["REPLIT_DEV_DOMAIN"];
+  if (dev) return `https://${dev}`;
+  return "";
+}
+
+/**
+ * Stuur een reviewverzoek naar een LEERLING voor een specifiek moment. Checkt
+ * eerst of het moment voor deze tenant actief is. Idempotent per (leerling,
+ * moment); voor exam_passed bevat de dedupe key ook de afspraak, zodat elk
+ * geslaagd examen precies één verzoek oplevert. Degradeert naar 'skipped' bij
+ * een inactief moment of ontbrekende leerling.
+ */
+export async function notifyStudentReviewRequest(
+  service: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+  moment: ReviewMoment,
+  opts?: { appointmentId?: string },
+): Promise<{ outcome: DispatchOutcome }> {
+  const settings = await getReviewMomentsSettings(service, tenantId);
+  if (!settings.activeMoments[moment]) return { outcome: "skipped" };
+
+  const { data: student } = await service
+    .from("students")
+    .select("full_name, email, user_id")
+    .eq("id", studentId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!student) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "review_request");
+  const origin = envPublicOrigin();
+  const reviewUrl =
+    settings.googleReviewUrl ?? (origin ? `${origin}/student` : "/student");
+  const email = renderReviewRequest(
+    branding,
+    {
+      studentName: (student.full_name as string | null) ?? "cursist",
+      moment,
+      reviewUrl,
+    },
+    override,
+  );
+
+  const suffix =
+    moment === "exam_passed" && opts?.appointmentId
+      ? `:${opts.appointmentId}`
+      : "";
+
+  return dispatch(service, {
+    tenantId,
+    type: "review_request",
+    recipientEmail: (student.email as string | null) ?? "",
+    dedupeKey: `review_request:student:${studentId}:${moment}${suffix}`,
+    relatedType: "student",
+    relatedId: studentId,
+    email,
+    fromName: branding.tenantName,
+    payload: { moment },
+    inApp: {
+      recipientUserId: (student.user_id as string | null) ?? null,
+      title: "Deel je ervaring",
+      body: "Zou je een momentje willen nemen om een review achter te laten? Het helpt ons enorm!",
+      link: "/student",
+    },
+  });
+}
+
+/**
+ * Vuur — na het vastleggen van een examenuitslag — het exam_passed-reviewmoment
+ * af. Alleen voor een GESLAAGD echt rijexamen (geen tussentijdse toets). Loadt de
+ * afspraak, controleert type/uitslag en delegeert naar de leerling-notify met de
+ * afspraak in de dedupe key. Best-effort; faalt nooit de aanroepende actie.
+ */
+export async function maybeFireExamPassedReview(
+  service: SupabaseClient,
+  tenantId: string,
+  appointmentId: string,
+): Promise<void> {
+  try {
+    const { data: appt } = await service
+      .from("agenda_appointments")
+      .select("type, status, result, student_id")
+      .eq("id", appointmentId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (!appt) return;
+    if (appt.type !== "exam") return;
+    if (appt.status !== "completed" || appt.result !== "passed") return;
+    const studentId = appt.student_id as string | null;
+    if (!studentId) return;
+    await notifyStudentReviewRequest(service, tenantId, studentId, "exam_passed", {
+      appointmentId,
+    });
+  } catch (err) {
+    console.error("[notifications] maybeFireExamPassedReview failed", {
+      tenantId,
+      appointmentId,
+      err,
+    });
+  }
+}
+
+/**
+ * Stuur een reviewverzoek (na proefles) naar een LEAD. Leads hebben geen
+ * account, dus alleen e-mail — geen in-app. Idempotent per lead. No-op als het
+ * after_trial-moment voor deze tenant uit staat of de lead geen e-mail heeft.
+ */
+export async function notifyLeadReviewRequest(
+  service: SupabaseClient,
+  tenantId: string,
+  leadId: string,
+): Promise<{ outcome: DispatchOutcome }> {
+  const settings = await getReviewMomentsSettings(service, tenantId);
+  if (!settings.activeMoments.after_trial) return { outcome: "skipped" };
+
+  const { data: lead } = await service
+    .from("leads")
+    .select("full_name, email")
+    .eq("id", leadId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!lead) return { outcome: "skipped" };
+
+  const branding = await loadEmailBranding(service, tenantId);
+  const override = await loadOverride(service, tenantId, "review_request");
+  const origin = envPublicOrigin();
+  const reviewUrl = settings.googleReviewUrl ?? (origin ? `${origin}/` : "/");
+  const email = renderReviewRequest(
+    branding,
+    {
+      studentName: (lead.full_name as string | null) ?? "cursist",
+      moment: "after_trial",
+      reviewUrl,
+    },
+    override,
+  );
+
+  return dispatch(service, {
+    tenantId,
+    type: "review_request",
+    recipientEmail: (lead.email as string | null) ?? "",
+    dedupeKey: `review_request:lead:${leadId}:after_trial`,
+    relatedType: "lead",
+    relatedId: leadId,
+    email,
+    fromName: branding.tenantName,
+    payload: { moment: "after_trial" },
+  });
+}
+
+/**
+ * Evalueer — na het voltooien van een les — de lesgebonden reviewmomenten voor
+ * een leerling: "na N voltooide lessen" (drempel tenant-configureerbaar) en het
+ * "positieve voortgangsmijlpaal"-moment (leerling bereikt examenwaardig niveau).
+ * Beide zijn idempotent (one-shot via de dedupe key). Best-effort: faalt nooit
+ * de aanroepende lesactie.
+ */
+export async function maybeFireLessonReviewMoments(
+  service: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+): Promise<void> {
+  try {
+    const settings = await getReviewMomentsSettings(service, tenantId);
+
+    if (settings.activeMoments.after_lessons) {
+      const { count } = await service
+        .from("lessons")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId)
+        .eq("status", "completed");
+      if ((count ?? 0) >= settings.lessonThreshold) {
+        await notifyStudentReviewRequest(
+          service,
+          tenantId,
+          studentId,
+          "after_lessons",
+        );
+      }
+    }
+
+    if (settings.activeMoments.progress_milestone) {
+      const readiness = await loadStudentReadiness(service, tenantId, studentId);
+      if (readiness.advice === "examenwaardig") {
+        await notifyStudentReviewRequest(
+          service,
+          tenantId,
+          studentId,
+          "progress_milestone",
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[notifications] maybeFireLessonReviewMoments failed", {
+      tenantId,
+      studentId,
+      err,
+    });
+  }
 }

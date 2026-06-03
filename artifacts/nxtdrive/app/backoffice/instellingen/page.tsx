@@ -29,6 +29,8 @@ import { PaymentReminderManager } from "./payment-reminder-manager";
 import { loadPaymentReminderPolicy } from "@/lib/invoices/payment-reminder-policy";
 import { InstallmentCreditPolicyManager } from "./installment-credit-policy-manager";
 import { loadInstallmentCreditPolicy } from "@/lib/invoices/installment-credit";
+import { ReviewMomentsManager } from "./review-moments-manager";
+import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +81,10 @@ export default async function SettingsPage({
     tenant.id,
   );
   const installmentCreditPolicy = await loadInstallmentCreditPolicy(
+    service,
+    tenant.id,
+  );
+  const reviewMomentsSettings = await getReviewMomentsSettings(
     service,
     tenant.id,
   );
@@ -259,6 +265,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <InstallmentCreditPolicyManager policy={installmentCreditPolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Reviewverzoeken</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ReviewMomentsManager settings={reviewMomentsSettings} />
         </CardContent>
       </Card>
     </div>

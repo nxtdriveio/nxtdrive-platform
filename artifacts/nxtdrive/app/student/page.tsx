@@ -27,6 +27,15 @@ import { StudentCbrCard } from "@/components/student/StudentCbrCard";
 import { StudentExamResultCard } from "@/components/student/StudentExamResultCard";
 import { loadStudentExamPrep } from "@/lib/exam/data";
 import { ExamPrepCard } from "@/components/student/ExamPrepCard";
+import { ReferralInvite } from "@/components/student/referral-invite";
+import { ReviewRequestBanner } from "@/components/student/review-request-banner";
+import {
+  ensureStudentReferralCode,
+  buildReferralUrl,
+  loadStudentReferralSummary,
+} from "@/lib/referrals/data";
+import { getReviewMomentsSettings } from "@/lib/notifications/settings";
+import { getPublicOrigin } from "@/lib/utils/public-origin";
 import type { Lesson } from "@/lib/lessons/types";
 import type { StudentBalance } from "@/lib/students/types";
 
@@ -140,6 +149,33 @@ export default async function StudentHomePage() {
     ...upcoming.map((l) => l.instructor_id),
   ]);
 
+  // Task #113 — persoonlijke referrallink (idempotent aangemaakt) + de ongelezen
+  // reviewbanner. De referralcode loopt via de service-role RPC (actor = ingelogde
+  // gebruiker; de RPC autoriseert leerling/voogd zelf). De notificatie wordt via de
+  // anon-client gelezen zodat RLS "eigen rijen" afdwingt.
+  const service = createServiceRoleClient();
+  const [origin, referralCode, reviewSettings, referralSummary] =
+    await Promise.all([
+      getPublicOrigin(),
+      ensureStudentReferralCode(service, tenant.id, student.id, user.id),
+      getReviewMomentsSettings(service, tenant.id),
+      loadStudentReferralSummary(service, tenant.id, student.id),
+    ]);
+  const referralUrl = referralCode
+    ? buildReferralUrl(origin, tenant.slug, referralCode)
+    : null;
+
+  const { data: reviewNotif } = await supabase
+    .from("app_notifications")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("type", "review_request")
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const reviewNotificationId = (reviewNotif?.id as string | undefined) ?? null;
+
   return (
     <div className="space-y-4">
       <div>
@@ -150,6 +186,13 @@ export default async function StudentHomePage() {
           {student.full_name.split(" ")[0]}
         </h1>
       </div>
+
+      {reviewNotificationId ? (
+        <ReviewRequestBanner
+          notificationId={reviewNotificationId}
+          reviewUrl={reviewSettings.googleReviewUrl}
+        />
+      ) : null}
 
       <RefillInvitations invitations={refillInvitations} />
 
@@ -218,6 +261,14 @@ export default async function StudentHomePage() {
       <StudentTrendCard history={leskaart.history} />
 
       <StudentBalanceCard balance={balance} />
+
+      {referralUrl ? (
+        <ReferralInvite
+          url={referralUrl}
+          schoolName={tenant.name}
+          summary={referralSummary}
+        />
+      ) : null}
 
       <Card>
         <CardContent className="space-y-3 pt-5">

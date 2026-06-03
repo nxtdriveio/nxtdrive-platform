@@ -37,6 +37,8 @@
     "db:test-rls-lead-dashboard": "tsx ./src/test-rls-lead-dashboard.ts",
     "db:test-readiness": "tsx ./src/test-readiness.ts",
     "db:test-intake-analysis": "tsx ./src/test-intake-analysis.ts",
+    "db:test-referrals": "tsx ./src/test-referrals.ts",
+    "db:test-review-requests": "tsx ./src/test-review-requests.ts",
     "test-route-scoring": "tsx ./src/test-route-scoring.ts",
     "test-lesson-planning": "tsx ./src/test-lesson-planning.ts",
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",

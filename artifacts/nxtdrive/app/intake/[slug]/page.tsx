@@ -10,10 +10,10 @@ export default async function IntakePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ref?: string }>;
 }) {
   const { slug } = await params;
-  const { error } = await searchParams;
+  const { error, ref } = await searchParams;
 
   // Public page: look up tenant via service role (RLS would block anon).
   const service = createServiceRoleClient();
@@ -42,6 +42,7 @@ export default async function IntakePage({
         <IntakeWizard
           slug={tenant.slug}
           serverError={error ? decodeURIComponent(error) : undefined}
+          referralCode={ref ? ref.slice(0, 40) : undefined}
         />
 
         <p className="mt-6 text-center text-xs text-muted-foreground">

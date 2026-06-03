@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { notifyCbrAuthorizationNeeded } from "@/lib/notifications/dispatch";
+import {
+  notifyCbrAuthorizationNeeded,
+  maybeFireLessonReviewMoments,
+} from "@/lib/notifications/dispatch";
 import type { Lesson } from "@/lib/lessons/types";
 
 type ActionResult = { error?: string };
@@ -79,6 +82,9 @@ export async function completeLessonAction(formData: FormData): Promise<void> {
       `/instructor/${lessonId}?error=${encodeURIComponent(error.message)}`,
     );
   }
+  // Task #113 — beoordeel reviewmomenten (na N lessen / examenwaardig). Best-
+  // effort: faalt nooit de lesactie; idempotent via de dedupe key.
+  await maybeFireLessonReviewMoments(service, ctx.tenantId, ctx.lesson.student_id);
   revalidatePath(`/instructor/${lessonId}`);
   revalidatePath("/instructor");
   redirect(`/instructor/${lessonId}`);

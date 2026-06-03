@@ -92,6 +92,22 @@ export async function finishStudentTraject(formData: FormData) {
   });
   if (error) redirect(`/backoffice/leerlingen/${studentId}`);
 
+  // Task #113 — reviewverzoek na afronding van het traject. Best-effort en
+  // idempotent per (leerling, moment); blokkeert het afronden nooit.
+  try {
+    const { notifyStudentReviewRequest } = await import(
+      "@/lib/notifications/dispatch"
+    );
+    await notifyStudentReviewRequest(
+      service,
+      tenant.id,
+      studentId,
+      "traject_finished",
+    );
+  } catch {
+    // Bewust ingeslikt: notificaties zijn best-effort.
+  }
+
   revalidatePath(`/backoffice/leerlingen/${studentId}`);
   revalidatePath("/backoffice/leerlingen");
   redirect(`/backoffice/leerlingen/${studentId}`);
