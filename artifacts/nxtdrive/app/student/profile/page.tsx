@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
+import { PushToggle } from "@/components/notifications/PushToggle";
+import { getVapidPublicKey } from "@/lib/notifications/web-push";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function StudentProfilePage() {
     tenant.id,
     roles,
   );
+  const vapidPublicKey = getVapidPublicKey();
   const isParent = roles.includes("parent") && !roles.includes("student");
   const otherChildren = isParent
     ? accessible.filter((s) => s.id !== student?.id && s.user_id !== user.id)
@@ -81,6 +84,8 @@ export default async function StudentProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      <PushToggle vapidPublicKey={vapidPublicKey} />
 
       {student ? (
         <RefillOptInForm

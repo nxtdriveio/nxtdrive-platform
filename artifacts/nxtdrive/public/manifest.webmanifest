@@ -1,0 +1,25 @@
+{
+  "name": "NXTDRIVE",
+  "short_name": "NXTDRIVE",
+  "description": "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen.",
+  "lang": "nl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08080f",
+  "theme_color": "#6b4eff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

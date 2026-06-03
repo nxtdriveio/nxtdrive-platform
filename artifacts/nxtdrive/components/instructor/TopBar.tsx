@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ClipboardList, CalendarClock, ListTodo, Zap } from "lucide-react";
+import { ClipboardList, CalendarClock, ListTodo, Zap, Bell } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -39,6 +39,13 @@ export function InstructorTopBar({
       </div>
       <div className="flex items-center gap-2">
         {notifications}
+        <Link
+          href="/instructor/meldingen"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted"
+        >
+          <Bell className="h-4 w-4" aria-hidden />
+          <span className="hidden sm:inline">Meldingen</span>
+        </Link>
         <Link
           href="/backoffice/taken"
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground hover:bg-muted"

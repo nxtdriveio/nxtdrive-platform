@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { getTheme } from "@/lib/theme";
 import "./globals.css";
 
@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   title: "NXTDRIVE",
   description:
     "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen.",
+  manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6b4eff",
 };
 
 export default async function RootLayout({

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { sendWebPushToUser } from "./web-push";
 import type { InAppContent, InAppNotification } from "./types";
 
 /**
@@ -48,7 +49,34 @@ export async function dispatchInApp(
     return { skipped: true };
   }
   const row = Array.isArray(data) ? data[0] : data;
-  return { created: Boolean(row?.was_created) };
+  const created = Boolean(row?.was_created);
+
+  // Second delivery surface: when (and only when) a NEW in-app row was created,
+  // also push it to the user's subscribed browsers/PWAs. Gating on `created`
+  // preserves idempotency — a retried dispatch re-asserts the in-app row but
+  // never re-pushes. Best-effort and never throws: a push failure must not break
+  // the in-app message or the surrounding email.
+  if (created) {
+    try {
+      await sendWebPushToUser(service, {
+        tenantId: params.tenantId,
+        userId: inApp.recipientUserId,
+        title: inApp.title,
+        body: inApp.body,
+        link: inApp.link,
+        type: params.type,
+        dedupeKey: params.dedupeKey,
+      });
+    } catch (err) {
+      console.error("[in-app] web push dispatch failed", {
+        type: params.type,
+        dedupeKey: params.dedupeKey,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return { created };
 }
 
 /**

@@ -6,6 +6,7 @@ import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ export default async function StudentLayout({
           <NotificationBell items={items} unreadCount={unreadCount} />
         }
       />
+      <ServiceWorkerRegister />
       <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6">
         <div className="mx-auto max-w-2xl">{children}</div>
       </main>

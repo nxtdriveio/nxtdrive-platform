@@ -22,3 +22,4 @@
 - [Exam signals (Examenflow B)](exam-signals-engine.md) — signals derived by one pure engine; convert action re-derives server-side, idempotent on exam:{appt}:{code}.
 - [Dev-proxy /api collision](dev-proxy-api-path-collision.md) — shared proxy sends /api to Express api-server, so Next.js /api/* routes are only reachable on the app's own port locally; Caddy routes them fine in prod.
 - [credit_low top-up-epoch dedupe](credit-low-topup-epoch-dedupe.md) — low-credit mail re-arms via dedupe key embedding count of positive ledger deltas; new top-up advances epoch → exactly one fresh mail, zero extra state.
+- [Web push channel](web-push-channel.md) — push is the 2nd surface of an in-app notification, fired from dispatchInApp ONLY on was_created=true (inherits in-app idempotency); degrades silently w/o VAPID, prunes dead endpoints.

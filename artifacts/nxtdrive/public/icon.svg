@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NXTDRIVE">
+  <rect width="512" height="512" rx="112" fill="#6b4eff"/>
+  <g transform="translate(84.6 84.6) scale(8.57)" fill="#ffffff">
+    <path d="M6 6 L20 20 L6 34 L13 34 L20 27 L20 20 Z"/>
+    <path d="M34 6 L20 20 L34 34 L27 34 L20 27 L20 20 Z" opacity="0.85"/>
+    <path d="M20 13 L27 6 L34 6 L20 20 Z" opacity="0.7"/>
+    <path d="M20 13 L13 6 L6 6 L20 20 Z" opacity="0.95"/>
+  </g>
+</svg>
