@@ -115,6 +115,7 @@ Current Replit secrets are for STAGING. Production secrets managed separately (G
 ## Pointers
 
 - **ALWAYS read first, every task:** `docs/NXTDRIVE_CANON.md` (product canon — source of truth for WHAT NXTDRIVE is) and `docs/PHASE_PLAN.md` (phased build plan + current implementation status). Then read the relevant skills.
+- `docs/NXTDRIVE_PWA_CANON.md` — design + UX canon for the student and instructor PWAs (app-first layout, navigation, manifest/splash, offline, push, MVP scope). Read before any student/instructor PWA work.
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
 - Phase 0 plan: see conversation history (approved plan document)
 - Blueprint source: `attached_assets/NXTDRIVE_Product_Blueprint_Replit_Faseplan_*.docx`
