@@ -20,6 +20,7 @@
     "db:test-rls-exam-prep": "tsx ./src/test-rls-exam-prep.ts",
     "db:test-rls-agenda": "tsx ./src/test-rls-agenda.ts",
     "db:test-rls-cbr": "tsx ./src/test-rls-cbr.ts",
+    "db:test-rls-messages": "tsx ./src/test-rls-messages.ts",
     "db:test-rls-instructor": "tsx ./src/test-rls-instructor.ts",
     "db:test-rls-availability": "tsx ./src/test-rls-availability.ts",
     "db:test-rls-student": "tsx ./src/test-rls-student.ts",

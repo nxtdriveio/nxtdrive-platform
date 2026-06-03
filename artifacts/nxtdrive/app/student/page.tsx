@@ -5,6 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { NextLessonCard } from "@/components/student/NextLessonCard";
 import { CreditSummaryCard } from "@/components/student/CreditSummaryCard";
 import { QuickActions } from "@/components/student/QuickActions";
+import { ContactCard } from "@/components/student/ContactCard";
+import { loadContactPhone } from "@/lib/tenant/contact-phone";
+import { countStudentUnread } from "@/lib/chat/service";
 import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
@@ -101,13 +104,21 @@ export default async function StudentHomePage() {
   // gebruiker; de RPC autoriseert leerling/voogd zelf). De notificatie wordt via de
   // anon-client gelezen zodat RLS "eigen rijen" afdwingt.
   const service = createServiceRoleClient();
-  const [origin, referralCode, reviewSettings, referralSummary] =
-    await Promise.all([
-      getPublicOrigin(),
-      ensureStudentReferralCode(service, tenant.id, student.id, user.id),
-      getReviewMomentsSettings(service, tenant.id),
-      loadStudentReferralSummary(service, tenant.id, student.id),
-    ]);
+  const [
+    origin,
+    referralCode,
+    reviewSettings,
+    referralSummary,
+    contactPhone,
+    chatUnread,
+  ] = await Promise.all([
+    getPublicOrigin(),
+    ensureStudentReferralCode(service, tenant.id, student.id, user.id),
+    getReviewMomentsSettings(service, tenant.id),
+    loadStudentReferralSummary(service, tenant.id, student.id),
+    loadContactPhone(service, tenant.id),
+    countStudentUnread({ tenantId: tenant.id, studentId: student.id }),
+  ]);
   const referralUrl = referralCode
     ? buildReferralUrl(origin, tenant.slug, referralCode)
     : null;
@@ -164,6 +175,12 @@ export default async function StudentHomePage() {
       />
 
       <QuickActions />
+
+      <ContactCard
+        schoolName={tenant.name}
+        contactPhone={contactPhone}
+        unreadCount={chatUnread}
+      />
 
       <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
 

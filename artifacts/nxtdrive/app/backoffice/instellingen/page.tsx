@@ -31,6 +31,8 @@ import { InstallmentCreditPolicyManager } from "./installment-credit-policy-mana
 import { loadInstallmentCreditPolicy } from "@/lib/invoices/installment-credit";
 import { ReviewMomentsManager } from "./review-moments-manager";
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
+import { ContactPhoneManager } from "./contact-phone-manager";
+import { loadContactPhone } from "@/lib/tenant/contact-phone";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +90,7 @@ export default async function SettingsPage({
     service,
     tenant.id,
   );
+  const contactPhone = await loadContactPhone(service, tenant.id);
 
   return (
     <div className="space-y-6">
@@ -274,6 +277,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <ReviewMomentsManager settings={reviewMomentsSettings} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contactgegevens</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ContactPhoneManager phone={contactPhone} />
         </CardContent>
       </Card>
     </div>

@@ -33,6 +33,7 @@ import {
   mergeInstallmentCreditPolicy,
 } from "@/lib/invoices/installment-credit";
 import { REVIEW_MOMENTS, REVIEW_MOMENTS_KEY } from "@/lib/notifications/settings";
+import { CONTACT_PHONE_KEY } from "@/lib/tenant/contact-phone";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -699,5 +700,40 @@ export async function setReferralRewardHandled(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/referrals");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Task #115 — Berichten: het publieke contacttelefoonnummer van de school.
+// Tenant-configurable via tenant_settings (key `contact_phone`). De leerling-
+// app toont de "Bel"-actie alleen wanneer dit gezet is. Service-role write;
+// tenant_id altijd uit de geauthenticeerde membership. Nooit hardcoded.
+// ---------------------------------------------------------------------------
+export async function saveContactPhone(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const raw = String(formData.get("contact_phone") ?? "").trim();
+  if (raw.length > 40) {
+    return { ok: false, error: "Telefoonnummer is te lang." };
+  }
+  if (raw !== "" && !/^[\d\s+()./-]+$/.test(raw)) {
+    return { ok: false, error: "Vul een geldig telefoonnummer in." };
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: CONTACT_PHONE_KEY,
+      value: { phone: raw },
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student", "layout");
   return { ok: true };
 }

@@ -5,6 +5,19 @@ insert into public.tenants (slug, name, plan, white_label_enabled)
 values ('demo-academy', 'NXTDRIVE Demo Academy', 'pro', false)
 on conflict (slug) do update set name = excluded.name;
 
+-- Public contact phone for the demo tenant (Task #115 — Berichten). The
+-- leerling-app "Bel"-action only shows when this is set. Tenant-configurable.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.tenant_settings (tenant_id, key, value)
+select
+  demo.id,
+  'contact_phone',
+  jsonb_build_object('phone', '+31 20 123 4567')
+from demo
+on conflict (tenant_id, key) do nothing;
+
 -- Default cancellation policy (tenant-configurable, never hardcoded in app code)
 with demo as (
   select id from public.tenants where slug = 'demo-academy'

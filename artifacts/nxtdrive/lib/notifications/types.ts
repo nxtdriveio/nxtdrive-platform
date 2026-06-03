@@ -19,7 +19,8 @@ export type NotificationType =
   | "credit_low"
   | "installment_due"
   | "exam_day_reminder"
-  | "review_request";
+  | "review_request"
+  | "chat_message";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 
