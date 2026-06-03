@@ -22,6 +22,7 @@ import {
   displayStatus,
   formatEuros,
   installmentLabel,
+  remainingCents,
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
@@ -33,6 +34,7 @@ import {
 import {
   addInvoiceLine,
   createCreditNote,
+  recordInvoicePayment,
   removeInvoiceLine,
   setInvoiceStatus,
   updateInvoiceDraft,
@@ -71,6 +73,8 @@ export default async function InvoiceDetailPage({
     typeof sp.mollie_error === "string" ? sp.mollie_error : null;
   const creditError =
     typeof sp.credit_error === "string" ? sp.credit_error : null;
+  const payFlag = typeof sp.pay === "string" ? sp.pay : null;
+  const payError = typeof sp.pay_error === "string" ? sp.pay_error : null;
   const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
@@ -147,6 +151,7 @@ export default async function InvoiceDetailPage({
   const isDraft = invoice.status === "draft";
   const isOpen = invoice.status === "open";
   const isCreditNote = invoice.kind === "credit_note";
+  const remaining = remainingCents(invoice);
   const termijn = installmentLabel(invoice);
   const canCredit =
     isAdmin &&
@@ -416,6 +421,28 @@ export default async function InvoiceDetailPage({
                       : "—"
                   }
                 />
+                {!isCreditNote && (invoice.amount_paid_cents > 0 || isOpen) ? (
+                  <>
+                    <Field
+                      label="Betaald"
+                      value={`${formatEuros(invoice.amount_paid_cents)} van ${formatEuros(
+                        invoice.total_cents,
+                      )}`}
+                    />
+                    <Field
+                      label="Resterend"
+                      value={
+                        remaining > 0 ? (
+                          <span className="font-medium">
+                            {formatEuros(remaining)}
+                          </span>
+                        ) : (
+                          <Badge variant="success">Volledig betaald</Badge>
+                        )
+                      }
+                    />
+                  </>
+                ) : null}
                 <Field label="Interne notitie" value={invoice.notes ?? "—"} />
               </dl>
             </CardContent>
@@ -502,8 +529,18 @@ export default async function InvoiceDetailPage({
           ) : null}
 
           {isOpen && isAdmin && !isCreditNote ? (
+            <RecordPaymentCard
+              invoice={invoice}
+              remaining={remaining}
+              flag={payFlag}
+              error={payError}
+            />
+          ) : null}
+
+          {isOpen && isAdmin && !isCreditNote ? (
             <MolliePaymentCard
               invoice={invoice}
+              remaining={remaining}
               flag={mollieFlag}
               error={mollieError}
             />
@@ -627,12 +664,89 @@ function StatusButton({
   );
 }
 
-function MolliePaymentCard({
+function RecordPaymentCard({
   invoice,
+  remaining,
   flag,
   error,
 }: {
   invoice: Invoice;
+  remaining: number;
+  flag: string | null;
+  error: string | null;
+}) {
+  const errorLabels: Record<string, string> = {
+    invalid_amount: "Vul een geldig bedrag groter dan € 0,00 in.",
+  };
+  let errorMsg: string | null = null;
+  if (error) {
+    errorMsg = errorLabels[error] ?? `Kon betaling niet vastleggen: ${error}`;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Betaling registreren</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Leg een ontvangen betaling vast (contant, bankoverschrijving of
+          correctie). Resterend openstaand: {formatEuros(remaining)}.
+        </p>
+        {flag === "recorded" ? (
+          <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            Betaling vastgelegd.
+          </p>
+        ) : null}
+        {errorMsg ? (
+          <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+            {errorMsg}
+          </p>
+        ) : null}
+        <form action={recordInvoicePayment} className="space-y-3">
+          <input type="hidden" name="invoice_id" value={invoice.id} />
+          <div className="space-y-1">
+            <Label htmlFor="record_amount">Bedrag (€)</Label>
+            <Input
+              id="record_amount"
+              name="amount_euros"
+              type="text"
+              inputMode="decimal"
+              placeholder={(remaining / 100).toFixed(2)}
+              defaultValue={(remaining / 100).toFixed(2)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="record_method">Methode</Label>
+            <Input
+              id="record_method"
+              name="method"
+              type="text"
+              placeholder="bijv. contant, overschrijving"
+              defaultValue="manual"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="record_note">Notitie (optioneel)</Label>
+            <Textarea id="record_note" name="note" rows={2} />
+          </div>
+          <Button type="submit" size="sm" className="w-full">
+            Betaling vastleggen
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MolliePaymentCard({
+  invoice,
+  remaining,
+  flag,
+  error,
+}: {
+  invoice: Invoice;
+  remaining: number;
   flag: string | null;
   error: string | null;
 }) {
@@ -648,8 +762,11 @@ function MolliePaymentCard({
       "Mollie API-sleutel ontbreekt. Stel deze in onder Instellingen.",
     key_decrypt_failed: "Kon Mollie-sleutel niet ontsleutelen.",
     not_open: "Alleen openstaande facturen kunnen een betaallink krijgen.",
+    not_invoice: "Alleen facturen kunnen een betaallink krijgen.",
     not_found: "Factuur niet gevonden.",
-    zero_amount: "Totaalbedrag is € 0,00.",
+    zero_amount: "Vul een geldig bedrag groter dan € 0,00 in.",
+    amount_too_high: "Bedrag is hoger dan het openstaande saldo.",
+    already_paid: "Deze factuur is al volledig betaald.",
     attach_failed: "Mollie-betaling aanmaken lukte wel, koppelen niet.",
   };
   let errorMsg: string | null = null;
@@ -699,8 +816,22 @@ function MolliePaymentCard({
           </div>
         ) : null}
 
-        <form action={createMolliePayment}>
+        <form action={createMolliePayment} className="space-y-3">
           <input type="hidden" name="invoice_id" value={invoice.id} />
+          <div className="space-y-1">
+            <Label htmlFor="mollie_amount">Bedrag (€) — leeg = resterend</Label>
+            <Input
+              id="mollie_amount"
+              name="amount_euros"
+              type="text"
+              inputMode="decimal"
+              placeholder={(remaining / 100).toFixed(2)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Laat leeg voor het volledige openstaande saldo (
+              {formatEuros(remaining)}), of vul een deelbedrag in.
+            </p>
+          </div>
           <Button type="submit" size="sm" className="w-full">
             {hasLink ? "Nieuwe betaallink genereren" : "Verzend betaallink"}
           </Button>

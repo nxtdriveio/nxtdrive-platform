@@ -48,12 +48,14 @@ export type Invoice = {
   subtotal_cents: number;
   tax_cents: number;
   total_cents: number;
+  amount_paid_cents: number;
   notes: string | null;
   payment_record_id: string | null;
   payment_record_tenant_id: string | null;
   mollie_payment_id: string | null;
   mollie_checkout_url: string | null;
   mollie_status: string | null;
+  mollie_amount_cents: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -86,27 +88,48 @@ export type InvoiceLine = {
 };
 
 /**
- * UI-only derived status. An invoice with status='open' whose due_date has
- * passed is rendered as 'overdue'. We never store this — recomputed on read.
+ * UI-only derived status. We never store these — recomputed on read.
+ *  - 'partially_paid': an open invoice with 0 < amount_paid_cents < total_cents.
+ *  - 'overdue':        an open, unpaid invoice whose due_date has passed.
+ * 'partially_paid' takes precedence over 'overdue' because a school cares most
+ * about how much is still owed once money has started coming in.
  */
-export type DisplayStatus = InvoiceStatus | "overdue";
+export type DisplayStatus = InvoiceStatus | "overdue" | "partially_paid";
 
 export function displayStatus(invoice: {
   status: InvoiceStatus;
   due_date: string | null;
+  amount_paid_cents?: number;
+  total_cents?: number;
 }): DisplayStatus {
-  if (invoice.status === "open" && invoice.due_date) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(invoice.due_date);
-    if (due < today) return "overdue";
+  if (invoice.status === "open") {
+    const paid = invoice.amount_paid_cents ?? 0;
+    const total = invoice.total_cents ?? 0;
+    if (paid > 0 && (total <= 0 || paid < total)) {
+      return "partially_paid";
+    }
+    if (invoice.due_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(invoice.due_date);
+      if (due < today) return "overdue";
+    }
   }
   return invoice.status;
+}
+
+/** Remaining amount still owed on an invoice, never negative. */
+export function remainingCents(invoice: {
+  total_cents: number;
+  amount_paid_cents: number;
+}): number {
+  return Math.max(invoice.total_cents - invoice.amount_paid_cents, 0);
 }
 
 export const DISPLAY_STATUS_LABEL: Record<DisplayStatus, string> = {
   ...INVOICE_STATUS_LABEL,
   overdue: "Verlopen",
+  partially_paid: "Deels betaald",
 };
 
 export const DISPLAY_STATUS_VARIANT: Record<
@@ -115,6 +138,7 @@ export const DISPLAY_STATUS_VARIANT: Record<
 > = {
   ...INVOICE_STATUS_VARIANT,
   overdue: "danger",
+  partially_paid: "warning",
 };
 
 export function formatEuros(cents: number): string {

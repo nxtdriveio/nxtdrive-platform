@@ -7,6 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   INVOICE_STATUSES,
   parseEurosToCents,
+  type Invoice,
   type InvoiceStatus,
 } from "@/lib/invoices/types";
 import {
@@ -284,6 +285,71 @@ export async function createCreditNote(formData: FormData) {
   revalidatePath("/backoffice/facturen");
   revalidatePath(`/backoffice/facturen/${invoiceId}`);
   redirect(`/backoffice/facturen/${creditId as string}`);
+}
+
+/**
+ * Record a (partial or full) payment received outside Mollie — e.g. cash, a
+ * bank transfer, or a manual correction. Writes a payment_records ledger row +
+ * audit trail and accumulates the invoice balance; the invoice auto-flips to
+ * paid (releasing any termijn-tegoed) once the total is covered. All logic +
+ * guards live in record_invoice_payment (service role).
+ */
+export async function recordInvoicePayment(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const invoiceId = String(formData.get("invoice_id") ?? "").trim();
+  const amountRaw = String(formData.get("amount_euros") ?? "").trim();
+  const method = String(formData.get("method") ?? "manual")
+    .trim()
+    .slice(0, 40);
+  const note = String(formData.get("note") ?? "").trim().slice(0, 2000);
+  if (!invoiceId) redirect("/backoffice/facturen");
+
+  const amountCents = parseEurosToCents(amountRaw);
+  if (amountCents === null || amountCents <= 0) {
+    redirect(`/backoffice/facturen/${invoiceId}?pay_error=invalid_amount`);
+  }
+
+  const service = createServiceRoleClient();
+  const { data: prId, error } = await service.rpc("record_invoice_payment", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_invoice_id: invoiceId,
+    p_amount_cents: amountCents,
+    p_method: method || "manual",
+    p_provider: "manual",
+    p_provider_payment_id: null,
+    p_currency: "EUR",
+    p_paid_at: new Date().toISOString(),
+    p_note: note || null,
+    p_raw_payload: null,
+  });
+  if (error || !prId) {
+    redirect(
+      `/backoffice/facturen/${invoiceId}?pay_error=${encodeURIComponent(
+        (error?.message ?? "unknown").slice(0, 200),
+      )}`,
+    );
+  }
+
+  // If this payment fully settled the invoice, send the same confirmation as
+  // the Mollie / manual-mark-paid flows. Best-effort + idempotent.
+  const { data: invAfter } = await service
+    .from("invoices")
+    .select("status")
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if ((invAfter as Pick<Invoice, "status"> | null)?.status === "paid") {
+    try {
+      await notifyInvoicePaid(service, tenant.id, invoiceId);
+    } catch (err) {
+      console.error("[facturen] notifyInvoicePaid failed", err);
+    }
+  }
+
+  revalidatePath(`/backoffice/facturen/${invoiceId}`);
+  revalidatePath("/backoffice/facturen");
+  redirect(`/backoffice/facturen/${invoiceId}?pay=recorded`);
 }
 
 export async function setInvoiceStatus(formData: FormData) {
