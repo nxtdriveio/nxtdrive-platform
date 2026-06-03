@@ -454,6 +454,12 @@ export function PortalFacturenCard({
                     <Badge variant={DISPLAY_STATUS_VARIANT[ds]}>
                       {DISPLAY_STATUS_LABEL[ds]}
                     </Badge>
+                    <a
+                      href={`/ouder/facturen/${inv.id}/pdf`}
+                      className="shrink-0 text-sm font-medium text-primary hover:underline"
+                    >
+                      Download PDF
+                    </a>
                   </div>
                 </li>
               );
