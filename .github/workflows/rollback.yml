@@ -1,0 +1,91 @@
+name: Rollback
+
+# Manual rollback for the self-hosted runner deployment model.
+# Repoints the `current` symlink at a previous release and restarts the
+# service. No build, no migrations — DB migrations are forward-only and must be
+# reverted manually if a rollback requires schema changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to roll back
+        type: choice
+        required: true
+        options:
+          - staging
+          - production
+      release:
+        description: "Release dir name (timestamp). Leave empty for the previous release."
+        type: string
+        required: false
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Roll back ${{ inputs.environment }}
+    runs-on: [self-hosted, nxtdrive-vps]
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Resolve target and switch
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          REQUESTED_RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+
+          if [ "$ENVIRONMENT" = "production" ]; then
+            DEPLOY_BASE=/var/www/nxtdrive/production
+            SERVICE=nxtdrive-production
+            PORT=5001
+          else
+            DEPLOY_BASE=/var/www/nxtdrive/staging
+            SERVICE=nxtdrive-staging
+            PORT=5000
+          fi
+          HEALTH_PATH=/api/health
+          RELEASES_DIR="$DEPLOY_BASE/releases"
+
+          if [ -n "$REQUESTED_RELEASE" ]; then
+            TARGET="$RELEASES_DIR/$REQUESTED_RELEASE"
+          else
+            current_target="$(readlink -f "$DEPLOY_BASE/current" || true)"
+            TARGET=""
+            while IFS= read -r d; do
+              d="${d%/}"
+              if [ "$d" != "$current_target" ]; then
+                TARGET="$d"
+                break
+              fi
+            done < <(ls -1dt "$RELEASES_DIR"/*/)
+          fi
+
+          if [ -z "$TARGET" ] || [ ! -d "$TARGET" ]; then
+            echo "::error::No suitable rollback target found ('$TARGET')"
+            echo "Available releases:"
+            ls -1dt "$RELEASES_DIR"/*/ || true
+            exit 1
+          fi
+
+          echo "Rolling $ENVIRONMENT back to: $TARGET"
+          ln -sfn "$TARGET" "$DEPLOY_BASE/current"
+          sudo systemctl restart "$SERVICE"
+
+          url="http://127.0.0.1:${PORT}${HEALTH_PATH}"
+          for i in $(seq 1 30); do
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' "$url" || true)"
+            if [ "$code" = "200" ]; then
+              echo "Health check passed after rollback: $url"
+              exit 0
+            fi
+            echo "Attempt $i: $url returned '$code', retrying in 2s..."
+            sleep 2
+          done
+          echo "::error::Health check FAILED after rollback for $url"
+          systemctl status "$SERVICE" --no-pager -l || true
+          exit 1

@@ -1,23 +1,48 @@
-# systemd unit for the staging Next.js app.
-# Install at /etc/systemd/system/nxtdrive-staging.service then:
+# systemd unit for the STAGING Next.js app.
+# Managed by infra/bootstrap.sh — installed to
+#   /etc/systemd/system/nxtdrive-staging.service
+# then:
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now nxtdrive-staging
+#   sudo systemctl enable nxtdrive-staging
+# (first deploy starts it once current/ exists)
 [Unit]
 Description=NXTDRIVE Next.js (staging)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=deployer
-WorkingDirectory=/var/www/nxtdrive/staging/current/artifacts/nxtdrive
+Group=nxtdrive
+WorkingDirectory=/var/www/nxtdrive/staging/current
+EnvironmentFile=/var/www/nxtdrive/staging/shared/.env
 Environment=NODE_ENV=production
 Environment=PORT=5000
-EnvironmentFile=/var/www/nxtdrive/staging/shared/.env
+# Writable HOME outside /home so pnpm/Next caches work under ProtectHome.
+StateDirectory=nxtdrive-staging
+Environment=HOME=/var/lib/nxtdrive-staging
 ExecStart=/usr/bin/pnpm --filter @workspace/nxtdrive run start
+
+# Graceful stop: Next handles SIGTERM; give in-flight requests time to drain.
 Restart=always
 RestartSec=3
+TimeoutStopSec=30
+KillMode=mixed
+
+# --- Hardening ---
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=nxtdrive-staging
 
 [Install]
 WantedBy=multi-user.target

@@ -68,14 +68,16 @@ Subscription tiers (data model ready from day 1, enforcement deferred):
 
 ## Infrastructure
 
-- VPS IP: 178.251.232.105
-- Deploy path: `/var/www/nxtdrive/staging` and `/var/www/nxtdrive/production`
+- VPS: Hetzner CPX41, Ubuntu 24.04
+- Deploy path: `/var/www/nxtdrive/staging` and `/var/www/nxtdrive/production` (atomic `releases/<ts>/` + `current/` symlink, keep last 5)
 - DNS: Cloudflare → nxtdrive.io
-- Reverse proxy: Caddy (handles HTTPS termination, custom domain routing)
+- Reverse proxy: Caddy (HTTPS termination, security headers, custom domain routing)
 - Environments: staging (current Supabase project) + production (separate Supabase project — done)
-- CI/CD: GitHub Actions — push to `staging` branch deploys to staging; push to `main` deploys to production
+- CI/CD: GitHub Actions on a **self-hosted runner ON the VPS** (labels `self-hosted, nxtdrive-vps`). Build + migrate + publish happen locally on the box — **no SSH/scp/rsync deploy** (SSH-based deploy retired). Push to `staging` → staging; push to `main` → production. Manual `Rollback` workflow repoints `current/`.
+- Runner builds once (validated), publishes the artifact, swaps the symlink, restarts via least-privilege sudo, then health-checks `/api/health`.
 - GitHub repo: https://github.com/nxtdriveio/nxtdrive-platform.git
 - Branch strategy: `main` → production, `staging` → staging, feature branches → PR into `staging`
+- Full runbook: `docs/INFRA_DEPLOYMENT.md` (deploy/rollback flow, clean DB rebuild, security posture). VPS provisioning: `infra/bootstrap.sh` + `infra/README.md`.
 
 ## Secrets (per environment)
 
@@ -111,6 +113,9 @@ Current Replit secrets are for STAGING. Production secrets managed separately (G
 - Caddy handles TLS via Cloudflare origin certificates or Let's Encrypt — configure accordingly on VPS.
 - Staging Supabase = current secrets. Production Supabase = separate project, separate secrets.
 - `credit_ledger` and `audit_log`: server-side writes only, never client-side.
+- Deploy is a **self-hosted GitHub runner on the VPS** — no SSH-based deploy. The old `SSH_HOST`/`SSH_USER`/`SSH_PRIVATE_KEY` GitHub secrets are retired and can be deleted. The runner needs the `nxtdrive-vps` label and membership in the `nxtdrive` OS group.
+- `/var/www/nxtdrive` must stay group `nxtdrive` + `2775` (setgid); deploy steps run under `umask 002` so the `deployer` runtime user can write `.next/cache`.
+- DB migrations are forward-only; rollback (the `Rollback` workflow) only repoints code, never reverts schema.
 
 ## Pointers
 

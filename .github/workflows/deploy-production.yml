@@ -1,5 +1,16 @@
 name: Deploy production
 
+# Self-hosted runner model. The runner lives ON the production VPS and is
+# registered with the labels [self-hosted, nxtdrive-vps]. Because the build
+# happens on the box itself, there is NO SSH / scp / rsync-over-network: the
+# release is published straight onto the local filesystem.
+#
+# Required GitHub Actions secrets (environment: production):
+#   PRODUCTION_SUPABASE_URL, PRODUCTION_SUPABASE_ANON_KEY,
+#   PRODUCTION_SUPABASE_SERVICE_ROLE_KEY, PRODUCTION_SESSION_SECRET,
+#   PRODUCTION_DATABASE_URL
+# The old SSH_* secrets are no longer used.
+
 on:
   push:
     branches: [main]
@@ -12,7 +23,7 @@ concurrency:
 jobs:
   deploy:
     name: Build, migrate and deploy to production VPS
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nxtdrive-vps]
     timeout-minutes: 20
     environment: production
 
@@ -20,6 +31,8 @@ jobs:
       APP_URL: https://app.nxtdrive.io
       DEPLOY_BASE: /var/www/nxtdrive/production
       SERVICE: nxtdrive-production
+      PORT: "5001"
+      HEALTH_PATH: /api/health
 
     steps:
       - name: Checkout
@@ -54,52 +67,68 @@ jobs:
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: pnpm --filter @workspace/scripts run db:migrate -- --env=production
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add VPS to known_hosts
+      - name: Write runtime env file
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
+          SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Write runtime env file on VPS
-        run: |
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p $DEPLOY_BASE/shared && chmod 700 $DEPLOY_BASE/shared"
-          cat > /tmp/production.env <<'ENVEOF'
+          set -euo pipefail
+          umask 002
+          mkdir -p "$DEPLOY_BASE/shared"
+          umask 027
+          cat > "$DEPLOY_BASE/shared/.env" <<EOF
           NODE_ENV=production
-          PORT=5001
-          NEXT_PUBLIC_APP_URL=${{ env.APP_URL }}
-          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.PRODUCTION_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
-          SUPABASE_URL=${{ secrets.PRODUCTION_SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.PRODUCTION_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
-          SESSION_SECRET=${{ secrets.PRODUCTION_SESSION_SECRET }}
-          DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
-          ENVEOF
-          scp /tmp/production.env "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$DEPLOY_BASE/shared/.env"
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "chmod 600 $DEPLOY_BASE/shared/.env"
-          rm /tmp/production.env
+          PORT=$PORT
+          NEXT_PUBLIC_APP_URL=$APP_URL
+          NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+          SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+          SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+          SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+          SESSION_SECRET=$SESSION_SECRET
+          DATABASE_URL=$DATABASE_URL
+          EOF
+          chmod 640 "$DEPLOY_BASE/shared/.env"
 
-      - name: Rsync release and restart service
+      - name: Publish release and restart service
         run: |
+          set -euo pipefail
+          # Group-writable so the runtime user (deployer, group nxtdrive) can
+          # write .next/cache; setgid on the parent keeps the group.
+          umask 002
           RELEASE_DIR="$DEPLOY_BASE/releases/$(date +%Y%m%d%H%M%S)"
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p $RELEASE_DIR"
-          rsync -az --delete \
+          mkdir -p "$RELEASE_DIR"
+          # Ship the validated build (.next is kept). node_modules is recreated
+          # locally from the lockfile so symlinks resolve on this machine.
+          rsync -a --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude '.next/cache' \
             --exclude 'attached_assets' \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$RELEASE_DIR/"
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash <<EOF
-            set -euo pipefail
-            cd $RELEASE_DIR
-            pnpm install --frozen-lockfile --prod=false
-            pnpm --filter @workspace/nxtdrive run build
-            ln -sfn $RELEASE_DIR $DEPLOY_BASE/current
-            sudo systemctl restart $SERVICE
-            ls -1dt $DEPLOY_BASE/releases/* | tail -n +6 | xargs -r rm -rf
-          EOF
+            "$GITHUB_WORKSPACE"/ "$RELEASE_DIR"/
+          cd "$RELEASE_DIR"
+          pnpm install --frozen-lockfile --prod=false
+          ln -sfn "$RELEASE_DIR" "$DEPLOY_BASE/current"
+          sudo systemctl restart "$SERVICE"
+          # Keep the 5 most recent releases for rollback.
+          ls -1dt "$DEPLOY_BASE"/releases/*/ | tail -n +6 | xargs -r rm -rf
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          url="http://127.0.0.1:${PORT}${HEALTH_PATH}"
+          for i in $(seq 1 30); do
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' "$url" || true)"
+            if [ "$code" = "200" ]; then
+              echo "Health check passed: $url"
+              exit 0
+            fi
+            echo "Attempt $i: $url returned '$code', retrying in 2s..."
+            sleep 2
+          done
+          echo "::error::Health check FAILED after 60s for $url"
+          systemctl status "$SERVICE" --no-pager -l || true
+          exit 1

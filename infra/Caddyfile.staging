@@ -1,10 +1,21 @@
 # Caddy reverse proxy for STAGING — staging.nxtdrive.io
 # Deploy path: /var/www/nxtdrive/staging
-# The Next.js app is expected to run on 127.0.0.1:5000 (systemd unit nxtdrive-staging).
+# The Next.js app runs on 127.0.0.1:5000 (systemd unit nxtdrive-staging).
 # Global options (email for Let's Encrypt) live in /etc/caddy/Caddyfile.
+# Reloaded by the GitHub self-hosted runner via: sudo systemctl reload caddy
 
 staging.nxtdrive.io {
         encode gzip zstd
+
+        header {
+                # HSTS — force HTTPS for a year, including subdomains.
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options "nosniff"
+                Referrer-Policy "strict-origin-when-cross-origin"
+                X-Frame-Options "SAMEORIGIN"
+                # Hide upstream server identity.
+                -Server
+        }
 
         reverse_proxy 127.0.0.1:5000 {
                 header_up X-Forwarded-Proto {scheme}
@@ -12,6 +23,10 @@ staging.nxtdrive.io {
                 header_up X-Real-IP {remote_host}
                 flush_interval -1
         }
+
+        # Rate limiting: the default Caddy binary has no rate_limit directive.
+        # To enable, build Caddy with the caddy-ratelimit plugin (xcaddy) and
+        # add a `rate_limit` block here. See docs/INFRA_DEPLOYMENT.md.
 
         log {
                 output file /var/log/caddy/staging.nxtdrive.io.log {

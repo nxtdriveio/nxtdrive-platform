@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
-# NXTDRIVE VPS bootstrap — run ONCE on a fresh Ubuntu VPS as root.
+# NXTDRIVE VPS bootstrap — run ONCE on a fresh Ubuntu 24.04 VPS as root.
+#
+# This provisions the box for the GitHub SELF-HOSTED RUNNER deploy model:
+# the runner builds and publishes releases locally, so there is NO SSH-based
+# CI deploy. Admin SSH access is expected to be locked down to whitelisted
+# IPs at the provider/cloud-firewall level.
 #
 # Usage (on the VPS, as root):
 #   curl -fsSL https://raw.githubusercontent.com/nxtdriveio/nxtdrive-platform/main/infra/bootstrap.sh -o bootstrap.sh
 #   chmod +x bootstrap.sh
-#   DEPLOYER_PUBKEY="ssh-ed25519 AAAA... github-actions-deploy" ./bootstrap.sh
+#   ./bootstrap.sh
 #
-# DEPLOYER_PUBKEY env var is REQUIRED — it is the public key whose private
-# counterpart will be stored in the GitHub Actions secret SSH_PRIVATE_KEY.
+# Optional env vars:
+#   DEPLOYER_PUBKEY="ssh-ed25519 AAAA... admin"  # add an SSH key to the
+#                                                # deployer user (optional; the
+#                                                # runner model does not need it)
+#   RUNNER_USER="github-runner"                  # the OS user the GitHub
+#                                                # self-hosted runner runs as
+#                                                # (default: github-runner)
+#
+# The GitHub self-hosted runner itself must be installed separately via the
+# GitHub UI (Settings -> Actions -> Runners) and registered with the labels:
+#   self-hosted, nxtdrive-vps
+# This script is idempotent — safe to re-run.
 
 set -euo pipefail
 
@@ -16,18 +31,17 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-if [[ -z "${DEPLOYER_PUBKEY:-}" ]]; then
-  echo "DEPLOYER_PUBKEY env var is required." >&2
-  echo "Example: DEPLOYER_PUBKEY=\"ssh-ed25519 AAAA... github-actions\" $0" >&2
-  exit 1
-fi
-
 REPO_URL="https://github.com/nxtdriveio/nxtdrive-platform.git"
 WORK_DIR="/root/nxtdrive-platform"
+RUNNER_USER="${RUNNER_USER:-github-runner}"
 
-echo "==> [1/7] System packages"
+echo "==> [1/9] System packages"
+export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl git rsync ca-certificates debian-keyring debian-archive-keyring apt-transport-https
+apt-get install -y \
+  curl git rsync ca-certificates gnupg \
+  debian-keyring debian-archive-keyring apt-transport-https \
+  ufw fail2ban unattended-upgrades
 
 # Caddy official repo
 if ! command -v caddy >/dev/null 2>&1; then
@@ -48,31 +62,68 @@ if ! command -v pnpm >/dev/null 2>&1; then
   npm install -g pnpm@10.26.1
 fi
 
-echo "==> [2/7] Deployer user"
+echo "==> [2/9] Shared group, deployer + runner users"
+# Shared group lets the runner (publishes releases) and the runtime user
+# (reads/serves them) both work in /var/www/nxtdrive.
+getent group nxtdrive >/dev/null || groupadd nxtdrive
+
+# deployer = the unprivileged user the systemd services run as.
 if ! id deployer >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" deployer
 fi
-mkdir -p /home/deployer/.ssh
-echo "$DEPLOYER_PUBKEY" > /home/deployer/.ssh/authorized_keys
-chown -R deployer:deployer /home/deployer/.ssh
-chmod 700 /home/deployer/.ssh
-chmod 600 /home/deployer/.ssh/authorized_keys
+usermod -aG nxtdrive deployer
 
-echo "==> [3/7] Sudo rules for deployer"
+# Optional admin SSH key on the deployer user.
+if [[ -n "${DEPLOYER_PUBKEY:-}" ]]; then
+  mkdir -p /home/deployer/.ssh
+  echo "$DEPLOYER_PUBKEY" > /home/deployer/.ssh/authorized_keys
+  chown -R deployer:deployer /home/deployer/.ssh
+  chmod 700 /home/deployer/.ssh
+  chmod 600 /home/deployer/.ssh/authorized_keys
+fi
+
+# The GitHub runner user (created by the runner installer). Add to nxtdrive
+# if it already exists; otherwise warn — it must be added after runner install.
+if id "$RUNNER_USER" >/dev/null 2>&1; then
+  usermod -aG nxtdrive "$RUNNER_USER"
+else
+  echo "    NOTE: runner user '$RUNNER_USER' does not exist yet."
+  echo "    After installing the GitHub runner, run:"
+  echo "      sudo usermod -aG nxtdrive $RUNNER_USER && sudo systemctl restart actions.runner.*"
+fi
+
+echo "==> [3/9] Sudo rules"
+# The runner restarts the app services and reloads Caddy. Nothing else.
+cat > /etc/sudoers.d/nxtdrive-runner <<EOF
+$RUNNER_USER ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-staging
+$RUNNER_USER ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-production
+$RUNNER_USER ALL=(root) NOPASSWD: /bin/systemctl reload caddy
+EOF
+chmod 440 /etc/sudoers.d/nxtdrive-runner
+
+# Keep a deployer rule too, for manual ops from the box.
 cat > /etc/sudoers.d/nxtdrive-deployer <<'EOF'
 deployer ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-staging
 deployer ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-production
 EOF
 chmod 440 /etc/sudoers.d/nxtdrive-deployer
+visudo -c >/dev/null
 
-echo "==> [4/7] Deploy directory layout"
+echo "==> [4/9] Deploy directory layout"
 mkdir -p /var/www/nxtdrive/staging/{releases,shared}
 mkdir -p /var/www/nxtdrive/production/{releases,shared}
-chown -R deployer:deployer /var/www/nxtdrive
+# Group-owned + group-writable + setgid so files created by the runner stay in
+# the nxtdrive group and remain writable by deployer (for .next/cache etc).
+# IMPORTANT: chmod DIRECTORIES ONLY — a recursive chmod would broaden the mode
+# of shared/.env (which holds the service-role key) and leak secrets on rerun.
+chgrp -R nxtdrive /var/www/nxtdrive
+find /var/www/nxtdrive -type d -exec chmod 2775 {} +
+# Re-tighten any env files in case a previous run loosened them.
+find /var/www/nxtdrive -type f -name '.env' -exec chmod 640 {} + 2>/dev/null || true
 mkdir -p /var/log/caddy
 chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
 
-echo "==> [5/7] Fetch repo for infra config files"
+echo "==> [5/9] Fetch repo for infra config files"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -86,14 +137,14 @@ else
   git -C "$WORK_DIR" reset --hard origin/main
 fi
 
-echo "==> [6/7] systemd units"
+echo "==> [6/9] systemd units"
 cp "$WORK_DIR/infra/nxtdrive-staging.service"    /etc/systemd/system/
 cp "$WORK_DIR/infra/nxtdrive-production.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable nxtdrive-staging nxtdrive-production
 # Do NOT start them yet — they'll fail until the first deploy populates current/.
 
-echo "==> [7/7] Caddy config"
+echo "==> [7/9] Caddy config"
 mkdir -p /etc/caddy/sites-enabled
 cp "$WORK_DIR/infra/Caddyfile.staging"    /etc/caddy/sites-enabled/staging
 cp "$WORK_DIR/infra/Caddyfile.production" /etc/caddy/sites-enabled/production
@@ -111,17 +162,42 @@ CADDYEOF
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy || systemctl restart caddy
 
+echo "==> [8/9] Firewall (UFW)"
+ufw allow 80/tcp
+ufw allow 443/tcp
+# SSH: keep a rule so you don't lock yourself out. Tighten to whitelisted
+# admin IPs at the cloud firewall (Hetzner) and/or replace with:
+#   ufw allow from <ADMIN_IP> to any port 22 proto tcp
+ufw allow OpenSSH
+ufw --force enable
+
+echo "==> [9/9] Fail2Ban + unattended-upgrades"
+systemctl enable --now fail2ban
+# Enable automatic security updates non-interactively.
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+systemctl enable --now unattended-upgrades 2>/dev/null || true
+
 echo ""
 echo "============================================================"
 echo "  Bootstrap complete."
 echo ""
 echo "  Next steps:"
-echo "  1. In Cloudflare, create A records pointing to this VPS:"
+echo "  1. Install the GitHub self-hosted runner (Settings -> Actions ->"
+echo "     Runners). Register it with labels: self-hosted, nxtdrive-vps"
+echo "     Then add it to the shared group:"
+echo "       sudo usermod -aG nxtdrive $RUNNER_USER"
+echo "       sudo systemctl restart actions.runner.*"
+echo ""
+echo "  2. In Cloudflare, create A records pointing to this VPS:"
 echo "       app.nxtdrive.io      -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
 echo "       staging.nxtdrive.io  -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
 echo "       nxtdrive.io          -> $(curl -fsSL ifconfig.me || echo this-vps-ip)"
 echo "     Use DNS-only (grey cloud) until Caddy obtains TLS certs."
 echo ""
-echo "  2. Trigger a deploy by pushing to main (production) or staging."
-echo "     The systemd units will start automatically on first deploy."
+echo "  3. Set GitHub Actions environment secrets (staging + production),"
+echo "     then push to 'staging' or 'main' to deploy. See"
+echo "     docs/INFRA_DEPLOYMENT.md for the full runbook."
 echo "============================================================"

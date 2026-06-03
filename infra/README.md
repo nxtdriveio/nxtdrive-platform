@@ -1,109 +1,94 @@
 # NXTDRIVE infrastructure — one-time VPS setup
 
-This folder contains the Caddy config and systemd units the GitHub Actions
-deploy workflows expect to find on the VPS (`178.251.232.105`).
+This folder contains the bootstrap script, Caddy config and systemd units for
+the **GitHub self-hosted runner** deployment model.
 
-Before the first deploy succeeds you must do this once on the server.
+> **Deployment model:** the GitHub Actions runner lives *on the VPS*. CI builds,
+> migrates and publishes releases **locally** on the box — there is **no
+> SSH/scp/rsync-over-network deploy**. The old `SSH_*` secrets are retired.
 
-## 1. System packages
+The full operational runbook (audit, readiness, clean DB rebuild, deploy/rollback
+flow, implementation order) lives in [`docs/INFRA_DEPLOYMENT.md`](../docs/INFRA_DEPLOYMENT.md).
 
-```bash
-sudo apt update
-sudo apt install -y caddy rsync curl git
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash -
-sudo apt install -y nodejs
-sudo npm install -g pnpm
-```
+## Quick start
 
-## 2. Deploy user
+On a fresh Ubuntu 24.04 VPS, as root:
 
 ```bash
-sudo adduser --disabled-password --gecos "" deployer
-sudo mkdir -p /home/deployer/.ssh
-sudo cp ~/.ssh/authorized_keys /home/deployer/.ssh/  # or paste your CI public key
-sudo chown -R deployer:deployer /home/deployer/.ssh
-sudo chmod 700 /home/deployer/.ssh
-sudo chmod 600 /home/deployer/.ssh/authorized_keys
+curl -fsSL https://raw.githubusercontent.com/nxtdriveio/nxtdrive-platform/main/infra/bootstrap.sh -o bootstrap.sh
+chmod +x bootstrap.sh
+./bootstrap.sh
 ```
 
-Allow the deployer to restart the systemd units without a password:
+`bootstrap.sh` is idempotent and installs/configures:
 
-```bash
-sudo tee /etc/sudoers.d/nxtdrive-deployer >/dev/null <<'EOF'
-deployer ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-staging
-deployer ALL=(root) NOPASSWD: /bin/systemctl restart nxtdrive-production
-EOF
-sudo chmod 440 /etc/sudoers.d/nxtdrive-deployer
-```
+1. System packages — Caddy, Node 24, pnpm, rsync, git, plus `ufw`, `fail2ban`,
+   `unattended-upgrades`.
+2. A shared `nxtdrive` group, the `deployer` runtime user, and (if present) the
+   `github-runner` user added to that group.
+3. Sudo rules: the runner may only `systemctl restart nxtdrive-staging`,
+   `systemctl restart nxtdrive-production` and `systemctl reload caddy`.
+4. `/var/www/nxtdrive/{staging,production}/{releases,shared}` — group `nxtdrive`,
+   `2775` (group-writable + setgid).
+5. systemd units (enabled, not started — first deploy starts them).
+6. Caddy site configs + managed `/etc/caddy/Caddyfile`.
+7. UFW firewall (80/443 open, SSH allowed — tighten to admin IPs).
+8. Fail2Ban + automatic security updates.
 
-The `SSH_USER` GitHub Actions secret must be `deployer` and the
-`SSH_PRIVATE_KEY` secret must be the private key matching the public key in
-`/home/deployer/.ssh/authorized_keys`.
+## After bootstrap
 
-## 3. Directory layout
+1. **Install the GitHub self-hosted runner** (GitHub → Settings → Actions →
+   Runners) and register it with the labels **`self-hosted, nxtdrive-vps`**.
+   Then add it to the shared group and restart it:
 
-```bash
-sudo mkdir -p /var/www/nxtdrive/{staging,production}/{releases,shared}
-sudo chown -R deployer:deployer /var/www/nxtdrive
-```
+   ```bash
+   sudo usermod -aG nxtdrive github-runner
+   sudo systemctl restart actions.runner.*
+   ```
 
-The deploy workflow writes the runtime env file to
-`/var/www/nxtdrive/<env>/shared/.env` and rsyncs releases into
-`/var/www/nxtdrive/<env>/releases/<timestamp>/`, then symlinks `current/` to
-the new release and restarts the systemd unit.
+2. **DNS (Cloudflare)** — A records to the VPS IP:
 
-## 4. systemd units
+   | Record | Target |
+   |---|---|
+   | `staging.nxtdrive.io` | VPS IP |
+   | `app.nxtdrive.io` | VPS IP |
+   | `nxtdrive.io` | VPS IP |
+   | `rijschool.nxtdrive.io` | VPS IP (marketing, later) |
 
-```bash
-sudo cp infra/nxtdrive-staging.service    /etc/systemd/system/
-sudo cp infra/nxtdrive-production.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable nxtdrive-staging nxtdrive-production
-# Don't start yet — they will fail until the first deploy populates current/.
-```
+   Use **DNS only** (grey cloud) until Caddy has issued certs, then optionally
+   flip to **Proxied**.
 
-## 5. Caddy
+3. **GitHub Actions environment secrets** — set per environment (`staging`,
+   `production`):
 
-```bash
-sudo mkdir -p /etc/caddy/sites-enabled
-sudo cp infra/Caddyfile.staging    /etc/caddy/sites-enabled/staging
-sudo cp infra/Caddyfile.production /etc/caddy/sites-enabled/production
-```
+   | Secret | Used for |
+   |---|---|
+   | `*_SUPABASE_URL` | Supabase project URL |
+   | `*_SUPABASE_ANON_KEY` | Browser-safe public key |
+   | `*_SUPABASE_SERVICE_ROLE_KEY` | Server-side mutations/migrations |
+   | `*_SESSION_SECRET` | Session signing |
+   | `*_DATABASE_URL` | Migration runner connection string |
 
-In `/etc/caddy/Caddyfile` add the import line (only once):
+   (`*` = `STAGING` or `PRODUCTION`.) The `SSH_*` secrets are no longer used and
+   can be deleted.
 
-```caddyfile
-import /etc/caddy/sites-enabled/*
-```
+4. **Deploy** — push to `staging` (→ staging) or `main` (→ production).
+   The first deploy starts the systemd unit automatically.
 
-Validate and reload:
+## How a deploy works (self-hosted)
 
-```bash
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-```
+1. Checkout + `pnpm install` + `typecheck` + `build` in the runner workspace.
+2. Apply pending DB migrations against the target Supabase project.
+3. Write `/var/www/nxtdrive/<env>/shared/.env`.
+4. Publish: rsync the validated build into
+   `/var/www/nxtdrive/<env>/releases/<timestamp>/`, recreate `node_modules`
+   from the lockfile, swap the `current/` symlink, `sudo systemctl restart`.
+5. Poll `http://127.0.0.1:<port>/api/health` until `200` (fails the job if not).
+6. Prune to the 5 most recent releases.
 
-## 6. DNS (Cloudflare)
+## Rollback
 
-| Record | Target |
-|---|---|
-| `staging.nxtdrive.io` A | `178.251.232.105` |
-| `app.nxtdrive.io` A | `178.251.232.105` |
-| `rijschool.nxtdrive.io` A | `178.251.232.105` (marketing site, later phase) |
-| `nxtdrive.io` A | `178.251.232.105` |
-
-Set the records to **DNS only** (grey cloud) until Caddy has obtained the
-Let's Encrypt certificate, then flip back to **Proxied** if you want
-Cloudflare in front.
-
-## 7. First deploy
-
-After all of the above, pushing to the `staging` branch triggers
-`.github/workflows/deploy-staging.yml`. Pushing to `main` triggers
-`deploy-production.yml`. The first deploy will:
-
-1. Build the Next.js app on the runner.
-2. Apply pending DB migrations against the appropriate Supabase project.
-3. SSH into the VPS, write `shared/.env`, rsync a new release, install
-   dependencies, build again on the VPS, swap the `current/` symlink, and
-   restart the systemd unit.
+Run the **Rollback** workflow (`workflow_dispatch`), pick the environment, and
+optionally a specific release timestamp (defaults to the previous release). It
+repoints `current/`, restarts the service and health-checks. Migrations are
+forward-only and are **not** reverted automatically.
