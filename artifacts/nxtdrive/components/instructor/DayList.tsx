@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
+  LESSON_IN_PROGRESS_CARD,
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
   type Lesson,
@@ -91,7 +92,9 @@ export function InstructorDayList({
                     "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
                     item.lesson.id === selectedId
                       ? "border-primary bg-primary-soft"
-                      : "border-border bg-card hover:border-muted-foreground/40",
+                      : item.lesson.status === "in_progress"
+                        ? LESSON_IN_PROGRESS_CARD
+                        : "border-border bg-card hover:border-muted-foreground/40",
                   )}
                 >
                   <div

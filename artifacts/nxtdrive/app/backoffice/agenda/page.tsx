@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  LESSON_IN_PROGRESS_CARD,
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
+import { cn } from "@/lib/utils";
 import type { Student } from "@/lib/students/types";
 import {
   loadAgendaTrialLessons,
@@ -237,7 +239,12 @@ export default async function AgendaPage({
                     <li key={`lesson-${item.lesson.id}`}>
                       <Link
                         href={`/backoffice/agenda/${item.lesson.id}`}
-                        className="block rounded-md border border-border bg-card px-2 py-1.5 text-xs hover:border-primary"
+                        className={cn(
+                          "block rounded-md border px-2 py-1.5 text-xs transition-colors",
+                          item.lesson.status === "in_progress"
+                            ? LESSON_IN_PROGRESS_CARD
+                            : "border-border bg-card hover:border-primary",
+                        )}
                       >
                         <div className="flex items-center justify-between gap-1">
                           <span className="font-medium text-foreground">

@@ -29,6 +29,15 @@ export const LESSON_STATUS_VARIANT: Record<
   no_show: "danger",
 };
 
+/**
+ * Extra card classes that make a currently-running ("Bezig") lesson stand out at
+ * a glance across the planning views (instructor day list, week, backoffice
+ * agenda). The warning ring + soft fill mirror the `in_progress` badge so the
+ * surface and the badge read as one signal.
+ */
+export const LESSON_IN_PROGRESS_CARD =
+  "border-warning bg-[color-mix(in_oklab,var(--warning)_10%,transparent)] ring-1 ring-warning/40";
+
 export type Lesson = {
   id: string;
   tenant_id: string;
