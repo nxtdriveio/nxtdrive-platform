@@ -27,6 +27,8 @@ export async function loadAgendaTrialLessons(
     to: Date;
     // When set, restrict to a single instructor (instructor PWA, non-admin).
     instructorId?: string;
+    // When set, restrict to a single branch (vestiging).
+    branchId?: string;
   },
 ): Promise<AgendaTrialLesson[]> {
   let query = supabase
@@ -39,6 +41,9 @@ export async function loadAgendaTrialLessons(
     .order("starts_at", { ascending: true });
   if (opts.instructorId) {
     query = query.eq("instructor_id", opts.instructorId);
+  }
+  if (opts.branchId) {
+    query = query.eq("branch_id", opts.branchId);
   }
   const { data: trialsRaw } = await query;
   const trials = (trialsRaw ?? []) as TrialLesson[];

@@ -6,16 +6,45 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { UserPlus } from "lucide-react";
 import { inviteInstructor } from "./actions";
+import type { Branch } from "@/lib/branches/service";
 
-export function InviteForm() {
+const ROLE_OPTIONS = [
+  { value: "instructor", label: "Instructeur" },
+  { value: "branch_manager", label: "Vestigingsmanager" },
+  { value: "planner", label: "Planner" },
+  { value: "admin_staff", label: "Administratie" },
+  { value: "marketing", label: "Marketing" },
+  { value: "tenant_admin", label: "Beheerder" },
+];
+
+const BRANCH_SCOPED_ROLES = new Set([
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+  "instructor",
+]);
+
+export function InviteForm({ branches }: { branches: Branch[] }) {
   const [open, setOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("instructor");
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+
+  const showBranchPicker =
+    branches.length > 0 && BRANCH_SCOPED_ROLES.has(selectedRole);
+
+  function toggleBranch(id: string) {
+    setSelectedBranches((prev) =>
+      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id],
+    );
+  }
 
   return (
     <div>
       {!open ? (
         <Button onClick={() => setOpen(true)} size="sm">
           <UserPlus className="h-4 w-4" aria-hidden />
-          Instructeur uitnodigen
+          Medewerker uitnodigen
         </Button>
       ) : (
         <Card>
@@ -60,14 +89,64 @@ export function InviteForm() {
                     id="role"
                     name="role"
                     required
-                    defaultValue="instructor"
+                    value={selectedRole}
+                    onChange={(e) => {
+                      setSelectedRole(e.target.value);
+                      setSelectedBranches([]);
+                    }}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="instructor">Instructeur</option>
-                    <option value="tenant_admin">Beheerder</option>
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
+
+              {/* Branch multi-select for scoped roles */}
+              {showBranchPicker ? (
+                <div className="space-y-2">
+                  <Label>
+                    Vestigingen{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (leeg = toegang tot alle vestigingen)
+                    </span>
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {branches.map((b) => {
+                      const checked = selectedBranches.includes(b.id);
+                      return (
+                        <label
+                          key={b.id}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-sm transition-colors hover:bg-muted"
+                        >
+                          <input
+                            type="checkbox"
+                            name="branch_ids[]"
+                            value={b.id}
+                            checked={checked}
+                            onChange={() => toggleBranch(b.id)}
+                            className="rounded"
+                          />
+                          {b.name}
+                          {b.city ? (
+                            <span className="text-muted-foreground text-xs">
+                              ({b.city})
+                            </span>
+                          ) : null}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Selecteer vestigingen om deze medewerker te beperken tot
+                    die locaties. Geen selectie = toegang tot alle vestigingen.
+                  </p>
+                </div>
+              ) : null}
+
               <div className="flex gap-2">
                 <Button type="submit" size="sm">
                   Uitnodiging versturen
@@ -76,7 +155,10 @@ export function InviteForm() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    setSelectedBranches([]);
+                  }}
                 >
                   Annuleren
                 </Button>

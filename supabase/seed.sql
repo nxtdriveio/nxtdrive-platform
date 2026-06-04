@@ -340,3 +340,25 @@ select '22222222-2222-4222-8222-000000000006'::uuid,
        jsonb_build_object('source', 'referral', 'code', 'DEMO1234')
 from demo
 on conflict (id) do nothing;
+
+-- ── Fase F1: Demo branches (vestigingen) ──────────────────────────────────
+-- Demonstrates the multi-branch capability. Only demo-academy. Idempotent.
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.branches (id, tenant_id, name, slug, address, city, is_active)
+select
+  '33333333-3333-4333-8333-000000000001'::uuid, demo.id,
+  'Hoofdkantoor', 'hoofdkantoor', 'Rijksstraatweg 1', 'Den Haag', true
+from demo
+on conflict (tenant_id, slug) do update set name = excluded.name, is_active = excluded.is_active;
+
+with demo as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+insert into public.branches (id, tenant_id, name, slug, address, city, is_active)
+select
+  '33333333-3333-4333-8333-000000000002'::uuid, demo.id,
+  'Vestiging Zuid', 'vestiging-zuid', 'Zuiderparklaan 50', 'Den Haag', true
+from demo
+on conflict (tenant_id, slug) do update set name = excluded.name, is_active = excluded.is_active;

@@ -5,7 +5,14 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
-const STAFF_ROLES: MemberRole[] = ["tenant_admin", "instructor"];
+const STAFF_ROLES: MemberRole[] = [
+  "tenant_admin",
+  "instructor",
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+];
 
 function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
   if (isPlatformAdmin) redirect("/backoffice/medewerkers?error=forbidden");
@@ -18,6 +25,10 @@ export async function inviteInstructor(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "") as MemberRole;
+  const rawBranchIds = formData.getAll("branch_ids[]");
+  const branchIds = rawBranchIds
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0);
 
   if (!email || !STAFF_ROLES.includes(role)) {
     redirect("/backoffice/medewerkers?error=missing_fields");
@@ -36,8 +47,6 @@ export async function inviteInstructor(formData: FormData) {
   if (profileRow) {
     userId = profileRow.id as string;
 
-    // Block if this user already has ANY membership in this tenant (any role).
-    // Admins should use the role-selector in the member list for existing members.
     const { data: existingAny } = await service
       .from("memberships")
       .select("id")
@@ -68,11 +77,11 @@ export async function inviteInstructor(formData: FormData) {
     userId = inviteData!.user.id;
   }
 
-  const { error: memberError } = await service.from("memberships").insert({
-    user_id: userId,
-    tenant_id: tenant.id,
-    role,
-  });
+  const { data: memberRow, error: memberError } = await service
+    .from("memberships")
+    .insert({ user_id: userId, tenant_id: tenant.id, role })
+    .select("id")
+    .maybeSingle();
 
   if (memberError) {
     if (memberError.code === "23505") {
@@ -82,6 +91,34 @@ export async function inviteInstructor(formData: FormData) {
       );
     }
     redirect("/backoffice/medewerkers?error=membership_failed");
+  }
+
+  // If branch IDs were specified, scope the membership.
+  // Failure here is blocking — a failed scope leaves the membership
+  // unrestricted, violating least-privilege. Roll back by deleting the
+  // membership and surfacing the error.
+  if (memberRow && branchIds.length > 0) {
+    const { error: branchError } = await service.rpc("set_membership_branches", {
+      p_membership_id: memberRow.id,
+      p_branch_ids: branchIds,
+      p_actor: user.id,
+    });
+
+    if (branchError) {
+      // Roll back: remove the newly-created membership so the user stays outside.
+      await service
+        .from("memberships")
+        .delete()
+        .eq("id", memberRow.id)
+        .eq("tenant_id", tenant.id);
+
+      redirect(
+        "/backoffice/medewerkers?error=invite_failed&reason=" +
+          encodeURIComponent(
+            `Vestigingstoegang instellen mislukt: ${branchError.message}`,
+          ),
+      );
+    }
   }
 
   redirect(
@@ -99,7 +136,6 @@ export async function removeMember(formData: FormData) {
 
   const service = createServiceRoleClient();
 
-  // Derive target user from DB — never trust client-submitted user_id.
   const { data: row } = await service
     .from("memberships")
     .select("user_id")
@@ -137,7 +173,6 @@ export async function changeRole(formData: FormData) {
 
   const service = createServiceRoleClient();
 
-  // Derive target user from DB — never trust client-submitted user_id.
   const { data: row } = await service
     .from("memberships")
     .select("user_id")

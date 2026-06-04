@@ -27,6 +27,14 @@ const PLAN_BADGE: Record<string, "outline" | "primary" | "default"> = {
   elite: "default",
 };
 
+const ORG_TYPE_LABELS: Record<string, string> = {
+  zzp: "ZZP",
+  rijschool: "Rijschool",
+  groot: "Groot",
+  multi_vestiging: "Multi-vestiging",
+  franchise: "Franchise",
+};
+
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Vul alle verplichte velden in.",
   slug_exists: "Deze slug is al in gebruik.",
@@ -55,7 +63,7 @@ export default async function PlatformAdminPage({
   ] = await Promise.all([
     service
       .from("tenants")
-      .select("id, slug, name, plan, white_label_enabled, created_at")
+      .select("id, slug, name, plan, white_label_enabled, org_type, created_at")
       .order("created_at", { ascending: false }),
     service.from("students").select("*", { count: "exact", head: true }),
     service
@@ -190,6 +198,7 @@ export default async function PlatformAdminPage({
                     <th className="px-4 py-3 font-medium">Naam</th>
                     <th className="px-4 py-3 font-medium">Slug</th>
                     <th className="px-4 py-3 font-medium">Plan</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 text-right font-medium">Leerlingen</th>
                     <th className="px-4 py-3 text-right font-medium">Instructeurs</th>
                     <th className="px-4 py-3 text-right font-medium">Leads</th>
@@ -217,6 +226,9 @@ export default async function PlatformAdminPage({
                         <Badge variant={PLAN_BADGE[t.plan] ?? "outline"}>
                           {PLAN_LABELS[t.plan] ?? t.plan}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {ORG_TYPE_LABELS[(t as unknown as { org_type?: string }).org_type ?? ""] ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {countByTenant(studentsByTenant, t.id)}

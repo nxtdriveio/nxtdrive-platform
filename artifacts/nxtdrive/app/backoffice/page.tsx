@@ -35,7 +35,14 @@ const FUNNEL_STAGES = [
 ];
 
 export default async function BackofficePage() {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
   const supabase = await createServerSupabaseClient();
 
   const [

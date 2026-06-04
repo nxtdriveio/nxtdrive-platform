@@ -21,6 +21,7 @@ import {
   Gift,
   Users,
   LogOut,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -77,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Beheer",
     items: [
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
+      { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true },
       { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
     ],
   },

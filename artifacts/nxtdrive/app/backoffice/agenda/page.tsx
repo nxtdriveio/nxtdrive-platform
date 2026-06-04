@@ -27,6 +27,7 @@ import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
 import { loadFreeSpaceForRange } from "@/lib/availability/service";
 import { dateKey } from "@/lib/availability/compute";
+import { listBranches } from "@/lib/branches/service";
 
 export const dynamic = "force-dynamic";
 
@@ -51,9 +52,16 @@ function startOfWeek(d: Date): Date {
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{ week?: string; branch?: string }>;
 }) {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const { tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
   const sp = await searchParams;
 
   const anchor = sp.week ? new Date(sp.week) : new Date();
@@ -66,20 +74,38 @@ export default async function AgendaPage({
   const nextWeek = new Date(weekStart);
   nextWeek.setDate(weekStart.getDate() + 7);
 
+  const selectedBranchId = sp.branch && sp.branch !== "" ? sp.branch : null;
+  const isTenantAdmin = roles.includes("tenant_admin");
+
   const supabase = await createServerSupabaseClient();
-  const { data: lessonsRaw } = await supabase
+  const service = createServiceRoleClient();
+
+  // Load branches for the filter dropdown (tenant_admin only — scoped users
+  // have branch access enforced automatically via RLS).
+  const branches = isTenantAdmin
+    ? await listBranches(service, tenant.id, { activeOnly: true })
+    : [];
+
+  let lessonsQuery = supabase
     .from("lessons")
     .select("*")
     .eq("tenant_id", tenant.id)
     .gte("starts_at", weekStart.toISOString())
     .lt("starts_at", weekEnd.toISOString())
     .order("starts_at", { ascending: true });
+
+  if (selectedBranchId) {
+    lessonsQuery = lessonsQuery.eq("branch_id", selectedBranchId);
+  }
+
+  const { data: lessonsRaw } = await lessonsQuery;
   const lessons = (lessonsRaw ?? []) as Lesson[];
 
   const trials = await loadAgendaTrialLessons(supabase, {
     tenantId: tenant.id,
     from: weekStart,
     to: weekEnd,
+    branchId: selectedBranchId ?? undefined,
   });
 
   const appointments = await loadAgendaAppointments(supabase, {
@@ -110,8 +136,6 @@ export default async function AgendaPage({
     ]),
   );
 
-  // Instructor names need elevated visibility (auth.users). Service-role read
-  // is fine here — page is admin/instructor-only anyway.
   const instructorIds = Array.from(
     new Set([
       ...lessons.map((l) => l.instructor_id),
@@ -119,7 +143,6 @@ export default async function AgendaPage({
       ...appointments.map((a) => a.instructor_id),
     ]),
   );
-  const service = createServiceRoleClient();
   const { data: instructorsRaw } = instructorIds.length
     ? await service
         .from("profiles")
@@ -131,8 +154,6 @@ export default async function AgendaPage({
       .map((p) => [p.id, p.full_name ?? "Instructeur"]),
   );
 
-  // Group lessons and trial lessons by day, interleaved and sorted by time so
-  // a provisional/confirmed proefles shows in the right slot among the lessons.
   type AgendaItem =
     | { kind: "lesson"; starts_at: string; lesson: Lesson }
     | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
@@ -172,6 +193,10 @@ export default async function AgendaPage({
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
+  const weekParam = `week=${weekStart.toISOString()}`;
+  const branchParam = selectedBranchId ? `&branch=${selectedBranchId}` : "";
+  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -183,23 +208,48 @@ export default async function AgendaPage({
             Week van {dayFmt.format(weekStart)} — {dayFmt.format(
               new Date(weekEnd.getTime() - 1),
             )}
+            {selectedBranchName ? (
+              <span className="ml-2 text-primary font-medium">
+                · {selectedBranchName}
+              </span>
+            ) : null}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch filter — only for tenant_admin with multiple branches */}
+          {isTenantAdmin && branches.length > 0 ? (
+            <form method="get" action="/backoffice/agenda">
+              <input type="hidden" name="week" value={weekStart.toISOString()} />
+              <select
+                name="branch"
+                defaultValue={selectedBranchId ?? ""}
+                onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Alle vestigingen</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </form>
+          ) : null}
+
           <Link
-            href={`/backoffice/agenda?week=${prevWeek.toISOString()}`}
+            href={`/backoffice/agenda?week=${prevWeek.toISOString()}${branchParam}`}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             ← Vorige
           </Link>
           <Link
-            href="/backoffice/agenda"
+            href={`/backoffice/agenda${selectedBranchId ? `?branch=${selectedBranchId}` : ""}`}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Deze week
           </Link>
           <Link
-            href={`/backoffice/agenda?week=${nextWeek.toISOString()}`}
+            href={`/backoffice/agenda?week=${nextWeek.toISOString()}${branchParam}`}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Volgende →

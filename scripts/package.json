@@ -43,6 +43,7 @@
     "db:test-intake-analysis": "tsx ./src/test-intake-analysis.ts",
     "db:test-referrals": "tsx ./src/test-referrals.ts",
     "db:test-review-requests": "tsx ./src/test-review-requests.ts",
+    "db:test-rls-branches": "tsx ./src/test-rls-branches.ts",
     "test-route-scoring": "tsx ./src/test-route-scoring.ts",
     "test-lesson-planning": "tsx ./src/test-lesson-planning.ts",
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",

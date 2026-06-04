@@ -1,4 +1,19 @@
-export type MemberRole = "tenant_admin" | "instructor" | "student" | "parent";
+export type MemberRole =
+  | "tenant_admin"
+  | "instructor"
+  | "student"
+  | "parent"
+  | "branch_manager"
+  | "planner"
+  | "admin_staff"
+  | "marketing";
+
+export type OrgType =
+  | "zzp"
+  | "rijschool"
+  | "groot"
+  | "multi_vestiging"
+  | "franchise";
 
 export type TenantPlan = "start" | "pro" | "elite";
 
@@ -8,6 +23,7 @@ export type Tenant = {
   name: string;
   plan: TenantPlan;
   white_label_enabled: boolean;
+  org_type?: OrgType;
 };
 
 export type Profile = {
