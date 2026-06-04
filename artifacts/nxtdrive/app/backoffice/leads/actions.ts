@@ -15,6 +15,10 @@ import {
 import { reconcileLeadSafe } from "@/lib/leads/automation";
 import { LEAD_ELIGIBLE_STATUSES } from "@/lib/lesson-planning/candidates";
 import { notifyTrialLessonConfirmed } from "@/lib/notifications/dispatch";
+import { generateTemporaryPassword } from "@/lib/auth/generate-password";
+import { loadEmailBranding } from "@/lib/notifications/branding";
+import { renderStudentWelcome } from "@/lib/notifications/templates";
+import { sendEmail } from "@/lib/notifications/provider";
 import {
   analyzeIntake,
   intakeAttentionDedupeKey,
@@ -46,10 +50,78 @@ export async function convertLeadToStudent(formData: FormData) {
   );
   if (error || !studentId) redirect(`/backoffice/leads/${leadId}`);
 
+  const newStudentId = studentId as string;
+
+  // Provision a Supabase Auth user and send a welcome email with temporary
+  // credentials. Best-effort: a failure here never blocks the conversion.
+  try {
+    const { data: studentRow } = await service
+      .from("students")
+      .select("full_name, email, user_id")
+      .eq("id", newStudentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+
+    const studentEmail = (studentRow as { full_name: string; email: string | null; user_id: string | null } | null)?.email;
+    const studentName = (studentRow as { full_name: string; email: string | null; user_id: string | null } | null)?.full_name ?? "";
+    const existingUserId = (studentRow as { full_name: string; email: string | null; user_id: string | null } | null)?.user_id;
+
+    if (studentEmail && !existingUserId) {
+      const tijdelijkWachtwoord = generateTemporaryPassword();
+
+      const { data: created, error: createErr } =
+        await service.auth.admin.createUser({
+          email: studentEmail,
+          password: tijdelijkWachtwoord,
+          email_confirm: true,
+          user_metadata: { must_change_password: true, full_name: studentName },
+        });
+
+      if (!createErr && created.user) {
+        const newUserId = created.user.id;
+
+        // Wire up profile + membership (idempotent upsert).
+        await service.from("profiles").upsert(
+          { id: newUserId, email: studentEmail, full_name: studentName },
+          { onConflict: "id" },
+        );
+        await service.from("memberships").upsert(
+          { user_id: newUserId, tenant_id: tenant.id, role: "student" },
+          { onConflict: "user_id,tenant_id,role" },
+        );
+        // Link the auth user to the student row.
+        await service
+          .from("students")
+          .update({ user_id: newUserId })
+          .eq("id", newStudentId)
+          .eq("tenant_id", tenant.id);
+
+        const appUrl =
+          process.env["NEXT_PUBLIC_APP_URL"] ??
+          process.env["NEXTAUTH_URL"] ??
+          "https://app.nxtdrive.io";
+        const branding = await loadEmailBranding(service, tenant.id);
+        const emailContent = renderStudentWelcome(branding, {
+          studentName,
+          email: studentEmail,
+          temporaryPassword: tijdelijkWachtwoord,
+          loginUrl: `${appUrl}/login`,
+        });
+        await sendEmail({
+          to: studentEmail,
+          fromName: branding.tenantName,
+          email: emailContent,
+        });
+      }
+    }
+  } catch {
+    // Best-effort — conversion already succeeded.
+  }
+
   revalidatePath(`/backoffice/leads/${leadId}`);
   revalidatePath("/backoffice/leads");
   revalidatePath("/backoffice/leerlingen");
-  redirect(`/backoffice/leerlingen/${studentId as string}`);
+  redirect(`/backoffice/leerlingen/${newStudentId}`);
 }
 
 function isValidStatus(v: unknown): v is LeadStatus {

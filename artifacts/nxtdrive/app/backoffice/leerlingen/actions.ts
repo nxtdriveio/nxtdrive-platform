@@ -16,7 +16,7 @@ import {
 import { loadEmailBranding } from "@/lib/notifications/branding";
 import { renderStudentWelcome } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/provider";
-import zxcvbn from "zxcvbn";
+import { generateTemporaryPassword } from "@/lib/auth/generate-password";
 
 export type CreateStudentDirectResult =
   | { ok: true; studentId: string }
@@ -43,31 +43,20 @@ export async function createStudentDirect(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const telefoon = String(formData.get("telefoon") ?? "").trim().slice(0, 30) || null;
   const postcode = String(formData.get("postcode") ?? "").trim().slice(0, 10) || null;
-  const wachtwoord = String(formData.get("wachtwoord") ?? "");
 
   if (!naam) return { ok: false, error: "Naam is verplicht." };
   if (!email || !EMAIL_RE.test(email)) {
     return { ok: false, error: "Vul een geldig e-mailadres in." };
   }
-  if (!wachtwoord) {
-    return { ok: false, error: "Wachtwoord is verplicht." };
-  }
-  // Enforce "minimaal Matig" (zxcvbn score ≥ 2) server-side so client-side
-  // gating cannot be bypassed by crafting raw requests.
-  const strengthScore = zxcvbn(wachtwoord).score;
-  if (strengthScore < 2) {
-    return {
-      ok: false,
-      error: "Het wachtwoord is te zwak. Kies een sterker wachtwoord (minimaal \"Matig\").",
-    };
-  }
+
+  const tijdelijkWachtwoord = generateTemporaryPassword();
 
   const service = createServiceRoleClient();
 
   const { data: created, error: createErr } =
     await service.auth.admin.createUser({
       email,
-      password: wachtwoord,
+      password: tijdelijkWachtwoord,
       email_confirm: true,
       user_metadata: { must_change_password: true, full_name: naam },
     });
@@ -141,7 +130,7 @@ export async function createStudentDirect(
     const emailContent = renderStudentWelcome(branding, {
       studentName: naam,
       email,
-      temporaryPassword: wachtwoord,
+      temporaryPassword: tijdelijkWachtwoord,
       loginUrl,
     });
     await sendEmail({

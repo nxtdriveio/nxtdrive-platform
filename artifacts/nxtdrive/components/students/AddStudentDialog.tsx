@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PasswordField, getPasswordStrength } from "@/components/ui/password-field";
 import { createStudentDirect } from "@/app/backoffice/leerlingen/actions";
 
 export function AddStudentDialog() {
@@ -26,16 +25,12 @@ export function AddStudentDialog() {
   const [email, setEmail] = React.useState("");
   const [telefoon, setTelefoon] = React.useState("");
   const [postcode, setPostcode] = React.useState("");
-  const [wachtwoord, setWachtwoord] = React.useState("");
-  const [bevestig, setBevestig] = React.useState("");
 
   function reset() {
     setNaam("");
     setEmail("");
     setTelefoon("");
     setPostcode("");
-    setWachtwoord("");
-    setBevestig("");
     setError(null);
     setDone(false);
     setPending(false);
@@ -46,13 +41,8 @@ export function AddStudentDialog() {
     if (!val) reset();
   }
 
-  const strength = wachtwoord ? getPasswordStrength(wachtwoord) : null;
-  const tooWeak = wachtwoord ? (strength?.score ?? 0) < 2 : false;
-  const mismatch = bevestig.length > 0 && bevestig !== wachtwoord;
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (tooWeak || mismatch) return;
 
     setPending(true);
     setError(null);
@@ -62,7 +52,6 @@ export function AddStudentDialog() {
     fd.set("email", email);
     fd.set("telefoon", telefoon);
     fd.set("postcode", postcode);
-    fd.set("wachtwoord", wachtwoord);
 
     try {
       const result = await createStudentDirect(fd);
@@ -91,9 +80,9 @@ export function AddStudentDialog() {
         <DialogHeader>
           <DialogTitle>Leerling direct toevoegen</DialogTitle>
           <DialogDescription>
-            Maak direct een leerlingaccount aan. De leerling ontvangt een
-            welkomstmail met een tijdelijk wachtwoord en wordt bij de eerste
-            login gevraagd dit te wijzigen.
+            Maak direct een leerlingaccount aan. De leerling ontvangt
+            automatisch een welkomstmail met tijdelijke inloggegevens en wordt
+            bij de eerste login gevraagd een nieuw wachtwoord in te stellen.
           </DialogDescription>
         </DialogHeader>
 
@@ -168,36 +157,6 @@ export function AddStudentDialog() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-4 space-y-4">
-              <p className="text-xs text-muted-foreground">
-                Stel een tijdelijk wachtwoord in voor de leerling. De leerling
-                wordt bij de eerste login gevraagd dit te wijzigen.
-              </p>
-
-              <PasswordField
-                id="add-student-wachtwoord"
-                name="wachtwoord"
-                label="Tijdelijk wachtwoord *"
-                value={wachtwoord}
-                onChange={setWachtwoord}
-                showStrength
-                minScore={2}
-                autoComplete="new-password"
-                required
-              />
-
-              <PasswordField
-                id="add-student-bevestig"
-                name="bevestig"
-                label="Bevestig wachtwoord *"
-                value={bevestig}
-                onChange={setBevestig}
-                error={mismatch ? "Wachtwoorden komen niet overeen." : null}
-                autoComplete="new-password"
-                required
-              />
-            </div>
-
             {error ? (
               <div className="rounded-md border border-danger/30 bg-[color-mix(in_oklab,var(--danger)_10%,transparent)] p-3 text-sm text-danger">
                 {error}
@@ -215,7 +174,7 @@ export function AddStudentDialog() {
               </Button>
               <Button
                 type="submit"
-                disabled={pending || tooWeak || mismatch || !naam || !email || !wachtwoord || !bevestig}
+                disabled={pending || !naam || !email}
               >
                 {pending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
