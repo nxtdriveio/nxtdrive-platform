@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { enterTenantBackoffice, createTenant } from "./actions";
+import { enterTenantBackoffice, createTenant, createTenantAdmin } from "./actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +17,18 @@ const PLAN_LABELS: Record<string, string> = {
   elite: "Elite",
 };
 
-const PLAN_VARIANTS: Record<string, "primary" | "default" | "outline"> = {
+const PLAN_BADGE: Record<string, "outline" | "primary" | "default"> = {
   start: "outline",
   pro: "primary",
   elite: "default",
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  missing_fields: "Vul alle verplichte velden in.",
+  slug_exists: "Deze slug is al in gebruik.",
+  invite_failed: "Uitnodiging kon niet worden verstuurd.",
+  membership_failed: "Lidmaatschap aanmaken mislukt.",
+  unknown: "Er is een onbekende fout opgetreden.",
 };
 
 export default async function PlatformAdminPage({
@@ -55,133 +63,132 @@ export default async function PlatformAdminPage({
       .eq("role", "instructor"),
     service.from("leads").select("*", { count: "exact", head: true }),
     service.from("students").select("tenant_id"),
-    service.from("memberships").select("tenant_id, role").eq("role", "instructor"),
+    service
+      .from("memberships")
+      .select("tenant_id, role")
+      .eq("role", "instructor"),
     service.from("leads").select("tenant_id"),
   ]);
 
-  function countByTenant(rows: { tenant_id: string }[] | null, id: string) {
+  function countByTenant(
+    rows: { tenant_id: string }[] | null,
+    id: string,
+  ): number {
     return rows?.filter((r) => r.tenant_id === id).length ?? 0;
   }
 
-  const errorMessages: Record<string, string> = {
-    missing_fields: "Naam en slug zijn verplicht.",
-    slug_exists: "Deze slug is al in gebruik.",
-    unknown: "Er is een onbekende fout opgetreden.",
-  };
+  const activeTab = params.tab ?? "tenants";
+  const hasError = !!params.error;
+  const errorMsg = params.error ? ERROR_MESSAGES[params.error] : null;
+
+  const tabClass = (tab: string) =>
+    `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+      activeTab === tab
+        ? "bg-primary text-primary-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+    }`;
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card px-8 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <NxtdriveLogo className="text-lg" />
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>{user.profile?.full_name ?? user.email}</span>
-            <Badge variant="primary">platform admin</Badge>
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-8">
+          <NxtdriveLogo className="text-base sm:text-lg" />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="hidden text-sm text-muted-foreground sm:block">
+              {user.profile?.full_name ?? user.email}
+            </span>
+            <Badge variant="primary" className="text-xs">
+              platform admin
+            </Badge>
             <Link
               href="/select-tenant"
-              className="text-muted-foreground hover:text-foreground"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
-              Naar rijschool →
+              Rijschool →
             </Link>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-8 px-8 py-8">
-        {params.created && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Rijschool <strong>{params.created}</strong> is aangemaakt.
-          </div>
-        )}
-        {params.error && (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {errorMessages[params.error] ?? "Er is een fout opgetreden."}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Rijscholen
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-foreground">
-                {tenants?.length ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Leerlingen
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-foreground">
-                {studentCount ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Instructeurs
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-foreground">
-                {instructorCount ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Leads
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-foreground">
-                {leadCount ?? 0}
-              </p>
-            </CardContent>
-          </Card>
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-8 sm:py-8">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {[
+            { label: "Rijscholen", value: tenants?.length ?? 0 },
+            { label: "Leerlingen", value: studentCount ?? 0 },
+            { label: "Instructeurs", value: instructorCount ?? 0 },
+            { label: "Leads", value: leadCount ?? 0 },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="pb-1 pt-4 sm:pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {stat.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4">
+                <p className="text-2xl font-bold text-foreground sm:text-3xl">
+                  {stat.value}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
-              Rijscholen
-            </h2>
-            <Card className="overflow-hidden">
-              <table className="w-full text-sm">
+        {/* Tabs */}
+        <div className="flex gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit">
+          {[
+            { id: "tenants", label: "Rijscholen" },
+            { id: "tenant", label: "Nieuwe rijschool" },
+            { id: "admin", label: "Admin aanmaken" },
+          ].map((tab) => (
+            <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Feedback banners */}
+        {params.created && (
+          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+            Rijschool <strong>{params.created}</strong> aangemaakt.
+          </div>
+        )}
+        {params.invited && (
+          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+            Uitnodiging verstuurd naar <strong>{decodeURIComponent(params.invited)}</strong>.
+          </div>
+        )}
+        {hasError && errorMsg && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Tab: Rijscholen */}
+        {activeTab === "tenants" && (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Naam</th>
                     <th className="px-4 py-3 font-medium">Slug</th>
                     <th className="px-4 py-3 font-medium">Plan</th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Leerlingen
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Instructeurs
-                    </th>
+                    <th className="px-4 py-3 text-right font-medium">Leerlingen</th>
+                    <th className="px-4 py-3 text-right font-medium">Instructeurs</th>
                     <th className="px-4 py-3 text-right font-medium">Leads</th>
-                    <th className="px-4 py-3 font-medium"></th>
+                    <th className="px-4 py-3 font-medium" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {tenants?.map((t) => (
+                  {(tenants ?? []).map((t) => (
                     <tr key={t.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3 font-medium text-foreground">
                         <div className="flex items-center gap-2">
                           {t.name}
                           {t.white_label_enabled && (
-                            <Badge variant="outline" className="text-xs">
-                              WL
-                            </Badge>
+                            <Badge variant="outline" className="text-xs">WL</Badge>
                           )}
                         </div>
                       </td>
@@ -189,20 +196,20 @@ export default async function PlatformAdminPage({
                         {t.slug}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={PLAN_VARIANTS[t.plan] ?? "outline"}>
+                        <Badge variant={PLAN_BADGE[t.plan] ?? "outline"}>
                           {PLAN_LABELS[t.plan] ?? t.plan}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {countByTenant(studentsByTenant, t.id)}
                       </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {countByTenant(
                           instructorsByTenant as { tenant_id: string }[],
                           t.id,
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {countByTenant(
                           leadsByTenant as { tenant_id: string }[],
                           t.id,
@@ -217,67 +224,56 @@ export default async function PlatformAdminPage({
                         </form>
                       </td>
                     </tr>
-                  )) ?? null}
+                  ))}
                   {(tenants?.length ?? 0) === 0 && (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-8 text-center text-muted-foreground"
-                      >
-                        Nog geen rijscholen aangemaakt.
+                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                        Nog geen rijscholen.{" "}
+                        <Link href="/admin?tab=tenant" className="text-primary underline underline-offset-2">
+                          Maak er een aan.
+                        </Link>
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
-            </Card>
-          </div>
+            </div>
+          </Card>
+        )}
 
-          <div>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
-              Nieuwe rijschool
-            </h2>
+        {/* Tab: Nieuwe rijschool */}
+        {activeTab === "tenant" && (
+          <div className="max-w-md">
             <Card>
-              <CardContent className="pt-6">
+              <CardHeader>
+                <CardTitle className="text-base">Nieuwe rijschool</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <form action={createTenant} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label
-                      htmlFor="name"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Naam
+                    <label htmlFor="name" className="text-sm font-medium text-foreground">
+                      Naam <span className="text-red-400">*</span>
                     </label>
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder="Van Dijk Rijschool"
-                      required
-                    />
+                    <Input id="name" name="name" placeholder="Rijschool De Wit" required />
                   </div>
                   <div className="space-y-1.5">
-                    <label
-                      htmlFor="slug"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Slug
+                    <label htmlFor="slug" className="text-sm font-medium text-foreground">
+                      Slug <span className="text-red-400">*</span>
                     </label>
                     <Input
                       id="slug"
                       name="slug"
-                      placeholder="van-dijk"
+                      placeholder="de-wit"
                       pattern="[a-z0-9-]+"
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Alleen kleine letters, cijfers en koppeltekens. Wordt de
-                      subdomeinnaam.
+                      Alleen kleine letters, cijfers en koppeltekens. Wordt{" "}
+                      <span className="font-mono">slug.nxtdrive.io</span>.
                     </p>
                   </div>
                   <div className="space-y-1.5">
-                    <label
-                      htmlFor="plan"
-                      className="text-sm font-medium text-foreground"
-                    >
+                    <label htmlFor="plan" className="text-sm font-medium text-foreground">
                       Plan
                     </label>
                     <Select id="plan" name="plan" defaultValue="start">
@@ -293,7 +289,67 @@ export default async function PlatformAdminPage({
               </CardContent>
             </Card>
           </div>
-        </div>
+        )}
+
+        {/* Tab: Admin aanmaken */}
+        {activeTab === "admin" && (
+          <div className="max-w-md">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Tenant admin aanmaken</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Bestaat het e-mailadres al? Dan wordt alleen het lidmaatschap
+                  toegevoegd. Anders ontvangt de gebruiker een uitnodigingsmail.
+                </p>
+                <form action={createTenantAdmin} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="email" className="text-sm font-medium text-foreground">
+                      E-mailadres <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="eigenaar@rijschool.nl"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="full_name" className="text-sm font-medium text-foreground">
+                      Volledige naam
+                    </label>
+                    <Input
+                      id="full_name"
+                      name="full_name"
+                      placeholder="Jan de Wit"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Alleen gebruikt bij nieuwe gebruikers.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="tenant_id" className="text-sm font-medium text-foreground">
+                      Rijschool <span className="text-red-400">*</span>
+                    </label>
+                    <Select id="tenant_id" name="tenant_id" required>
+                      <option value="">— kies een rijschool —</option>
+                      {(tenants ?? []).map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.slug})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Admin aanmaken / uitnodigen
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </main>
   );
