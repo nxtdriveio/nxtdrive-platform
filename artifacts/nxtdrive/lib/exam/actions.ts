@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadExamSignals } from "./data";
+import { examSignalDedupeKey } from "./utils";
 
 // ---------------------------------------------------------------------------
 // Examenflow B — schoolsignaal → Kanban-taak (één klik, idempotent).
