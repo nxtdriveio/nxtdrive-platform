@@ -112,6 +112,15 @@ export default async function PlatformAdminPage({
             >
               Rijschool →
             </Link>
+            <form method="post" action="/auth/logout">
+              <button
+                type="submit"
+                aria-label="Uitloggen"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+              >
+                Uitloggen
+              </button>
+            </form>
           </div>
         </div>
       </header>

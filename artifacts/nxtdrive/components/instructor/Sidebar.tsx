@@ -10,6 +10,7 @@ import {
   ListTodo,
   MessageCircle,
   Bell,
+  LogOut,
 } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { cn } from "@/lib/utils";
@@ -102,7 +103,18 @@ export function InstructorSidebar({
             <span className="truncate text-xs text-muted-foreground" title={userLabel}>
               {userLabel}
             </span>
-            {notifications}
+            <div className="flex items-center gap-1 shrink-0">
+              {notifications}
+              <form method="post" action="/auth/logout">
+                <button
+                  type="submit"
+                  aria-label="Uitloggen"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden />
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </aside>
@@ -116,7 +128,18 @@ export function InstructorSidebar({
       >
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
-          {notifications}
+          <div className="flex items-center gap-1">
+            {notifications}
+            <form method="post" action="/auth/logout">
+              <button
+                type="submit"
+                aria-label="Uitloggen"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+              </button>
+            </form>
+          </div>
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto px-2 pb-2">
           {NAV.map((item) => {
