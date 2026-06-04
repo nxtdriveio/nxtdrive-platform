@@ -47,6 +47,7 @@
     "test-lesson-planning": "tsx ./src/test-lesson-planning.ts",
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",
     "test-cancellation-policy": "tsx ./src/test-cancellation-policy.ts",
+    "db:seed-scenarios": "tsx ./src/seed-scenario-accounts.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

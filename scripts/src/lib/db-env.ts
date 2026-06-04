@@ -6,7 +6,13 @@
  *   - production → PRODUCTION_DATABASE_URL (no fallback; must be set explicitly)
  *
  * When no `--env` flag is given, defaults to staging.
+ *
+ * resolveSupabaseAdminClient() resolves the Supabase Admin client:
+ *   - staging    → SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+ *   - production → PRODUCTION_SUPABASE_URL + PRODUCTION_SUPABASE_SERVICE_ROLE_KEY
  */
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
 export type DbEnv = "staging" | "production";
 
 export function parseEnvFromArgv(argv: string[]): DbEnv {
@@ -35,6 +41,34 @@ export function resolveConnectionString(env: DbEnv): string {
     );
   }
   return url;
+}
+
+export function resolveSupabaseAdminClient(env: DbEnv): SupabaseClient {
+  let url: string;
+  let serviceKey: string;
+
+  if (env === "production") {
+    url = process.env["PRODUCTION_SUPABASE_URL"] ?? "";
+    serviceKey = process.env["PRODUCTION_SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+    if (!url || !serviceKey) {
+      throw new Error(
+        "PRODUCTION_SUPABASE_URL and PRODUCTION_SUPABASE_SERVICE_ROLE_KEY must be set " +
+          "to run against production. Add them to your environment (do NOT commit them to git).",
+      );
+    }
+  } else {
+    url = process.env["SUPABASE_URL"] ?? "";
+    serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+    if (!url || !serviceKey) {
+      throw new Error(
+        "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for staging.",
+      );
+    }
+  }
+
+  return createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 export function bannerFor(env: DbEnv): string {
