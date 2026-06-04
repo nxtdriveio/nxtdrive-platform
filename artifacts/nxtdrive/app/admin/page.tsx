@@ -69,7 +69,15 @@ export default async function PlatformAdminPage({
 
   // Load growth data only when the Groei tab is active
   const growthData = activeTab === "groei" ? await getPlatformGrowthData(service) : null;
-  const mrr = computeMrr(tenants ?? []);
+
+  // MRR is restricted to tenants with activity in the last 30 days.
+  // Inactive / churn-risk tenants are excluded so the metric reflects
+  // the revenue at risk of being lost, not a theoretical maximum.
+  const activeTenantPlan =
+    growthData !== null
+      ? (tenants ?? []).filter((t) => growthData.activeTenantIds.has(t.id))
+      : [];
+  const mrr = computeMrr(activeTenantPlan);
 
   function countByTenant(rows: { tenant_id: string }[] | null, id: string): number {
     return rows?.filter((r) => r.tenant_id === id).length ?? 0;

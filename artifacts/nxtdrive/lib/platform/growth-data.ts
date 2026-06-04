@@ -3,6 +3,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 /**
  * Platform-level growth analytics — reads all tenants, students, lessons, leads
  * via the service-role client (no RLS filter). Server-only.
+ *
+ * Two distinct student datasets:
+ *  - allActiveStudents  → total per-tenant student count (used in "Actiefste rijscholen")
+ *  - recentStudents     → students created in the last 30 days (ONLY for inactivity detection)
+ *
+ * MRR is computed from active tenants only — those with a lesson (starts_at) or a
+ * newly-created student in the last 30 days. Inactive/churned tenants are excluded.
  */
 
 // ── Month helpers ─────────────────────────────────────────────────────────────
@@ -35,8 +42,8 @@ function lastNMonthKeys(n: number): string[] {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type TenantGrowthPoint = {
-  month: string;    // "YYYY-MM"
-  label: string;   // "Jan '26"
+  month: string;   // "YYYY-MM"
+  label: string;   // "jan '26"
   newTenants: number;
   cumulative: number;
 };
@@ -46,7 +53,9 @@ export type ActiveTenantRow = {
   name: string;
   slug: string;
   plan: string;
+  /** Total active students for this tenant (all-time, active = true). */
   studentCount: number;
+  /** Lessons with starts_at in the current calendar month. */
   lessonsThisMonth: number;
   leadCount: number;
 };
@@ -62,17 +71,20 @@ export type InactiveTenantRow = {
 
 export type PlatformGrowthData = {
   tenantGrowth: TenantGrowthPoint[];
+  /** Top-5 tenants by total student count + lessons this month. */
   activeTenants: ActiveTenantRow[];
+  /** Tenants with no lesson (starts_at) and no new student in the last 30 days. */
   inactiveTenants: InactiveTenantRow[];
   totalTenantsAllTime: number;
+  /**
+   * Set of tenant IDs that have recent activity (lesson or student in the last
+   * 30 days). Used by the admin page to restrict MRR to paying/active accounts.
+   */
+  activeTenantIds: Set<string>;
 };
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
-/**
- * Loads all platform-wide growth analytics using the service-role client.
- * Runs all queries in parallel and computes derived metrics in-process.
- */
 export async function getPlatformGrowthData(
   service: SupabaseClient,
 ): Promise<PlatformGrowthData> {
@@ -85,8 +97,9 @@ export async function getPlatformGrowthData(
 
   const [
     tenantsRes,
-    studentsRes,
-    lessonsRes,
+    allActiveStudentsRes,
+    recentStudentsRes,
+    recentLessonsRes,
     leadsRes,
     lessonsThisMonthRes,
   ] = await Promise.all([
@@ -94,20 +107,31 @@ export async function getPlatformGrowthData(
       .from("tenants")
       .select("id, name, slug, plan, created_at")
       .order("created_at", { ascending: true }),
-    // Students created in the last 30 days signal recent tenant activity.
-    // We do NOT use the all-time active flag — that would falsely keep
-    // long-dormant tenants in the "active" bucket.
+
+    // ALL currently-active students → used to compute per-tenant student count
+    // for the "Actiefste rijscholen" table ranking.
+    service
+      .from("students")
+      .select("id, tenant_id")
+      .eq("active", true),
+
+    // Students created in the last 30 days → inactivity detection signal only.
+    // A tenant that onboarded a new student recently is considered active even
+    // if they haven't had a lesson yet in that window.
     service
       .from("students")
       .select("id, tenant_id")
       .gte("created_at", thirtyDaysAgo),
-    // Recent lessons: use starts_at (the actual lesson date), not created_at.
-    // A lesson created 2 months ago but scheduled for this week IS recent activity.
+
+    // Recent lessons: filter on starts_at (the actual lesson moment), NOT created_at.
+    // A lesson created months ago but scheduled this week IS recent activity.
     service
       .from("lessons")
       .select("id, tenant_id")
       .gte("starts_at", thirtyDaysAgo),
+
     service.from("leads").select("id, tenant_id"),
+
     service
       .from("lessons")
       .select("id, tenant_id")
@@ -115,8 +139,9 @@ export async function getPlatformGrowthData(
   ]);
 
   const allTenants = tenantsRes.data ?? [];
-  const recentStudents = studentsRes.data ?? [];
-  const recentLessons = lessonsRes.data ?? [];
+  const allActiveStudents = allActiveStudentsRes.data ?? [];
+  const recentStudents = recentStudentsRes.data ?? [];
+  const recentLessons = recentLessonsRes.data ?? [];
   const allLeads = leadsRes.data ?? [];
   const lessonsThisMonth = lessonsThisMonthRes.data ?? [];
 
@@ -132,9 +157,7 @@ export async function getPlatformGrowthData(
     }
   }
 
-  // Cumulative: total tenants created on or before each month
   let cumulative = 0;
-  // First count tenants before the 12-month window
   const windowStart = keys[0];
   for (const t of allTenants) {
     if (monthKeyOf(t.created_at as string) < windowStart) cumulative++;
@@ -152,9 +175,9 @@ export async function getPlatformGrowthData(
 
   // ── Per-tenant counts ─────────────────────────────────────────────────────
 
-  // recentStudents = students created in the last 30 days (signals onboarding activity)
+  // Total active students (all-time) — determines ranking in "Actiefste rijscholen".
   const studentsByTenant = new Map<string, number>();
-  for (const s of recentStudents) {
+  for (const s of allActiveStudents) {
     const tid = s.tenant_id as string;
     studentsByTenant.set(tid, (studentsByTenant.get(tid) ?? 0) + 1);
   }
@@ -171,7 +194,22 @@ export async function getPlatformGrowthData(
     leadsByTenant.set(tid, (leadsByTenant.get(tid) ?? 0) + 1);
   }
 
-  // ── Active tenants top-5 ─────────────────────────────────────────────────
+  // ── Activity window for inactivity + MRR gating ──────────────────────────
+  // A tenant is "active" (i.e. NOT churn-risk) when it has:
+  //   (a) at least one lesson with starts_at >= 30 days ago, OR
+  //   (b) at least one student created in the last 30 days.
+  // This set is also used to restrict MRR to only actively-using tenants.
+
+  const activeTenantIds = new Set<string>();
+  for (const l of recentLessons) {
+    activeTenantIds.add(l.tenant_id as string);
+  }
+  for (const s of recentStudents) {
+    activeTenantIds.add(s.tenant_id as string);
+  }
+
+  // ── Top-5 active tenants ──────────────────────────────────────────────────
+  // Ranked by total student count (all-time), then lessons this month.
 
   const activeTenants: ActiveTenantRow[] = allTenants
     .map((t) => ({
@@ -186,25 +224,15 @@ export async function getPlatformGrowthData(
     .sort(
       (a, b) =>
         b.studentCount - a.studentCount ||
-        b.lessonsThisMonth - a.lessonsThisMonth,
+        b.lessonsThisMonth - a.lessonsThisMonth ||
+        b.leadCount - a.leadCount,
     )
     .slice(0, 5);
 
   // ── Inactive tenants ──────────────────────────────────────────────────────
-  // A tenant is considered active if it has at least one lesson with
-  // starts_at in the last 30 days OR at least one student created in the
-  // last 30 days. Both signals use time-bounded windows — not all-time state.
-
-  const recentActivityByTenant = new Set<string>();
-  for (const l of recentLessons) {
-    recentActivityByTenant.add(l.tenant_id as string);
-  }
-  for (const s of recentStudents) {
-    recentActivityByTenant.add(s.tenant_id as string);
-  }
 
   const inactiveTenants: InactiveTenantRow[] = allTenants
-    .filter((t) => !recentActivityByTenant.has(t.id as string))
+    .filter((t) => !activeTenantIds.has(t.id as string))
     .map((t) => {
       const createdAt = t.created_at as string;
       const daysSince = Math.floor(
@@ -226,5 +254,6 @@ export async function getPlatformGrowthData(
     activeTenants,
     inactiveTenants,
     totalTenantsAllTime: allTenants.length,
+    activeTenantIds,
   };
 }
