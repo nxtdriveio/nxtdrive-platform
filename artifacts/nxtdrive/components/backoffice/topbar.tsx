@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 import { UserMenu } from "@/components/backoffice/user-menu";
-import { GlobalSearch } from "@/components/backoffice/global-search";
+import { GlobalSearch, MobileSearch } from "@/components/backoffice/global-search";
 
 export function BackofficeTopbar({
   userLabel,
@@ -29,6 +29,8 @@ export function BackofficeTopbar({
       <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Mobile search icon — visible only below sm breakpoint */}
+        <MobileSearch />
         {notifications}
         <ThemeToggle current={theme} />
         <UserMenu userLabel={userLabel} roleLabel={roleLabel} />
