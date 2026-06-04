@@ -25,6 +25,7 @@ import type {
   MonthlyRevenuePoint,
   StudentProgressRow,
 } from "@/lib/dashboard/reports-data";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ type Props = {
   initial: DashboardLiveData;
   monthlyRevenue: MonthlyRevenuePoint[];
   studentProgress: StudentProgressRow[];
+  tenantId: string;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -91,7 +93,7 @@ const PRIORITY_DOT: Record<string, string> = {
 
 import React from "react";
 
-export function DashboardSection({ initial, monthlyRevenue, studentProgress }: Props) {
+export function DashboardSection({ initial, monthlyRevenue, studentProgress, tenantId }: Props) {
   const [data, setData] = useState<DashboardLiveData>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -109,12 +111,56 @@ export function DashboardSection({ initial, monthlyRevenue, studentProgress }: P
     }
   }, []);
 
+  // 60 s polling — fallback when realtime connection is unavailable
   useEffect(() => {
     intervalRef.current = setInterval(fetchData, REFRESH_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchData]);
+
+  // Supabase Realtime — instant push on lessons / tasks / trial_lessons changes
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel(`dashboard:${tenantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "lessons",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchData(); },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchData(); },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trial_lessons",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchData(); },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [tenantId, fetchData]);
 
   const lastUpdated = timeFmt.format(new Date(data.fetchedAt));
 

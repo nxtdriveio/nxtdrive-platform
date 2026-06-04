@@ -105,6 +105,7 @@ export default async function BackofficePage() {
 
       {/* ── 7 KPI cards (auto-refresh every 60 s) ── */}
       <KpiSection
+        tenantId={tenant.id}
         initial={{
           activeStudents: metrics.activeStudents,
           lessonsToday: metrics.lessonsToday,
@@ -166,6 +167,7 @@ export default async function BackofficePage() {
 
       {/* ── Live dashboard sections (auto-refresh every 60 s) ── */}
       <DashboardSection
+        tenantId={tenant.id}
         initial={initialLive}
         monthlyRevenue={monthlyRevenue}
         studentProgress={studentProgress}

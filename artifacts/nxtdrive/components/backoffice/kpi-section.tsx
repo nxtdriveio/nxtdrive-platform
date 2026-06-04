@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Users, Inbox, Wallet, Receipt, Clock, ArrowUpRight, Car, RefreshCw } from "lucide-react";
 import { StatCard } from "@/components/backoffice/stat-card";
 import { formatEuros } from "@/lib/invoices/types";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export type KpiData = {
   activeStudents: number;
@@ -24,7 +25,7 @@ const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   minute: "2-digit",
 });
 
-export function KpiSection({ initial }: { initial: KpiData }) {
+export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: string }) {
   const [data, setData] = useState<KpiData>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -42,12 +43,56 @@ export function KpiSection({ initial }: { initial: KpiData }) {
     }
   }, []);
 
+  // 60 s polling — fallback when realtime connection is unavailable
   useEffect(() => {
     intervalRef.current = setInterval(fetchKpis, REFRESH_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchKpis]);
+
+  // Supabase Realtime — instant push on lessons / tasks / trial_lessons changes
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel(`kpis:${tenantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "lessons",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchKpis(); },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchKpis(); },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trial_lessons",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => { void fetchKpis(); },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [tenantId, fetchKpis]);
 
   const lastUpdated = timeFmt.format(new Date(data.fetchedAt));
 
