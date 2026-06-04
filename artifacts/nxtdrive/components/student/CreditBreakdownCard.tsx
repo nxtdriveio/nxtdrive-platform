@@ -1,4 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { PWACard, PWASectionHeader } from "@/components/pwa/primitives";
 import { formatTegoed, type StudentCreditBreakdown } from "@/lib/students/types";
 
 type Row = {
@@ -57,49 +57,45 @@ export function CreditBreakdownCard({
   }
 
   return (
-    <Card>
-      <CardContent className="space-y-3 pt-5">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Tegoedoverzicht
-        </div>
-        <dl className="space-y-2">
-          {rows.map((r) => (
-            <div
-              key={r.label}
-              className="flex items-baseline justify-between gap-3"
-            >
-              <dt className="text-sm text-foreground">
-                {r.label}
-                {r.hint ? (
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    · {r.hint}
-                  </span>
-                ) : null}
-              </dt>
-              <dd
-                className={`text-sm font-medium tabular-nums ${toneClass(r.tone)}`}
-              >
-                {formatTegoed(r.minutes)}
-              </dd>
-            </div>
-          ))}
-          <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-border pt-3">
-            <dt className="text-sm font-semibold text-foreground">
-              Vrij beschikbaar
+    <PWACard>
+      <PWASectionHeader>Tegoedoverzicht</PWASectionHeader>
+      <dl className="space-y-2">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="flex items-baseline justify-between gap-3"
+          >
+            <dt className="text-sm text-foreground">
+              {r.label}
+              {r.hint ? (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  · {r.hint}
+                </span>
+              ) : null}
             </dt>
             <dd
-              className={`text-base font-bold tabular-nums ${
-                breakdown.available_minutes > 0
-                  ? "text-success"
-                  : "text-danger"
-              }`}
+              className={`text-sm font-medium tabular-nums ${toneClass(r.tone)}`}
             >
-              {formatTegoed(breakdown.available_minutes)}
+              {formatTegoed(r.minutes)}
             </dd>
           </div>
-        </dl>
-      </CardContent>
-    </Card>
+        ))}
+        <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-border pt-3">
+          <dt className="text-sm font-semibold text-foreground">
+            Vrij beschikbaar
+          </dt>
+          <dd
+            className={`text-base font-bold tabular-nums ${
+              breakdown.available_minutes > 0
+                ? "text-success"
+                : "text-danger"
+            }`}
+          >
+            {formatTegoed(breakdown.available_minutes)}
+          </dd>
+        </div>
+      </dl>
+    </PWACard>
   );
 }
 

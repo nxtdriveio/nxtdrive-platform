@@ -5,7 +5,7 @@ import {
   type ReadinessPhase,
   type ReadinessResult,
 } from "@workspace/leskaart";
-import { Card, CardContent } from "@/components/ui/card";
+import { PWACard } from "@/components/pwa/primitives";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -44,18 +44,20 @@ export function StudentReadinessCard({
   const currentIdx = PHASE_ORDER.indexOf(readiness.phase);
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <GraduationCap className="h-4 w-4" aria-hidden />
-            Examenrijpheid
-          </div>
-          <Badge variant={adviceVariant[readiness.advice]}>
-            {ADVICE_LABELS[readiness.advice]}
-          </Badge>
-        </div>
-
+    <PWACard
+      title={
+        <>
+          <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+          Examenrijpheid
+        </>
+      }
+      headerRight={
+        <Badge variant={adviceVariant[readiness.advice]}>
+          {ADVICE_LABELS[readiness.advice]}
+        </Badge>
+      }
+    >
+      <div className="space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-3xl font-semibold text-foreground tabular-nums">
@@ -122,7 +124,7 @@ export function StudentReadinessCard({
           <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />
           {readiness.disclaimer}
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </PWACard>
   );
 }
