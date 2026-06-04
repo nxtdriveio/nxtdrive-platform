@@ -4,11 +4,9 @@ import { removeMember } from "./actions";
 
 export function RemoveMemberButton({
   membershipId,
-  userId,
   displayName,
 }: {
   membershipId: string;
-  userId: string;
   displayName: string;
 }) {
   return (
@@ -21,7 +19,6 @@ export function RemoveMemberButton({
       }}
     >
       <input type="hidden" name="membership_id" value={membershipId} />
-      <input type="hidden" name="user_id" value={userId} />
       <button
         type="submit"
         className="text-xs text-destructive hover:underline"

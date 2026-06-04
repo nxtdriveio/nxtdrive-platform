@@ -251,11 +251,6 @@ export default async function MedewerkersPage({
                                 name="membership_id"
                                 value={member.id}
                               />
-                              <input
-                                type="hidden"
-                                name="user_id"
-                                value={member.user_id}
-                              />
                               <select
                                 name="role"
                                 defaultValue={member.role}
@@ -291,7 +286,6 @@ export default async function MedewerkersPage({
                           ) : (
                             <RemoveMemberButton
                               membershipId={member.id}
-                              userId={member.user_id}
                               displayName={displayName}
                             />
                           )}

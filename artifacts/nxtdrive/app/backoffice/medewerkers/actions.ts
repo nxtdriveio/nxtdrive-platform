@@ -36,15 +36,17 @@ export async function inviteInstructor(formData: FormData) {
   if (profileRow) {
     userId = profileRow.id as string;
 
-    const { data: existingMembership } = await service
+    // Block if this user already has ANY membership in this tenant (any role).
+    // Admins should use the role-selector in the member list for existing members.
+    const { data: existingAny } = await service
       .from("memberships")
       .select("id")
       .eq("user_id", userId)
       .eq("tenant_id", tenant.id)
-      .eq("role", role)
+      .limit(1)
       .maybeSingle();
 
-    if (existingMembership) {
+    if (existingAny) {
       redirect(
         "/backoffice/medewerkers?error=already_member&email=" +
           encodeURIComponent(email),
@@ -93,17 +95,23 @@ export async function removeMember(formData: FormData) {
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
-  const memberId = String(formData.get("user_id") ?? "");
-
-  if (!membershipId) {
-    redirect("/backoffice/medewerkers?error=missing_fields");
-  }
-
-  if (memberId === user.id) {
-    redirect("/backoffice/medewerkers?error=cannot_remove_self");
-  }
+  if (!membershipId) redirect("/backoffice/medewerkers?error=missing_fields");
 
   const service = createServiceRoleClient();
+
+  // Derive target user from DB — never trust client-submitted user_id.
+  const { data: row } = await service
+    .from("memberships")
+    .select("user_id")
+    .eq("id", membershipId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (!row) redirect("/backoffice/medewerkers?error=not_found");
+
+  if ((row.user_id as string) === user.id) {
+    redirect("/backoffice/medewerkers?error=cannot_remove_self");
+  }
 
   const { error } = await service
     .from("memberships")
@@ -121,18 +129,27 @@ export async function changeRole(formData: FormData) {
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
-  const memberId = String(formData.get("user_id") ?? "");
   const newRole = String(formData.get("role") ?? "") as MemberRole;
 
   if (!membershipId || !STAFF_ROLES.includes(newRole)) {
     redirect("/backoffice/medewerkers?error=missing_fields");
   }
 
-  if (memberId === user.id) {
+  const service = createServiceRoleClient();
+
+  // Derive target user from DB — never trust client-submitted user_id.
+  const { data: row } = await service
+    .from("memberships")
+    .select("user_id")
+    .eq("id", membershipId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (!row) redirect("/backoffice/medewerkers?error=not_found");
+
+  if ((row.user_id as string) === user.id) {
     redirect("/backoffice/medewerkers?error=cannot_change_own_role");
   }
-
-  const service = createServiceRoleClient();
 
   const { error } = await service
     .from("memberships")
