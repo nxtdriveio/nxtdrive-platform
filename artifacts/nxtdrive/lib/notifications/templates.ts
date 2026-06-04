@@ -1456,3 +1456,58 @@ export function renderParentLessonScheduled(
     vars,
   );
 }
+
+export type StudentWelcomeData = {
+  studentName: string;
+  email: string;
+  temporaryPassword: string;
+  loginUrl: string;
+};
+
+export function renderStudentWelcome(
+  branding: EmailBranding,
+  data: StudentWelcomeData,
+  override?: TemplateOverride,
+): RenderedEmail {
+  const vars: Record<string, string> = {
+    tenant_name: branding.tenantName,
+    student_name: data.studentName,
+    email: data.email,
+    temporary_password: data.temporaryPassword,
+    login_url: data.loginUrl,
+  };
+
+  const subject = `Welkom bij ${branding.tenantName} — je inloggegevens`;
+  const inner = `
+    <p>Beste ${escapeHtml(data.studentName)},</p>
+    <p>Je bent als leerling aangemeld bij <strong>${escapeHtml(branding.tenantName)}</strong>. Hieronder vind je je tijdelijke inloggegevens.</p>
+    <table style="margin:16px 0;border-collapse:collapse;font-size:14px">
+      <tr>
+        <td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap">E-mailadres</td>
+        <td style="padding:4px 0"><strong>${escapeHtml(data.email)}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap">Tijdelijk wachtwoord</td>
+        <td style="padding:4px 0"><strong style="font-family:monospace">${escapeHtml(data.temporaryPassword)}</strong></td>
+      </tr>
+    </table>
+    <p>
+      <a href="${escapeHtml(data.loginUrl)}" style="display:inline-block;padding:10px 20px;background:#0f172a;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">Inloggen</a>
+    </p>
+    <p style="color:#475569;font-size:14px">Je wordt bij de eerste login gevraagd een nieuw wachtwoord in te stellen. Bewaar dit bericht tot dan goed.</p>`;
+  const text =
+    `Beste ${data.studentName},\n\n` +
+    `Je bent als leerling aangemeld bij ${branding.tenantName}.\n\n` +
+    `E-mailadres: ${data.email}\n` +
+    `Tijdelijk wachtwoord: ${data.temporaryPassword}\n\n` +
+    `Log in via: ${data.loginUrl}\n\n` +
+    `Je wordt bij de eerste login gevraagd een nieuw wachtwoord in te stellen.\n\n` +
+    `Met vriendelijke groet,\n${branding.tenantName}`;
+
+  return applyOverride(
+    override ?? null,
+    branding,
+    { subject, html: layout(branding, inner), text },
+    vars,
+  );
+}

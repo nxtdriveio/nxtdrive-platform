@@ -461,6 +461,9 @@ importers:
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
+      zxcvbn:
+        specifier: ^4.4.2
+        version: 4.4.2
     devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.4.6
@@ -480,6 +483,9 @@ importers:
       '@types/web-push':
         specifier: ^3.6.4
         version: 3.6.4
+      '@types/zxcvbn':
+        specifier: ^4.4.5
+        version: 4.4.5
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -1923,6 +1929,9 @@ packages:
 
   '@types/web-push@3.6.4':
     resolution: {integrity: sha512-GnJmSr40H3RAnj0s34FNTcJi1hmWFV5KXugE0mYWnYhgTAHLJ/dJKAwDmvPJYMke0RplY2XE9LnM4hqSqKIjhQ==}
+
+  '@types/zxcvbn@4.4.5':
+    resolution: {integrity: sha512-FZJgC5Bxuqg7Rhsm/bx6gAruHHhDQ55r+s0JhDh8CQ16fD7NsJJ+p8YMMQDhSQoIrSmjpqqYWA96oQVMNkjRyA==}
 
   '@vitejs/plugin-react@5.2.0':
     resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
@@ -3467,6 +3476,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zxcvbn@4.4.2:
+    resolution: {integrity: sha512-Bq0B+ixT/DMyG8kgX2xWcI5jUvCwqrMxSFam7m0lAf78nf04hv6lNCsyLYdyYTrCVMqNDY/206K7eExYCeSyUQ==}
+
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
@@ -4912,6 +4924,8 @@ snapshots:
     dependencies:
       '@types/node': 25.6.2
 
+  '@types/zxcvbn@4.4.5': {}
+
   '@vitejs/plugin-react@5.2.0(vite@7.3.3(@types/node@25.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.4))':
     dependencies:
       '@babel/core': 7.29.0
@@ -6320,3 +6334,5 @@ snapshots:
   yoctocolors@2.1.2: {}
 
   zod@3.25.76: {}
+
+  zxcvbn@4.4.2: {}

@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
+import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 export default async function StudentsPage() {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const { tenant, roles } = await requireActiveTenant(["tenant_admin", "instructor"]);
   const supabase = await createServerSupabaseClient();
 
   const { data: studentsRaw } = await supabase
@@ -34,21 +35,26 @@ export default async function StudentsPage() {
   const balances = (balancesRaw ?? []) as StudentBalance[];
   const balanceMap = new Map(balances.map((b) => [b.student_id, b.balance]));
 
+  const isTenantAdmin = roles.includes("tenant_admin");
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Leerlingen
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Alle leerlingen van {tenant.name} met hun tegoed (uren).
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Leerlingen
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Alle leerlingen van {tenant.name} met hun tegoed (uren).
+          </p>
+        </div>
+        {isTenantAdmin ? <AddStudentDialog /> : null}
       </div>
 
       <Card className="overflow-hidden">
         {students.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">
-            Nog geen leerlingen — converteer een lead om er een aan te maken.
+            Nog geen leerlingen — converteer een lead of voeg er direct een toe.
           </div>
         ) : (
           <table className="w-full text-sm">

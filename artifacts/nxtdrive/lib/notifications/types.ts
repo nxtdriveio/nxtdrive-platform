@@ -25,7 +25,8 @@ export type NotificationType =
   | "parent_invoice_paid"
   | "parent_lesson_scheduled"
   | "lesson_rescheduled"
-  | "lesson_rescheduled_instructor";
+  | "lesson_rescheduled_instructor"
+  | "student_welcome";
 
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 
