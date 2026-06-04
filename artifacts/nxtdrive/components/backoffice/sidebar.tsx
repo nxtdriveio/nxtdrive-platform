@@ -19,6 +19,7 @@ import {
   CalendarX,
   BadgeCheck,
   Gift,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -39,6 +40,7 @@ const nav = [
   { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3 },
   { href: "/backoffice/facturen", label: "Facturen", icon: Receipt },
   { href: "/backoffice/boekhouding", label: "Boekhouding", icon: Calculator },
+  { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users },
   { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings },
 ];
 
