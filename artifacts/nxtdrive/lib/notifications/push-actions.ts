@@ -5,6 +5,7 @@ import { resolveActiveTenant } from "@/lib/auth/active-tenant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { isWebPushConfigured } from "./web-push";
+import type { NotificationCategory } from "./types";
 
 export type PushSubscriptionInput = {
   endpoint: string;
@@ -127,4 +128,85 @@ export async function getNotificationPreference(): Promise<boolean | null> {
     .maybeSingle();
 
   return data?.push_enabled ?? null;
+}
+
+/**
+ * Read the caller's per-category type preferences for their active tenant.
+ * Returns an empty object when no row exists (all categories default to on).
+ * The returned object only contains keys where the user explicitly opted out
+ * (value = false); absent keys mean opted in.
+ */
+export async function getNotificationTypePreferences(): Promise<
+  Partial<Record<NotificationCategory, boolean>>
+> {
+  const user = await requireUser();
+  const tenant = await resolveActiveTenant(user);
+  if (!tenant) return {};
+
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase
+    .from("notification_preferences")
+    .select("type_preferences")
+    .eq("user_id", user.id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  const raw = data?.type_preferences;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Partial<Record<NotificationCategory, boolean>>;
+}
+
+/**
+ * Toggle a single notification category on or off for the caller's active
+ * tenant. Uses a JSONB merge so other categories are untouched. Safe to call
+ * repeatedly — setting a category to true removes any stored opt-out.
+ */
+export async function updateNotificationTypePreference(
+  category: NotificationCategory,
+  enabled: boolean,
+): Promise<{ error?: string }> {
+  const allowedCategories: NotificationCategory[] = [
+    "les_herinnering",
+    "proefles",
+    "tegoed_waarschuwing",
+    "examen_updates",
+  ];
+  if (!allowedCategories.includes(category)) {
+    return { error: "Onbekende categorie." };
+  }
+
+  const user = await requireUser();
+  const tenant = await resolveActiveTenant(user);
+  if (!tenant) return { error: "Geen actieve rijschool" };
+
+  const supabase = await createServerSupabaseClient();
+
+  const { data: existing } = await supabase
+    .from("notification_preferences")
+    .select("type_preferences")
+    .eq("user_id", user.id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  const current =
+    existing?.type_preferences &&
+    typeof existing.type_preferences === "object" &&
+    !Array.isArray(existing.type_preferences)
+      ? (existing.type_preferences as Record<string, boolean>)
+      : {};
+
+  const updated = { ...current, [category]: enabled };
+
+  const { error } = await supabase
+    .from("notification_preferences")
+    .upsert(
+      {
+        user_id: user.id,
+        tenant_id: tenant.id,
+        type_preferences: updated,
+      },
+      { onConflict: "user_id,tenant_id" },
+    );
+  if (error) return { error: error.message };
+  return {};
 }

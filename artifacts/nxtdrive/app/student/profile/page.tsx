@@ -10,8 +10,9 @@ import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
 import { ReviewForm } from "@/components/student/review-form";
 import { PushToggle } from "@/components/notifications/PushToggle";
+import { NotificationTypeToggles } from "@/components/notifications/NotificationTypeToggles";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
-import { getNotificationPreference } from "@/lib/notifications/push-actions";
+import { getNotificationPreference, getNotificationTypePreferences } from "@/lib/notifications/push-actions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +27,10 @@ export default async function StudentProfilePage() {
     tenant.id,
     roles,
   );
-  const [vapidPublicKey, serverPushEnabled] = await Promise.all([
+  const [vapidPublicKey, serverPushEnabled, typePreferences] = await Promise.all([
     Promise.resolve(getVapidPublicKey()),
     getNotificationPreference(),
+    getNotificationTypePreferences(),
   ]);
 
   let existingReview: { rating: number; body: string | null } | null = null;
@@ -109,30 +111,14 @@ export default async function StudentProfilePage() {
         <PWASectionHeader icon={<Bell className="h-3.5 w-3.5" aria-hidden />}>
           Meldingen
         </PWASectionHeader>
-        <PWACard>
-          <p className="text-xs text-muted-foreground mb-3">
-            Als leerling ontvang je pushmeldingen voor:
-          </p>
-          <ul className="space-y-1.5 text-xs text-foreground">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
-              Lesherinneringen — herinnering vóór je geplande les
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
-              Proefles bevestiging — bevestiging wanneer je proefles is ingepland
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
-              Tegoed waarschuwing — melding als je tegoed bijna op is
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
-              Examenupdates — statuswijzigingen rondom je CBR-examen
-            </li>
-          </ul>
-        </PWACard>
         <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
+        <PWACard>
+          <p className="text-xs text-muted-foreground mb-4">
+            Kies welke meldingen je wilt ontvangen. Uitgeschakelde types worden
+            ook niet in de app getoond.
+          </p>
+          <NotificationTypeToggles initialPreferences={typePreferences} />
+        </PWACard>
       </div>
 
       {student ? (

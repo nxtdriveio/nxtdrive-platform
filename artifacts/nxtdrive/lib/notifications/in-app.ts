@@ -1,7 +1,42 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sendWebPushToUser } from "./web-push";
-import type { InAppContent, InAppNotification } from "./types";
+import type { InAppContent, InAppNotification, NotificationCategory } from "./types";
+import { NOTIFICATION_TYPE_CATEGORY } from "./types";
+
+/**
+ * Check whether a recipient user has opted in to a notification type. Looks up
+ * the `type_preferences` JSONB on `notification_preferences`. When no row
+ * exists or the category is absent from the JSONB, the user is considered
+ * opted in (default-on). Staff-facing types (no category entry in
+ * NOTIFICATION_TYPE_CATEGORY) always pass through.
+ *
+ * Uses the service-role client so it can read across tenants as needed.
+ * Returns true (allow) or false (suppress).
+ */
+async function isTypeAllowed(
+  service: SupabaseClient,
+  tenantId: string,
+  userId: string,
+  notificationType: string,
+): Promise<boolean> {
+  const category = NOTIFICATION_TYPE_CATEGORY[notificationType as keyof typeof NOTIFICATION_TYPE_CATEGORY] as
+    | NotificationCategory
+    | undefined;
+  if (!category) return true;
+
+  const { data } = await service
+    .from("notification_preferences")
+    .select("type_preferences")
+    .eq("user_id", userId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const prefs = data?.type_preferences;
+  if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return true;
+  const stored = (prefs as Record<string, unknown>)[category];
+  return stored !== false;
+}
 
 /**
  * Enqueue the in-app copy of a notification. Idempotent per (tenant, dedupe key)
@@ -9,6 +44,10 @@ import type { InAppContent, InAppNotification } from "./types";
  * double-notifies. Degrades gracefully (no-op) when there is no recipient user
  * (e.g. a lead with no account) so it can be wired into every dispatch path
  * unconditionally.
+ *
+ * Respects per-category type preferences: when the recipient has opted out of
+ * the notification category that covers this type, both the in-app enqueue and
+ * the web-push send are skipped.
  *
  * Service-role only — the RPC is locked down to service_role. Never throws: an
  * in-app failure must never break the surrounding action or its email.
@@ -27,6 +66,14 @@ export async function dispatchInApp(
 ): Promise<{ created: boolean } | { skipped: true }> {
   const inApp = params.inApp;
   if (!inApp || !inApp.recipientUserId) return { skipped: true };
+
+  const allowed = await isTypeAllowed(
+    service,
+    params.tenantId,
+    inApp.recipientUserId,
+    params.type,
+  ).catch(() => true);
+  if (!allowed) return { skipped: true };
 
   const { data, error } = await service.rpc("enqueue_app_notification", {
     p_tenant_id: params.tenantId,

@@ -28,6 +28,62 @@ export type NotificationType =
   | "lesson_rescheduled_instructor"
   | "student_welcome";
 
+/**
+ * Student-facing notification categories used for per-type opt-in/out.
+ * Each category groups one or more NotificationType values. Missing key in
+ * the stored preferences object means the user is opted IN (default).
+ *
+ * Staff-facing notification types (task_assigned, payment_*, etc.) have no
+ * category and are always dispatched.
+ */
+export type NotificationCategory =
+  | "les_herinnering"
+  | "proefles"
+  | "tegoed_waarschuwing"
+  | "examen_updates";
+
+/** Human-readable Dutch label per category. */
+export const NOTIFICATION_CATEGORY_LABEL: Record<NotificationCategory, string> = {
+  les_herinnering: "Lesherinneringen",
+  proefles: "Proefles bevestiging",
+  tegoed_waarschuwing: "Tegoed waarschuwing",
+  examen_updates: "Examenupdates",
+};
+
+/** Human-readable Dutch description per category. */
+export const NOTIFICATION_CATEGORY_DESCRIPTION: Record<NotificationCategory, string> = {
+  les_herinnering: "Herinnering vóór je geplande les",
+  proefles: "Bevestiging wanneer je proefles is ingepland",
+  tegoed_waarschuwing: "Melding als je tegoed bijna op is",
+  examen_updates: "Statuswijzigingen rondom je CBR-examen",
+};
+
+/** Ordered list of all student-facing categories. */
+export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
+  "les_herinnering",
+  "proefles",
+  "tegoed_waarschuwing",
+  "examen_updates",
+];
+
+/**
+ * Map from a NotificationType to the student-facing category it belongs to.
+ * Types absent from this map are staff-facing and are always sent regardless
+ * of student preferences.
+ */
+export const NOTIFICATION_TYPE_CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
+  lesson_reminder: "les_herinnering",
+  trial_lesson_received: "proefles",
+  trial_lesson_confirmed: "proefles",
+  credit_low: "tegoed_waarschuwing",
+  exam_invitation: "examen_updates",
+  exam_confirmed: "examen_updates",
+  exam_planned: "examen_updates",
+  exam_passed: "examen_updates",
+  exam_failed: "examen_updates",
+  exam_day_reminder: "examen_updates",
+};
+
 export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 
 /** Tenant identity + visual branding used to render branded emails. */
