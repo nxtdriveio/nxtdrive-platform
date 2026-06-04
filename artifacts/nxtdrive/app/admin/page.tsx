@@ -246,21 +246,68 @@ export default async function PlatformAdminPage({
                   <p className="mt-1 text-xs text-muted-foreground">
                     maandelijkse omzetschatting
                   </p>
-                  <ul className="mt-3 space-y-1">
-                    {mrr.byTier.map((t) => (
-                      <li key={t.plan} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <Badge variant={PLAN_BADGE[t.plan] ?? "outline"} className="text-[10px]">
-                            {t.label}
-                          </Badge>
-                          {t.count}×
-                        </span>
-                        <span className="font-medium text-foreground">
-                          €{t.total.toLocaleString("nl-NL")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+
+                  {/* MRR stacked bar */}
+                  {mrr.totalMonthly > 0 && (
+                    <div className="mt-4">
+                      <div className="flex h-3 w-full overflow-hidden rounded-full">
+                        {mrr.byTier
+                          .filter((t) => t.total > 0)
+                          .map((t, i) => {
+                            const pct = Math.round((t.total / mrr.totalMonthly) * 100);
+                            const colors = ["bg-amber-500", "bg-primary", "bg-purple-500"];
+                            return (
+                              <div
+                                key={t.plan}
+                                className={colors[i % colors.length]}
+                                style={{ width: `${pct}%` }}
+                                title={`${t.label}: €${t.total} (${pct}%)`}
+                              />
+                            );
+                          })}
+                      </div>
+                      <ul className="mt-2 space-y-1">
+                        {mrr.byTier.map((t, i) => {
+                          const colors = [
+                            "bg-amber-500",
+                            "bg-primary",
+                            "bg-purple-500",
+                          ];
+                          const pct =
+                            mrr.totalMonthly > 0
+                              ? Math.round((t.total / mrr.totalMonthly) * 100)
+                              : 0;
+                          return (
+                            <li
+                              key={t.plan}
+                              className="flex items-center justify-between text-xs"
+                            >
+                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                                <span
+                                  className={`h-2 w-2 shrink-0 rounded-full ${colors[i % colors.length]}`}
+                                />
+                                <Badge
+                                  variant={PLAN_BADGE[t.plan] ?? "outline"}
+                                  className="text-[10px]"
+                                >
+                                  {t.label}
+                                </Badge>
+                                {t.count}× ({pct}%)
+                              </span>
+                              <span className="font-medium text-foreground">
+                                €{t.total.toLocaleString("nl-NL")}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {mrr.totalMonthly === 0 && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Nog geen rijscholen op een betaald plan.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

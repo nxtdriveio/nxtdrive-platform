@@ -94,11 +94,19 @@ export async function getPlatformGrowthData(
       .from("tenants")
       .select("id, name, slug, plan, created_at")
       .order("created_at", { ascending: true }),
-    service.from("students").select("id, tenant_id, active"),
+    // Students created in the last 30 days signal recent tenant activity.
+    // We do NOT use the all-time active flag — that would falsely keep
+    // long-dormant tenants in the "active" bucket.
+    service
+      .from("students")
+      .select("id, tenant_id")
+      .gte("created_at", thirtyDaysAgo),
+    // Recent lessons: use starts_at (the actual lesson date), not created_at.
+    // A lesson created 2 months ago but scheduled for this week IS recent activity.
     service
       .from("lessons")
-      .select("id, tenant_id, created_at")
-      .gte("created_at", thirtyDaysAgo),
+      .select("id, tenant_id")
+      .gte("starts_at", thirtyDaysAgo),
     service.from("leads").select("id, tenant_id"),
     service
       .from("lessons")
@@ -107,7 +115,7 @@ export async function getPlatformGrowthData(
   ]);
 
   const allTenants = tenantsRes.data ?? [];
-  const allStudents = studentsRes.data ?? [];
+  const recentStudents = studentsRes.data ?? [];
   const recentLessons = lessonsRes.data ?? [];
   const allLeads = leadsRes.data ?? [];
   const lessonsThisMonth = lessonsThisMonthRes.data ?? [];
@@ -144,12 +152,11 @@ export async function getPlatformGrowthData(
 
   // ── Per-tenant counts ─────────────────────────────────────────────────────
 
+  // recentStudents = students created in the last 30 days (signals onboarding activity)
   const studentsByTenant = new Map<string, number>();
-  for (const s of allStudents) {
-    if ((s.active as boolean)) {
-      const tid = s.tenant_id as string;
-      studentsByTenant.set(tid, (studentsByTenant.get(tid) ?? 0) + 1);
-    }
+  for (const s of recentStudents) {
+    const tid = s.tenant_id as string;
+    studentsByTenant.set(tid, (studentsByTenant.get(tid) ?? 0) + 1);
   }
 
   const lessonsThisMonthByTenant = new Map<string, number>();
@@ -184,15 +191,16 @@ export async function getPlatformGrowthData(
     .slice(0, 5);
 
   // ── Inactive tenants ──────────────────────────────────────────────────────
+  // A tenant is considered active if it has at least one lesson with
+  // starts_at in the last 30 days OR at least one student created in the
+  // last 30 days. Both signals use time-bounded windows — not all-time state.
 
   const recentActivityByTenant = new Set<string>();
   for (const l of recentLessons) {
     recentActivityByTenant.add(l.tenant_id as string);
   }
-  for (const s of allStudents) {
-    if ((s.active as boolean)) {
-      recentActivityByTenant.add(s.tenant_id as string);
-    }
+  for (const s of recentStudents) {
+    recentActivityByTenant.add(s.tenant_id as string);
   }
 
   const inactiveTenants: InactiveTenantRow[] = allTenants
