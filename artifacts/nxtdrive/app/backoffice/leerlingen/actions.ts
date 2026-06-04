@@ -146,6 +146,98 @@ export async function createStudentDirect(
   return { ok: true, studentId };
 }
 
+export type ResendWelcomeEmailResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Generate a new temporary password, update the student's auth account, and
+ * resend the welcome email. Admin-only. Audit-logged.
+ *
+ * Redirects back to the student page with ?welcome_resent=1 on success, or
+ * ?welcome_error=<encoded> on failure.
+ */
+export async function resendWelcomeEmail(formData: FormData): Promise<never> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  const base = `/backoffice/leerlingen/${studentId}`;
+  if (!studentId) redirect("/backoffice/leerlingen");
+
+  const service = createServiceRoleClient();
+
+  const { data: student, error: studentErr } = await service
+    .from("students")
+    .select("id, user_id, full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (studentErr || !student) {
+    redirect(`${base}?welcome_error=${encodeURIComponent("Leerling niet gevonden.")}`);
+  }
+
+  if (!student.user_id) {
+    redirect(
+      `${base}?welcome_error=${encodeURIComponent("Deze leerling heeft geen gekoppeld account.")}`,
+    );
+  }
+
+  if (!student.email) {
+    redirect(
+      `${base}?welcome_error=${encodeURIComponent("Geen e-mailadres bekend voor deze leerling.")}`,
+    );
+  }
+
+  const tijdelijkWachtwoord = generateTemporaryPassword();
+
+  const { error: updateErr } = await service.auth.admin.updateUserById(
+    student.user_id as string,
+    {
+      password: tijdelijkWachtwoord,
+      user_metadata: { must_change_password: true },
+    },
+  );
+  if (updateErr) {
+    redirect(
+      `${base}?welcome_error=${encodeURIComponent(updateErr.message ?? "Wachtwoord bijwerken mislukt.")}`,
+    );
+  }
+
+  try {
+    const branding = await loadEmailBranding(service, tenant.id);
+    const appUrl =
+      process.env["NEXT_PUBLIC_APP_URL"] ??
+      process.env["NEXTAUTH_URL"] ??
+      "https://app.nxtdrive.io";
+    const loginUrl = `${appUrl}/login`;
+    const emailContent = renderStudentWelcome(branding, {
+      studentName: student.full_name as string,
+      email: student.email as string,
+      temporaryPassword: tijdelijkWachtwoord,
+      loginUrl,
+    });
+    await sendEmail({
+      to: student.email as string,
+      fromName: branding.tenantName,
+      email: emailContent,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "E-mail versturen mislukt.";
+    redirect(`${base}?welcome_error=${encodeURIComponent(msg)}`);
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "welcome_email_resent",
+    target_type: "student",
+    target_id: studentId,
+    payload: { email: student.email },
+  });
+
+  redirect(`${base}?welcome_resent=1`);
+}
+
 export async function grantPackageToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");

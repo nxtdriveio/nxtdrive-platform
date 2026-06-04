@@ -43,7 +43,7 @@ import {
 import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { type Lesson } from "@/lib/lessons/types";
-import { adjustCredits, grantPackageToStudent } from "../actions";
+import { adjustCredits, grantPackageToStudent, resendWelcomeEmail } from "../actions";
 import { saveStudentDaypartPreference } from "@/lib/availability/actions";
 import {
   STUDENT_DAYPARTS,
@@ -67,10 +67,18 @@ export default async function StudentDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ doc_error?: string }>;
+  searchParams: Promise<{
+    doc_error?: string;
+    welcome_resent?: string;
+    welcome_error?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { doc_error: docError } = await searchParams;
+  const {
+    doc_error: docError,
+    welcome_resent: welcomeResent,
+    welcome_error: welcomeError,
+  } = await searchParams;
   const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
@@ -217,7 +225,7 @@ export default async function StudentDetailPage({
             <CardHeader>
               <CardTitle>Contactgegevens</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 <Field label="E-mail" value={student.email} />
                 <Field label="Telefoon" value={student.phone} />
@@ -227,6 +235,27 @@ export default async function StudentDetailPage({
                   value={student.user_id ? "Ja" : "Nee"}
                 />
               </dl>
+
+              {isAdmin && welcomeResent === "1" ? (
+                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                  Inloggegevens zijn opnieuw verstuurd.
+                </div>
+              ) : null}
+
+              {isAdmin && welcomeError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {decodeURIComponent(welcomeError)}
+                </div>
+              ) : null}
+
+              {isAdmin && student.user_id ? (
+                <form action={resendWelcomeEmail}>
+                  <input type="hidden" name="student_id" value={student.id} />
+                  <Button type="submit" variant="outline" size="sm">
+                    Inloggegevens opnieuw versturen
+                  </Button>
+                </form>
+              ) : null}
             </CardContent>
           </Card>
 
