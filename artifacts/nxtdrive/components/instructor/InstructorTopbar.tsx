@@ -35,7 +35,7 @@ const ACTIES = [
   { href: "/instructor/taken", icon: ListTodo, label: "Mijn taken" },
   { href: "/instructor/week", icon: ClipboardList, label: "Weekplanning" },
   { href: "/backoffice/agenda/afspraken/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
-  { href: "/backoffice/leerlingen", icon: Users, label: "Leerlingenlijst" },
+  { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
   { href: "/backoffice/intake", icon: FileText, label: "Intakeformulier" },
   { href: "/backoffice/instellingen", icon: Settings, label: "Instellingen" },
 ];
