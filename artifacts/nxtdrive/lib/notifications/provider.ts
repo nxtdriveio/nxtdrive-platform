@@ -1,20 +1,9 @@
 import type { RenderedEmail } from "./types";
 
-export type TenantEmailConfig = {
-  apiKey: string;
-  fromEmail: string;
-};
-
 export type SendEmailInput = {
   to: string;
   fromName: string;
   email: RenderedEmail;
-  /**
-   * Per-tenant SendGrid credentials. When provided, these take priority over
-   * the platform-level SENDGRID_API_KEY / SENDGRID_FROM_EMAIL env vars,
-   * allowing each tenant to use their own verified sender domain.
-   */
-  tenantConfig?: TenantEmailConfig;
 };
 
 export type SendEmailResult =
@@ -43,17 +32,17 @@ export function isEmailConfigured(): boolean {
 /**
  * Sends a single transactional email via the SendGrid v3 REST API.
  *
- * Priority: tenantConfig (per-tenant key + from address) > platform env vars.
+ * Uses platform-level SENDGRID_API_KEY / SENDGRID_FROM_EMAIL env vars.
  *
- * Returns a non-throwing `skipped` result when neither source has credentials,
+ * Returns a non-throwing `skipped` result when credentials are absent,
  * so the rest of the notification pipeline is fully exercised and the app
  * never crashes when email is unconfigured. On a real send it returns
  * `ok: true` with the provider message id, and `ok: false` (non-skipped) on a
  * provider error so the dispatcher records the attempt as 'failed'.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const key = input.tenantConfig?.apiKey ?? envApiKey();
-  const from = input.tenantConfig?.fromEmail ?? envFromEmail();
+  const key = envApiKey();
+  const from = envFromEmail();
 
   if (!key || !from) {
     return { ok: false, skipped: true, provider: null, error: "email_not_configured" };

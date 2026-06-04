@@ -19,7 +19,6 @@ import { generateTemporaryPassword } from "@/lib/auth/generate-password";
 import { loadEmailBranding } from "@/lib/notifications/branding";
 import { renderStudentWelcome } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/provider";
-import { getEmailConfig } from "@/lib/email/config";
 import {
   analyzeIntake,
   intakeAttentionDedupeKey,
@@ -101,10 +100,7 @@ export async function convertLeadToStudent(formData: FormData) {
           process.env["NEXT_PUBLIC_APP_URL"] ??
           process.env["NEXTAUTH_URL"] ??
           "https://app.nxtdrive.io";
-        const [branding, tenantEmailConfig] = await Promise.all([
-          loadEmailBranding(service, tenant.id),
-          getEmailConfig(service, tenant.id).catch(() => null),
-        ]);
+        const branding = await loadEmailBranding(service, tenant.id);
         const emailContent = renderStudentWelcome(branding, {
           studentName,
           email: studentEmail,
@@ -115,7 +111,6 @@ export async function convertLeadToStudent(formData: FormData) {
           to: studentEmail,
           fromName: branding.tenantName,
           email: emailContent,
-          tenantConfig: tenantEmailConfig ?? undefined,
         });
       }
     }

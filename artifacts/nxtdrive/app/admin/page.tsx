@@ -70,6 +70,9 @@ export default async function PlatformAdminPage({
   // Load growth data only when the Groei tab is active
   const growthData = activeTab === "groei" ? await getPlatformGrowthData(service) : null;
 
+  const platformEmailKey = activeTab === "email" ? process.env["SENDGRID_API_KEY"] : undefined;
+  const platformEmailFrom = activeTab === "email" ? process.env["SENDGRID_FROM_EMAIL"] : undefined;
+
   // MRR is restricted to tenants with activity in the last 30 days.
   // Inactive / churn-risk tenants are excluded so the metric reflects
   // the revenue at risk of being lost, not a theoretical maximum.
@@ -155,6 +158,7 @@ export default async function PlatformAdminPage({
             { id: "tenants", label: "Rijscholen" },
             { id: "groei", label: "Groei & MRR" },
             { id: "tenant", label: "Nieuwe rijschool" },
+            { id: "email", label: "E-mail" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
               {tab.label}
@@ -484,6 +488,62 @@ export default async function PlatformAdminPage({
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {/* Tab: E-mailinstellingen */}
+        {activeTab === "email" && (
+          <div className="max-w-lg space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Platform e-mailinstellingen</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <p className="text-sm text-muted-foreground">
+                  Alle uitgaande e-mail (welkomstmails, meldingen, herinneringen) wordt verstuurd
+                  via het platform SendGrid-account. Rijscholen kunnen geen eigen e-mailaccount instellen.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">SendGrid API-sleutel</p>
+                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {platformEmailKey
+                          ? `${platformEmailKey.slice(0, 6)}••••••${platformEmailKey.slice(-4)}`
+                          : "Niet ingesteld"}
+                      </p>
+                    </div>
+                    {platformEmailKey ? (
+                      <Badge variant="success">Geconfigureerd</Badge>
+                    ) : (
+                      <Badge variant="warning">Ontbreekt</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Afzenderadres</p>
+                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {platformEmailFrom ?? "Niet ingesteld"}
+                      </p>
+                    </div>
+                    {platformEmailFrom ? (
+                      <Badge variant="success">Geconfigureerd</Badge>
+                    ) : (
+                      <Badge variant="warning">Ontbreekt</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">Aanpassen</p>
+                  <p className="mt-1">
+                    Stel <code className="rounded bg-muted px-1 py-0.5 text-xs">SENDGRID_API_KEY</code> en{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">SENDGRID_FROM_EMAIL</code> in
+                    via <strong>Replit Secrets</strong> (sleutelicoontje in de zijbalk) of de omgevingsvariabelen
+                    op de productieserver.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

@@ -39,36 +39,6 @@ import {
   classifyHostname,
   normalizeHostname,
 } from "@/lib/tenant/domains";
-import {
-  setSendgridApiKey,
-  setEmailFromAddress,
-} from "@/lib/email/config";
-
-export async function saveEmailConfig(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  const rawKey = String(formData.get("sg_api_key") ?? "").trim();
-  const fromEmail = String(formData.get("from_email") ?? "").trim();
-
-  if (!fromEmail) {
-    redirect("/backoffice/instellingen?email=error&reason=Vul+een+afzenderadres+in.");
-  }
-
-  const service = createServiceRoleClient();
-  try {
-    if (rawKey) {
-      await setSendgridApiKey(service, tenant.id, user.id, rawKey);
-    }
-    await setEmailFromAddress(service, tenant.id, fromEmail);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Onbekende fout bij opslaan";
-    redirect(
-      `/backoffice/instellingen?email=error&reason=${encodeURIComponent(msg.slice(0, 200))}`,
-    );
-  }
-
-  revalidatePath("/backoffice/instellingen");
-  redirect("/backoffice/instellingen?email=saved");
-}
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
