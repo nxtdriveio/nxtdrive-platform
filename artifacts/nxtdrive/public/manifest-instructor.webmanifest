@@ -1,34 +1,34 @@
 {
-  "name": "NXTDRIVE",
+  "name": "NXTDRIVE Instructeur",
   "short_name": "NXTDRIVE",
-  "description": "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen.",
+  "description": "De instructeurs-app van NXTDRIVE — agenda, leerlingen en voortgang in één overzicht.",
   "lang": "nl",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/instructor",
+  "scope": "/instructor",
   "display": "standalone",
   "background_color": "#08080f",
   "theme_color": "#6b4eff",
   "icons": [
     {
-      "src": "/icons/student-192.png",
+      "src": "/icons/instructor-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/student-512.png",
+      "src": "/icons/instructor-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/student-maskable-192.png",
+      "src": "/icons/instructor-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/student-maskable-512.png",
+      "src": "/icons/instructor-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -36,16 +36,16 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/student-1.png",
+      "src": "/screenshots/instructor-1.png",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Leerling dashboard"
+      "label": "Instructeur dagplanning"
     },
     {
-      "src": "/screenshots/student-2.png",
+      "src": "/screenshots/instructor-2.png",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Leerling voortgang"
+      "label": "Instructeur leerlingoverzicht"
     }
   ]
 }
