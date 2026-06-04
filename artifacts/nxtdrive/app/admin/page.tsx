@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { enterTenantBackoffice, createTenant } from "./actions";
+import { enterTenantBackoffice, createTenant, savePlatformEmailConfig } from "./actions";
 import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
+import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
 import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
 import Link from "next/link";
 
@@ -70,8 +71,9 @@ export default async function PlatformAdminPage({
   // Load growth data only when the Groei tab is active
   const growthData = activeTab === "groei" ? await getPlatformGrowthData(service) : null;
 
-  const platformEmailKey = activeTab === "email" ? process.env["SENDGRID_API_KEY"] : undefined;
-  const platformEmailFrom = activeTab === "email" ? process.env["SENDGRID_FROM_EMAIL"] : undefined;
+  const platformEmailStatus = activeTab === "email"
+    ? await getPlatformEmailConfigStatus(service)
+    : null;
 
   // MRR is restricted to tenants with activity in the last 30 days.
   // Inactive / churn-risk tenants are excluded so the metric reflects
@@ -492,58 +494,111 @@ export default async function PlatformAdminPage({
         )}
 
         {/* Tab: E-mailinstellingen */}
-        {activeTab === "email" && (
+        {activeTab === "email" && platformEmailStatus && (
           <div className="max-w-lg space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Platform e-mailinstellingen</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <p className="text-sm text-muted-foreground">
-                  Alle uitgaande e-mail (welkomstmails, meldingen, herinneringen) wordt verstuurd
-                  via het platform SendGrid-account. Rijscholen kunnen geen eigen e-mailaccount instellen.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">SendGrid API-sleutel</p>
-                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                        {platformEmailKey
-                          ? `${platformEmailKey.slice(0, 6)}••••••${platformEmailKey.slice(-4)}`
-                          : "Niet ingesteld"}
-                      </p>
-                    </div>
-                    {platformEmailKey ? (
-                      <Badge variant="success">Geconfigureerd</Badge>
-                    ) : (
-                      <Badge variant="warning">Ontbreekt</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Afzenderadres</p>
-                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                        {platformEmailFrom ?? "Niet ingesteld"}
-                      </p>
-                    </div>
-                    {platformEmailFrom ? (
-                      <Badge variant="success">Geconfigureerd</Badge>
-                    ) : (
-                      <Badge variant="warning">Ontbreekt</Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">Aanpassen</p>
-                  <p className="mt-1">
-                    Stel <code className="rounded bg-muted px-1 py-0.5 text-xs">SENDGRID_API_KEY</code> en{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">SENDGRID_FROM_EMAIL</code> in
-                    via <strong>Replit Secrets</strong> (sleutelicoontje in de zijbalk) of de omgevingsvariabelen
-                    op de productieserver.
+            {params.emailSaved && (
+              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                E-mailinstellingen opgeslagen.
+              </div>
+            )}
+            {params.emailError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {params.emailError}
+              </div>
+            )}
+
+            {/* Status overzicht */}
+            <div className="flex gap-3">
+              <div className="flex-1 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">API-sleutel</p>
+                  <p className="mt-0.5 font-mono text-xs text-foreground">
+                    {platformEmailStatus.keyPreview ?? "Niet ingesteld"}
                   </p>
                 </div>
+                {platformEmailStatus.keyPreview ? (
+                  <Badge variant="success">✓</Badge>
+                ) : (
+                  <Badge variant="warning">Ontbreekt</Badge>
+                )}
+              </div>
+              <div className="flex-1 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Afzender</p>
+                  <p className="mt-0.5 font-mono text-xs text-foreground">
+                    {platformEmailStatus.fromEmail ?? "Niet ingesteld"}
+                  </p>
+                </div>
+                {platformEmailStatus.fromEmail ? (
+                  <Badge variant="success">✓</Badge>
+                ) : (
+                  <Badge variant="warning">Ontbreekt</Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Bewerkbaar formulier */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  E-mailinstellingen aanpassen
+                  {platformEmailStatus.configured ? (
+                    <Badge variant="success" className="ml-2 text-xs">Geconfigureerd</Badge>
+                  ) : (
+                    <Badge variant="warning" className="ml-2 text-xs">Niet compleet</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={savePlatformEmailConfig} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="sg_api_key" className="text-sm font-medium text-foreground">
+                      SendGrid API-sleutel
+                      {platformEmailStatus.keyPreview && (
+                        <span className="ml-2 font-normal text-muted-foreground">
+                          (huidig: <span className="font-mono">{platformEmailStatus.keyPreview}</span>)
+                        </span>
+                      )}
+                    </label>
+                    <Input
+                      id="sg_api_key"
+                      name="sg_api_key"
+                      type="password"
+                      placeholder={platformEmailStatus.keyPreview ? "Laat leeg om ongewijzigd te laten" : "SG.xxxxxxxx..."}
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Begint met <code className="rounded bg-muted px-1">SG.</code> — te vinden in je SendGrid-dashboard onder API Keys.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="from_email" className="text-sm font-medium text-foreground">
+                      Afzenderadres <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      id="from_email"
+                      name="from_email"
+                      type="email"
+                      placeholder="noreply@nxtdrive.io"
+                      defaultValue={platformEmailStatus.fromEmail ?? ""}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Moet een geverifieerd afzenderadres zijn in SendGrid.
+                    </p>
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    Opslaan
+                  </Button>
+                </form>
               </CardContent>
             </Card>
+
+            <p className="text-xs text-muted-foreground px-1">
+              De API-sleutel wordt versleuteld opgeslagen (AES-256-GCM). Rijscholen kunnen geen eigen e-mailaccount instellen.
+            </p>
           </div>
         )}
 

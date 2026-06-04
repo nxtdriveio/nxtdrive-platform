@@ -4,6 +4,33 @@ import { redirect } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { setActiveTenantId } from "@/lib/auth/active-tenant";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  setPlatformSendgridKey,
+  setPlatformFromEmail,
+} from "@/lib/email/platform-config";
+
+export async function savePlatformEmailConfig(formData: FormData) {
+  await requirePlatformAdmin();
+  const rawKey = String(formData.get("sg_api_key") ?? "").trim();
+  const fromEmail = String(formData.get("from_email") ?? "").trim();
+
+  if (!fromEmail) {
+    redirect("/admin?tab=email&emailError=" + encodeURIComponent("Vul een afzenderadres in."));
+  }
+
+  const service = createServiceRoleClient();
+  try {
+    if (rawKey) {
+      await setPlatformSendgridKey(service, rawKey);
+    }
+    await setPlatformFromEmail(service, fromEmail);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Onbekende fout bij opslaan";
+    redirect("/admin?tab=email&emailError=" + encodeURIComponent(msg.slice(0, 200)));
+  }
+
+  redirect("/admin?tab=email&emailSaved=1");
+}
 
 export async function enterTenantBackoffice(formData: FormData) {
   await requirePlatformAdmin();

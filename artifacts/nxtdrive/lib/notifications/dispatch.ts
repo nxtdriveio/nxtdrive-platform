@@ -40,6 +40,7 @@ import {
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
+import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { dispatchInApp, formatWhenNL } from "./in-app";
 import type {
   DispatchOutcome,
@@ -147,10 +148,12 @@ async function dispatch(
     return { outcome: marked ? "skipped_no_recipient" : "status_update_failed" };
   }
 
+  const platformConfig = await getPlatformEmailConfig(service).catch(() => null);
   const result = await sendEmail({
     to: params.recipientEmail,
     fromName: params.fromName,
     email: params.email,
+    platformConfig: platformConfig ?? undefined,
   });
 
   if (result.ok) {

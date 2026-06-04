@@ -1,9 +1,15 @@
 import type { RenderedEmail } from "./types";
 
+export type PlatformEmailConfig = {
+  apiKey: string;
+  fromEmail: string;
+};
+
 export type SendEmailInput = {
   to: string;
   fromName: string;
   email: RenderedEmail;
+  platformConfig?: PlatformEmailConfig;
 };
 
 export type SendEmailResult =
@@ -41,8 +47,8 @@ export function isEmailConfigured(): boolean {
  * provider error so the dispatcher records the attempt as 'failed'.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const key = envApiKey();
-  const from = envFromEmail();
+  const key = input.platformConfig?.apiKey ?? envApiKey();
+  const from = input.platformConfig?.fromEmail ?? envFromEmail();
 
   if (!key || !from) {
     return { ok: false, skipped: true, provider: null, error: "email_not_configured" };
