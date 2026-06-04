@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { UserPlus, Loader2, CheckCircle } from "lucide-react";
+import { UserPlus, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import {
@@ -20,6 +20,7 @@ export function AddStudentDialog() {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
+  const [emailWarning, setEmailWarning] = React.useState<string | null>(null);
 
   const [naam, setNaam] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -33,6 +34,7 @@ export function AddStudentDialog() {
     setPostcode("");
     setError(null);
     setDone(false);
+    setEmailWarning(null);
     setPending(false);
   }
 
@@ -46,6 +48,7 @@ export function AddStudentDialog() {
 
     setPending(true);
     setError(null);
+    setEmailWarning(null);
 
     const fd = new FormData();
     fd.set("naam", naam);
@@ -56,6 +59,7 @@ export function AddStudentDialog() {
     try {
       const result = await createStudentDirect(fd);
       if (result.ok) {
+        setEmailWarning(result.emailWarning ?? null);
         setDone(true);
       } else {
         setError(result.error ?? "Er is een fout opgetreden.");
@@ -90,10 +94,17 @@ export function AddStudentDialog() {
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <CheckCircle className="h-12 w-12 text-success" />
             <p className="font-medium text-foreground">Leerling aangemaakt</p>
-            <p className="text-sm text-muted-foreground">
-              Er is een welkomstmail verstuurd naar{" "}
-              <strong>{email}</strong>.
-            </p>
+            {emailWarning ? (
+              <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-[color-mix(in_oklab,var(--warning,#f59e0b)_10%,transparent)] px-3 py-2 text-left text-sm text-warning">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{emailWarning}</span>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Er is een welkomstmail verstuurd naar{" "}
+                <strong>{email}</strong>.
+              </p>
+            )}
             <Button
               variant="outline"
               onClick={() => handleOpen(false)}

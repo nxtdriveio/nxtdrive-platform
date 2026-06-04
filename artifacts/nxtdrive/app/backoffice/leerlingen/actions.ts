@@ -19,7 +19,7 @@ import { sendEmail } from "@/lib/notifications/provider";
 import { generateTemporaryPassword } from "@/lib/auth/generate-password";
 
 export type CreateStudentDirectResult =
-  | { ok: true; studentId: string }
+  | { ok: true; studentId: string; emailWarning?: string }
   | { ok: false; error: string };
 
 /**
@@ -119,7 +119,9 @@ export async function createStudentDirect(
     payload: { full_name: naam, email },
   });
 
-  // Send welcome email — best-effort, never blocks the creation.
+  // Send welcome email — best-effort: creation always succeeds; email failure
+  // surfaces as a warning so the admin knows to resend manually.
+  let emailWarning: string | undefined;
   try {
     const branding = await loadEmailBranding(service, tenant.id);
     const appUrl =
@@ -133,17 +135,26 @@ export async function createStudentDirect(
       temporaryPassword: tijdelijkWachtwoord,
       loginUrl,
     });
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: email,
       fromName: branding.tenantName,
       email: emailContent,
     });
-  } catch {
-    // Best-effort — creation already succeeded.
+    if (!emailResult.ok) {
+      if (emailResult.skipped) {
+        emailWarning = "E-mail is niet geconfigureerd voor deze omgeving. Verstuur de inloggegevens handmatig via 'Inloggegevens opnieuw versturen'.";
+      } else {
+        console.error("[createStudentDirect] sendEmail failed:", emailResult.error);
+        emailWarning = `Welkomstmail kon niet worden verstuurd (${emailResult.error}). Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.`;
+      }
+    }
+  } catch (err) {
+    console.error("[createStudentDirect] email pipeline threw:", err);
+    emailWarning = "Welkomstmail kon niet worden verstuurd. Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.";
   }
 
   revalidatePath("/backoffice/leerlingen");
-  return { ok: true, studentId };
+  return { ok: true, studentId, emailWarning };
 }
 
 export type ResendWelcomeEmailResult =
@@ -216,11 +227,18 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
       temporaryPassword: tijdelijkWachtwoord,
       loginUrl,
     });
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: student.email as string,
       fromName: branding.tenantName,
       email: emailContent,
     });
+    if (!emailResult.ok) {
+      const msg = emailResult.skipped
+        ? "E-mailprovider is niet geconfigureerd voor deze omgeving."
+        : `E-mail versturen mislukt: ${emailResult.error}`;
+      console.error("[resendWelcomeEmail] sendEmail failed:", emailResult.error);
+      redirect(`${base}?welcome_error=${encodeURIComponent(msg)}`);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "E-mail versturen mislukt.";
     redirect(`${base}?welcome_error=${encodeURIComponent(msg)}`);
