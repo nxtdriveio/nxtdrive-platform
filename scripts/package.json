@@ -58,6 +58,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "playwright": "^1.60.0",
     "tsx": "catalog:"
   }
 }
