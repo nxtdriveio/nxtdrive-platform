@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { enterTenantBackoffice, createTenant } from "./actions";
+import { computeMrr } from "@/lib/platform/mrr-config";
+import { getPlatformGrowthData } from "@/lib/platform/growth-data";
+import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -36,12 +39,9 @@ export default async function PlatformAdminPage({
 }: {
   searchParams: Promise<Record<string, string>>;
 }) {
-  const [user, params] = await Promise.all([
-    requirePlatformAdmin(),
-    searchParams,
-  ]);
-
+  const [user, params] = await Promise.all([requirePlatformAdmin(), searchParams]);
   const service = createServiceRoleClient();
+  const activeTab = params.tab ?? "tenants";
 
   const [
     { data: tenants },
@@ -63,21 +63,18 @@ export default async function PlatformAdminPage({
       .eq("role", "instructor"),
     service.from("leads").select("*", { count: "exact", head: true }),
     service.from("students").select("tenant_id"),
-    service
-      .from("memberships")
-      .select("tenant_id, role")
-      .eq("role", "instructor"),
+    service.from("memberships").select("tenant_id, role").eq("role", "instructor"),
     service.from("leads").select("tenant_id"),
   ]);
 
-  function countByTenant(
-    rows: { tenant_id: string }[] | null,
-    id: string,
-  ): number {
+  // Load growth data only when the Groei tab is active
+  const growthData = activeTab === "groei" ? await getPlatformGrowthData(service) : null;
+  const mrr = computeMrr(tenants ?? []);
+
+  function countByTenant(rows: { tenant_id: string }[] | null, id: string): number {
     return rows?.filter((r) => r.tenant_id === id).length ?? 0;
   }
 
-  const activeTab = params.tab ?? "tenants";
   const hasError = !!params.error;
   const errorMsg = params.error ? ERROR_MESSAGES[params.error] : null;
 
@@ -112,7 +109,7 @@ export default async function PlatformAdminPage({
       </header>
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-8 sm:py-8">
-        {/* Stats */}
+        {/* Platform KPI strip */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
           {[
             { label: "Rijscholen", value: tenants?.length ?? 0 },
@@ -139,6 +136,7 @@ export default async function PlatformAdminPage({
         <div className="flex gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit">
           {[
             { id: "tenants", label: "Rijscholen" },
+            { id: "groei", label: "Groei & MRR" },
             { id: "tenant", label: "Nieuwe rijschool" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
@@ -201,16 +199,10 @@ export default async function PlatformAdminPage({
                         {countByTenant(studentsByTenant, t.id)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {countByTenant(
-                          instructorsByTenant as { tenant_id: string }[],
-                          t.id,
-                        )}
+                        {countByTenant(instructorsByTenant as { tenant_id: string }[], t.id)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {countByTenant(
-                          leadsByTenant as { tenant_id: string }[],
-                          t.id,
-                        )}
+                        {countByTenant(leadsByTenant as { tenant_id: string }[], t.id)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <form action={enterTenantBackoffice}>
@@ -236,6 +228,199 @@ export default async function PlatformAdminPage({
               </table>
             </div>
           </Card>
+        )}
+
+        {/* Tab: Groei & MRR */}
+        {activeTab === "groei" && growthData && (
+          <div className="space-y-6">
+            {/* MRR + ARR cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Geschatte MRR</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">
+                    €{mrr.totalMonthly.toLocaleString("nl-NL")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    maandelijkse omzetschatting
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {mrr.byTier.map((t) => (
+                      <li key={t.plan} className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Badge variant={PLAN_BADGE[t.plan] ?? "outline"} className="text-[10px]">
+                            {t.label}
+                          </Badge>
+                          {t.count}×
+                        </span>
+                        <span className="font-medium text-foreground">
+                          €{t.total.toLocaleString("nl-NL")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Geschatte ARR</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">
+                    €{mrr.annualised.toLocaleString("nl-NL")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    MRR × 12 — geannualiseerde omzet
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Actieve rijscholen</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">
+                    {growthData.totalTenantsAllTime}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    totaal aangemaakt
+                  </p>
+                  {growthData.inactiveTenants.length > 0 && (
+                    <p className="mt-2 text-xs text-warning">
+                      {growthData.inactiveTenants.length} mogelijk inactief
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tenant growth chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tenant-groei (laatste 12 maanden)</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <TenantGrowthChart
+                  data={growthData.tenantGrowth.map((p) => ({
+                    label: p.label,
+                    newTenants: p.newTenants,
+                    cumulative: p.cumulative,
+                  }))}
+                  height={240}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Active tenants + Inactive */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card className="overflow-hidden">
+                <CardHeader>
+                  <CardTitle>Actiefste rijscholen</CardTitle>
+                </CardHeader>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2.5 font-medium">Rijschool</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Leerlingen</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Lessen (mnd)</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Leads</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {growthData.activeTenants.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                            Nog geen activiteit.
+                          </td>
+                        </tr>
+                      ) : (
+                        growthData.activeTenants.map((t, i) => (
+                          <tr key={t.id} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 text-xs tabular-nums text-muted-foreground">
+                                  {i + 1}.
+                                </span>
+                                <div>
+                                  <Link
+                                    href={`/admin/tenants/${t.id}`}
+                                    className="font-medium text-foreground hover:underline underline-offset-2"
+                                  >
+                                    {t.name}
+                                  </Link>
+                                  <p className="text-xs text-muted-foreground">{t.slug}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                              {t.studentCount}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                              {t.lessonsThisMonth}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                              {t.leadCount}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Mogelijk inactief
+                    {growthData.inactiveTenants.length > 0 && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                        {growthData.inactiveTenants.length}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {growthData.inactiveTenants.length === 0 ? (
+                    <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-border">
+                      <p className="text-sm text-muted-foreground">
+                        Alle rijscholen zijn actief.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {growthData.inactiveTenants.slice(0, 8).map((t) => (
+                        <li key={t.id} className="flex items-center justify-between py-2.5 text-sm">
+                          <div>
+                            <Link
+                              href={`/admin/tenants/${t.id}`}
+                              className="font-medium text-foreground hover:underline underline-offset-2"
+                            >
+                              {t.name}
+                            </Link>
+                            <p className="text-xs text-muted-foreground">
+                              {t.daysSinceCreation} dagen geleden aangemaakt
+                            </p>
+                          </div>
+                          <Badge variant={PLAN_BADGE[t.plan] ?? "outline"}>
+                            {PLAN_LABELS[t.plan] ?? t.plan}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Geen leerling of les in de afgelopen 30 dagen.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         )}
 
         {/* Tab: Nieuwe rijschool */}
@@ -274,9 +459,9 @@ export default async function PlatformAdminPage({
                       Plan
                     </label>
                     <Select id="plan" name="plan" defaultValue="start">
-                      <option value="start">Start</option>
-                      <option value="pro">Pro</option>
-                      <option value="elite">Elite</option>
+                      <option value="start">Start — €49/mnd</option>
+                      <option value="pro">Pro — €99/mnd</option>
+                      <option value="elite">Elite — €199/mnd</option>
                     </Select>
                   </div>
                   <Button type="submit" className="w-full">
@@ -287,7 +472,6 @@ export default async function PlatformAdminPage({
             </Card>
           </div>
         )}
-
       </div>
     </main>
   );
