@@ -56,11 +56,12 @@ export async function createTenantAdmin(formData: FormData) {
   let userId: string | null = null;
 
   // Try to find an existing user by email via auth.admin.listUsers.
-  const { data: listData } = await service.auth.admin.listUsers({
+  const listResult = await service.auth.admin.listUsers({
     page: 1,
     perPage: 1000,
   });
-  const existing = listData?.users?.find((u) => u.email === email);
+  const allUsers = (listResult.data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
+  const existing = allUsers.find((u) => u.email === email);
 
   if (existing) {
     userId = existing.id;

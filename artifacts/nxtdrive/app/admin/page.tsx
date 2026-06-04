@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { enterTenantBackoffice, createTenant, createTenantAdmin } from "./actions";
+import { enterTenantBackoffice, createTenant } from "./actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -140,7 +140,6 @@ export default async function PlatformAdminPage({
           {[
             { id: "tenants", label: "Rijscholen" },
             { id: "tenant", label: "Nieuwe rijschool" },
-            { id: "admin", label: "Admin aanmaken" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
               {tab.label}
@@ -152,11 +151,6 @@ export default async function PlatformAdminPage({
         {params.created && (
           <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
             Rijschool <strong>{params.created}</strong> aangemaakt.
-          </div>
-        )}
-        {params.invited && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Uitnodiging verstuurd naar <strong>{decodeURIComponent(params.invited)}</strong>.
           </div>
         )}
         {hasError && errorMsg && (
@@ -185,12 +179,15 @@ export default async function PlatformAdminPage({
                   {(tenants ?? []).map((t) => (
                     <tr key={t.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3 font-medium text-foreground">
-                        <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/tenants/${t.id}`}
+                          className="flex items-center gap-2 hover:underline underline-offset-2"
+                        >
                           {t.name}
                           {t.white_label_enabled && (
                             <Badge variant="outline" className="text-xs">WL</Badge>
                           )}
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {t.slug}
@@ -291,65 +288,6 @@ export default async function PlatformAdminPage({
           </div>
         )}
 
-        {/* Tab: Admin aanmaken */}
-        {activeTab === "admin" && (
-          <div className="max-w-md">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Tenant admin aanmaken</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Bestaat het e-mailadres al? Dan wordt alleen het lidmaatschap
-                  toegevoegd. Anders ontvangt de gebruiker een uitnodigingsmail.
-                </p>
-                <form action={createTenantAdmin} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="email" className="text-sm font-medium text-foreground">
-                      E-mailadres <span className="text-red-400">*</span>
-                    </label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="eigenaar@rijschool.nl"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="full_name" className="text-sm font-medium text-foreground">
-                      Volledige naam
-                    </label>
-                    <Input
-                      id="full_name"
-                      name="full_name"
-                      placeholder="Jan de Wit"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Alleen gebruikt bij nieuwe gebruikers.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="tenant_id" className="text-sm font-medium text-foreground">
-                      Rijschool <span className="text-red-400">*</span>
-                    </label>
-                    <Select id="tenant_id" name="tenant_id" required>
-                      <option value="">— kies een rijschool —</option>
-                      {(tenants ?? []).map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.slug})
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Admin aanmaken / uitnodigen
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </main>
   );
