@@ -63,12 +63,14 @@ export function Board({
   initialTasks,
   members,
   links,
+  canCreate = true,
 }: {
   boardId: string;
   columns: TaskColumn[];
   initialTasks: Task[];
   members: TenantMember[];
   links?: Record<string, ResolvedTaskLink[]>;
+  canCreate?: boolean;
 }) {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>(() =>
@@ -270,6 +272,7 @@ export function Board({
               column={column}
               tasks={board[column.id] ?? []}
               memberMap={memberMap}
+              canCreate={canCreate}
               onAddCard={() => setDialog({ mode: "create", columnId: column.id })}
               onCardClick={(task) => setDialog({ mode: "edit", task })}
             />
@@ -304,12 +307,14 @@ function Column({
   column,
   tasks,
   memberMap,
+  canCreate,
   onAddCard,
   onCardClick,
 }: {
   column: TaskColumn;
   tasks: Task[];
   memberMap: Map<string, string>;
+  canCreate: boolean;
   onAddCard: () => void;
   onCardClick: (task: Task) => void;
 }) {
@@ -361,14 +366,16 @@ function Column({
         </div>
       </SortableContext>
 
-      <button
-        type="button"
-        onClick={onAddCard}
-        className="m-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-      >
-        <Plus className="h-3.5 w-3.5" aria-hidden />
-        Nieuwe taak
-      </button>
+      {canCreate ? (
+        <button
+          type="button"
+          onClick={onAddCard}
+          className="m-2 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          Nieuwe taak
+        </button>
+      ) : null}
     </div>
   );
 }
