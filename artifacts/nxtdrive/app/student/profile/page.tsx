@@ -4,6 +4,8 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { PWAPageHeader, PWACard, PWASectionHeader } from "@/components/pwa/primitives";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
 import { ReviewForm } from "@/components/student/review-form";
@@ -25,7 +27,6 @@ export default async function StudentProfilePage() {
   );
   const vapidPublicKey = getVapidPublicKey();
 
-  // Eigen review (RLS: een leerling/voogd ziet uitsluitend de eigen review).
   let existingReview: { rating: number; body: string | null } | null = null;
   if (student) {
     const supabase = await createServerSupabaseClient();
@@ -42,63 +43,62 @@ export default async function StudentProfilePage() {
     ? accessible.filter((s) => s.id !== student?.id && s.user_id !== user.id)
     : [];
 
+  const displayName = student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-foreground">Mijn profiel</h1>
+      <PWAPageHeader
+        title="Mijn profiel"
+        icon={<User className="h-4 w-4" aria-hidden />}
+      />
 
-      <Card>
-        <CardContent className="space-y-4 pt-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <User className="h-6 w-6" aria-hidden />
+      <PWACard>
+        <div className="flex items-start gap-4">
+          <Avatar name={displayName} className="h-14 w-14 text-base shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-lg font-semibold text-foreground">
+                {displayName}
+              </h2>
+              {student ? (
+                <Badge variant={student.active ? "success" : "default"}>
+                  {student.active ? "Actief" : "Inactief"}
+                </Badge>
+              ) : null}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-semibold text-foreground">
-                  {student?.full_name ?? user.profile?.full_name ?? user.email}
-                </h2>
-                {student ? (
-                  <Badge variant={student.active ? "success" : "default"}>
-                    {student.active ? "Actief" : "Inactief"}
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {tenant.name}
-              </div>
-            </div>
+            <div className="text-xs text-muted-foreground">{tenant.name}</div>
           </div>
+        </div>
 
-          <dl className="space-y-2 text-sm">
+        <dl className="mt-4 space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <dt className="sr-only">E-mail</dt>
+            <dd className="truncate text-foreground">
+              {student?.email ?? user.email}
+            </dd>
+          </div>
+          {student?.phone ? (
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-              <dt className="sr-only">E-mail</dt>
-              <dd className="truncate text-foreground">
-                {student?.email ?? user.email}
-              </dd>
+              <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <dt className="sr-only">Telefoon</dt>
+              <dd className="text-foreground">{student.phone}</dd>
             </div>
-            {student?.phone ? (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                <dt className="sr-only">Telefoon</dt>
-                <dd className="text-foreground">{student.phone}</dd>
-              </div>
-            ) : null}
-            {student?.postcode ? (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                <dt className="sr-only">Postcode</dt>
-                <dd className="text-foreground">{student.postcode}</dd>
-              </div>
-            ) : null}
-          </dl>
+          ) : null}
+          {student?.postcode ? (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <dt className="sr-only">Postcode</dt>
+              <dd className="text-foreground">{student.postcode}</dd>
+            </div>
+          ) : null}
+        </dl>
 
-          <p className="text-xs text-muted-foreground">
-            Klopt er iets niet? Neem contact op met je rijschool — zij kunnen je
-            gegevens bijwerken.
-          </p>
-        </CardContent>
-      </Card>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Klopt er iets niet? Neem contact op met je rijschool — zij kunnen je
+          gegevens bijwerken.
+        </p>
+      </PWACard>
 
       <PushToggle vapidPublicKey={vapidPublicKey} />
 
@@ -119,19 +119,15 @@ export default async function StudentProfilePage() {
       ) : null}
 
       {isParent && otherChildren.length > 0 ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Wissel van leerling
-            </div>
-            <Link
-              href="/student/select-child"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              Andere leerling kiezen ({otherChildren.length})
-            </Link>
-          </CardContent>
-        </Card>
+        <PWACard>
+          <PWASectionHeader>Wissel van leerling</PWASectionHeader>
+          <Link
+            href="/student/select-child"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Andere leerling kiezen ({otherChildren.length})
+          </Link>
+        </PWACard>
       ) : null}
 
       <form action="/auth/logout" method="post">

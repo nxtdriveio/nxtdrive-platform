@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  FileText,
+  StickyNote,
+  BookOpen,
+  ArrowLeft,
+  CalendarDays,
+  CheckSquare,
+} from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { PWACard, PWASectionHeader, PWAEmptyState } from "@/components/pwa/primitives";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
@@ -92,7 +102,6 @@ export default async function InstructorLessonPage({
   const dayStart = startOfDay(anchor);
   const dayEnd = endOfDay(anchor);
 
-  /* Day lessons for the mobile horizontal strip */
   let dayQuery = supabase
     .from("lessons")
     .select("*")
@@ -208,35 +217,25 @@ export default async function InstructorLessonPage({
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
-    /*
-     * Layout:
-     *  • Mobile: horizontal agenda chip-strip at top, then stacked content.
-     *  • Desktop: sidebar IS the agenda-rail; this page renders full-width
-     *    content with student card + progress side-by-side at the top.
-     */
     <div className="flex flex-col gap-4 p-3 sm:p-4">
       {/* ── Mobile only: horizontal agenda chip strip ────────────────────── */}
       <div className="md:hidden">
-        <Card>
-          <CardContent className="px-3 py-3">
-            <InstructorDayList
-              lessons={dayLessons}
-              studentNames={studentNames}
-              trialLessons={dayTrials}
-              date={anchor}
-              variant="horizontal"
-            />
-          </CardContent>
-        </Card>
+        <PWACard>
+          <InstructorDayList
+            lessons={dayLessons}
+            studentNames={studentNames}
+            trialLessons={dayTrials}
+            date={anchor}
+            variant="horizontal"
+          />
+        </PWACard>
       </div>
 
       {/* ── Error banner ─────────────────────────────────────────────────── */}
       {sp.error ? (
-        <Card className="border-danger/40 bg-danger/5">
-          <CardContent className="pt-5 text-sm text-danger">
-            {decodeURIComponent(sp.error)}
-          </CardContent>
-        </Card>
+        <Alert variant="danger">
+          {decodeURIComponent(sp.error)}
+        </Alert>
       ) : null}
 
       {/* ── Student card + Progress card (side-by-side on large screens) ── */}
@@ -244,11 +243,9 @@ export default async function InstructorLessonPage({
         {student ? (
           <InstructorStudentCard student={student} />
         ) : (
-          <Card>
-            <CardContent className="pt-5 text-sm text-muted-foreground">
-              Leerlinggegevens niet beschikbaar.
-            </CardContent>
-          </Card>
+          <PWACard>
+            <PWAEmptyState message="Leerlinggegevens niet beschikbaar." />
+          </PWACard>
         )}
         <InstructorProgressCard
           lesson={lesson}
@@ -258,7 +255,7 @@ export default async function InstructorLessonPage({
         />
       </div>
 
-      {/* ── Primary actions (Start les + quickactions) ────────────────────  */}
+      {/* ── Primary actions ──────────────────────────────────────────────── */}
       <InstructorActionsPanel
         lessonId={lesson.id}
         studentId={lesson.student_id}
@@ -288,55 +285,57 @@ export default async function InstructorLessonPage({
 
       <AiLessonReport lessonId={lesson.id} />
 
+      {/* ── Voortgangstoelichting ─────────────────────────────────────────  */}
       {lesson.progress_summary ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Voortgangstoelichting
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {lesson.progress_summary}
-            </p>
-          </CardContent>
-        </Card>
+        <PWACard>
+          <PWASectionHeader
+            icon={<FileText className="h-3.5 w-3.5" aria-hidden />}
+          >
+            Voortgangstoelichting
+          </PWASectionHeader>
+          <p className="whitespace-pre-wrap text-sm text-foreground">
+            {lesson.progress_summary}
+          </p>
+        </PWACard>
       ) : null}
 
       {/* ── Lesnotities ──────────────────────────────────────────────────── */}
-      <Card>
-        <CardContent className="space-y-3 pt-5">
-          <div className="flex items-center justify-between">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Lesnotities
-            </div>
-            <span className="text-xs text-muted-foreground">
+      <PWACard>
+        <PWASectionHeader
+          icon={<StickyNote className="h-3.5 w-3.5" aria-hidden />}
+          right={
+            <span>
               {notes.length} {notes.length === 1 ? "notitie" : "notities"}
             </span>
-          </div>
-          {notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nog geen notities voor deze les. Voeg er één toe via{" "}
-              <span className="font-medium text-foreground">Notitie</span>.
-            </p>
-          ) : (
-            <ol className="space-y-3">
-              {notes.map((n) => (
-                <li
-                  key={n.id}
-                  className="rounded-md border border-border bg-card/50 p-3"
-                >
-                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{authorMap.get(n.author_user_id) ?? "—"}</span>
-                    <span>{dtFmt.format(new Date(n.created_at))}</span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">
-                    {n.body}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
+          }
+        >
+          Lesnotities
+        </PWASectionHeader>
+        {notes.length === 0 ? (
+          <PWAEmptyState
+            icon={<StickyNote className="h-8 w-8" aria-hidden />}
+            title="Nog geen notities"
+            message={`Voeg een notitie toe via de knop "Notitie" hierboven.`}
+          />
+        ) : (
+          <ol className="space-y-3">
+            {notes.map((n) => (
+              <li
+                key={n.id}
+                className="rounded-xl border border-border bg-card/50 p-3"
+              >
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{authorMap.get(n.author_user_id) ?? "—"}</span>
+                  <span>{dtFmt.format(new Date(n.created_at))}</span>
+                </div>
+                <p className="whitespace-pre-wrap text-sm text-foreground">
+                  {n.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </PWACard>
 
       {student ? (
         <ExamReadinessPanel
@@ -348,53 +347,59 @@ export default async function InstructorLessonPage({
       {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
       {student ? <AiInternalAttention lessonId={lesson.id} /> : null}
 
+      {/* ── Taak aanmaken ─────────────────────────────────────────────────  */}
       {student && taskLaunch.boards.length > 0 ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Taak aanmaken
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <CreateTaskFromEntityButton
-                entityType="lesson"
-                entityId={lesson.id}
-                entityLabel={`${dtFmt.format(new Date(lesson.starts_at))} — ${student.full_name}`}
-                boards={taskLaunch.boards}
-                members={taskLaunch.members}
-                label="Les-taak"
-              />
-              <CreateTaskFromEntityButton
-                entityType="exam"
-                entityId={student.id}
-                entityLabel={student.full_name}
-                boards={taskLaunch.boards}
-                members={taskLaunch.members}
-                label="Examen-taak"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <PWACard>
+          <PWASectionHeader
+            icon={<CheckSquare className="h-3.5 w-3.5" aria-hidden />}
+          >
+            Taak aanmaken
+          </PWASectionHeader>
+          <div className="flex flex-wrap gap-2">
+            <CreateTaskFromEntityButton
+              entityType="lesson"
+              entityId={lesson.id}
+              entityLabel={`${dtFmt.format(new Date(lesson.starts_at))} — ${student.full_name}`}
+              boards={taskLaunch.boards}
+              members={taskLaunch.members}
+              label="Les-taak"
+            />
+            <CreateTaskFromEntityButton
+              entityType="exam"
+              entityId={student.id}
+              entityLabel={student.full_name}
+              boards={taskLaunch.boards}
+              members={taskLaunch.members}
+              label="Examen-taak"
+            />
+          </div>
+        </PWACard>
       ) : null}
 
-      <Card>
-        <CardContent className="space-y-2 pt-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
-            Snel
-          </div>
+      {/* ── Snel ─────────────────────────────────────────────────────────── */}
+      <PWACard>
+        <PWASectionHeader
+          icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden />}
+        >
+          Snel
+        </PWASectionHeader>
+        <div className="space-y-2">
           <Link
             href="/instructor"
-            className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
-            ← Terug naar vandaag
+            <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            Terug naar vandaag
           </Link>
           <Link
             href="/instructor/week"
-            className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
+            <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             Weekplanning
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </PWACard>
 
       <SkillScoring
         lessonId={lesson.id}

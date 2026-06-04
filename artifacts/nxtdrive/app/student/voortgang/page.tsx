@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { TrendingUp } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
 import { SkillRadar } from "@/components/charts/SkillRadar";
 import { StudentReadinessCard } from "@/components/skills/StudentReadinessCard";
 import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
@@ -27,8 +29,8 @@ export default async function StudentVoortgangPage() {
   if (!student) {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">
-          Je account is nog niet gekoppeld aan een leerlingdossier.
+        <CardContent className="pt-6">
+          <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
         </CardContent>
       </Card>
     );
@@ -42,14 +44,11 @@ export default async function StudentVoortgangPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Mijn voortgang
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Hoe je ervoor staat richting je examen — per onderdeel en in de tijd.
-        </p>
-      </div>
+      <PWAPageHeader
+        title="Mijn voortgang"
+        subtitle="Hoe je ervoor staat richting je examen — per onderdeel en in de tijd."
+        icon={<TrendingUp className="h-4 w-4" aria-hidden />}
+      />
 
       <StudentReadinessCard readiness={readiness} />
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin, User } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { PWACard, PWAEmptyState, PWASectionHeader } from "@/components/pwa/primitives";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "long",
@@ -35,9 +35,9 @@ function countdownLabel(target: number, now: number): string {
 }
 
 /**
- * Home "volgende les" card with a live countdown. Re-renders every second so the
- * countdown stays accurate; falls back to a static call-to-action when no lesson
- * is planned. The whole card links through to the lesson detail.
+ * Home "volgende les" card with a live countdown. Re-renders every second so
+ * the countdown stays accurate; falls back to a PWAEmptyState when no lesson
+ * is planned. Both states are wrapped in PWACard for visual consistency.
  */
 export function NextLessonCard({
   lessonId,
@@ -63,18 +63,14 @@ export function NextLessonCard({
 
   if (!lessonId || !startsAt || target === null) {
     return (
-      <Card>
-        <CardContent className="space-y-2 pt-5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <CalendarDays className="h-4 w-4" aria-hidden />
-            Volgende les
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Er staat geen les gepland. Neem contact op met je rijschool om een
-            les in te plannen.
-          </p>
-        </CardContent>
-      </Card>
+      <PWACard>
+        <PWASectionHeader icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden />}>
+          Volgende les
+        </PWASectionHeader>
+        <PWAEmptyState
+          message="Er staat geen les gepland. Neem contact op met je rijschool om een les in te plannen."
+        />
+      </PWACard>
     );
   }
 
@@ -86,11 +82,13 @@ export function NextLessonCard({
 
   return (
     <Link href={`/student/lessons/${lessonId}`} className="block">
-      <Card className="border-primary/40 bg-primary-soft/40 transition-colors hover:border-primary/60">
-        <CardContent className="space-y-3 pt-5">
+      <PWACard className="border-primary/40 bg-primary-soft/40 transition-colors hover:border-primary/60">
+        <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
-              <CalendarDays className="h-4 w-4" aria-hidden />
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+              </span>
               Volgende les
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold tabular-nums text-primary-foreground">
@@ -122,8 +120,8 @@ export function NextLessonCard({
               </span>
             ) : null}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PWACard>
     </Link>
   );
 }

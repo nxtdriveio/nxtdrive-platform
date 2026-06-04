@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { CalendarDays } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
 import { PlanningTabs } from "@/components/student/PlanningTabs";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
@@ -23,8 +25,8 @@ export default async function StudentLessonsPage() {
   if (!student) {
     return (
       <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">
-          Je account is nog niet gekoppeld aan een leerlingdossier.
+        <CardContent className="pt-6">
+          <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
         </CardContent>
       </Card>
     );
@@ -33,10 +35,6 @@ export default async function StudentLessonsPage() {
   const supabase = await createServerSupabaseClient();
   const nowIso = new Date().toISOString();
 
-  // RLS guarantees each student sees only their own lessons; the order-by
-  // index on (student_id, starts_at) keeps these queries cheap even without
-  // pagination. We avoid silent hard limits so the page is true "full
-  // history". If a student ever crosses ~500 lessons we'll add scroll-pager.
   const [upcomingRes, pastRes] = await Promise.all([
     supabase
       .from("lessons")
@@ -61,7 +59,11 @@ export default async function StudentLessonsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold text-foreground">Mijn planning</h1>
+      <PWAPageHeader
+        title="Mijn planning"
+        subtitle="Aankomende en afgeronde lessen in één overzicht."
+        icon={<CalendarDays className="h-4 w-4" aria-hidden />}
+      />
       <PlanningTabs
         upcoming={upcoming}
         past={past}

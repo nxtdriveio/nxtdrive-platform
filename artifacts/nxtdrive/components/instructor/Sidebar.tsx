@@ -3,17 +3,18 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   CalendarDays,
   ClipboardList,
-  CalendarClock,
   ListTodo,
   MessageCircle,
-  Bell,
   LogOut,
   CalendarRange,
+  MoreHorizontal,
 } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { Avatar } from "@/components/ui/avatar";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/lessons/types";
@@ -26,19 +27,16 @@ type NavItem = {
   match: "exact" | "prefix";
 };
 
-/** Mobile-only nav (nav links stay in InstructorTopbar on desktop). */
+/**
+ * Mobile nav: trimmed to 5 most-used destinations.
+ * "Meer" is a simple link to the taken-page as a catch-all.
+ */
 const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
   { href: "/instructor/week", label: "Planning", icon: ClipboardList, match: "prefix" },
-  {
-    href: "/instructor/beschikbaarheid",
-    label: "Beschikbaarheid",
-    icon: CalendarClock,
-    match: "prefix",
-  },
   { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
   { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
-  { href: "/instructor/meldingen", label: "Meldingen", icon: Bell, match: "prefix" },
+  { href: "/instructor/beschikbaarheid", label: "Meer", icon: MoreHorizontal, match: "prefix" },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -51,11 +49,11 @@ function isActive(pathname: string, item: NavItem): boolean {
  *
  * Desktop (md+): dark agenda-rail — date header, full-day lesson timeline
  * (using InstructorDayList which auto-highlights the selected lesson via
- * usePathname), Weekplanning shortcut, user name + logout footer.
+ * usePathname), Weekplanning shortcut, and a polished user-tile footer
+ * (avatar + name + logout).
  *
  * Mobile: compact sticky top bar (logo + notifications + logout) followed by a
- * horizontal nav-link strip. The agenda appears as a horizontal chip row
- * embedded directly in the lesson page.
+ * 5-item bottom-nav strip with Framer Motion active-pill animation.
  */
 export function InstructorSidebar({
   tenantName,
@@ -81,7 +79,7 @@ export function InstructorSidebar({
   return (
     <>
       {/* ── Desktop agenda-rail ─────────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
           <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
@@ -97,12 +95,12 @@ export function InstructorSidebar({
           />
         </div>
 
-        {/* Footer */}
+        {/* Footer: Weekplanning shortcut + user tile */}
         <div className="shrink-0 border-t border-border p-3 space-y-1">
           <Link
             href="/instructor/week"
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+              "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors",
               pathname.startsWith("/instructor/week")
                 ? "bg-primary-soft font-medium text-primary"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -111,9 +109,12 @@ export function InstructorSidebar({
             <CalendarRange className="h-4 w-4 shrink-0" aria-hidden />
             Weekplanning
           </Link>
-          <div className="flex items-center justify-between gap-2 px-2.5 py-1">
+
+          {/* User tile */}
+          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2">
+            <Avatar name={userLabel} className="h-8 w-8 shrink-0 text-xs" />
             <span
-              className="truncate text-xs text-muted-foreground"
+              className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
               title={userLabel}
             >
               {userLabel}
@@ -131,7 +132,7 @@ export function InstructorSidebar({
         </div>
       </aside>
 
-      {/* ── Mobile: sticky top bar + horizontal nav strip ───────────────── */}
+      {/* ── Mobile: sticky top bar + bottom nav strip ────────────────────── */}
       <header
         className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur md:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
@@ -151,29 +152,55 @@ export function InstructorSidebar({
             </form>
           </div>
         </div>
-        <nav className="flex items-center gap-1 overflow-x-auto px-2 pb-2">
+      </header>
+
+      {/* Mobile bottom nav — same Framer Motion active-pill style as student BottomNav */}
+      <nav
+        aria-label="Instructeur navigatie"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <ul className="mx-auto grid max-w-2xl grid-cols-5">
           {MOBILE_NAV.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
-                  active
-                    ? "bg-primary-soft font-medium text-primary"
-                    : "text-foreground hover:bg-muted",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                {item.label}
-              </Link>
+              <li key={item.href} className="relative">
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative flex flex-col items-center gap-0.5 px-2 py-3 text-[11px] font-medium transition-colors active:scale-95",
+                    active
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {active ? (
+                    <motion.span
+                      layoutId="instructor-nav-active"
+                      className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    />
+                  ) : null}
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                      active ? "bg-primary-soft" : "bg-transparent",
+                    )}
+                  >
+                    <Icon
+                      style={{ height: "1.125rem", width: "1.125rem" }}
+                      aria-hidden
+                    />
+                  </span>
+                  {item.label}
+                </Link>
+              </li>
             );
           })}
-        </nav>
-      </header>
+        </ul>
+      </nav>
     </>
   );
 }

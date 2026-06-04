@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import {
-  LESSON_STATUS_LABEL,
-  LESSON_STATUS_VARIANT,
-  type Lesson,
-} from "@/lib/lessons/types";
+import { PWAStatusBadge } from "@/components/pwa/primitives";
+import { type Lesson } from "@/lib/lessons/types";
 import { formatTegoed } from "@/lib/students/types";
 
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -18,6 +14,12 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   month: "short",
 });
 
+/**
+ * A lesson row card that links through to the lesson detail.
+ * Uses the same `rounded-2xl border border-border bg-card shadow-sm` shell as
+ * PWACard so it is visually consistent with all other PWA card primitives.
+ * The outer element is a `<Link>` (not a `<div>`) so the entire tile is tappable.
+ */
 export function StudentLessonCard({
   lesson,
   selected = false,
@@ -39,10 +41,10 @@ export function StudentLessonCard({
     <Link
       href={target}
       className={cn(
-        "flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors",
+        "flex items-center gap-3 rounded-2xl border bg-card px-3 py-3 shadow-sm transition-colors",
         selected
           ? "border-primary bg-primary-soft"
-          : "border-border bg-card hover:border-muted-foreground/40",
+          : "border-border hover:border-muted-foreground/40",
       )}
     >
       <div className="shrink-0 text-center tabular-nums">
@@ -69,12 +71,7 @@ export function StudentLessonCard({
           {instructorName ? ` · ${instructorName}` : ""}
         </div>
       </div>
-      <Badge
-        variant={LESSON_STATUS_VARIANT[lesson.status]}
-        className="shrink-0"
-      >
-        {LESSON_STATUS_LABEL[lesson.status]}
-      </Badge>
+      <PWAStatusBadge status={lesson.status} domain="lesson" />
     </Link>
   );
 }

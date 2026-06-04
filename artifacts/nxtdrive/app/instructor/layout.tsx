@@ -144,7 +144,7 @@ export default async function InstructorLayout({
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="flex-1 overflow-auto bg-background">
+          <main className="flex-1 overflow-auto bg-background pb-16 md:pb-0">
             <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
           </main>
         </div>
