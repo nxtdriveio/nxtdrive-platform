@@ -2,6 +2,7 @@
 
 import { requireUser } from "@/lib/auth/require-role";
 import { resolveActiveTenant } from "@/lib/auth/active-tenant";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { isWebPushConfigured } from "./web-push";
 
@@ -74,4 +75,56 @@ export async function unsubscribeFromPush(
   });
   if (error) return { error: error.message };
   return {};
+}
+
+/**
+ * Persist the caller's push-notification preference for their active tenant.
+ * Uses an upsert so the first call creates the row and subsequent calls update
+ * it — no separate "create" step needed.
+ *
+ * This is intentionally separate from the physical per-device subscription: a
+ * user can want push (`push_enabled = true`) but not yet have subscribed on a
+ * particular device. The `PushToggle` uses this to show an "enabled elsewhere"
+ * prompt on new devices.
+ */
+export async function updateNotificationPreference(
+  pushEnabled: boolean,
+): Promise<{ error?: string }> {
+  const user = await requireUser();
+  const tenant = await resolveActiveTenant(user);
+  if (!tenant) return { error: "Geen actieve rijschool" };
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase
+    .from("notification_preferences")
+    .upsert(
+      {
+        user_id: user.id,
+        tenant_id: tenant.id,
+        push_enabled: pushEnabled,
+      },
+      { onConflict: "user_id,tenant_id" },
+    );
+  if (error) return { error: error.message };
+  return {};
+}
+
+/**
+ * Read the caller's stored push preference for their active tenant.
+ * Returns null when no row exists (first-time user on any device).
+ */
+export async function getNotificationPreference(): Promise<boolean | null> {
+  const user = await requireUser();
+  const tenant = await resolveActiveTenant(user);
+  if (!tenant) return null;
+
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase
+    .from("notification_preferences")
+    .select("push_enabled")
+    .eq("user_id", user.id)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  return data?.push_enabled ?? null;
 }

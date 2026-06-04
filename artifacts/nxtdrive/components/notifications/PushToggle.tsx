@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   subscribeToPush,
   unsubscribeFromPush,
+  updateNotificationPreference,
 } from "@/lib/notifications/push-actions";
 
 /** Decode a base64url VAPID public key into the Uint8Array the PushManager wants. */
@@ -25,19 +26,27 @@ type State =
   | "unconfigured"
   | "denied"
   | "off"
+  | "on-elsewhere"
   | "on";
 
 /**
- * Per-device push opt-in. Works identically in the student and instructor PWAs:
- * the server actions resolve the caller + active tenant and write through the
- * locked RPCs, so the toggle only ever affects the logged-in user's own
- * subscriptions. Degrades gracefully — no VAPID key, no browser support, or a
- * blocked permission each render an honest, non-blocking message.
+ * Per-device push opt-in with server-side preference persistence.
+ *
+ * `serverPushEnabled` is the canonical server preference (null = no row yet).
+ * - `"on"` — this device has an active push subscription.
+ * - `"on-elsewhere"` — server says push is wanted but this device has no
+ *   subscription; prompts the user to enable on this device too.
+ * - `"off"` — not subscribed and no server preference (or server says off).
+ *
+ * When the user enables/disables push the server preference is updated in
+ * lock-step so future devices get the right initial state.
  */
 export function PushToggle({
   vapidPublicKey,
+  serverPushEnabled = null,
 }: {
   vapidPublicKey: string | null;
+  serverPushEnabled?: boolean | null;
 }) {
   const [state, setState] = useState<State>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -64,11 +73,17 @@ export function PushToggle({
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
-      setState(sub ? "on" : "off");
+      if (sub) {
+        setState("on");
+      } else if (serverPushEnabled === true) {
+        setState("on-elsewhere");
+      } else {
+        setState("off");
+      }
     } catch {
-      setState("off");
+      setState(serverPushEnabled === true ? "on-elsewhere" : "off");
     }
-  }, [vapidPublicKey]);
+  }, [vapidPublicKey, serverPushEnabled]);
 
   useEffect(() => {
     void refresh();
@@ -108,6 +123,7 @@ export function PushToggle({
           setError(res.error);
           return;
         }
+        await updateNotificationPreference(true);
         setState("on");
       } catch {
         setError("Pushmeldingen konden niet worden ingeschakeld.");
@@ -125,6 +141,7 @@ export function PushToggle({
           await unsubscribeFromPush(sub.endpoint);
           await sub.unsubscribe().catch(() => undefined);
         }
+        await updateNotificationPreference(false);
         setState("off");
       } catch {
         setError("Pushmeldingen konden niet worden uitgeschakeld.");
@@ -182,6 +199,27 @@ export function PushToggle({
           <Button size="sm" onClick={enable} disabled={pending}>
             {pending ? "Bezig…" : "Pushmeldingen inschakelen"}
           </Button>
+        )}
+
+        {state === "on-elsewhere" && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Ingeschakeld op een ander apparaat. Schakel ook in op dit apparaat:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={enable} disabled={pending}>
+                {pending ? "Bezig…" : "Inschakelen op dit apparaat"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={disable}
+                disabled={pending}
+              >
+                {pending ? "Bezig…" : "Overal uitschakelen"}
+              </Button>
+            </div>
+          </div>
         )}
 
         {state === "on" && (

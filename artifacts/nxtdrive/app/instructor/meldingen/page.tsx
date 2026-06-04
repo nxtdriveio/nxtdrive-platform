@@ -2,6 +2,7 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { PushToggle } from "@/components/notifications/PushToggle";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
+import { getNotificationPreference } from "@/lib/notifications/push-actions";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
@@ -25,14 +26,17 @@ function relativeNL(iso: string): string {
 
 export default async function InstructorNotificationsPage() {
   const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
-  const vapidPublicKey = getVapidPublicKey();
-  const { items } = await loadInAppNotifications(tenant.id);
+  const [vapidPublicKey, serverPushEnabled, { items }] = await Promise.all([
+    Promise.resolve(getVapidPublicKey()),
+    getNotificationPreference(),
+    loadInAppNotifications(tenant.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <h1 className="text-2xl font-semibold text-foreground">Meldingen</h1>
 
-      <PushToggle vapidPublicKey={vapidPublicKey} />
+      <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
 
       <Card>
         <CardContent className="p-0">

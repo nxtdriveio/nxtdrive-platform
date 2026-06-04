@@ -11,6 +11,7 @@ import { RefillOptInForm } from "@/components/student/refill-optin-form";
 import { ReviewForm } from "@/components/student/review-form";
 import { PushToggle } from "@/components/notifications/PushToggle";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
+import { getNotificationPreference } from "@/lib/notifications/push-actions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,10 @@ export default async function StudentProfilePage() {
     tenant.id,
     roles,
   );
-  const vapidPublicKey = getVapidPublicKey();
+  const [vapidPublicKey, serverPushEnabled] = await Promise.all([
+    Promise.resolve(getVapidPublicKey()),
+    getNotificationPreference(),
+  ]);
 
   let existingReview: { rating: number; body: string | null } | null = null;
   if (student) {
@@ -100,7 +104,7 @@ export default async function StudentProfilePage() {
         </p>
       </PWACard>
 
-      <PushToggle vapidPublicKey={vapidPublicKey} />
+      <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
 
       {student ? (
         <RefillOptInForm

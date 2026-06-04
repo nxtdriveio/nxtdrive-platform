@@ -4,6 +4,7 @@ import { PWAPageHeader, PWACard, PWASectionHeader } from "@/components/pwa/primi
 import { Avatar } from "@/components/ui/avatar";
 import { PushToggle } from "@/components/notifications/PushToggle";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
+import { getNotificationPreference } from "@/lib/notifications/push-actions";
 import { buttonVariants } from "@/components/ui/button";
 import { ProfileForm } from "./ProfileForm";
 
@@ -11,7 +12,10 @@ export const dynamic = "force-dynamic";
 
 export default async function InstructorInstellingenPage() {
   const { user, tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
-  const vapidPublicKey = getVapidPublicKey();
+  const [vapidPublicKey, serverPushEnabled] = await Promise.all([
+    Promise.resolve(getVapidPublicKey()),
+    getNotificationPreference(),
+  ]);
   const fullName = user.profile?.full_name ?? user.email ?? "Instructeur";
 
   return (
@@ -60,7 +64,7 @@ export default async function InstructorInstellingenPage() {
         <PWASectionHeader icon={<Bell className="h-3.5 w-3.5" aria-hidden />}>
           Meldingen
         </PWASectionHeader>
-        <PushToggle vapidPublicKey={vapidPublicKey} />
+        <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
       </div>
 
       {/* Sign out */}
