@@ -46,3 +46,4 @@ channel = "stable-25_05"
 
 [userenv.shared]
 VAPID_SUBJECT = "mailto:noreply@nxtdrive.io"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHlndWlzemZzeHpsaGx5eWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTkwNDEsImV4cCI6MjA5NjA5NTA0MX0.m_hv0rb5IoCRk5o4Z0PpDO1E-ZZeUrQbgtIgFftxNss"
