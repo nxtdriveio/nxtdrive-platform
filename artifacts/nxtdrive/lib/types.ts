@@ -6,7 +6,8 @@ export type MemberRole =
   | "branch_manager"
   | "planner"
   | "admin_staff"
-  | "marketing";
+  | "marketing"
+  | "franchise_admin";
 
 export type OrgType =
   | "zzp"
@@ -24,6 +25,32 @@ export type Tenant = {
   plan: TenantPlan;
   white_label_enabled: boolean;
   org_type?: OrgType;
+  parent_tenant_id?: string | null;
+};
+
+export type FranchiseTemplate = {
+  id: string;
+  tenant_id: string;
+  template_type: "package";
+  name: string;
+  config: {
+    credits_total?: number;
+    price_cents?: number;
+    valid_days?: number | null;
+    description?: string;
+  };
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FranchiseTemplateActivation = {
+  id: string;
+  franchise_template_id: string;
+  franchisee_tenant_id: string;
+  activated_at: string;
+  activated_by: string | null;
+  resulting_package_id: string | null;
 };
 
 export type Profile = {

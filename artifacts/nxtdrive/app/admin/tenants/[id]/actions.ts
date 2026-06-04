@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
@@ -64,4 +65,33 @@ export async function createTenantAdminAccount(
   }
 
   redirect(`/admin/tenants/${tenantId}?created=${encodeURIComponent(email)}`);
+}
+
+/** Platform admin: link or unlink a tenant as a franchisee of a franchisegever. */
+export async function setFranchiseeParentAction(formData: FormData) {
+  const user = await requirePlatformAdmin();
+
+  const franchisee_id    = String(formData.get("franchisee_id") ?? "").trim();
+  const franchisegever_id = String(formData.get("franchisegever_id") ?? "").trim();
+
+  if (!franchisee_id) {
+    redirect(`/admin/tenants/${franchisee_id}?error=missing_fields`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("set_franchisee_parent", {
+    p_franchisee_tenant_id:    franchisee_id,
+    p_franchisegever_tenant_id: franchisegever_id || null,
+    p_actor: user.id,
+  });
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${franchisee_id}?franchise_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  revalidatePath(`/admin/tenants/${franchisee_id}`);
+  redirect(`/admin/tenants/${franchisee_id}?franchise_saved=1`);
 }

@@ -341,6 +341,28 @@ select '22222222-2222-4222-8222-000000000006'::uuid,
 from demo
 on conflict (id) do nothing;
 
+-- ── Fase F2: Demo franchise tenants ───────────────────────────────────────
+-- Two demo franchise tenants linked to demo-academy as franchisegever.
+-- demo-academy acts as the franchisegever (no parent_tenant_id).
+-- These tenants are minimal — they exist to demonstrate the franchise dashboard.
+insert into public.tenants (id, slug, name, plan, white_label_enabled)
+values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-000000000001'::uuid,
+   'demo-franchise-west', 'Demo Franchise West', 'pro', false),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-000000000002'::uuid,
+   'demo-franchise-oost', 'Demo Franchise Oost', 'pro', false)
+on conflict (slug) do update set name = excluded.name;
+
+-- Link both as franchisees of demo-academy (idempotent via ON CONFLICT update).
+with fg as (
+  select id from public.tenants where slug = 'demo-academy'
+)
+update public.tenants
+set parent_tenant_id = fg.id
+from fg
+where public.tenants.slug in ('demo-franchise-west', 'demo-franchise-oost')
+  and public.tenants.parent_tenant_id is distinct from fg.id;
+
 -- ── Fase F1: Demo branches (vestigingen) ──────────────────────────────────
 -- Demonstrates the multi-branch capability. Only demo-academy. Idempotent.
 with demo as (

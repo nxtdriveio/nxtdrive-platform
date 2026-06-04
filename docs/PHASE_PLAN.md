@@ -121,7 +121,7 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 
 ### Fase F — Multi-vestiging & Franchise (Modules 16–17, Sprint 8–9)
 - ✅ **F1 live** — Vestigingen + uitgebreid rollenmodel: `branches`, `membership_branches`, `org_type` enum, 4 nieuwe staf-rollen, branch-scoped RLS, vestigingen-beheerpagina, agenda/leerlingen branch-filter, demo seed. Zie Module 16 hierboven.
-- ⬜ F2 — Franchise-dashboard + templates; platform-admin multi-tenant vergelijkingscherm.
+- ✅ **F2 live** — Franchise-laag: `parent_tenant_id` op tenants, `franchise_admin` rol, `franchise_templates` + `franchise_template_activations` tabellen met RLS, 5 SECURITY DEFINER RPCs (set_franchisee_parent, create/update_franchise_template, activate_franchise_template, route_lead_to_branch), cross-tenant dashboard met live KPIs per franchisee, template-beheerpagina voor franchisegever, franchise-sjablonen sectie op pakketpagina voor franchisee, lead-routering naar vestiging, franchise-koppeling in platform-admin tenant-detailpagina, sidebar franchise-sectie (conditionally visible). Demo franchise seed data. 16 RLS/RPC teststappen.
 
 ### Fase G — AI Platform (Module 15, Sprint 7) ✅
 - ✅ Leskaart L6: AI-lesverslag, zwakke onderdelen & adviserende slagingskans, planningssuggesties — adviserend, bewerkbaar/negeerbaar, on-demand, op de stabiele L0–L4 + L1-readiningsfundering. Ruwe AI-output nooit auto-bewaard.

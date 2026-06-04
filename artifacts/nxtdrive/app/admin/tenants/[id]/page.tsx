@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { enterTenantBackoffice } from "../../actions";
-import { createTenantAdminAccount } from "./actions";
+import { createTenantAdminAccount, setFranchiseeParentAction } from "./actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export default async function TenantDetailPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
-  await requirePlatformAdmin();
+  const adminUser = await requirePlatformAdmin();
 
   const service = createServiceRoleClient();
 
@@ -48,6 +48,8 @@ export default async function TenantDetailPage({
     { count: studentCount },
     { count: instructorCount },
     { count: leadCount },
+    { data: allTenants },
+    { data: franchisees },
   ] = await Promise.all([
     service.from("tenants").select("*").eq("id", id).single(),
     service
@@ -69,6 +71,18 @@ export default async function TenantDetailPage({
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("tenant_id", id),
+    // All tenants for the franchisegever dropdown (excluding current tenant)
+    service
+      .from("tenants")
+      .select("id, name, slug")
+      .neq("id", id)
+      .order("name"),
+    // Tenants that are already franchisees of this tenant
+    service
+      .from("tenants")
+      .select("id, name, slug")
+      .eq("parent_tenant_id", id)
+      .order("name"),
   ]);
 
   if (!tenant) notFound();
@@ -90,6 +104,12 @@ export default async function TenantDetailPage({
       };
     });
   }
+
+  const isFranchisee = !!(tenant as Record<string, unknown>).parent_tenant_id;
+  const franchisegeverTenantId = (tenant as Record<string, unknown>).parent_tenant_id as string | null | undefined;
+  const franchisegeverName = franchisegeverTenantId
+    ? ((allTenants ?? []).find((t) => t.id === franchisegeverTenantId)?.name ?? franchisegeverTenantId)
+    : null;
 
   const createAction = createTenantAdminAccount.bind(null, id);
 
@@ -124,13 +144,34 @@ export default async function TenantDetailPage({
               <Badge variant={PLAN_BADGE[tenant.plan as string] ?? "outline"}>
                 {PLAN_LABELS[tenant.plan as string] ?? tenant.plan}
               </Badge>
-              {tenant.white_label_enabled && (
+              {!!(tenant as Record<string, unknown>).white_label_enabled && (
                 <Badge variant="outline">White-label</Badge>
+              )}
+              {isFranchisee && (
+                <Badge variant="outline" className="text-xs">
+                  Franchisee
+                </Badge>
+              )}
+              {(franchisees?.length ?? 0) > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  Franchisegever ({franchisees?.length})
+                </Badge>
               )}
             </div>
             <p className="mt-0.5 font-mono text-sm text-muted-foreground">
               {tenant.slug}.nxtdrive.io
             </p>
+            {franchisegeverName && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Franchisee van:{" "}
+                <Link
+                  href={`/admin/tenants/${franchisegeverTenantId}`}
+                  className="text-primary underline"
+                >
+                  {franchisegeverName}
+                </Link>
+              </p>
+            )}
           </div>
           <form action={enterTenantBackoffice}>
             <input type="hidden" name="tenant_id" value={id} />
@@ -273,6 +314,88 @@ export default async function TenantDetailPage({
             </CardContent>
           </Card>
         </div>
+
+        {/* ── Franchise linking ───────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Franchise-koppeling</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sp.franchise_saved && (
+              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
+                Franchise-koppeling opgeslagen.
+              </div>
+            )}
+            {sp.franchise_error && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+                {decodeURIComponent(sp.franchise_error)}
+              </div>
+            )}
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Link this tenant as franchisee of a franchisegever */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  Koppel als franchisee
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Kies een franchisegever-tenant. Leeg laten = ontkoppelen.
+                  {isFranchisee && franchisegeverName && (
+                    <span className="ml-1 text-yellow-400">
+                      Huidig: {franchisegeverName}
+                    </span>
+                  )}
+                </p>
+                <form action={setFranchiseeParentAction} className="flex gap-2">
+                  <input type="hidden" name="franchisee_id" value={id} />
+                  <select
+                    name="franchisegever_id"
+                    defaultValue={franchisegeverTenantId ?? ""}
+                    className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">— Geen franchisegever —</option>
+                    {(allTenants ?? []).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.slug})
+                      </option>
+                    ))}
+                  </select>
+                  <Button type="submit" size="sm" variant="outline" className="shrink-0">
+                    Opslaan
+                  </Button>
+                </form>
+              </div>
+
+              {/* Current franchisees of this tenant */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  Franchisees van dit netwerk ({franchisees?.length ?? 0})
+                </p>
+                {(franchisees?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Nog geen franchisees. Koppel via de detailpagina van een franchisee-tenant.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {(franchisees ?? []).map((f) => (
+                      <li key={f.id} className="flex items-center justify-between py-2">
+                        <Link
+                          href={`/admin/tenants/${f.id}`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {f.name}
+                        </Link>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {f.slug}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { routeLeadToBranch } from "@/lib/franchise/actions";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -178,6 +179,45 @@ export default async function LeadDetailPage({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+    }
+  }
+
+  // Franchise routing: load franchisee branches when this tenant is a franchisegever.
+  let franchiseesBranches: Array<{
+    tenant_id: string;
+    tenant_name: string;
+    branch_id: string;
+    branch_name: string;
+    branch_city: string | null;
+  }> = [];
+  const isFranchisegever = (tenant as { parent_tenant_id?: string | null }).parent_tenant_id === null
+    || (tenant as { parent_tenant_id?: string | null }).parent_tenant_id === undefined;
+
+  if (isFranchisegever && lead.status !== "converted" && lead.status !== "dropped") {
+    const svc = createServiceRoleClient();
+    const { data: feeTenants } = await svc
+      .from("tenants")
+      .select("id, name")
+      .eq("parent_tenant_id", tenant.id);
+
+    if (feeTenants && feeTenants.length > 0) {
+      const feeTenantIds = feeTenants.map((t) => t.id);
+      const { data: feeBranches } = await svc
+        .from("branches")
+        .select("id, tenant_id, name, city")
+        .in("tenant_id", feeTenantIds)
+        .eq("is_active", true);
+
+      const tenantNameById: Record<string, string> = {};
+      for (const t of feeTenants) tenantNameById[t.id] = t.name;
+
+      franchiseesBranches = (feeBranches ?? []).map((b) => ({
+        tenant_id: b.tenant_id,
+        tenant_name: tenantNameById[b.tenant_id] ?? b.tenant_id,
+        branch_id: b.id,
+        branch_name: b.name,
+        branch_city: (b.city as string | null) ?? null,
+      }));
     }
   }
 
@@ -511,6 +551,44 @@ export default async function LeadDetailPage({
 
         <div className="space-y-6">
           <SmartFollowUpCard lead={lead} scorePolicy={scorePolicy} />
+
+          {/* Franchise: lead doorsturen naar vestiging */}
+          {franchiseesBranches.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Doorsturen naar vestiging</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Wijs deze lead toe aan een vestiging van een franchisee.
+                  {lead.branch_id ? (
+                    <span className="ml-1 text-yellow-400">
+                      Al toegewezen aan een vestiging.
+                    </span>
+                  ) : null}
+                </p>
+                <form action={routeLeadToBranch} className="flex flex-col gap-2">
+                  <input type="hidden" name="lead_id" value={lead.id} />
+                  <select
+                    name="branch_id"
+                    className="rounded-md border border-border bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    required
+                  >
+                    <option value="">Kies vestiging…</option>
+                    {franchiseesBranches.map((b) => (
+                      <option key={b.branch_id} value={b.branch_id}>
+                        {b.tenant_name} — {b.branch_name}
+                        {b.branch_city ? ` (${b.branch_city})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <Button type="submit" size="sm" variant="outline" className="self-end">
+                    Doorsturen →
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader>

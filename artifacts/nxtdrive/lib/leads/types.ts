@@ -249,6 +249,7 @@ export type Lead = {
   lost_at: string | null;
   lost_reason: string | null;
   source_detail: string | null;
+  branch_id: string | null;
   created_at: string;
   updated_at: string;
 };

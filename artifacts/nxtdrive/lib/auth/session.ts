@@ -32,7 +32,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   const { data: memberships } = await service
     .from("memberships")
     .select(
-      "id, user_id, tenant_id, role, created_at, tenant:tenants(id, slug, name, plan, white_label_enabled)",
+      "id, user_id, tenant_id, role, created_at, tenant:tenants(id, slug, name, plan, white_label_enabled, parent_tenant_id)",
     )
     .eq("user_id", user.id);
 

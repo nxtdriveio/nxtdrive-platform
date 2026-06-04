@@ -7,6 +7,7 @@ import { BackofficeTopbar } from "@/components/backoffice/topbar";
 import { DashboardShell } from "@/components/backoffice/dashboard-shell";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ const BACKOFFICE_ROLES: MemberRole[] = [
   "planner",
   "admin_staff",
   "marketing",
+  "franchise_admin",
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -29,6 +31,7 @@ const ROLE_LABELS: Record<string, string> = {
   planner: "Planner",
   admin_staff: "Administratie",
   marketing: "Marketing",
+  franchise_admin: "Franchise Admin",
 };
 
 export default async function BackofficeLayout({
@@ -47,6 +50,20 @@ export default async function BackofficeLayout({
     .join(" + ");
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
+  // Determine if this tenant is a franchisegever:
+  // 1. Has no parent_tenant_id (is not itself a franchisee)
+  // 2. Has at least one franchisee (tenant with parent_tenant_id = this tenant)
+  // We do a lightweight count check with service role.
+  let isFranchisegever = false;
+  if (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined) {
+    const service = createServiceRoleClient();
+    const { count } = await service
+      .from("tenants")
+      .select("id", { count: "exact", head: true })
+      .eq("parent_tenant_id", tenant.id);
+    isFranchisegever = (count ?? 0) > 0;
+  }
+
   return (
     <BrandProvider
       tenant={tenant}
@@ -59,6 +76,7 @@ export default async function BackofficeLayout({
             tenantName={tenant.name}
             logoUrl={logoUrl}
             isAdmin={roles.includes("tenant_admin")}
+            isFranchisegever={isFranchisegever}
           />
         }
         topbar={

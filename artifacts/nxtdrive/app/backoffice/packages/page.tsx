@@ -1,5 +1,7 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { loadFranchiseeTemplates } from "@/lib/franchise/templates";
+import { activateFranchiseTemplateAsPackage } from "@/lib/franchise/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -27,6 +29,10 @@ export const dynamic = "force-dynamic";
 export default async function PackagesPage() {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const supabase = await createServerSupabaseClient();
+
+  // Franchise: load templates available from franchisegever (if this is a franchisee).
+  const { templates: franchiseTemplates, activations: franchiseActivations, franchisegever_name } =
+    await loadFranchiseeTemplates(tenant.id);
   const [packagesRes, productsRes, linksRes] = await Promise.all([
     supabase
       .from("packages")
@@ -601,6 +607,65 @@ export default async function PackagesPage() {
           </div>
         )}
       </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Franchise templates (visible only for franchisee tenants)        */}
+      {/* ---------------------------------------------------------------- */}
+      {franchiseTemplates.length > 0 && franchisegever_name && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">
+            Franchise-sjablonen van {franchisegever_name}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Activeer een sjabloon om het als pakket in deze vestiging beschikbaar te stellen.
+            Eenmaal geactiveerd is het pakket zichtbaar in de normale pakkettenlijst.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {franchiseTemplates.map((t) => {
+              const activated = franchiseActivations.some(
+                (a) => a.franchise_template_id === t.id,
+              );
+              const credits = (t.config.credits_total ?? 0) as number;
+              const priceCents = (t.config.price_cents ?? 0) as number;
+              const validDays = t.config.valid_days as number | undefined;
+
+              return (
+                <Card key={t.id} className={activated ? "border-green-500/40" : undefined}>
+                  <CardHeader className="pb-2 pt-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-sm">{t.name}</CardTitle>
+                      {activated && (
+                        <Badge variant="success" className="text-xs shrink-0">
+                          Actief
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      {credits > 0 ? `${credits} min (${Math.round(credits / 60)} uur)` : "Geen uren"}
+                      {priceCents > 0 ? ` · €${(priceCents / 100).toFixed(2)} excl. BTW` : ""}
+                      {validDays ? ` · ${validDays} dgn geldig` : ""}
+                    </p>
+                    {!activated ? (
+                      <form action={activateFranchiseTemplateAsPackage} className="mt-3">
+                        <input type="hidden" name="template_id" value={t.id} />
+                        <Button type="submit" size="sm" variant="outline" className="w-full text-xs">
+                          Activeren als pakket
+                        </Button>
+                      </form>
+                    ) : (
+                      <p className="mt-3 text-xs text-green-400">
+                        Al geactiveerd als pakket in deze vestiging.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

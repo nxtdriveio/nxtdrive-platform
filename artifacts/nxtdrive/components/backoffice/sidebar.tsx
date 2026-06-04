@@ -22,6 +22,7 @@ import {
   Users,
   LogOut,
   MapPin,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -31,6 +32,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   adminOnly: boolean;
+  franchiseOnly?: boolean;
 };
 
 type NavSection = {
@@ -75,6 +77,25 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Franchise",
+    items: [
+      {
+        href: "/backoffice/franchise",
+        label: "Franchise Dashboard",
+        icon: Network,
+        adminOnly: false,
+        franchiseOnly: true,
+      },
+      {
+        href: "/backoffice/franchise/templates",
+        label: "Templates",
+        icon: Package,
+        adminOnly: true,
+        franchiseOnly: true,
+      },
+    ],
+  },
+  {
     label: "Beheer",
     items: [
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
@@ -90,14 +111,20 @@ export function BackofficeSidebar({
   tenantName,
   logoUrl,
   isAdmin = false,
+  isFranchisegever = false,
 }: {
   tenantName: string;
   logoUrl?: string | null;
   isAdmin?: boolean;
+  isFranchisegever?: boolean;
 }) {
   const pathname = usePathname();
 
-  const visibleNav = ALL_NAV.filter((item) => !item.adminOnly || isAdmin);
+  const visibleNav = ALL_NAV.filter(
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.franchiseOnly || isFranchisegever),
+  );
 
   const activeHref = visibleNav
     .filter((item) =>
@@ -127,7 +154,9 @@ export function BackofficeSidebar({
       <nav className="flex-1 overflow-y-auto px-3 pb-3">
         {NAV_SECTIONS.map((section) => {
           const sectionItems = section.items.filter(
-            (item) => !item.adminOnly || isAdmin,
+            (item) =>
+              (!item.adminOnly || isAdmin) &&
+              (!item.franchiseOnly || isFranchisegever),
           );
           if (sectionItems.length === 0) return null;
 
