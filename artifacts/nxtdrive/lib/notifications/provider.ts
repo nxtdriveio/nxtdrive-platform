@@ -1,9 +1,20 @@
 import type { RenderedEmail } from "./types";
 
+export type TenantEmailConfig = {
+  apiKey: string;
+  fromEmail: string;
+};
+
 export type SendEmailInput = {
   to: string;
   fromName: string;
   email: RenderedEmail;
+  /**
+   * Per-tenant SendGrid credentials. When provided, these take priority over
+   * the platform-level SENDGRID_API_KEY / SENDGRID_FROM_EMAIL env vars,
+   * allowing each tenant to use their own verified sender domain.
+   */
+  tenantConfig?: TenantEmailConfig;
 };
 
 export type SendEmailResult =
@@ -13,39 +24,37 @@ export type SendEmailResult =
 const PROVIDER = "sendgrid";
 const SENDGRID_ENDPOINT = "https://api.sendgrid.com/v3/mail/send";
 
-function apiKey(): string | undefined {
+function envApiKey(): string | undefined {
   return process.env["SENDGRID_API_KEY"];
 }
 
-/** Verified sender address SendGrid will deliver from (must be verified in SendGrid). */
-function fromEmail(): string | undefined {
+function envFromEmail(): string | undefined {
   return process.env["SENDGRID_FROM_EMAIL"];
 }
 
 /**
  * Whether a real email provider is wired up for this environment.
- *
- * Requires both a SendGrid API key and a verified sender address. When either is
- * missing, every send degrades gracefully: the attempt is still logged (as
- * 'skipped' with reason 'email_not_configured') and nothing throws.
+ * Checks the platform env vars only — does not query per-tenant config.
  */
 export function isEmailConfigured(): boolean {
-  return Boolean(apiKey()) && Boolean(fromEmail());
+  return Boolean(envApiKey()) && Boolean(envFromEmail());
 }
 
 /**
  * Sends a single transactional email via the SendGrid v3 REST API.
  *
- * Returns a non-throwing `skipped` result when the provider is not configured,
- * so the rest of the notification pipeline (enqueue, logging, idempotency) is
- * fully exercised and the app never crashes when email is unconfigured for an
- * environment. On a real send it returns `ok: true` with the provider message id
- * (from the `X-Message-Id` response header), and `ok: false` (non-skipped) on a
+ * Priority: tenantConfig (per-tenant key + from address) > platform env vars.
+ *
+ * Returns a non-throwing `skipped` result when neither source has credentials,
+ * so the rest of the notification pipeline is fully exercised and the app
+ * never crashes when email is unconfigured. On a real send it returns
+ * `ok: true` with the provider message id, and `ok: false` (non-skipped) on a
  * provider error so the dispatcher records the attempt as 'failed'.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const key = apiKey();
-  const from = fromEmail();
+  const key = input.tenantConfig?.apiKey ?? envApiKey();
+  const from = input.tenantConfig?.fromEmail ?? envFromEmail();
+
   if (!key || !from) {
     return { ok: false, skipped: true, provider: null, error: "email_not_configured" };
   }

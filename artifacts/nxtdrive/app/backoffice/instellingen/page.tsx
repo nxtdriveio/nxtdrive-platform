@@ -1,6 +1,8 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
+import { getEmailConfigStatus } from "@/lib/email/config";
+import { EmailSettingsManager } from "./email-settings-manager";
 import {
   Card,
   CardContent,
@@ -52,9 +54,13 @@ export default async function SettingsPage({
   const result = typeof sp.mollie === "string" ? sp.mollie : null;
   const reason = typeof sp.reason === "string" ? sp.reason : null;
   const brandingResult = typeof sp.branding === "string" ? sp.branding : null;
+  const emailResult = typeof sp.email === "string" ? sp.email : null;
 
   const service = createServiceRoleClient();
-  const status = await getMollieApiKeyStatus(service, tenant.id);
+  const [status, emailStatus] = await Promise.all([
+    getMollieApiKeyStatus(service, tenant.id),
+    getEmailConfigStatus(service, tenant.id),
+  ]);
   const { data: brandingRow } = await service
     .from("tenant_branding")
     .select("logo_url, primary_color, primary_foreground")
@@ -115,6 +121,26 @@ export default async function SettingsPage({
           Tenant-specifieke configuratie voor {tenant.name}.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            E-mailinstellingen
+            {emailStatus.configured ? (
+              <Badge variant="success">Geconfigureerd</Badge>
+            ) : (
+              <Badge variant="warning">Niet geconfigureerd</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmailSettingsManager
+            status={emailStatus}
+            result={emailResult}
+            reason={reason}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

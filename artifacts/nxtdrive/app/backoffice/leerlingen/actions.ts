@@ -17,6 +17,7 @@ import { loadEmailBranding } from "@/lib/notifications/branding";
 import { renderStudentWelcome } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/provider";
 import { generateTemporaryPassword } from "@/lib/auth/generate-password";
+import { getEmailConfig } from "@/lib/email/config";
 
 export type CreateStudentDirectResult =
   | { ok: true; studentId: string; emailWarning?: string }
@@ -123,7 +124,10 @@ export async function createStudentDirect(
   // surfaces as a warning so the admin knows to resend manually.
   let emailWarning: string | undefined;
   try {
-    const branding = await loadEmailBranding(service, tenant.id);
+    const [branding, tenantEmailConfig] = await Promise.all([
+      loadEmailBranding(service, tenant.id),
+      getEmailConfig(service, tenant.id).catch(() => null),
+    ]);
     const appUrl =
       process.env["NEXT_PUBLIC_APP_URL"] ??
       process.env["NEXTAUTH_URL"] ??
@@ -139,6 +143,7 @@ export async function createStudentDirect(
       to: email,
       fromName: branding.tenantName,
       email: emailContent,
+      tenantConfig: tenantEmailConfig ?? undefined,
     });
     if (!emailResult.ok) {
       if (emailResult.skipped) {
@@ -215,7 +220,10 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
   }
 
   try {
-    const branding = await loadEmailBranding(service, tenant.id);
+    const [branding, tenantEmailConfig] = await Promise.all([
+      loadEmailBranding(service, tenant.id),
+      getEmailConfig(service, tenant.id).catch(() => null),
+    ]);
     const appUrl =
       process.env["NEXT_PUBLIC_APP_URL"] ??
       process.env["NEXTAUTH_URL"] ??
@@ -231,6 +239,7 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
       to: student.email as string,
       fromName: branding.tenantName,
       email: emailContent,
+      tenantConfig: tenantEmailConfig ?? undefined,
     });
     if (!emailResult.ok) {
       const msg = emailResult.skipped
