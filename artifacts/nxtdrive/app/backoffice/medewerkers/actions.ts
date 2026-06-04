@@ -7,8 +7,13 @@ import type { MemberRole } from "@/lib/types";
 
 const STAFF_ROLES: MemberRole[] = ["tenant_admin", "instructor"];
 
+function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
+  if (isPlatformAdmin) redirect("/backoffice/medewerkers?error=forbidden");
+}
+
 export async function inviteInstructor(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -40,7 +45,10 @@ export async function inviteInstructor(formData: FormData) {
       .maybeSingle();
 
     if (existingMembership) {
-      redirect("/backoffice/medewerkers?error=already_member&email=" + encodeURIComponent(email));
+      redirect(
+        "/backoffice/medewerkers?error=already_member&email=" +
+          encodeURIComponent(email),
+      );
     }
   } else {
     const { data: inviteData, error: inviteError } =
@@ -66,18 +74,23 @@ export async function inviteInstructor(formData: FormData) {
 
   if (memberError) {
     if (memberError.code === "23505") {
-      redirect("/backoffice/medewerkers?error=already_member&email=" + encodeURIComponent(email));
+      redirect(
+        "/backoffice/medewerkers?error=already_member&email=" +
+          encodeURIComponent(email),
+      );
     }
     redirect("/backoffice/medewerkers?error=membership_failed");
   }
 
   redirect(
-    "/backoffice/medewerkers?success=invited&email=" + encodeURIComponent(email),
+    "/backoffice/medewerkers?success=invited&email=" +
+      encodeURIComponent(email),
   );
 }
 
 export async function removeMember(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
   const memberId = String(formData.get("user_id") ?? "");
@@ -105,6 +118,7 @@ export async function removeMember(formData: FormData) {
 
 export async function changeRole(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
   const memberId = String(formData.get("user_id") ?? "");

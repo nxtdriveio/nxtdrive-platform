@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -7,10 +8,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import { inviteInstructor, changeRole } from "./actions";
+import { changeRole } from "./actions";
 import { RemoveMemberButton } from "./remove-button";
+import { InviteForm } from "./invite-form";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ type MemberRow = {
   created_at: string;
   full_name: string | null;
   email: string;
+  confirmed: boolean;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -78,6 +79,7 @@ function Feedback({
     cannot_change_own_role: "Je kunt je eigen rol niet wijzigen.",
     role_conflict: "Deze medewerker heeft deze rol al.",
     update_failed: "Rolwijziging mislukt. Probeer het opnieuw.",
+    forbidden: "Je hebt geen toegang tot deze pagina.",
   };
 
   if (error) {
@@ -97,8 +99,11 @@ export default async function MedewerkersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  const sp = await searchParams;
 
+  // Platform admins manage tenants via /admin, not via the tenant backoffice.
+  if (user.profile?.is_platform_admin) redirect("/admin");
+
+  const sp = await searchParams;
   const error = typeof sp.error === "string" ? sp.error : null;
   const success = typeof sp.success === "string" ? sp.success : null;
   const emailFeedback = typeof sp.email === "string" ? sp.email : null;
@@ -115,13 +120,15 @@ export default async function MedewerkersPage({
 
   const userIds = (membershipRows ?? []).map((m) => m.user_id as string);
 
-  const { data: profileRows } =
+  const [{ data: profileRows }, authResult] = await Promise.all([
     userIds.length > 0
-      ? await service
+      ? service
           .from("profiles")
           .select("id, full_name, email")
           .in("id", userIds)
-      : { data: [] };
+      : Promise.resolve({ data: [] }),
+    service.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
 
   const profileMap = new Map<
     string,
@@ -134,6 +141,14 @@ export default async function MedewerkersPage({
     });
   }
 
+  // Build a map of userId → email_confirmed_at for status badge.
+  const confirmedMap = new Map<string, boolean>();
+  for (const authUser of authResult.data?.users ?? []) {
+    if (userIds.includes(authUser.id)) {
+      confirmedMap.set(authUser.id, authUser.email_confirmed_at != null);
+    }
+  }
+
   const members: MemberRow[] = (membershipRows ?? []).map((m) => {
     const profile = profileMap.get(m.user_id as string);
     return {
@@ -143,18 +158,22 @@ export default async function MedewerkersPage({
       created_at: m.created_at as string,
       full_name: profile?.full_name ?? null,
       email: profile?.email ?? "—",
+      confirmed: confirmedMap.get(m.user_id as string) ?? false,
     };
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Team
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Beheer de instructeurs en beheerders van {tenant.name}.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Team
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Beheer de instructeurs en beheerders van {tenant.name}.
+          </p>
+        </div>
+        <InviteForm />
       </div>
 
       <Feedback
@@ -163,63 +182,6 @@ export default async function MedewerkersPage({
         email={emailFeedback}
         reason={reason}
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Medewerker uitnodigen</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            De uitgenodigde persoon ontvangt een e-mail om een wachtwoord in te
-            stellen en krijgt direct toegang tot de geselecteerde omgeving.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form action={inviteInstructor} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="full_name">Naam</Label>
-                <Input
-                  id="full_name"
-                  name="full_name"
-                  type="text"
-                  placeholder="Jan de Vries"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">
-                  E-mailadres <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="jan@rijschool.nl"
-                  autoComplete="off"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="role">
-                  Rol <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  id="role"
-                  name="role"
-                  required
-                  defaultValue="instructor"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="instructor">Instructeur</option>
-                  <option value="tenant_admin">Beheerder</option>
-                </select>
-              </div>
-            </div>
-            <Button type="submit" size="sm">
-              Uitnodiging versturen
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -232,8 +194,8 @@ export default async function MedewerkersPage({
         <CardContent>
           {members.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nog geen medewerkers. Nodig iemand uit via het formulier
-              hierboven.
+              Nog geen medewerkers. Gebruik de knop rechtsboven om iemand uit
+              te nodigen.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -243,6 +205,7 @@ export default async function MedewerkersPage({
                     <th className="pb-2 pr-4 font-medium">Naam</th>
                     <th className="pb-2 pr-4 font-medium">E-mail</th>
                     <th className="pb-2 pr-4 font-medium">Rol</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
                     <th className="pb-2 pr-4 font-medium">Lid sinds</th>
                     <th className="pb-2 font-medium">Acties</th>
                   </tr>
@@ -250,15 +213,14 @@ export default async function MedewerkersPage({
                 <tbody className="divide-y divide-border">
                   {members.map((member) => {
                     const isSelf = member.user_id === user.id;
-                    const displayName =
-                      member.full_name ?? member.email;
+                    const displayName = member.full_name ?? member.email;
                     return (
                       <tr key={member.id}>
                         <td className="py-3 pr-4">
                           <span className="font-medium text-foreground">
                             {member.full_name ?? (
                               <span className="italic text-muted-foreground">
-                                Uitnodiging in behandeling
+                                Geen naam
                               </span>
                             )}
                           </span>
@@ -276,11 +238,14 @@ export default async function MedewerkersPage({
                         </td>
                         <td className="py-3 pr-4">
                           {isSelf ? (
-                            <Badge variant="outline">
+                            <Badge variant="primary">
                               {ROLE_LABEL[member.role] ?? member.role}
                             </Badge>
                           ) : (
-                            <form action={changeRole} className="flex items-center gap-2">
+                            <form
+                              action={changeRole}
+                              className="flex items-center gap-2"
+                            >
                               <input
                                 type="hidden"
                                 name="membership_id"
@@ -306,6 +271,13 @@ export default async function MedewerkersPage({
                                 Opslaan
                               </button>
                             </form>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {member.confirmed ? (
+                            <Badge variant="success">Actief</Badge>
+                          ) : (
+                            <Badge variant="info">Uitgenodigd</Badge>
                           )}
                         </td>
                         <td className="py-3 pr-4 text-muted-foreground">

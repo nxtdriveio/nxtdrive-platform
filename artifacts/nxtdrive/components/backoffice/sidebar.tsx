@@ -24,34 +24,37 @@ import {
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
-const nav = [
-  { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/backoffice/leads", label: "Leads", icon: Inbox },
-  { href: "/backoffice/referrals", label: "Referrals", icon: Gift },
-  { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX },
-  { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock },
-  { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap },
-  { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck },
-  { href: "/backoffice/packages", label: "Pakketten", icon: Package },
-  { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car },
-  { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen },
-  { href: "/backoffice/taken", label: "Taken", icon: ClipboardList },
-  { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3 },
-  { href: "/backoffice/facturen", label: "Facturen", icon: Receipt },
-  { href: "/backoffice/boekhouding", label: "Boekhouding", icon: Calculator },
-  { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users },
-  { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings },
+const ALL_NAV = [
+  { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+  { href: "/backoffice/leads", label: "Leads", icon: Inbox, adminOnly: false },
+  { href: "/backoffice/referrals", label: "Referrals", icon: Gift, adminOnly: false },
+  { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays, adminOnly: false },
+  { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX, adminOnly: false },
+  { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
+  { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap, adminOnly: false },
+  { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck, adminOnly: false },
+  { href: "/backoffice/packages", label: "Pakketten", icon: Package, adminOnly: false },
+  { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car, adminOnly: false },
+  { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen, adminOnly: false },
+  { href: "/backoffice/taken", label: "Taken", icon: ClipboardList, adminOnly: false },
+  { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3, adminOnly: false },
+  { href: "/backoffice/facturen", label: "Facturen", icon: Receipt, adminOnly: false },
+  { href: "/backoffice/boekhouding", label: "Boekhouding", icon: Calculator, adminOnly: false },
+  { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
+  { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
 ];
 
 export function BackofficeSidebar({
   tenantName,
   logoUrl,
+  isAdmin = false,
 }: {
   tenantName: string;
   logoUrl?: string | null;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
+  const nav = ALL_NAV.filter((item) => !item.adminOnly || isAdmin);
 
   // Most-specific match wins so nested routes (e.g. /agenda/herbezetten) don't
   // also highlight their parent (/agenda).

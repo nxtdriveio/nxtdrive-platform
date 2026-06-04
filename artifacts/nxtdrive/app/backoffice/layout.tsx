@@ -37,6 +37,7 @@ export default async function BackofficeLayout({
       <BackofficeSidebar
         tenantName={tenant.name}
         logoUrl={logoUrl}
+        isAdmin={roles.includes("tenant_admin")}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <BackofficeTopbar
