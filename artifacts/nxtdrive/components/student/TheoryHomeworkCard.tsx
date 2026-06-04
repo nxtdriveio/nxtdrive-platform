@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { markHomeworkStatusAction } from "@/app/student/actions";
+import { PWAEmptyState } from "@/components/pwa/primitives";
 import {
   THEORY_HOMEWORK_STATUS_LABEL,
   THEORY_HOMEWORK_STATUS_VARIANT,
@@ -44,16 +45,11 @@ export function StudentTheoryHomeworkCard({
   if (visible.length === 0) {
     if (!emptyHint) return null;
     return (
-      <Card>
-        <CardContent className="space-y-2 pt-5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <BookOpen className="h-4 w-4" aria-hidden /> Theoriehuiswerk
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Je hebt op dit moment geen openstaand theoriehuiswerk.
-          </p>
-        </CardContent>
-      </Card>
+      <PWAEmptyState
+        icon={<BookOpen className="h-8 w-8" aria-hidden />}
+        title="Geen huiswerk"
+        message="Je hebt op dit moment geen openstaand theoriehuiswerk."
+      />
     );
   }
 

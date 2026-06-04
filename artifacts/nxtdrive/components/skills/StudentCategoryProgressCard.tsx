@@ -1,5 +1,5 @@
 import { LayoutGrid, ShieldAlert } from "lucide-react";
-import { PWACard } from "@/components/pwa/primitives";
+import { PWACard, PWAEmptyState } from "@/components/pwa/primitives";
 import { Badge } from "@/components/ui/badge";
 import type { StudentCategoryProgress } from "@/lib/skills/student-leskaart-data";
 
@@ -23,9 +23,11 @@ export function StudentCategoryProgressCard({
       }
     >
       {categories.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Je rijschool heeft nog geen vaardigheden in de leskaart.
-        </p>
+        <PWAEmptyState
+          icon={<LayoutGrid className="h-8 w-8" aria-hidden />}
+          title="Nog geen categorieën"
+          message="Je rijschool heeft nog geen vaardigheden in de leskaart."
+        />
       ) : (
         <ul className="space-y-3.5">
           {categories.map((c) => (

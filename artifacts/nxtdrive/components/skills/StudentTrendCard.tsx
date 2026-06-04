@@ -1,5 +1,6 @@
 import { TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PWACard, PWAEmptyState } from "@/components/pwa/primitives";
 import { cn } from "@/lib/utils";
 import type { StudentLessonPoint } from "@/lib/skills/student-leskaart-data";
 
@@ -23,17 +24,20 @@ export function StudentTrendCard({
 
   if (points.length < 2) {
     return (
-      <Card>
-        <CardContent className="space-y-2 pt-5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <TrendingUp className="h-4 w-4" aria-hidden />
+      <PWACard
+        title={
+          <>
+            <TrendingUp className="h-3.5 w-3.5" aria-hidden />
             Ontwikkeling over tijd
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Na een paar beoordeelde lessen zie je hier je ontwikkeling over tijd.
-          </p>
-        </CardContent>
-      </Card>
+          </>
+        }
+      >
+        <PWAEmptyState
+          icon={<TrendingUp className="h-8 w-8" aria-hidden />}
+          title="Nog geen ontwikkeling"
+          message="Na een paar beoordeelde lessen zie je hier je ontwikkeling over tijd."
+        />
+      </PWACard>
     );
   }
 

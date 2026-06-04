@@ -1,5 +1,6 @@
 import { CheckCircle2, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PWAEmptyState } from "@/components/pwa/primitives";
 import type { RecentlyPracticed } from "@/lib/skills/student-leskaart-data";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
@@ -12,7 +13,21 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
  * Read-only "vandaag geoefend" overview for the student/parent: the skills
  * graded in the most recent lesson, with their 1–10 grade.
  */
-export function RecentPracticeCard({ recent }: { recent: RecentlyPracticed }) {
+export function RecentPracticeCard({
+  recent,
+}: {
+  recent: RecentlyPracticed | null | undefined;
+}) {
+  if (!recent) {
+    return (
+      <PWAEmptyState
+        icon={<CheckCircle2 className="h-8 w-8" aria-hidden />}
+        title="Nog niet geoefend"
+        message="Er zijn nog geen geoefende vaardigheden gevonden."
+      />
+    );
+  }
+
   return (
     <Card className="border-primary/30 bg-primary-soft/30">
       <CardContent className="space-y-3 pt-5">

@@ -5,7 +5,7 @@ import {
   type ReadinessPhase,
   type ReadinessResult,
 } from "@workspace/leskaart";
-import { PWACard } from "@/components/pwa/primitives";
+import { PWACard, PWAEmptyState } from "@/components/pwa/primitives";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +39,27 @@ const phaseMessage: Record<ReadinessPhase, string> = {
 export function StudentReadinessCard({
   readiness,
 }: {
-  readiness: ReadinessResult;
+  readiness: ReadinessResult | null;
 }) {
+  if (!readiness) {
+    return (
+      <PWACard
+        title={
+          <>
+            <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+            Examenrijpheid
+          </>
+        }
+      >
+        <PWAEmptyState
+          icon={<GraduationCap className="h-8 w-8" aria-hidden />}
+          title="Nog geen beoordeling"
+          message="Je rijschool heeft je leskaart nog niet ingevuld. Je score verschijnt zodra er vaardigheden zijn beoordeeld."
+        />
+      </PWACard>
+    );
+  }
+
   const currentIdx = PHASE_ORDER.indexOf(readiness.phase);
 
   return (
