@@ -37,8 +37,13 @@ app.nxtdrive.io {
         }
 }
 
-# Root domain + www — platform marketing/landing page.
-nxtdrive.io, www.nxtdrive.io {
+# www → apex redirect (canonical domain is nxtdrive.io without www)
+www.nxtdrive.io {
+        redir https://nxtdrive.io{uri} permanent
+}
+
+# Root domain — platform marketing/landing page.
+nxtdrive.io {
         encode gzip zstd
 
         header {
