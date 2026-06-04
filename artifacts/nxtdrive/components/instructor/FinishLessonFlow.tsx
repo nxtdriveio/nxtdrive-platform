@@ -177,6 +177,7 @@ export function FinishLessonFlow({
       <Button
         type="button"
         size="lg"
+        variant="outline"
         className="w-full"
         onClick={() => {
           reset();

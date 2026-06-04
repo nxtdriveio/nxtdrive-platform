@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,21 +38,31 @@ type DayItem =
   | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
   | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
 
+/** Extract lesson ID from /instructor/<uuid> pathnames. */
+function extractLessonId(pathname: string): string | undefined {
+  const m = pathname.match(/^\/instructor\/([^/]+)$/);
+  return m?.[1];
+}
+
 export function InstructorDayList({
   lessons,
   studentNames,
   trialLessons = [],
   appointments = [],
-  selectedId,
   date,
+  variant = "vertical",
 }: {
   lessons: Lesson[];
   studentNames: Map<string, string>;
   trialLessons?: AgendaTrialLesson[];
   appointments?: AgendaAppointmentView[];
-  selectedId?: string;
   date: Date;
+  /** vertical = stacked timeline list (default); horizontal = scrollable chip strip (mobile) */
+  variant?: "vertical" | "horizontal";
 }) {
+  const pathname = usePathname() ?? "";
+  const selectedId = extractLessonId(pathname);
+
   const items: DayItem[] = [
     ...lessons.map(
       (l): DayItem => ({ kind: "lesson", starts_at: l.starts_at, lesson: l }),
@@ -66,6 +79,94 @@ export function InstructorDayList({
     ),
   ].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
 
+  /* ── Horizontal chip strip (mobile) ─────────────────────────────────── */
+  if (variant === "horizontal") {
+    return (
+      <div className="flex items-center gap-2 overflow-x-auto py-1">
+        <div className="shrink-0 text-right">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Vandaag
+          </div>
+          <div className="text-xs font-medium capitalize text-foreground">
+            {dayFmt.format(date).split(" ")[0]}
+          </div>
+        </div>
+        <div className="h-8 w-px shrink-0 bg-border" />
+        {items.length === 0 ? (
+          <span className="shrink-0 text-sm text-muted-foreground">
+            Geen lessen vandaag
+          </span>
+        ) : (
+          items.map((item) => {
+            if (item.kind === "lesson") {
+              const active = item.lesson.id === selectedId;
+              return (
+                <Link
+                  key={`lesson-${item.lesson.id}`}
+                  href={`/instructor/${item.lesson.id}`}
+                  className={cn(
+                    "flex shrink-0 flex-col rounded-lg border px-3 py-1.5 transition-colors",
+                    active
+                      ? "border-primary bg-primary-soft"
+                      : item.lesson.status === "in_progress"
+                        ? LESSON_IN_PROGRESS_CARD
+                        : "border-border bg-card hover:border-muted-foreground/40",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-xs font-semibold tabular-nums",
+                      active ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {timeFmt.format(new Date(item.lesson.starts_at))}
+                  </span>
+                  <span className="max-w-[6rem] truncate text-xs text-muted-foreground">
+                    {studentNames.get(item.lesson.student_id) ?? "Leerling"}
+                  </span>
+                </Link>
+              );
+            }
+            if (item.kind === "trial") {
+              return (
+                <Link
+                  key={`trial-${item.trial.id}`}
+                  href={`/backoffice/leads/${item.trial.lead_id}`}
+                  className="flex shrink-0 flex-col rounded-lg border border-dashed border-info/60 bg-info/5 px-3 py-1.5 transition-colors hover:border-info"
+                >
+                  <span className="text-xs font-semibold tabular-nums text-foreground">
+                    {timeFmt.format(new Date(item.trial.starts_at))}
+                  </span>
+                  <span className="max-w-[6rem] truncate text-xs text-info">
+                    {item.trial.lead_name}
+                  </span>
+                </Link>
+              );
+            }
+            return (
+              <Link
+                key={`appt-${item.appointment.id}`}
+                href={`/instructor/afspraak/${item.appointment.id}`}
+                className={cn(
+                  "flex shrink-0 flex-col rounded-lg border border-dashed px-3 py-1.5 transition-colors hover:brightness-95",
+                  APPOINTMENT_TYPE_ACCENT[item.appointment.type],
+                )}
+              >
+                <span className="text-xs font-semibold tabular-nums text-foreground">
+                  {timeFmt.format(new Date(item.appointment.starts_at))}
+                </span>
+                <span className="max-w-[6rem] truncate text-xs text-muted-foreground">
+                  {APPOINTMENT_TYPE_LABEL[item.appointment.type]}
+                </span>
+              </Link>
+            );
+          })
+        )}
+      </div>
+    );
+  }
+
+  /* ── Vertical timeline list (default) ───────────────────────────────── */
   return (
     <div className="flex h-full flex-col">
       <div className="px-1 pb-3">

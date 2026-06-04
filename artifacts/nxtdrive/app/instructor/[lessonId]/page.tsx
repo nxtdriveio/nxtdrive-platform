@@ -17,7 +17,11 @@ import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
 import { AiInternalAttention } from "@/components/instructor/AiInternalAttention";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
-import { loadVehicles, loadLocations, loadLessonContext } from "@/lib/lessons/context-data";
+import {
+  loadVehicles,
+  loadLocations,
+  loadLessonContext,
+} from "@/lib/lessons/context-data";
 import { loadTheoryModules, loadLessonTheoryHomework } from "@/lib/theory/data";
 import {
   refundPctForHours,
@@ -88,6 +92,7 @@ export default async function InstructorLessonPage({
   const dayStart = startOfDay(anchor);
   const dayEnd = endOfDay(anchor);
 
+  /* Day lessons for the mobile horizontal strip */
   let dayQuery = supabase
     .from("lessons")
     .select("*")
@@ -126,7 +131,9 @@ export default async function InstructorLessonPage({
     .select("student_id, balance")
     .eq("student_id", lesson.student_id)
     .maybeSingle();
-  const balance = ((balanceRaw as StudentBalance | null)?.balance ?? 0) as number;
+  const balance = (
+    (balanceRaw as StudentBalance | null)?.balance ?? 0
+  ) as number;
 
   const [cockpitProgress, cockpitPayment] = await Promise.all([
     loadCockpitProgress(supabase, tenant.id, lesson.student_id, balance),
@@ -187,225 +194,213 @@ export default async function InstructorLessonPage({
   const authorIds = Array.from(new Set(notes.map((n) => n.author_user_id)));
   const service = createServiceRoleClient();
   const { data: authorsRaw } = authorIds.length
-    ? await service.from("profiles").select("id, full_name").in("id", authorIds)
+    ? await service
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", authorIds)
     : { data: [] };
   const authorMap = new Map(
-    ((authorsRaw ?? []) as { id: string; full_name: string | null }[]).map(
-      (p) => [p.id, p.full_name ?? "Instructeur"],
-    ),
+    (
+      (authorsRaw ?? []) as { id: string; full_name: string | null }[]
+    ).map((p) => [p.id, p.full_name ?? "Instructeur"]),
   );
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
     /*
-     * Split-screen layout: agenda rail (left, sticky) | content panel (right).
-     * On mobile: agenda stacks above content as a horizontal-scrollable strip.
+     * Layout:
+     *  • Mobile: horizontal agenda chip-strip at top, then stacked content.
+     *  • Desktop: sidebar IS the agenda-rail; this page renders full-width
+     *    content with student card + progress side-by-side at the top.
      */
-    <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[19rem,1fr] lg:items-start">
-      {/* ── Left: agenda rail ──────────────────────────────────────────────── */}
-      <div className="lg:sticky lg:top-0 lg:max-h-screen lg:overflow-y-auto">
-        {/* Mobile: compact horizontal timeline strip */}
-        <div className="overflow-x-auto lg:hidden">
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <InstructorDayList
-                lessons={dayLessons}
-                studentNames={studentNames}
-                trialLessons={dayTrials}
-                selectedId={lesson.id}
-                date={anchor}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Desktop: full agenda panel */}
-        <Card className="hidden lg:block lg:min-h-[calc(100vh-3.5rem)]">
-          <CardContent className="pt-5">
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      {/* ── Mobile only: horizontal agenda chip strip ────────────────────── */}
+      <div className="md:hidden">
+        <Card>
+          <CardContent className="px-3 py-3">
             <InstructorDayList
               lessons={dayLessons}
               studentNames={studentNames}
               trialLessons={dayTrials}
-              selectedId={lesson.id}
               date={anchor}
+              variant="horizontal"
             />
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Right: student context panel ───────────────────────────────────── */}
-      <div className="space-y-4">
-        {sp.error ? (
-          <Card className="border-danger/40 bg-danger/5">
-            <CardContent className="pt-5 text-sm text-danger">
-              {decodeURIComponent(sp.error)}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* Student card + Progress card side-by-side on large screens */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {student ? (
-            <InstructorStudentCard student={student} />
-          ) : (
-            <Card>
-              <CardContent className="pt-5 text-sm text-muted-foreground">
-                Leerlinggegevens niet beschikbaar.
-              </CardContent>
-            </Card>
-          )}
-          <InstructorProgressCard
-            lesson={lesson}
-            progressScore={lesson.progress_score}
-            progress={cockpitProgress}
-            payment={cockpitPayment}
-          />
-        </div>
-
-        {/* Primary actions: Start les + quickactions */}
-        <InstructorActionsPanel
-          lessonId={lesson.id}
-          studentId={lesson.student_id}
-          studentName={student?.full_name ?? "Leerling"}
-          studentPhone={student?.phone ?? null}
-          status={lesson.status}
-          refundPreview={refundPreview}
-          hoursBefore={hoursBefore}
-          currentScore={lesson.progress_score}
-          currentSummary={lesson.progress_summary}
-          leskaart={leskaart}
-        />
-
-        <LessonContextPanel
-          lessonId={lesson.id}
-          vehicles={vehicles}
-          locations={locations}
-          leskaart={leskaart}
-          context={lessonContext}
-        />
-
-        <TheoryHomeworkPanel
-          lessonId={lesson.id}
-          modules={theoryModules}
-          homework={lessonHomework}
-        />
-
-        <AiLessonReport lessonId={lesson.id} />
-
-        {lesson.progress_summary ? (
-          <Card>
-            <CardContent className="space-y-2 pt-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Voortgangstoelichting
-              </div>
-              <p className="whitespace-pre-wrap text-sm text-foreground">
-                {lesson.progress_summary}
-              </p>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <Card>
-          <CardContent className="space-y-3 pt-5">
-            <div className="flex items-center justify-between">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Lesnotities
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {notes.length} {notes.length === 1 ? "notitie" : "notities"}
-              </span>
-            </div>
-            {notes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nog geen notities voor deze les. Voeg er één toe via{" "}
-                <span className="font-medium text-foreground">Notitie</span>.
-              </p>
-            ) : (
-              <ol className="space-y-3">
-                {notes.map((n) => (
-                  <li
-                    key={n.id}
-                    className="rounded-md border border-border bg-card/50 p-3"
-                  >
-                    <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{authorMap.get(n.author_user_id) ?? "—"}</span>
-                      <span>{dtFmt.format(new Date(n.created_at))}</span>
-                    </div>
-                    <p className="whitespace-pre-wrap text-sm text-foreground">
-                      {n.body}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            )}
+      {/* ── Error banner ─────────────────────────────────────────────────── */}
+      {sp.error ? (
+        <Card className="border-danger/40 bg-danger/5">
+          <CardContent className="pt-5 text-sm text-danger">
+            {decodeURIComponent(sp.error)}
           </CardContent>
         </Card>
+      ) : null}
 
+      {/* ── Student card + Progress card (side-by-side on large screens) ── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {student ? (
-          <ExamReadinessPanel
-            studentId={student.id}
-            readiness={readiness}
-            machtigingStatus={machtigingStatus}
-          />
-        ) : null}
-        {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
-        {student ? <AiInternalAttention lessonId={lesson.id} /> : null}
-
-        {student && taskLaunch.boards.length > 0 ? (
+          <InstructorStudentCard student={student} />
+        ) : (
           <Card>
-            <CardContent className="space-y-2 pt-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Taak aanmaken
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <CreateTaskFromEntityButton
-                  entityType="lesson"
-                  entityId={lesson.id}
-                  entityLabel={`${dtFmt.format(new Date(lesson.starts_at))} — ${student.full_name}`}
-                  boards={taskLaunch.boards}
-                  members={taskLaunch.members}
-                  label="Les-taak"
-                />
-                <CreateTaskFromEntityButton
-                  entityType="exam"
-                  entityId={student.id}
-                  entityLabel={student.full_name}
-                  boards={taskLaunch.boards}
-                  members={taskLaunch.members}
-                  label="Examen-taak"
-                />
-              </div>
+            <CardContent className="pt-5 text-sm text-muted-foreground">
+              Leerlinggegevens niet beschikbaar.
             </CardContent>
           </Card>
-        ) : null}
+        )}
+        <InstructorProgressCard
+          lesson={lesson}
+          progressScore={lesson.progress_score}
+          progress={cockpitProgress}
+          payment={cockpitPayment}
+        />
+      </div>
 
+      {/* ── Primary actions (Start les + quickactions) ────────────────────  */}
+      <InstructorActionsPanel
+        lessonId={lesson.id}
+        studentId={lesson.student_id}
+        studentName={student?.full_name ?? "Leerling"}
+        studentPhone={student?.phone ?? null}
+        status={lesson.status}
+        refundPreview={refundPreview}
+        hoursBefore={hoursBefore}
+        currentScore={lesson.progress_score}
+        currentSummary={lesson.progress_summary}
+        leskaart={leskaart}
+      />
+
+      <LessonContextPanel
+        lessonId={lesson.id}
+        vehicles={vehicles}
+        locations={locations}
+        leskaart={leskaart}
+        context={lessonContext}
+      />
+
+      <TheoryHomeworkPanel
+        lessonId={lesson.id}
+        modules={theoryModules}
+        homework={lessonHomework}
+      />
+
+      <AiLessonReport lessonId={lesson.id} />
+
+      {lesson.progress_summary ? (
         <Card>
           <CardContent className="space-y-2 pt-5">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Snel
+              Voortgangstoelichting
             </div>
-            <Link
-              href="/instructor"
-              className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              ← Terug naar vandaag
-            </Link>
-            <Link
-              href="/instructor/week"
-              className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              Weekplanning
-            </Link>
+            <p className="whitespace-pre-wrap text-sm text-foreground">
+              {lesson.progress_summary}
+            </p>
           </CardContent>
         </Card>
+      ) : null}
 
-        <SkillScoring
-          lessonId={lesson.id}
-          studentName={student?.full_name ?? "Leerling"}
-          leskaart={leskaart}
+      {/* ── Lesnotities ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="space-y-3 pt-5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Lesnotities
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {notes.length} {notes.length === 1 ? "notitie" : "notities"}
+            </span>
+          </div>
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nog geen notities voor deze les. Voeg er één toe via{" "}
+              <span className="font-medium text-foreground">Notitie</span>.
+            </p>
+          ) : (
+            <ol className="space-y-3">
+              {notes.map((n) => (
+                <li
+                  key={n.id}
+                  className="rounded-md border border-border bg-card/50 p-3"
+                >
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{authorMap.get(n.author_user_id) ?? "—"}</span>
+                    <span>{dtFmt.format(new Date(n.created_at))}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-foreground">
+                    {n.body}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+
+      {student ? (
+        <ExamReadinessPanel
+          studentId={student.id}
+          readiness={readiness}
+          machtigingStatus={machtigingStatus}
         />
-      </div>
+      ) : null}
+      {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
+      {student ? <AiInternalAttention lessonId={lesson.id} /> : null}
+
+      {student && taskLaunch.boards.length > 0 ? (
+        <Card>
+          <CardContent className="space-y-2 pt-5">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Taak aanmaken
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <CreateTaskFromEntityButton
+                entityType="lesson"
+                entityId={lesson.id}
+                entityLabel={`${dtFmt.format(new Date(lesson.starts_at))} — ${student.full_name}`}
+                boards={taskLaunch.boards}
+                members={taskLaunch.members}
+                label="Les-taak"
+              />
+              <CreateTaskFromEntityButton
+                entityType="exam"
+                entityId={student.id}
+                entityLabel={student.full_name}
+                boards={taskLaunch.boards}
+                members={taskLaunch.members}
+                label="Examen-taak"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardContent className="space-y-2 pt-5">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Snel
+          </div>
+          <Link
+            href="/instructor"
+            className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+          >
+            ← Terug naar vandaag
+          </Link>
+          <Link
+            href="/instructor/week"
+            className="block rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+          >
+            Weekplanning
+          </Link>
+        </CardContent>
+      </Card>
+
+      <SkillScoring
+        lessonId={lesson.id}
+        studentName={student?.full_name ?? "Leerling"}
+        leskaart={leskaart}
+      />
     </div>
   );
 }

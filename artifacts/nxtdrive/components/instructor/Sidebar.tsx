@@ -11,19 +11,23 @@ import {
   MessageCircle,
   Bell,
   LogOut,
+  CalendarRange,
 } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { InstructorDayList } from "@/components/instructor/DayList";
 import { cn } from "@/lib/utils";
+import type { Lesson } from "@/lib/lessons/types";
+import type { AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof CalendarDays;
-  /** Active when the pathname starts with this prefix (vs. exact match). */
   match: "exact" | "prefix";
 };
 
-const NAV: NavItem[] = [
+/** Mobile-only nav (nav links stay in InstructorTopbar on desktop). */
+const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
   { href: "/instructor/week", label: "Planning", icon: ClipboardList, match: "prefix" },
   {
@@ -33,12 +37,7 @@ const NAV: NavItem[] = [
     match: "prefix",
   },
   { href: "/backoffice/taken", label: "Taken", icon: ListTodo, match: "prefix" },
-  {
-    href: "/instructor/berichten",
-    label: "Berichten",
-    icon: MessageCircle,
-    match: "prefix",
-  },
+  { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
   { href: "/instructor/meldingen", label: "Meldingen", icon: Bell, match: "prefix" },
 ];
 
@@ -48,62 +47,77 @@ function isActive(pathname: string, item: NavItem): boolean {
 }
 
 /**
- * Compact left sidebar nav for the instructor PWA shell (PWA canon §"Instructeur
- * Design Canon" — tablet split layout). Renders a vertical rail on md+ and a
- * sticky top bar with a horizontal nav strip on smaller screens. Preserves every
- * destination from the previous top bar plus the notification bell.
+ * Instructor PWA sidebar.
+ *
+ * Desktop (md+): dark agenda-rail — date header, full-day lesson timeline
+ * (using InstructorDayList which auto-highlights the selected lesson via
+ * usePathname), Weekplanning shortcut, user name + logout footer.
+ *
+ * Mobile: compact sticky top bar (logo + notifications + logout) followed by a
+ * horizontal nav-link strip. The agenda appears as a horizontal chip row
+ * embedded directly in the lesson page.
  */
 export function InstructorSidebar({
   tenantName,
   userLabel,
   logoUrl,
   notifications,
+  todayLessons,
+  studentNames,
+  todayDate,
+  trialLessons,
 }: {
   tenantName: string;
   userLabel: string;
   logoUrl?: string | null;
   notifications?: ReactNode;
+  todayLessons: Lesson[];
+  studentNames: Map<string, string>;
+  todayDate: Date;
+  trialLessons?: AgendaTrialLesson[];
 }) {
   const pathname = usePathname() ?? "";
 
   return (
     <>
-      {/* Desktop / tablet: vertical rail */}
+      {/* ── Desktop agenda-rail ─────────────────────────────────────────── */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
-        <div className="flex h-16 items-center gap-2 border-b border-border px-4">
+        {/* Logo */}
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
           <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
         </div>
-        <div className="px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground">
-          {tenantName}
+
+        {/* Agenda: full-height scrollable */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3">
+          <InstructorDayList
+            lessons={todayLessons}
+            studentNames={studentNames}
+            date={todayDate}
+            trialLessons={trialLessons}
+          />
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(pathname, item);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                  active
-                    ? "bg-primary-soft font-medium text-primary"
-                    : "text-foreground hover:bg-muted",
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t border-border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs text-muted-foreground" title={userLabel}>
+
+        {/* Footer */}
+        <div className="shrink-0 border-t border-border p-3 space-y-1">
+          <Link
+            href="/instructor/week"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+              pathname.startsWith("/instructor/week")
+                ? "bg-primary-soft font-medium text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <CalendarRange className="h-4 w-4 shrink-0" aria-hidden />
+            Weekplanning
+          </Link>
+          <div className="flex items-center justify-between gap-2 px-2.5 py-1">
+            <span
+              className="truncate text-xs text-muted-foreground"
+              title={userLabel}
+            >
               {userLabel}
             </span>
-            {/* Notifications on desktop are in InstructorTopbar — only show logout here */}
             <form method="post" action="/auth/logout">
               <button
                 type="submit"
@@ -117,9 +131,7 @@ export function InstructorSidebar({
         </div>
       </aside>
 
-      {/* Mobile: top bar + horizontal nav strip */}
-      {/* `pt-[env(safe-area-inset-top)]` clears the iOS status bar / notch in
-          standalone mode; env() resolves to 0 in a normal browser tab. */}
+      {/* ── Mobile: sticky top bar + horizontal nav strip ───────────────── */}
       <header
         className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur md:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
@@ -140,7 +152,7 @@ export function InstructorSidebar({
           </div>
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto px-2 pb-2">
-          {NAV.map((item) => {
+          {MOBILE_NAV.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item);
             return (
