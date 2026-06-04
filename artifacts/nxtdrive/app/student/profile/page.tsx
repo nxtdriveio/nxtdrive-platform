@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, Mail, Phone, MapPin, User } from "lucide-react";
+import { LogOut, Mail, Phone, MapPin, User, Bell } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +104,36 @@ export default async function StudentProfilePage() {
         </p>
       </PWACard>
 
-      <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
+      {/* Notification preferences */}
+      <div className="space-y-3">
+        <PWASectionHeader icon={<Bell className="h-3.5 w-3.5" aria-hidden />}>
+          Meldingen
+        </PWASectionHeader>
+        <PWACard>
+          <p className="text-xs text-muted-foreground mb-3">
+            Als leerling ontvang je pushmeldingen voor:
+          </p>
+          <ul className="space-y-1.5 text-xs text-foreground">
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+              Lesherinneringen — herinnering vóór je geplande les
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+              Proefles bevestiging — bevestiging wanneer je proefles is ingepland
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+              Tegoed waarschuwing — melding als je tegoed bijna op is
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+              Examenupdates — statuswijzigingen rondom je CBR-examen
+            </li>
+          </ul>
+        </PWACard>
+        <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
+      </div>
 
       {student ? (
         <RefillOptInForm
