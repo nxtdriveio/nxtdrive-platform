@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { LogOut, User, ChevronDown } from "lucide-react";
 
 export function UserMenu({
@@ -31,19 +32,19 @@ export function UserMenu({
   }, []);
 
   return (
-    <div ref={ref} className="relative ml-2">
+    <div ref={ref} className="relative ml-1">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Gebruikersmenu voor ${userLabel}`}
-        className="flex items-center gap-3 rounded-md border border-border bg-card px-2.5 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
           {initials || "?"}
         </span>
-        <div className="hidden text-right sm:block">
+        <div className="hidden text-left sm:block">
           <div className="text-xs font-medium leading-tight text-foreground">
             {userLabel}
           </div>
@@ -60,27 +61,26 @@ export function UserMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1.5 w-44 overflow-hidden rounded-md border border-border bg-card shadow-lg"
+          className="absolute right-0 top-full z-50 mt-1.5 w-48 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
         >
-          <button
-            type="button"
+          <Link
+            href="/account/wachtwoord-wijzigen"
             role="menuitem"
-            disabled
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground opacity-50 cursor-not-allowed"
-            aria-disabled="true"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
-            <User className="h-4 w-4" aria-hidden />
+            <User className="h-4 w-4 text-muted-foreground" aria-hidden />
             Profiel
-          </button>
+          </Link>
           <div className="border-t border-border" />
           <form method="post" action="/auth/logout">
             <button
               type="submit"
               role="menuitem"
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               aria-label="Uitloggen"
             >
-              <LogOut className="h-4 w-4" aria-hidden />
+              <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden />
               Uitloggen
             </button>
           </form>

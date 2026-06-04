@@ -20,14 +20,32 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
     maximumFractionDigits: 0,
   }).format(payload[0]?.value ?? 0);
   return (
-    <div className="rounded-lg border border-white/10 bg-gray-900 px-3 py-2 text-xs shadow-lg">
-      <p className="text-gray-400">{label}</p>
-      <p className="font-medium text-amber-400">{euros}</p>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        borderRadius: "0.5rem",
+        padding: "6px 10px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      }}
+    >
+      <p style={{ color: "var(--muted-foreground)", fontSize: "0.7rem", marginBottom: 2 }}>
+        {label}
+      </p>
+      <p style={{ color: "var(--primary)", fontSize: "0.75rem", fontWeight: 600 }}>{euros}</p>
     </div>
   );
 }
 
-export function MiniBarChart({ data, height = 56 }: { data: Point[]; height?: number }) {
+export function MiniBarChart({
+  data,
+  height = 56,
+  barColor = "var(--primary)",
+}: {
+  data: Point[];
+  height?: number;
+  barColor?: string;
+}) {
   const formatted = data.map((d) => ({
     label: d.label,
     value: Math.round(d.cents / 100),
@@ -36,11 +54,11 @@ export function MiniBarChart({ data, height = 56 }: { data: Point[]; height?: nu
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={formatted} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-        <Bar dataKey="value" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+        <Bar dataKey="value" fill={barColor} radius={[3, 3, 0, 0]} />
         <XAxis dataKey="label" hide />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ fill: "rgba(255,255,255,0.04)" }}
+          cursor={{ fill: "var(--muted)", opacity: 0.5 }}
         />
       </BarChart>
     </ResponsiveContainer>

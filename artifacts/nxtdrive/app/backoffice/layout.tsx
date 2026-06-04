@@ -4,6 +4,7 @@ import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { BackofficeSidebar } from "@/components/backoffice/sidebar";
 import { BackofficeTopbar } from "@/components/backoffice/topbar";
+import { DashboardShell } from "@/components/backoffice/dashboard-shell";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
@@ -32,24 +33,30 @@ export default async function BackofficeLayout({
     <BrandProvider
       tenant={tenant}
       branding={branding}
-      className="flex h-screen bg-background text-foreground"
+      className="h-screen overflow-hidden"
     >
-      <BackofficeSidebar
-        tenantName={tenant.name}
-        logoUrl={logoUrl}
-        isAdmin={roles.includes("tenant_admin")}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <BackofficeTopbar
-          userLabel={userLabel}
-          roleLabel={roleLabel}
-          theme={theme}
-          notifications={
-            <NotificationBell items={items} unreadCount={unreadCount} />
-          }
-        />
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
-      </div>
+      <DashboardShell
+        sidebar={
+          <BackofficeSidebar
+            tenantName={tenant.name}
+            logoUrl={logoUrl}
+            isAdmin={roles.includes("tenant_admin")}
+          />
+        }
+        topbar={
+          <BackofficeTopbar
+            userLabel={userLabel}
+            roleLabel={roleLabel}
+            tenantName={tenant.name}
+            theme={theme}
+            notifications={
+              <NotificationBell items={items} unreadCount={unreadCount} />
+            }
+          />
+        }
+      >
+        {children}
+      </DashboardShell>
     </BrandProvider>
   );
 }
