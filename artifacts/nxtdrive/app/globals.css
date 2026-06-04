@@ -122,3 +122,28 @@ body {
       transparent 55%
     );
 }
+
+/* Instructor PWA shell: forced dark + amber accent.
+   Applied via data-instructor="" on the layout wrapper so it does NOT
+   require a user dark-mode preference and overrides tenant branding. */
+[data-instructor] {
+  color-scheme: dark;
+  --background: #0c0c15;
+  --foreground: #ececf2;
+  --card: #13141f;
+  --card-foreground: #ececf2;
+  --muted: #1c1d2e;
+  --muted-foreground: #8888a0;
+  --border: #2a2a40;
+  --input: #1c1d2e;
+  --ring: #F59E0B;
+  --primary: #F59E0B;
+  --primary-foreground: #0c0c15;
+  --primary-soft: rgba(245, 158, 11, 0.12);
+  --accent: rgba(245, 158, 11, 0.08);
+  --accent-foreground: #F59E0B;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+}

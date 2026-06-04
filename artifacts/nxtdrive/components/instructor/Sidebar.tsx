@@ -103,18 +103,16 @@ export function InstructorSidebar({
             <span className="truncate text-xs text-muted-foreground" title={userLabel}>
               {userLabel}
             </span>
-            <div className="flex items-center gap-1 shrink-0">
-              {notifications}
-              <form method="post" action="/auth/logout">
-                <button
-                  type="submit"
-                  aria-label="Uitloggen"
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden />
-                </button>
-              </form>
-            </div>
+            {/* Notifications on desktop are in InstructorTopbar — only show logout here */}
+            <form method="post" action="/auth/logout">
+              <button
+                type="submit"
+                aria-label="Uitloggen"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+              </button>
+            </form>
           </div>
         </div>
       </aside>

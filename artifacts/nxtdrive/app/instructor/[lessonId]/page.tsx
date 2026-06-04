@@ -82,11 +82,8 @@ export default async function InstructorLessonPage({
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
 
-  // Defense-in-depth: instructors may only view their own lessons.
   if (!isAdmin && lesson.instructor_id !== user.id) notFound();
 
-  // Use the lesson's day as the anchor for the day list, so navigation between
-  // today's and historical lessons keeps the context consistent.
   const anchor = new Date(lesson.starts_at);
   const dayStart = startOfDay(anchor);
   const dayEnd = endOfDay(anchor);
@@ -102,8 +99,6 @@ export default async function InstructorLessonPage({
   const { data: dayLessonsRaw } = await dayQuery;
   const dayLessons = (dayLessonsRaw ?? []) as Lesson[];
 
-  // Trial lessons (proeflessen) on the same day, so the day list shows the full
-  // picture and the instructor cannot double-book over a provisional/confirmed one.
   const dayTrials = await loadAgendaTrialLessons(supabase, {
     tenantId: tenant.id,
     from: dayStart,
@@ -189,7 +184,6 @@ export default async function InstructorLessonPage({
     .limit(10);
   const notes = (notesRaw ?? []) as LessonNote[];
 
-  // Author names for notes (best-effort, via service role).
   const authorIds = Array.from(new Set(notes.map((n) => n.author_user_id)));
   const service = createServiceRoleClient();
   const { data: authorsRaw } = authorIds.length
@@ -204,20 +198,43 @@ export default async function InstructorLessonPage({
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[18rem,1fr,20rem] lg:items-start">
-      <Card className="lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-6rem)]">
-        <CardContent className="pt-5">
-          <InstructorDayList
-            lessons={dayLessons}
-            studentNames={studentNames}
-            trialLessons={dayTrials}
-            selectedId={lesson.id}
-            date={anchor}
-          />
-        </CardContent>
-      </Card>
+    /*
+     * Split-screen layout: agenda rail (left, sticky) | content panel (right).
+     * On mobile: agenda stacks above content as a horizontal-scrollable strip.
+     */
+    <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[19rem,1fr] lg:items-start">
+      {/* ── Left: agenda rail ──────────────────────────────────────────────── */}
+      <div className="lg:sticky lg:top-0 lg:max-h-screen lg:overflow-y-auto">
+        {/* Mobile: compact horizontal timeline strip */}
+        <div className="overflow-x-auto lg:hidden">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <InstructorDayList
+                lessons={dayLessons}
+                studentNames={studentNames}
+                trialLessons={dayTrials}
+                selectedId={lesson.id}
+                date={anchor}
+              />
+            </CardContent>
+          </Card>
+        </div>
 
+        {/* Desktop: full agenda panel */}
+        <Card className="hidden lg:block lg:min-h-[calc(100vh-3.5rem)]">
+          <CardContent className="pt-5">
+            <InstructorDayList
+              lessons={dayLessons}
+              studentNames={studentNames}
+              trialLessons={dayTrials}
+              selectedId={lesson.id}
+              date={anchor}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Right: student context panel ───────────────────────────────────── */}
       <div className="space-y-4">
         {sp.error ? (
           <Card className="border-danger/40 bg-danger/5">
@@ -227,16 +244,26 @@ export default async function InstructorLessonPage({
           </Card>
         ) : null}
 
-        {student ? (
-          <InstructorStudentCard student={student} balance={balance} />
-        ) : (
-          <Card>
-            <CardContent className="pt-5 text-sm text-muted-foreground">
-              Leerlinggegevens niet beschikbaar.
-            </CardContent>
-          </Card>
-        )}
+        {/* Student card + Progress card side-by-side on large screens */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {student ? (
+            <InstructorStudentCard student={student} />
+          ) : (
+            <Card>
+              <CardContent className="pt-5 text-sm text-muted-foreground">
+                Leerlinggegevens niet beschikbaar.
+              </CardContent>
+            </Card>
+          )}
+          <InstructorProgressCard
+            lesson={lesson}
+            progressScore={lesson.progress_score}
+            progress={cockpitProgress}
+            payment={cockpitPayment}
+          />
+        </div>
 
+        {/* Primary actions: Start les + quickactions */}
         <InstructorActionsPanel
           lessonId={lesson.id}
           studentId={lesson.student_id}
@@ -314,15 +341,7 @@ export default async function InstructorLessonPage({
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="space-y-4">
-        <InstructorProgressCard
-          lesson={lesson}
-          progressScore={lesson.progress_score}
-          progress={cockpitProgress}
-          payment={cockpitPayment}
-        />
         {student ? (
           <ExamReadinessPanel
             studentId={student.id}
@@ -332,6 +351,7 @@ export default async function InstructorLessonPage({
         ) : null}
         {student ? <AiProgressAnalysis lessonId={lesson.id} /> : null}
         {student ? <AiInternalAttention lessonId={lesson.id} /> : null}
+
         {student && taskLaunch.boards.length > 0 ? (
           <Card>
             <CardContent className="space-y-2 pt-5">
@@ -359,6 +379,7 @@ export default async function InstructorLessonPage({
             </CardContent>
           </Card>
         ) : null}
+
         <Card>
           <CardContent className="space-y-2 pt-5">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -378,14 +399,13 @@ export default async function InstructorLessonPage({
             </Link>
           </CardContent>
         </Card>
-      </div>
-      </div>
 
-      <SkillScoring
-        lessonId={lesson.id}
-        studentName={student?.full_name ?? "Leerling"}
-        leskaart={leskaart}
-      />
+        <SkillScoring
+          lessonId={lesson.id}
+          studentName={student?.full_name ?? "Leerling"}
+          leskaart={leskaart}
+        />
+      </div>
     </div>
   );
 }

@@ -1,17 +1,11 @@
 import Link from "next/link";
-import { Mail, Phone, User, MessageCircle } from "lucide-react";
+import { Mail, Phone, MessageCircle, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { formatTegoed, type Student } from "@/lib/students/types";
+import { type Student } from "@/lib/students/types";
 import { cn } from "@/lib/utils";
 
-/**
- * Normalise a Dutch phone number to E.164-ish digits for wa.me links.
- * "06 12345678" / "0612345678" -> "31612345678". Falls back to digit-stripped
- * input when the format is unexpected. Returns null when there is nothing
- * dialable so the WhatsApp/Bellen buttons can hide gracefully.
- */
 function toWhatsAppNumber(phone: string | null): string | null {
   if (!phone) return null;
   let digits = phone.replace(/[^\d+]/g, "");
@@ -21,67 +15,75 @@ function toWhatsAppNumber(phone: string | null): string | null {
   return digits.length >= 8 ? digits : null;
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export function InstructorStudentCard({
   student,
-  balance,
 }: {
   student: Pick<Student, "id" | "full_name" | "email" | "phone" | "active">;
-  balance: number;
+  balance?: number;
 }) {
   const waNumber = toWhatsAppNumber(student.phone);
+  const initials = getInitials(student.full_name);
 
   return (
     <Card>
-      <CardContent className="space-y-4 pt-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <User className="h-6 w-6" aria-hidden />
+      <CardContent className="pt-5">
+        <div className="flex items-start gap-4">
+          {/* Amber initials avatar */}
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold tracking-tight select-none">
+            {initials || "?"}
           </div>
+
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-lg font-semibold text-foreground">
+              <h2 className="truncate text-lg font-semibold leading-tight text-foreground">
                 {student.full_name}
               </h2>
-              <Badge variant={student.active ? "success" : "default"}>
+              <Badge variant={student.active ? "success" : "default"} className="shrink-0">
                 {student.active ? "Actief" : "Inactief"}
               </Badge>
             </div>
-            <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+
+            <div className="mt-1.5 space-y-0.5 text-sm text-muted-foreground">
               {student.email ? (
                 <div className="flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5" aria-hidden />
+                  <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span className="truncate">{student.email}</span>
                 </div>
               ) : null}
               {student.phone ? (
                 <div className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" aria-hidden />
+                  <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span>{student.phone}</span>
                 </div>
               ) : null}
             </div>
           </div>
-          <Badge
-            variant={balance > 300 ? "success" : balance > 0 ? "warning" : "danger"}
-          >
-            {formatTegoed(balance)}
-          </Badge>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {/* Action buttons */}
+        <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href={`/backoffice/leerlingen/${student.id}`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
           >
-            <User className="h-4 w-4" aria-hidden />
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             Profiel openen
           </Link>
           {student.phone ? (
             <a
               href={`tel:${student.phone.replace(/\s+/g, "")}`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
             >
-              <Phone className="h-4 w-4" aria-hidden />
+              <Phone className="h-3.5 w-3.5" aria-hidden />
               Bellen
             </a>
           ) : null}
@@ -90,12 +92,9 @@ export function InstructorStudentCard({
               href={`https://wa.me/${waNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "text-success",
-              )}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 text-success")}
             >
-              <MessageCircle className="h-4 w-4" aria-hidden />
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
               WhatsApp
             </a>
           ) : null}

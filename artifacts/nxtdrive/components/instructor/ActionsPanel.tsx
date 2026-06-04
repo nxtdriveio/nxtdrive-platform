@@ -121,11 +121,11 @@ export function InstructorActionsPanel({
                 <Button
                   type="submit"
                   size="lg"
-                  variant="outline"
-                  className="w-full"
+                  variant="primary"
+                  className="h-12 w-full text-base font-bold"
                   disabled={pending}
                 >
-                  <PlayCircle className="h-4 w-4" aria-hidden />
+                  <PlayCircle className="h-5 w-5" aria-hidden />
                   Start les
                 </Button>
               </form>
@@ -147,7 +147,7 @@ export function InstructorActionsPanel({
         )}
 
         {/* Quick actions grid */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <ActionTile
             icon={StickyNote}
             label="Notitie"
