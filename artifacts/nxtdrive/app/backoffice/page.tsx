@@ -4,7 +4,6 @@ import {
   Inbox,
   Wallet,
   Receipt,
-  Clock,
   ArrowUpRight,
   CheckCircle2,
   AlertTriangle,
@@ -29,7 +28,7 @@ import {
 } from "@/lib/dashboard/reports-data";
 import { formatEuros } from "@/lib/invoices/types";
 import { MiniBarChart } from "@/components/charts/MiniBarChart";
-import { StatCard } from "@/components/backoffice/stat-card";
+import { KpiSection } from "@/components/backoffice/kpi-section";
 import { DashboardCard, DashboardEmptyState } from "@/components/backoffice/dashboard-card";
 import { StatusBadge } from "@/components/backoffice/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -149,58 +148,19 @@ export default async function BackofficePage() {
         </div>
       </div>
 
-      {/* ── 7 KPI cards ── */}
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        <StatCard
-          label="Actieve leerlingen"
-          value={metrics.activeStudents.toLocaleString("nl-NL")}
-          icon={Users}
-          trendHint="actief"
-          href="/backoffice/leerlingen"
-        />
-        <StatCard
-          label="Lessen vandaag"
-          value={metrics.lessonsToday.toLocaleString("nl-NL")}
-          icon={Clock}
-          trendHint="gepland"
-          href="/backoffice/agenda"
-        />
-        <StatCard
-          label="Openstaande leads"
-          value={metrics.openLeads.toLocaleString("nl-NL")}
-          icon={Inbox}
-          trendHint="in funnel"
-          href="/backoffice/leads"
-        />
-        <StatCard
-          label="Omzet deze maand"
-          value={formatEuros(metrics.revenueThisMonthCents)}
-          icon={Wallet}
-          trendHint="betaald"
-          href="/backoffice/boekhouding"
-        />
-        <StatCard
-          label="Nog opvolgen"
-          value={metrics.leadsToFollowUp.toLocaleString("nl-NL")}
-          icon={ArrowUpRight}
-          trendHint="nieuwe leads"
-          href="/backoffice/leads"
-        />
-        <StatCard
-          label="Open facturen"
-          value={metrics.openInvoices.toLocaleString("nl-NL")}
-          icon={Receipt}
-          trendHint="onbetaald"
-          href="/backoffice/facturen"
-        />
-        <StatCard
-          label="Proefles geboekt"
-          value={upcomingTrials.length.toLocaleString("nl-NL")}
-          icon={Car}
-          trendHint="aankomend"
-          href="/backoffice/leads"
-        />
-      </section>
+      {/* ── 7 KPI cards (auto-refresh every 60 s) ── */}
+      <KpiSection
+        initial={{
+          activeStudents: metrics.activeStudents,
+          lessonsToday: metrics.lessonsToday,
+          openLeads: metrics.openLeads,
+          revenueThisMonthCents: metrics.revenueThisMonthCents,
+          leadsToFollowUp: metrics.leadsToFollowUp,
+          openInvoices: metrics.openInvoices,
+          upcomingTrials: upcomingTrials.length,
+          fetchedAt: new Date().toISOString(),
+        }}
+      />
 
       {/* ── Lead funnel ── */}
       <DashboardCard
