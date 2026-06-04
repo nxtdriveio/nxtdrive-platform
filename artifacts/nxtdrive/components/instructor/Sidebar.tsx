@@ -25,23 +25,41 @@ type NavItem = {
   label: string;
   icon: typeof CalendarDays;
   match: "exact" | "prefix";
+  /** Additional path prefixes that also count as active for this nav item. */
+  extraPrefixes?: string[];
 };
 
 /**
  * Mobile nav: trimmed to 5 most-used destinations.
- * "Meer" is a simple link to the taken-page as a catch-all.
+ * "Meer" links to the /instructor/meer hub page which lists all secondary
+ * destinations (Beschikbaarheid, Meldingen, Leerlingen, Instellingen).
  */
 const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
   { href: "/instructor/week", label: "Planning", icon: ClipboardList, match: "prefix" },
   { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
   { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
-  { href: "/instructor/beschikbaarheid", label: "Meer", icon: MoreHorizontal, match: "prefix" },
+  {
+    href: "/instructor/meer",
+    label: "Meer",
+    icon: MoreHorizontal,
+    match: "prefix",
+    extraPrefixes: [
+      "/instructor/beschikbaarheid",
+      "/instructor/meldingen",
+      "/instructor/leerlingen",
+      "/instructor/instellingen",
+    ],
+  },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
-  if (item.match === "exact") return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  if (item.match === "exact") {
+    const base = pathname === item.href;
+    return base || (item.extraPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false);
+  }
+  const base = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  return base || (item.extraPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false);
 }
 
 /**
