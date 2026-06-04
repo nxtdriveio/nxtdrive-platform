@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
 ];
 
 const ACTIES = [
-  { href: "/backoffice/taken", icon: ListTodo, label: "Mijn taken" },
+  { href: "/instructor/taken", icon: ListTodo, label: "Mijn taken" },
   { href: "/instructor/week", icon: ClipboardList, label: "Weekplanning" },
   { href: "/backoffice/agenda/afspraken/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
   { href: "/backoffice/leerlingen", icon: Users, label: "Leerlingenlijst" },
@@ -108,10 +108,10 @@ export function InstructorTopbar({
       {/* Right cluster: Taken shortcut + notifications + Acties dropdown */}
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <Link
-          href="/backoffice/taken"
+          href="/instructor/taken"
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-            pathname.startsWith("/backoffice/taken")
+            pathname.startsWith("/instructor/taken")
               ? "bg-primary-soft font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}

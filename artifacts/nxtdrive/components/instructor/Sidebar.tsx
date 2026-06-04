@@ -36,7 +36,7 @@ const MOBILE_NAV: NavItem[] = [
     icon: CalendarClock,
     match: "prefix",
   },
-  { href: "/backoffice/taken", label: "Taken", icon: ListTodo, match: "prefix" },
+  { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
   { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
   { href: "/instructor/meldingen", label: "Meldingen", icon: Bell, match: "prefix" },
 ];

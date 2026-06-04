@@ -202,7 +202,7 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={ListTodo}
             label="Bekijk taken"
-            href="/backoffice/taken"
+            href="/instructor/taken"
           />
           <LinkTile
             icon={Phone}
