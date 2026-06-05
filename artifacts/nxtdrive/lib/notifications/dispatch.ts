@@ -42,6 +42,7 @@ import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { dispatchInApp, formatWhenNL } from "./in-app";
+import { formatEuro } from "./format";
 import { isTenantTriggerEnabled } from "./platform-notification-config";
 import type {
   DispatchOutcome,
@@ -316,6 +317,12 @@ export async function notifyInvoicePaid(
       title: "Betaling ontvangen",
       body: `Je betaling voor factuur #${invoice.invoice_no} is verwerkt.`,
       link: "/student/facturen",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        invoice_no: String(invoice.invoice_no),
+        amount: formatEuro(invoice.total_cents as number),
+      },
     },
   });
 }
@@ -396,6 +403,12 @@ export async function notifyPaymentReminder(
       title: "Betalingsherinnering",
       body: `Factuur #${invoice.invoice_no} staat nog open.`,
       link: "/student/facturen",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        invoice_no: String(invoice.invoice_no),
+        amount: formatEuro(invoice.total_cents as number),
+      },
     },
   });
 }
@@ -449,6 +462,13 @@ export async function notifyLessonReminder(
       title: "Herinnering: rijles",
       body: `Je rijles staat gepland op ${formatWhenNL(lesson.starts_at)}.`,
       link: "/student/lessons",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: data.studentName,
+        lesson_time: formatWhenNL(lesson.starts_at),
+        location: lesson.location ?? "",
+        instructor_name: lesson.instructorName ?? "",
+      },
     },
   });
 }
@@ -531,6 +551,14 @@ export async function notifyTaskAssigned(
       title: "Nieuwe taak toegewezen",
       body: (task.title as string | null) ?? "Er is een taak aan je toegewezen.",
       link: "/backoffice/taken",
+      vars: {
+        tenant_name: branding.tenantName,
+        assignee_name: (assignee?.full_name as string | undefined) ?? "collega",
+        task_title: (task.title as string | undefined) ?? "Taak",
+        board_name: (board?.name as string | undefined) ?? "",
+        department_name: (department?.name as string | undefined) ?? "",
+        priority: priority ? TASK_PRIORITY_LABEL[priority] : "",
+      },
     },
   });
 }
@@ -767,6 +795,13 @@ export async function notifyLessonRefillInvitation(
       title: "Vrijgekomen lesmoment",
       body: `Er is een rijles vrij op ${formatWhenNL(inv.startsAt)}. Reageer snel.`,
       link: "/student/lessons",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: inv.studentName,
+        lesson_time: formatWhenNL(inv.startsAt),
+        location: inv.location ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -814,6 +849,13 @@ export async function notifyLessonRefillConfirmed(
       title: "Extra les bevestigd",
       body: `Je extra rijles op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
       link: "/student/lessons",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: inv.studentName,
+        lesson_time: formatWhenNL(inv.startsAt),
+        location: inv.location ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -916,6 +958,14 @@ export async function notifyExamInvitation(
       title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} aangeboden`,
       body: `Er is een ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} beschikbaar op ${formatWhenNL(inv.startsAt)}.`,
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: inv.studentName,
+        exam_type: inv.examType === "exam" ? "examen" : "tussentijdse toets",
+        exam_time: formatWhenNL(inv.startsAt),
+        location: inv.location ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -964,6 +1014,14 @@ export async function notifyExamConfirmed(
       title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} bevestigd`,
       body: `Je ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: inv.studentName,
+        exam_type: inv.examType === "exam" ? "examen" : "tussentijdse toets",
+        exam_time: formatWhenNL(inv.startsAt),
+        location: inv.location ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -1036,6 +1094,14 @@ export async function notifyExamPlanned(
       title: `${type === "exam" ? "Examen" : "Tussentijdse toets"} ingepland`,
       body: `Er is een ${type === "exam" ? "examen" : "tussentijdse toets"} voor je ingepland op ${formatWhenNL(appt.starts_at as string)}.`,
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        exam_type: type === "exam" ? "examen" : "tussentijdse toets",
+        exam_time: formatWhenNL(appt.starts_at as string),
+        location: (appt.location as string | null) ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -1105,6 +1171,12 @@ export async function notifyExamResult(
           ? `Je bent geslaagd voor je ${type === "exam" ? "examen" : "tussentijdse toets"}.`
           : `Helaas, je ${type === "exam" ? "examen" : "tussentijdse toets"} is niet gehaald. We plannen samen de volgende stap.`,
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        exam_type: type === "exam" ? "examen" : "tussentijdse toets",
+        result: result === "passed" ? "geslaagd" : "gezakt",
+      },
     },
   });
 }
@@ -1216,6 +1288,14 @@ export async function notifyLessonCancelled(
           : ""
       }.`,
       link: "/student/lessons",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        lesson_time: formatWhenNL(lesson.starts_at as string),
+        location: (lesson.location as string | null) ?? "",
+        instructor_name: instructorName ?? "",
+        refunded: status === "cancelled_with_refund" ? "ja" : "nee",
+      },
     },
   });
 }
@@ -1313,6 +1393,14 @@ export async function notifyLessonRescheduled(
         title: "Rijles verzet",
         body: `Je rijles is verzet naar ${formatWhenNL(newStartsAt)}.`,
         link: "/student/lessons",
+        vars: {
+          tenant_name: branding.tenantName,
+          student_name: studentName,
+          lesson_time: formatWhenNL(newStartsAt),
+          previous_lesson_time: formatWhenNL(previousStartsAt),
+          location: location ?? "",
+          instructor_name: instructorName ?? "",
+        },
       },
     });
     summary.student = outcome;
@@ -1353,6 +1441,14 @@ export async function notifyLessonRescheduled(
           title: "Rijles verzet",
           body: `De rijles van ${studentName} is verzet naar ${formatWhenNL(newStartsAt)}.`,
           link: "/ouder",
+          vars: {
+            tenant_name: branding.tenantName,
+            student_name: studentName,
+            lesson_time: formatWhenNL(newStartsAt),
+            previous_lesson_time: formatWhenNL(previousStartsAt),
+            location: location ?? "",
+            instructor_name: instructorName ?? "",
+          },
         },
       });
       summary.guardians.push(outcome);
@@ -1397,6 +1493,14 @@ export async function notifyLessonRescheduled(
         title: "Rijles verzet",
         body: `${studentName} heeft een rijles verzet naar ${formatWhenNL(newStartsAt)}.`,
         link: "/instructor/week",
+        vars: {
+          tenant_name: branding.tenantName,
+          instructor_name: (instructor?.full_name as string | null) ?? instructorName ?? "",
+          student_name: studentName,
+          lesson_time: formatWhenNL(newStartsAt),
+          previous_lesson_time: formatWhenNL(previousStartsAt),
+          location: location ?? "",
+        },
       },
     });
     summary.instructor = outcome;
@@ -1471,6 +1575,12 @@ export async function notifyInvoiceCreated(
       title: "Nieuwe factuur",
       body: `Factuur #${invoice.invoice_no} staat voor je klaar.`,
       link: "/student/facturen",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        invoice_no: String(invoice.invoice_no),
+        amount: formatEuro(invoice.total_cents as number),
+      },
     },
   });
 }
@@ -1521,6 +1631,10 @@ export async function notifyCbrAuthorizationNeeded(
       title: "CBR-machtiging nodig",
       body: "Regel je CBR-machtiging zodat we je examen kunnen aanvragen.",
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student.full_name as string | null) ?? "cursist",
+      },
     },
   });
 }
@@ -1573,6 +1687,11 @@ export async function notifyCreditLow(
       title: "Lestegoed bijna op",
       body: `Je hebt nog ${balanceMinutes} minuten lestegoed.`,
       link: "/student/credits",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student.full_name as string | null) ?? "cursist",
+        balance_minutes: String(balanceMinutes),
+      },
     },
   });
 }
@@ -1646,6 +1765,14 @@ export async function notifyInstallmentDue(
       title: "Termijn vervalt binnenkort",
       body: `Termijnfactuur #${invoice.invoice_no} vervalt binnenkort.`,
       link: "/student/facturen",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        invoice_no: String(invoice.invoice_no),
+        amount: formatEuro(invoice.total_cents as number),
+        installment_no: String((invoice.installment_no as number | null) ?? ""),
+        installment_count: String((invoice.installment_count as number | null) ?? ""),
+      },
     },
   });
 }
@@ -1714,6 +1841,14 @@ export async function notifyExamDayReminder(
       title: "Herinnering: examen",
       body: `Je ${type === "exam" ? "examen" : "tussentijdse toets"} is op ${formatWhenNL(appt.starts_at as string)}. Succes!`,
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student?.full_name as string | undefined) ?? "cursist",
+        exam_type: type === "exam" ? "examen" : "tussentijdse toets",
+        exam_time: formatWhenNL(appt.starts_at as string),
+        location: (appt.location as string | null) ?? "",
+        instructor_name: instructorName ?? "",
+      },
     },
   });
 }
@@ -1798,6 +1933,12 @@ export async function notifyStudentReviewRequest(
       title: "Deel je ervaring",
       body: "Zou je een momentje willen nemen om een review achter te laten? Het helpt ons enorm!",
       link: "/student",
+      vars: {
+        tenant_name: branding.tenantName,
+        student_name: (student.full_name as string | null) ?? "cursist",
+        review_url: reviewUrl,
+        moment,
+      },
     },
   });
 }
@@ -2115,6 +2256,13 @@ export async function notifyParentsInvoiceReady(
         title: "Nieuwe factuur",
         body: `Er staat een nieuwe factuur klaar voor ${childName} (#${invoice.invoice_no}).`,
         link: "/ouder",
+        vars: {
+          tenant_name: branding.tenantName,
+          guardian_name: guardian.name,
+          child_name: childName,
+          invoice_no: String(invoice.invoice_no),
+          amount: formatEuro(invoice.total_cents as number),
+        },
       },
     });
     outcomes.push(outcome);
@@ -2200,6 +2348,13 @@ export async function notifyParentsInvoicePaid(
         title: "Betaling ontvangen",
         body: `De betaling voor factuur #${invoice.invoice_no} van ${childName} is verwerkt.`,
         link: "/ouder",
+        vars: {
+          tenant_name: branding.tenantName,
+          guardian_name: guardian.name,
+          child_name: childName,
+          invoice_no: String(invoice.invoice_no),
+          amount: formatEuro(invoice.total_cents as number),
+        },
       },
     });
     outcomes.push(outcome);
@@ -2288,6 +2443,14 @@ export async function notifyParentsLessonScheduled(
         title: "Rijles ingepland",
         body: `Er is een rijles ingepland voor ${childName} op ${formatWhenNL(lesson.starts_at as string)}.`,
         link: "/ouder",
+        vars: {
+          tenant_name: branding.tenantName,
+          guardian_name: guardian.name,
+          child_name: childName,
+          lesson_time: formatWhenNL(lesson.starts_at as string),
+          location: (lesson.location as string | null) ?? "",
+          instructor_name: instructorName ?? "",
+        },
       },
     });
     outcomes.push(outcome);

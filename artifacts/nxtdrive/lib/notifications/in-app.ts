@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sendWebPushToUser } from "./web-push";
 import { isTenantTriggerEnabled } from "./platform-notification-config";
+import { interpolate } from "./templates";
 import type { InAppContent, InAppNotification, NotificationCategory } from "./types";
 import { NOTIFICATION_TYPE_CATEGORY } from "./types";
 
@@ -119,11 +120,19 @@ export async function dispatchInApp(
     ? tenantTemplates.find((t) => t.channel === "push") ?? null
     : null;
 
-  // Resolved in-app content: tenant override → platform default → call-site value
-  const resolvedTitle =
-    tenantInapp?.inapp_title || platformInapp?.inapp_title || inApp.title;
-  const resolvedBody =
-    tenantInapp?.inapp_body || platformInapp?.inapp_body || inApp.body;
+  // Resolved in-app content: tenant override → platform default → call-site value.
+  // Shortcode interpolation ({{student_name}} etc.) is applied to all three tiers
+  // using the caller-supplied vars. Pre-rendered call-site strings are unaffected
+  // because they contain no {{...}} placeholders.
+  const vars = inApp.vars ?? {};
+  const resolvedTitle = interpolate(
+    tenantInapp?.inapp_title || platformInapp?.inapp_title || inApp.title,
+    vars,
+  );
+  const resolvedBody = interpolate(
+    tenantInapp?.inapp_body || platformInapp?.inapp_body || inApp.body,
+    vars,
+  );
 
   const { data, error } = await service.rpc("enqueue_app_notification", {
     p_tenant_id: params.tenantId,
@@ -163,10 +172,14 @@ export async function dispatchInApp(
     ).catch(() => true);
 
     if (pushEnabled) {
-      const pushTitle =
-        tenantPush?.push_title || platformPush?.push_title || resolvedTitle;
-      const pushBody =
-        tenantPush?.push_body || platformPush?.push_body || resolvedBody;
+      const pushTitle = interpolate(
+        tenantPush?.push_title || platformPush?.push_title || resolvedTitle,
+        vars,
+      );
+      const pushBody = interpolate(
+        tenantPush?.push_body || platformPush?.push_body || resolvedBody,
+        vars,
+      );
 
       try {
         await sendWebPushToUser(service, {

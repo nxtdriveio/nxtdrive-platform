@@ -44,7 +44,7 @@ function layout(branding: EmailBranding, innerHtml: string): string {
 }
 
 /** Replace {{placeholders}} in an override string. */
-function interpolate(template: string, vars: Record<string, string>): string {
+export function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_m, key: string) => {
     const v = vars[key.toLowerCase()];
     return v === undefined ? "" : v;

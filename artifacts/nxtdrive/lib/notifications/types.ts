@@ -131,6 +131,14 @@ export type InAppContent = {
   body: string;
   /** In-app path to the relevant context (e.g. /student/facturen). */
   link: string | null;
+  /**
+   * Shortcode interpolation vars for platform/tenant in-app template overrides.
+   * When a platform_notification_config or notification_templates row contains
+   * {{student_name}} etc., these vars are substituted before the text is stored.
+   * Call-site title/body (already rendered) are also passed through interpolate
+   * but are unaffected since they contain no {{...}} placeholders.
+   */
+  vars?: Record<string, string>;
 };
 
 /** A single in-app notification as read back for the bell / overview. */
