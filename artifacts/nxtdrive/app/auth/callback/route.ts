@@ -25,6 +25,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Recovery sessions (password-reset flow) must land on the password-change
+  // page — never on the normal role-based landing page. The user has a limited
+  // session that only allows updating their password.
+  const type = url.searchParams.get("type");
+  if (type === "recovery") {
+    return NextResponse.redirect(`${origin}/account/wachtwoord-wijzigen`);
+  }
+
   let dest = "/";
   if (explicitNext && explicitNext.startsWith("/")) {
     dest = explicitNext;
