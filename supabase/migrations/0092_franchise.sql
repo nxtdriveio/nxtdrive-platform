@@ -58,6 +58,8 @@ create index if not exists idx_tenants_parent
 -- ============================================================================
 -- 3. franchise_templates table
 -- Tenant-scoped to the franchisegever. Only 'package' template_type for now.
+-- NOTE: RLS is applied in section 4b (after franchise_template_activations
+-- exists), because the SELECT policy references that table.
 -- ============================================================================
 create table if not exists public.franchise_templates (
   id            uuid primary key default gen_random_uuid(),
@@ -78,37 +80,6 @@ drop trigger if exists franchise_templates_set_updated_at on public.franchise_te
 create trigger franchise_templates_set_updated_at
   before update on public.franchise_templates
   for each row execute function public.set_updated_at();
-
--- RLS:
---   * Franchisegever admin (tenant_admin / franchise_admin): read own templates.
---   * Franchisee admin: read ONLY templates that have been explicitly distributed
---     to their tenant (franchise_template_activations row exists). Direct
---     parent-tenant join without distribution is BLOCKED.
---   * Platform admin: read all.
---   * Writes: service_role only via RPCs (no insert/update/delete policies).
-alter table public.franchise_templates enable row level security;
-
-drop policy if exists franchise_templates_select on public.franchise_templates;
-create policy franchise_templates_select on public.franchise_templates
-  for select
-  using (
-    -- Franchisegever admin reads own templates.
-    exists (
-      select 1 from public.memberships m
-       where m.user_id   = auth.uid()
-         and m.tenant_id = franchise_templates.tenant_id
-         and m.role in ('tenant_admin', 'franchise_admin')
-    )
-    -- Franchisee admin reads ONLY templates distributed to their tenant.
-    or exists (
-      select 1 from public.franchise_template_activations fta
-       join public.memberships m on m.tenant_id = fta.franchisee_tenant_id
-       where fta.franchise_template_id = franchise_templates.id
-         and m.user_id = auth.uid()
-         and m.role in ('tenant_admin', 'franchise_admin')
-    )
-    or public.is_platform_admin()
-  );
 
 -- ============================================================================
 -- 4. franchise_template_activations table
@@ -157,6 +128,35 @@ create policy franchise_template_activations_select on public.franchise_template
       select 1 from public.franchise_templates ft
        join public.memberships m on m.tenant_id = ft.tenant_id
        where ft.id = franchise_template_activations.franchise_template_id
+         and m.user_id = auth.uid()
+         and m.role in ('tenant_admin', 'franchise_admin')
+    )
+    or public.is_platform_admin()
+  );
+
+-- ============================================================================
+-- 4b. franchise_templates RLS
+-- Applied here (after franchise_template_activations exists) because the
+-- SELECT policy's franchisee branch references that table.
+-- ============================================================================
+alter table public.franchise_templates enable row level security;
+
+drop policy if exists franchise_templates_select on public.franchise_templates;
+create policy franchise_templates_select on public.franchise_templates
+  for select
+  using (
+    -- Franchisegever admin reads own templates.
+    exists (
+      select 1 from public.memberships m
+       where m.user_id   = auth.uid()
+         and m.tenant_id = franchise_templates.tenant_id
+         and m.role in ('tenant_admin', 'franchise_admin')
+    )
+    -- Franchisee admin reads ONLY templates distributed to their tenant.
+    or exists (
+      select 1 from public.franchise_template_activations fta
+       join public.memberships m on m.tenant_id = fta.franchisee_tenant_id
+       where fta.franchise_template_id = franchise_templates.id
          and m.user_id = auth.uid()
          and m.role in ('tenant_admin', 'franchise_admin')
     )
