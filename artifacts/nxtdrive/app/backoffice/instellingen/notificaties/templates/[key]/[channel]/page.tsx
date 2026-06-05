@@ -50,11 +50,17 @@ export default async function TenantTemplateEditorPage({
   const service = createServiceRoleClient();
 
   const [tenantRow, platformConfig] = await Promise.all([
-    service.from("tenants").select("white_label_enabled, name").eq("id", tenant.id).maybeSingle(),
+    service.from("tenants").select("plan, white_label_enabled, name").eq("id", tenant.id).maybeSingle(),
     getPlatformNotificationConfig(service, key, channel),
   ]);
 
-  if (!tenantRow.data?.white_label_enabled) {
+  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
+  if (
+    !isWhiteLabelEligible({
+      plan: (tenantRow.data?.plan as "start" | "pro" | "elite" | undefined) ?? "start",
+      white_label_enabled: tenantRow.data?.white_label_enabled as boolean | null | undefined,
+    })
+  ) {
     redirect("/backoffice/instellingen/notificaties");
   }
 

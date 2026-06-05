@@ -34,7 +34,7 @@ export default async function OuderLayout({
   );
 
   const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
+  const logoUrl = resolveLogoUrl(tenant, branding);
 
   const navItems: PortalNavItem[] = [{ href: "/ouder", label: "Overzicht" }];
   if (visibility.planning)

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BranchForm } from "./branch-form";
 import { createBranch, updateBranch } from "@/lib/branches/actions";
+import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,8 @@ export default async function VestigingenPage({
   const reason = typeof sp.reason === "string" ? sp.reason : null;
   const editId = typeof sp.edit === "string" ? sp.edit : null;
 
+  const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
+
   const service = createServiceRoleClient();
   const branches = await listBranches(service, tenant.id);
 
@@ -93,23 +96,42 @@ export default async function VestigingenPage({
         </p>
       </div>
 
+      {!hasMultiBranch && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <p className="font-medium">Multi-vestiging vereist het Pro-abonnement of hoger.</p>
+          <p className="mt-1 text-xs opacity-80">
+            Je kunt vestigingen bekijken, maar aanmaken en bewerken is niet mogelijk
+            op het {tenant.plan === "start" ? "Start" : tenant.plan}-abonnement.
+            Neem contact op met NXTDRIVE om te upgraden.
+          </p>
+        </div>
+      )}
+
+      {error === "plan_required" && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          Multi-vestiging is niet beschikbaar op jouw huidige abonnement.
+        </div>
+      )}
+
       <Feedback
         success={success}
-        error={error}
+        error={error === "plan_required" ? null : error}
         name={name}
         slug={slug}
         reason={reason}
       />
 
-      {/* Create form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Nieuwe vestiging</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BranchForm action={createBranch} />
-        </CardContent>
-      </Card>
+      {/* Create form — only for Pro+ tenants */}
+      {hasMultiBranch && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Nieuwe vestiging</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BranchForm action={createBranch} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit form (shown when ?edit=<id> is in URL) */}
       {editBranch ? (

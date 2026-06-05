@@ -1,4 +1,5 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { tenantHasFeature } from "@/lib/platform/features";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
 import {
@@ -186,21 +187,34 @@ export default async function SettingsPage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Huisstijl
-            {tenant.white_label_enabled ? (
+            {tenantHasFeature(tenant, "white_label") && tenant.white_label_enabled ? (
               <Badge variant="success">Witlabel actief</Badge>
-            ) : (
+            ) : tenantHasFeature(tenant, "white_label") ? (
               <Badge variant="warning">Witlabel niet actief</Badge>
+            ) : (
+              <Badge variant="outline">Elite-functie</Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Stel je eigen logo en kleuren in voor het backoffice, de
-            instructeur- en de leerlingomgeving.
-            {tenant.white_label_enabled
-              ? " Je huisstijl is zichtbaar voor je team en leerlingen."
-              : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
-          </p>
+          {!tenantHasFeature(tenant, "white_label") ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              <p className="font-medium">White-label huisstijl vereist het Elite-abonnement.</p>
+              <p className="mt-1 text-xs opacity-80">
+                Je kunt je logo en kleuren hier instellen. Ze worden pas
+                zichtbaar voor je team en leerlingen zodra je account is
+                opgewaardeerd naar Elite. Neem contact op met NXTDRIVE.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Stel je eigen logo en kleuren in voor het backoffice, de
+              instructeur- en de leerlingomgeving.
+              {tenant.white_label_enabled
+                ? " Je huisstijl is zichtbaar voor je team en leerlingen."
+                : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
+            </p>
+          )}
 
           {brandingResult === "saved" ? (
             <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">

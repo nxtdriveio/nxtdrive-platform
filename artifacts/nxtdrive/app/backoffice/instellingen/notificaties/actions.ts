@@ -29,14 +29,20 @@ export async function toggleTenantTrigger(formData: FormData) {
 export async function saveTenantTemplate(formData: FormData) {
   const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
 
+  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
   const { data: tenantRow } = await createServiceRoleClient()
     .from("tenants")
-    .select("white_label_enabled")
+    .select("plan, white_label_enabled")
     .eq("id", tenant.id)
     .maybeSingle();
 
-  if (!tenantRow?.white_label_enabled) {
-    throw new Error("Alleen white-label tenants kunnen templates aanpassen.");
+  if (
+    !isWhiteLabelEligible({
+      plan: (tenantRow?.plan as "start" | "pro" | "elite" | undefined) ?? "start",
+      white_label_enabled: tenantRow?.white_label_enabled as boolean | null | undefined,
+    })
+  ) {
+    throw new Error("Aanpassen van e-mailtemplates vereist het Elite-abonnement met white-label ingeschakeld.");
   }
 
   const eventKey = formData.get("event_key") as string;

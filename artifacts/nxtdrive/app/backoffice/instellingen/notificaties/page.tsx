@@ -37,8 +37,10 @@ export default async function TenantNotificationsPage({
       .eq("tenant_id", tenant.id),
   ]);
 
-  const isWhiteLabel = (tenant as unknown as { white_label_enabled?: boolean })
-    .white_label_enabled === true;
+  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
+  const isWhiteLabel = isWhiteLabelEligible(
+    tenant as { plan: import("@/lib/types").TenantPlan; white_label_enabled?: boolean | null },
+  );
 
   const savedKey = params.saved ?? null;
 

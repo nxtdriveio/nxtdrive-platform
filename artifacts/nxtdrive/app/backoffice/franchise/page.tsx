@@ -167,6 +167,11 @@ export default async function FranchiseDashboardPage() {
     "franchise_admin",
   ]);
 
+  const { tenantHasFeature } = await import("@/lib/platform/features");
+  if (!tenantHasFeature(tenant, "franchise_as_franchisegever")) {
+    notFound();
+  }
+
   const service = createServiceRoleClient();
 
   // Verify this tenant is a franchisegever: it must not itself be a franchisee

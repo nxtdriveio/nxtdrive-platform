@@ -6,6 +6,25 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/packages/types";
+import { tenantHasFeature } from "@/lib/platform/features";
+
+function assertFranchisegeVerEnabled(tenant: { plan: string }) {
+  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "franchise_as_franchisegever")) {
+    redirect("/backoffice/franchise?error=plan_required&plan=elite");
+  }
+}
+
+function assertFranchiseeEnabled(tenant: { plan: string }) {
+  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "franchise_as_franchisee")) {
+    redirect("/backoffice?error=plan_required&plan=pro");
+  }
+}
+
+function assertMultiBranchEnabled(tenant: { plan: string }) {
+  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "multi_branch")) {
+    redirect("/backoffice/leads?error=plan_required&plan=pro");
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform admin: link / unlink franchisee ↔ franchisegever
@@ -46,6 +65,7 @@ export async function createFranchiseTemplate(formData: FormData) {
     "tenant_admin",
     "franchise_admin",
   ]);
+  assertFranchisegeVerEnabled(tenant);
 
   const name          = String(formData.get("name") ?? "").trim();
   const credits_total = parseInt(String(formData.get("credits_total") ?? ""), 10);
@@ -87,7 +107,8 @@ export async function createFranchiseTemplate(formData: FormData) {
 }
 
 export async function updateFranchiseTemplate(formData: FormData) {
-  const { user } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
+  const { user, tenant } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
+  assertFranchisegeVerEnabled(tenant);
 
   const template_id  = String(formData.get("template_id") ?? "").trim();
   const name         = String(formData.get("name") ?? "").trim() || null;
@@ -122,10 +143,11 @@ export async function updateFranchiseTemplate(formData: FormData) {
  * activateFranchiseTemplateAsPackage.
  */
 export async function pushTemplateToFranchisee(formData: FormData) {
-  const { user } = await requireActiveTenant([
+  const { user, tenant } = await requireActiveTenant([
     "tenant_admin",
     "franchise_admin",
   ]);
+  assertFranchisegeVerEnabled(tenant);
 
   const template_id          = String(formData.get("template_id") ?? "").trim();
   const franchisee_tenant_id = String(formData.get("franchisee_tenant_id") ?? "").trim();
@@ -155,6 +177,7 @@ export async function pushTemplateToFranchisee(formData: FormData) {
 /** Franchisee: activate a template (creates a real package). */
 export async function activateFranchiseTemplateAsPackage(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  assertFranchiseeEnabled(tenant);
 
   const template_id = String(formData.get("template_id") ?? "").trim();
   if (!template_id) redirect("/backoffice/packages?error=missing_fields");
@@ -198,6 +221,7 @@ export async function routeLeadToBranch(formData: FormData) {
     "tenant_admin",
     "franchise_admin",
   ]);
+  assertMultiBranchEnabled(tenant);
 
   const lead_id   = String(formData.get("lead_id") ?? "").trim();
   const branch_id = String(formData.get("branch_id") ?? "").trim();

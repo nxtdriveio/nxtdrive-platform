@@ -38,6 +38,11 @@ export default async function FranchiseTemplatesPage({
     requireActiveTenant(["tenant_admin", "franchise_admin"]),
   ]);
 
+  const { tenantHasFeature } = await import("@/lib/platform/features");
+  if (!tenantHasFeature(tenant, "franchise_as_franchisegever")) {
+    notFound();
+  }
+
   const service = createServiceRoleClient();
 
   // Only franchisegevers (no parent_tenant_id) can manage templates.

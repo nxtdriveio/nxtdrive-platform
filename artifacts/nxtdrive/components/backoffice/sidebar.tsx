@@ -32,7 +32,8 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   adminOnly: boolean;
-  franchiseOnly?: boolean;
+  requireFranchise?: boolean;
+  requireMultiBranch?: boolean;
 };
 
 type NavSection = {
@@ -84,14 +85,14 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Franchise Dashboard",
         icon: Network,
         adminOnly: false,
-        franchiseOnly: true,
+        requireFranchise: true,
       },
       {
         href: "/backoffice/franchise/templates",
         label: "Templates",
         icon: Package,
         adminOnly: true,
-        franchiseOnly: true,
+        requireFranchise: true,
       },
     ],
   },
@@ -99,7 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Beheer",
     items: [
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
-      { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true },
+      { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
       { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
     ],
   },
@@ -111,19 +112,22 @@ export function BackofficeSidebar({
   tenantName,
   logoUrl,
   isAdmin = false,
-  isFranchisegever = false,
+  hasFranchise = false,
+  hasMultiBranch = false,
 }: {
   tenantName: string;
   logoUrl?: string | null;
   isAdmin?: boolean;
-  isFranchisegever?: boolean;
+  hasFranchise?: boolean;
+  hasMultiBranch?: boolean;
 }) {
   const pathname = usePathname();
 
   const visibleNav = ALL_NAV.filter(
     (item) =>
       (!item.adminOnly || isAdmin) &&
-      (!item.franchiseOnly || isFranchisegever),
+      (!item.requireFranchise || hasFranchise) &&
+      (!item.requireMultiBranch || hasMultiBranch),
   );
 
   const activeHref = visibleNav
@@ -156,7 +160,8 @@ export function BackofficeSidebar({
           const sectionItems = section.items.filter(
             (item) =>
               (!item.adminOnly || isAdmin) &&
-              (!item.franchiseOnly || isFranchisegever),
+              (!item.requireFranchise || hasFranchise) &&
+              (!item.requireMultiBranch || hasMultiBranch),
           );
           if (sectionItems.length === 0) return null;
 

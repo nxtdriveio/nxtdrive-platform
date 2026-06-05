@@ -3,9 +3,19 @@
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { tenantHasFeature } from "@/lib/platform/features";
+
+function assertMultiBranchEnabled(tenant: { plan: string }) {
+  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "multi_branch")) {
+    redirect(
+      "/backoffice/instellingen/vestigingen?error=plan_required&plan=pro",
+    );
+  }
+}
 
 export async function createBranch(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  assertMultiBranchEnabled(tenant);
 
   const name = String(formData.get("name") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
@@ -45,6 +55,7 @@ export async function createBranch(formData: FormData) {
 
 export async function updateBranch(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  assertMultiBranchEnabled(tenant);
 
   const branchId = String(formData.get("branch_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -79,6 +90,7 @@ export async function updateBranch(formData: FormData) {
 
 export async function setMembershipBranches(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  assertMultiBranchEnabled(tenant);
 
   const membershipId = String(formData.get("membership_id") ?? "").trim();
   const raw = formData.getAll("branch_ids[]");

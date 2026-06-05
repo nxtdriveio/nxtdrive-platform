@@ -4,8 +4,15 @@ import type { Tenant, TenantBranding } from "@/lib/types";
  * Applies tenant-specific brand colors when white-labeling is enabled by
  * overriding the `--primary` design tokens for its subtree. Inline custom
  * properties cascade to all descendants and win over the `:root` / dark-mode
- * defaults, so branding works in both themes. When white-label is off (or no
- * colors are set) nothing is overridden and the default NXTDRIVE palette shows.
+ * defaults, so branding works in both themes.
+ *
+ * Gating: colors are only applied when BOTH conditions are met:
+ *   1. `tenant.white_label_enabled = true`
+ *   2. `tenant.plan = 'elite'`  ← white-label is an Elite-tier feature
+ *
+ * When either condition is false nothing is overridden and the default
+ * NXTDRIVE palette shows. This ensures graceful degradation — lower-plan
+ * tenants see the platform branding without any error.
  */
 export function BrandProvider({
   tenant,
@@ -18,7 +25,10 @@ export function BrandProvider({
   className?: string;
   children: React.ReactNode;
 }) {
-  const whitelabel = tenant?.white_label_enabled === true && branding;
+  const whitelabel =
+    tenant?.white_label_enabled === true &&
+    tenant?.plan === "elite" &&
+    branding;
   const style: Record<string, string> = {};
 
   if (whitelabel && branding.primary_color) {

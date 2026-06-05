@@ -1,7 +1,7 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import type { TenantBranding } from "@/lib/types";
+import type { TenantBranding, TenantPlan } from "@/lib/types";
 
 /**
  * Loads a tenant's white-label branding row. Reads under the caller's session
@@ -40,13 +40,22 @@ export async function getTenantBrandingPublic(
 }
 
 /**
- * The logo URL to display for a tenant: only the uploaded logo when white-label
- * is enabled AND a logo is set, otherwise null (caller falls back to NXTDRIVE).
+ * The logo URL to display for a tenant: returns the uploaded logo URL only
+ * when BOTH conditions are true:
+ *   1. `white_label_enabled = true` (tenant setting)
+ *   2. `plan = 'elite'` (subscription gate — white-label is an Elite feature)
+ *
+ * Any other combination returns null and the caller falls back to the
+ * NXTDRIVE platform logo. This ensures tenants on Start/Pro cannot
+ * accidentally display their branding even if `white_label_enabled` was
+ * set before a plan downgrade.
  */
 export function resolveLogoUrl(
-  whiteLabelEnabled: boolean,
+  tenant: { white_label_enabled: boolean; plan: TenantPlan | string } | null,
   branding: TenantBranding | null,
 ): string | null {
-  if (!whiteLabelEnabled) return null;
+  if (!tenant) return null;
+  if (!tenant.white_label_enabled) return null;
+  if (tenant.plan !== "elite") return null;
   return branding?.logo_url ?? null;
 }

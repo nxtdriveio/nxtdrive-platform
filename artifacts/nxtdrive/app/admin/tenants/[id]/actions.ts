@@ -4,6 +4,81 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import type { TenantPlan } from "@/lib/types";
+
+const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
+
+/** Platform admin: update a tenant's subscription plan. */
+export async function updateTenantPlanAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  const plan = String(formData.get("plan") ?? "").trim() as TenantPlan;
+
+  if (!tenantId || !VALID_PLANS.includes(plan)) {
+    redirect(`/admin/tenants/${tenantId}?plan_error=invalid`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("tenants")
+    .update({ plan })
+    .eq("id", tenantId);
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?plan_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  // Audit log: record the plan change.
+  await service.from("audit_log").insert({
+    tenant_id: tenantId,
+    actor_id: actor.id,
+    action: "tenant.plan_changed",
+    metadata: { plan },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?plan_saved=1`);
+}
+
+/** Platform admin: toggle white_label_enabled for a tenant. */
+export async function toggleWhiteLabelAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  const enabled = formData.get("white_label_enabled") === "true";
+
+  if (!tenantId) {
+    redirect(`/admin/tenants/${tenantId}?plan_error=invalid`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("tenants")
+    .update({ white_label_enabled: enabled })
+    .eq("id", tenantId);
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?plan_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    tenant_id: tenantId,
+    actor_id: actor.id,
+    action: "tenant.white_label_changed",
+    metadata: { white_label_enabled: enabled },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  redirect(`/admin/tenants/${tenantId}?plan_saved=1`);
+}
 
 export async function createTenantAdminAccount(
   tenantId: string,

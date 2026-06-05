@@ -70,7 +70,7 @@ export default async function InstructorLayout({
   const isAdmin = roles.includes("tenant_admin");
 
   const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
+  const logoUrl = resolveLogoUrl(tenant, branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   /* Load today's agenda for the sidebar agenda-rail */

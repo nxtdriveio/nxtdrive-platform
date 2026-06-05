@@ -9,6 +9,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
+import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function BackofficeLayout({
   const { user, tenant, roles } = await requireActiveTenant(BACKOFFICE_ROLES);
   const theme = await getTheme();
   const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
+  const logoUrl = resolveLogoUrl(tenant, branding);
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Onbekend";
   const roleLabel = roles
@@ -50,19 +51,22 @@ export default async function BackofficeLayout({
     .join(" + ");
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
-  // Determine if this tenant is a franchisegever:
-  // 1. Has no parent_tenant_id (is not itself a franchisee)
-  // 2. Has at least one franchisee (tenant with parent_tenant_id = this tenant)
+  // Determine if this tenant is a franchisegever (Elite plan + has franchisees).
   // We do a lightweight count check with service role.
-  let isFranchisegever = false;
-  if (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined) {
+  let hasFranchise = false;
+  if (
+    tenantHasFeature(tenant, "franchise_as_franchisegever") &&
+    (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined)
+  ) {
     const service = createServiceRoleClient();
     const { count } = await service
       .from("tenants")
       .select("id", { count: "exact", head: true })
       .eq("parent_tenant_id", tenant.id);
-    isFranchisegever = (count ?? 0) > 0;
+    hasFranchise = (count ?? 0) > 0;
   }
+
+  const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
 
   return (
     <BrandProvider
@@ -76,7 +80,8 @@ export default async function BackofficeLayout({
             tenantName={tenant.name}
             logoUrl={logoUrl}
             isAdmin={roles.includes("tenant_admin")}
-            isFranchisegever={isFranchisegever}
+            hasFranchise={hasFranchise}
+            hasMultiBranch={hasMultiBranch}
           />
         }
         topbar={

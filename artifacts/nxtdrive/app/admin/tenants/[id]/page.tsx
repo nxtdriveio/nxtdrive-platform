@@ -7,7 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { enterTenantBackoffice } from "../../actions";
-import { createTenantAdminAccount, setFranchiseeParentAction } from "./actions";
+import {
+  createTenantAdminAccount,
+  setFranchiseeParentAction,
+  updateTenantPlanAction,
+  toggleWhiteLabelAction,
+} from "./actions";
+import {
+  FEATURE_PLAN,
+  FEATURE_LABELS,
+  PLAN_ORDER,
+  tenantHasFeature,
+  type FeatureKey,
+} from "@/lib/platform/features";
+import type { TenantPlan } from "@/lib/types";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +126,9 @@ export default async function TenantDetailPage({
 
   const createAction = createTenantAdminAccount.bind(null, id);
 
+  const tenantPlan = (tenant.plan as TenantPlan) ?? "start";
+  const tenantObj = { plan: tenantPlan, white_label_enabled: !!(tenant as Record<string, unknown>).white_label_enabled };
+
   return (
     <main className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
@@ -199,6 +215,107 @@ export default async function TenantDetailPage({
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Plan & feature management */}
+        {sp.plan_saved && (
+          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+            Abonnement bijgewerkt.
+          </div>
+        )}
+        {sp.plan_error && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {sp.plan_error === "invalid"
+              ? "Ongeldig plan geselecteerd."
+              : decodeURIComponent(sp.plan_error)}
+          </div>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Plan selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Abonnement</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form action={updateTenantPlanAction} className="flex gap-2">
+                <input type="hidden" name="tenant_id" value={id} />
+                <select
+                  name="plan"
+                  defaultValue={tenantPlan}
+                  className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {PLAN_ORDER.map((p) => (
+                    <option key={p} value={p}>
+                      NXTDRIVE {PLAN_LABELS[p] ?? p}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" size="sm" variant="outline" className="shrink-0">
+                  Opslaan
+                </Button>
+              </form>
+
+              {/* White-label toggle — only meaningful for Elite */}
+              <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-foreground">White-label</p>
+                  <p className="text-xs text-muted-foreground">
+                    {tenantHasFeature(tenantObj, "white_label")
+                      ? "Eigen logo & kleuren activeren"
+                      : "Vereist Elite-abonnement"}
+                  </p>
+                </div>
+                {tenantHasFeature(tenantObj, "white_label") ? (
+                  <form action={toggleWhiteLabelAction}>
+                    <input type="hidden" name="tenant_id" value={id} />
+                    <input
+                      type="hidden"
+                      name="white_label_enabled"
+                      value={tenantObj.white_label_enabled ? "false" : "true"}
+                    />
+                    <Button type="submit" size="sm" variant={tenantObj.white_label_enabled ? "outline" : "primary"}>
+                      {tenantObj.white_label_enabled ? "Uitschakelen" : "Inschakelen"}
+                    </Button>
+                  </form>
+                ) : (
+                  <Badge variant="outline" className="text-xs">Vergrendeld</Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Feature flags grid */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Functies voor dit abonnement</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="divide-y divide-border">
+                {(Object.keys(FEATURE_PLAN) as FeatureKey[]).map((feature) => {
+                  const unlocked = tenantHasFeature(tenantObj, feature);
+                  const requiredPlan = FEATURE_PLAN[feature] as TenantPlan;
+                  return (
+                    <li
+                      key={feature}
+                      className="flex items-center justify-between py-2 text-sm"
+                    >
+                      <span className={unlocked ? "text-foreground" : "text-muted-foreground"}>
+                        {FEATURE_LABELS[feature]}
+                      </span>
+                      {unlocked ? (
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400">✓</span>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">
+                          {PLAN_LABELS[requiredPlan] ?? requiredPlan}+
+                        </Badge>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">

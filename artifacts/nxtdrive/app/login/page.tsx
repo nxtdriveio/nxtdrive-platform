@@ -28,8 +28,8 @@ export default async function LoginPage({
   const tenant = await resolveTenantByHost(service, host);
 
   const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
-  const logoUrl = resolveLogoUrl(tenant?.white_label_enabled ?? false, branding);
-  const isWhiteLabel = tenant?.white_label_enabled === true;
+  const logoUrl = resolveLogoUrl(tenant ?? null, branding);
+  const isWhiteLabel = tenant?.white_label_enabled === true && tenant?.plan === "elite";
 
   return (
     <BrandProvider tenant={tenant} branding={branding} className="contents">

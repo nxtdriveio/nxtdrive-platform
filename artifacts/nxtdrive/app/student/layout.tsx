@@ -82,7 +82,7 @@ export default async function StudentLayout({
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
 
   const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant.white_label_enabled, branding);
+  const logoUrl = resolveLogoUrl(tenant, branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   return (
