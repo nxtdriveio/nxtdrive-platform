@@ -8,7 +8,7 @@ import {
   setPlatformSendgridKey,
   setPlatformFromEmail,
 } from "@/lib/email/platform-config";
-import { setPlatformAiKey } from "@/lib/ai/platform-config";
+import { getAiConfigStatus, setPlatformAiKey } from "@/lib/ai/platform-config";
 
 export async function savePlatformEmailConfig(formData: FormData) {
   await requirePlatformAdmin();
@@ -37,11 +37,19 @@ export async function savePlatformAiConfig(formData: FormData) {
   await requirePlatformAdmin();
   const rawKey = String(formData.get("openai_api_key") ?? "").trim();
 
+  const service = createServiceRoleClient();
+
+  // Empty field = no-op when a key is already configured (same pattern as
+  // the SendGrid key in savePlatformEmailConfig). Only reject empty when
+  // nothing is stored yet.
   if (!rawKey) {
-    redirect("/admin?tab=ai&aiError=" + encodeURIComponent("Vul een OpenAI API-sleutel in."));
+    const { configured } = await getAiConfigStatus(service);
+    if (!configured) {
+      redirect("/admin?tab=ai&aiError=" + encodeURIComponent("Vul een OpenAI API-sleutel in."));
+    }
+    redirect("/admin?tab=ai&aiSaved=1");
   }
 
-  const service = createServiceRoleClient();
   try {
     await setPlatformAiKey(service, rawKey);
   } catch (err) {

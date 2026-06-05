@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Brain, Info, AlertTriangle, Target, Gauge } from "lucide-react";
+import { Sparkles, Info, AlertTriangle, Target, Gauge } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ export function AiProgressAnalysis(
       <CardContent className="space-y-4 pt-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <Brain className="h-4 w-4" aria-hidden />
+            <Sparkles className="h-4 w-4 text-amber-400" aria-hidden />
             AI-analyse
           </div>
           <Badge variant="default">Advies</Badge>
@@ -74,7 +74,7 @@ export function AiProgressAnalysis(
           disabled={pending}
           className="w-full"
         >
-          <Brain className="h-4 w-4" aria-hidden />
+          <Sparkles className="h-4 w-4 text-amber-400" aria-hidden />
           {pending
             ? "Analyseren…"
             : analysis
