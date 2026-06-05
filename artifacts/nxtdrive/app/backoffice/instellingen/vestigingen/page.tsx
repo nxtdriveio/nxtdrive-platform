@@ -4,7 +4,7 @@ import { listBranches, type Branch } from "@/lib/branches/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BranchForm } from "./branch-form";
-import { createBranch, updateBranch } from "./actions";
+import { createBranch, updateBranch } from "@/lib/branches/actions";
 
 export const dynamic = "force-dynamic";
 
