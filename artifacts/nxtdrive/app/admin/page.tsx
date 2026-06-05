@@ -163,7 +163,7 @@ export default async function PlatformAdminPage({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit">
           {[
             { id: "tenants", label: "Rijscholen" },
             { id: "groei", label: "Groei & MRR" },
@@ -174,6 +174,12 @@ export default async function PlatformAdminPage({
               {tab.label}
             </Link>
           ))}
+          <Link
+            href="/admin/notifications"
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            Notificaties ↗
+          </Link>
         </div>
 
         {/* Feedback banners */}

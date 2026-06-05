@@ -42,6 +42,7 @@ import { TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/tasks/types";
 import { sendEmail } from "./provider";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { dispatchInApp, formatWhenNL } from "./in-app";
+import { isTenantTriggerEnabled } from "./platform-notification-config";
 import type {
   DispatchOutcome,
   InAppContent,
@@ -52,24 +53,47 @@ import type {
 
 type EnqueueRow = { id: string; status: string; was_created: boolean };
 
+/**
+ * Template-override ophalen voor een e-mailmelding. Lookup-prioriteit:
+ *   1. Tenant white-label override (notification_templates)
+ *   2. Platform-standaard uit platform_notification_config
+ *   3. Null → hardcode render-functie in templates.ts (bestaand gedrag)
+ *
+ * Beide tabellen worden parallel geladen (één round-trip).
+ */
 async function loadOverride(
   service: SupabaseClient,
   tenantId: string,
   key: NotificationType,
 ): Promise<TemplateOverride> {
-  const { data } = await service
-    .from("notification_templates")
-    .select("subject, body_html, body_text, enabled")
-    .eq("tenant_id", tenantId)
-    .eq("key", key)
-    .eq("channel", "email")
-    .maybeSingle();
-  if (!data) return null;
+  const [tenantRow, platformRow] = await Promise.all([
+    service
+      .from("notification_templates")
+      .select("subject, body_html, body_text, enabled")
+      .eq("tenant_id", tenantId)
+      .eq("key", key)
+      .eq("channel", "email")
+      .maybeSingle(),
+    service
+      .from("platform_notification_config")
+      .select("subject, body_html, body_text")
+      .eq("event_key", key)
+      .eq("channel", "email")
+      .maybeSingle(),
+  ]);
+
+  const td = tenantRow.data;
+  const pd = platformRow.data;
+
+  // Geen tenant-override én geen platform-content → terugvallen op code-fallback
+  if (!td && !pd?.body_html && !pd?.subject) return null;
+
   return {
-    subject: (data.subject as string | null) ?? null,
-    bodyHtml: (data.body_html as string | null) ?? null,
-    bodyText: (data.body_text as string | null) ?? null,
-    enabled: Boolean(data.enabled),
+    subject: (td?.subject as string | null) ?? (pd?.subject as string | null) ?? null,
+    bodyHtml: (td?.body_html as string | null) ?? (pd?.body_html as string | null) ?? null,
+    bodyText: (td?.body_text as string | null) ?? (pd?.body_text as string | null) ?? null,
+    // Tenant-enabled vlag is apart geregeld via het gate-mechanisme; hier altijd true
+    enabled: td ? Boolean(td.enabled) : true,
   };
 }
 
@@ -107,6 +131,11 @@ async function dispatch(
   service: SupabaseClient,
   params: DispatchParams,
 ): Promise<{ outcome: DispatchOutcome }> {
+  // In-app en push zijn kanaal-specifieke leveringen die onafhankelijk van
+  // e-mail worden bepaald. dispatchInApp heeft z'n eigen "inapp"-gate +
+  // afzonderlijke "push"-gate voor het web-push-gedeelte.
+  // Eerst dispatchen zodat een uitgeschakelde e-mailtrigger de in-app/push
+  // NIET onderdrukt.
   if (params.inApp) {
     await dispatchInApp(service, {
       tenantId: params.tenantId,
@@ -118,6 +147,11 @@ async function dispatch(
       inApp: params.inApp,
     });
   }
+
+  // E-mail-kanaalgate: controleert global + tenant_enabled uitsluitend voor
+  // het e-mailkanaal. In-app/push zijn al afgehandeld en worden niet geraakt.
+  const emailEnabled = await isTenantTriggerEnabled(service, params.tenantId, params.type, "email").catch(() => true);
+  if (!emailEnabled) return { outcome: "skipped" };
 
   const { data, error } = await service.rpc("enqueue_notification", {
     p_tenant_id: params.tenantId,

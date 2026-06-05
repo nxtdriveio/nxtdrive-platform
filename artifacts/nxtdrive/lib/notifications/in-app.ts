@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sendWebPushToUser } from "./web-push";
+import { isTenantTriggerEnabled } from "./platform-notification-config";
 import type { InAppContent, InAppNotification, NotificationCategory } from "./types";
 import { NOTIFICATION_TYPE_CATEGORY } from "./types";
 
@@ -67,6 +68,15 @@ export async function dispatchInApp(
   const inApp = params.inApp;
   if (!inApp || !inApp.recipientUserId) return { skipped: true };
 
+  // Gate: global platform flag + tenant override voor het inapp-kanaal.
+  const inappEnabled = await isTenantTriggerEnabled(
+    service,
+    params.tenantId,
+    params.type,
+    "inapp",
+  ).catch(() => true);
+  if (!inappEnabled) return { skipped: true };
+
   const allowed = await isTypeAllowed(
     service,
     params.tenantId,
@@ -75,12 +85,52 @@ export async function dispatchInApp(
   ).catch(() => true);
   if (!allowed) return { skipped: true };
 
+  // Template override lookup (parallel): tenant row → platform default → call-site value.
+  // Both in-app and push overrides are loaded in a single fan-out so we can apply
+  // them to the enqueue call and the web-push send respectively.
+  const [tenantTemplates, platformInapp, platformPush] = await Promise.all([
+    service
+      .from("notification_templates")
+      .select("channel, inapp_title, inapp_body, push_title, push_body")
+      .eq("tenant_id", params.tenantId)
+      .eq("key", params.type)
+      .in("channel", ["inapp", "push"])
+      .then((r) => (r.data ?? []) as Array<Record<string, string | null>>),
+    service
+      .from("platform_notification_config")
+      .select("inapp_title, inapp_body")
+      .eq("event_key", params.type)
+      .eq("channel", "inapp")
+      .maybeSingle()
+      .then((r) => r.data as Record<string, string | null> | null),
+    service
+      .from("platform_notification_config")
+      .select("push_title, push_body")
+      .eq("event_key", params.type)
+      .eq("channel", "push")
+      .maybeSingle()
+      .then((r) => r.data as Record<string, string | null> | null),
+  ]).catch(() => [[] as Array<Record<string, string | null>>, null, null] as const);
+
+  const tenantInapp = Array.isArray(tenantTemplates)
+    ? tenantTemplates.find((t) => t.channel === "inapp") ?? null
+    : null;
+  const tenantPush = Array.isArray(tenantTemplates)
+    ? tenantTemplates.find((t) => t.channel === "push") ?? null
+    : null;
+
+  // Resolved in-app content: tenant override → platform default → call-site value
+  const resolvedTitle =
+    tenantInapp?.inapp_title || platformInapp?.inapp_title || inApp.title;
+  const resolvedBody =
+    tenantInapp?.inapp_body || platformInapp?.inapp_body || inApp.body;
+
   const { data, error } = await service.rpc("enqueue_app_notification", {
     p_tenant_id: params.tenantId,
     p_recipient_user_id: inApp.recipientUserId,
     p_type: params.type,
-    p_title: inApp.title,
-    p_body: inApp.body,
+    p_title: resolvedTitle,
+    p_body: resolvedBody,
     p_link: inApp.link,
     p_dedupe_key: params.dedupeKey,
     p_related_type: params.relatedType ?? null,
@@ -101,25 +151,40 @@ export async function dispatchInApp(
   // Second delivery surface: when (and only when) a NEW in-app row was created,
   // also push it to the user's subscribed browsers/PWAs. Gating on `created`
   // preserves idempotency — a retried dispatch re-asserts the in-app row but
-  // never re-pushes. Best-effort and never throws: a push failure must not break
-  // the in-app message or the surrounding email.
+  // never re-pushes. Push channel has its own independent gate so disabling
+  // push does not affect in-app, and vice versa.
+  // Push content: tenant push override → platform push default → resolved in-app title/body.
   if (created) {
-    try {
-      await sendWebPushToUser(service, {
-        tenantId: params.tenantId,
-        userId: inApp.recipientUserId,
-        title: inApp.title,
-        body: inApp.body,
-        link: inApp.link,
-        type: params.type,
-        dedupeKey: params.dedupeKey,
-      });
-    } catch (err) {
-      console.error("[in-app] web push dispatch failed", {
-        type: params.type,
-        dedupeKey: params.dedupeKey,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    const pushEnabled = await isTenantTriggerEnabled(
+      service,
+      params.tenantId,
+      params.type,
+      "push",
+    ).catch(() => true);
+
+    if (pushEnabled) {
+      const pushTitle =
+        tenantPush?.push_title || platformPush?.push_title || resolvedTitle;
+      const pushBody =
+        tenantPush?.push_body || platformPush?.push_body || resolvedBody;
+
+      try {
+        await sendWebPushToUser(service, {
+          tenantId: params.tenantId,
+          userId: inApp.recipientUserId,
+          title: pushTitle,
+          body: pushBody,
+          link: inApp.link,
+          type: params.type,
+          dedupeKey: params.dedupeKey,
+        });
+      } catch (err) {
+        console.error("[in-app] web push dispatch failed", {
+          type: params.type,
+          dedupeKey: params.dedupeKey,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 

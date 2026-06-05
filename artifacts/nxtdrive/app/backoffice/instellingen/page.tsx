@@ -310,6 +310,24 @@ export default async function SettingsPage({
           <DomainsManager domains={domainViews} />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notificaties</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Stel in welke meldingen je leerlingen en medewerkers ontvangen. Je kunt triggers
+            per kanaal (e-mail, in-app, push) aan- of uitzetten voor jouw rijschool.
+          </p>
+          <a
+            href="/backoffice/instellingen/notificaties"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            Notificaties beheren →
+          </a>
+        </CardContent>
+      </Card>
     </div>
   );
 }

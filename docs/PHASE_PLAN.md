@@ -86,7 +86,7 @@ Op basis van de migraties (`supabase/migrations/0001`–`0026`) en de Next.js-ap
 De canon-sprintvolgorde (Sprint 0–10) wordt hier vertaald naar de werkelijke reststand.
 Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicatielaag.
 
-### Fase A — Communicatie afmaken (Module 12) 🟡 NU
+### Fase A — Communicatie afmaken (Module 12) ✅ KLAAR
 **Doel:** notificatiefundering live + twee flows (lesherinnering, betaling ontvangen).
 - ✅ `0026_notifications` toegepast; `db:test-notifications` groen (14 asserties).
 - ✅ Fundering: templates + log + idempotente RPC's, server-side, white-label-aware, degradeert netjes.
@@ -95,8 +95,7 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 - ✅ **Proefles bevestiging** (`0045`): ontvangstbevestiging bij keuze (provisional)
   + bevestigingsmail bij backoffice-bevestiging — white-label-bewust, idempotent,
   degradeert netjes zonder SendGrid.
-- ⬜ Resterende automatische berichten uit canon (examen ingepland,
-  theorie herinnering, reviewverzoek) als volgende iteratie.
+- ✅ **Centraal notificatiebeheer** (`0093_platform_notification_config`): `platform_notification_config`-tabel (alle 28 triggers × 3 kanalen, globally_enabled-vlag + platform-standaard templateinhoud). `notification_templates.tenant_enabled` (null/true/false per-tenant override). `lib/notifications/platform-notification-config.ts` (CRUD-service, server-only). `lib/notifications/shortcodes.ts` (shortcode-catalogus per event_key). Dispatcher gate in `dispatch()` + `dispatchInApp()`: controleert global + tenant enabled voor de betreffende kanaalvlag; skipped stil bij uitschakeling. Admin UI `/admin/notifications` (triggers-matrix + e-mail templates-tab + "Notificaties ↗"-link in admin-paginatabs). TipTap-editor (`@tiptap/react` v3) voor platform-standaard e-mail/push/inapp-inhoud per trigger (`/admin/notifications/templates/[key]/[channel]/`). Tenant UI `/backoffice/instellingen/notificaties` (toggle-matrix per globaal ingeschakelde trigger). White-label tenants: eigen template-editor per e-mailtrigger (`/backoffice/instellingen/notificaties/templates/[key]/[channel]/`). Elke schrijfoperatie geaudit in `audit_log`.
 
 ### Fase B — Rapportages verdiepen (Module 14)
 - ✅ Tenant-niveau (Leskaart L5): examenrijpheid-overzicht over alle leerlingen
