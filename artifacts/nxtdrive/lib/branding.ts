@@ -1,4 +1,6 @@
+import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { TenantBranding } from "@/lib/types";
 
 /**
@@ -11,6 +13,24 @@ export async function getTenantBranding(
 ): Promise<TenantBranding | null> {
   const supabase = await createServerSupabaseClient();
   const { data } = await supabase
+    .from("tenant_branding")
+    .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  return (data as TenantBranding | null) ?? null;
+}
+
+/**
+ * Loads a tenant's white-label branding using the service-role key (bypasses
+ * RLS). Use ONLY in server-only, unauthenticated contexts such as the login
+ * page where no user session exists yet. Never call from a Client Component.
+ */
+export async function getTenantBrandingPublic(
+  tenantId: string,
+): Promise<TenantBranding | null> {
+  const service = createServiceRoleClient();
+  const { data } = await service
     .from("tenant_branding")
     .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain")
     .eq("tenant_id", tenantId)

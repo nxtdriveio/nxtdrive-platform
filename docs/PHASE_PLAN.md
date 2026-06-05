@@ -136,7 +136,7 @@ Fundering (Sprint 0–4) is grotendeels klaar; we vervolgen vanaf de communicati
 
 ### Fase H — White-label volledig (Module 18, Sprint 10) 🟡
 - ✅ **Eigen domein (multi-tenant domeinen)** — `0088_tenant_domains` **toegepast**: tabel `tenant_domains`, SECURITY DEFINER RPC's, host-resolutie, `/api/tls-check`, backoffice Domeinen-kaart, Caddy on-demand-TLS. Zie Module 18 statustabel voor volledig bewijs.
-- ⬜ **Eigen loginpagina per tenant** — white-label loginpagina met eigen branding bovenop bestaande Supabase Auth-flow; nog niet gebouwd.
+- ✅ **Eigen loginpagina per tenant** — white-label loginpagina met eigen branding bovenop bestaande Supabase Auth-flow. Host-header resolutie via `resolveTenantByHost` (service-role, unauthenticated); `getTenantBrandingPublic` laadt `tenant_branding` zonder RLS; `BrandProvider` wikkelt de pagina in; `NxtdriveLogo` toont tenant-logo of NXTDRIVE-fallback; subtitel personaliseert naar schoolnaam. Werkt op zowel subdomain als custom domain.
 - ⬜ **Eigen e-mailbranding per tenant** — transactionele e-mails volledig in tenant-huisstijl (logo, kleuren, afzendernaam); bestaande white-label-bewuste templates zijn een tussenstap.
 
 ### Doorlopend — Security, Monitoring, AVG (canon-verplicht)
