@@ -8,6 +8,7 @@ import {
   setPlatformSendgridKey,
   setPlatformFromEmail,
 } from "@/lib/email/platform-config";
+import { setPlatformAiKey } from "@/lib/ai/platform-config";
 
 export async function savePlatformEmailConfig(formData: FormData) {
   await requirePlatformAdmin();
@@ -30,6 +31,25 @@ export async function savePlatformEmailConfig(formData: FormData) {
   }
 
   redirect("/admin?tab=email&emailSaved=1");
+}
+
+export async function savePlatformAiConfig(formData: FormData) {
+  await requirePlatformAdmin();
+  const rawKey = String(formData.get("openai_api_key") ?? "").trim();
+
+  if (!rawKey) {
+    redirect("/admin?tab=ai&aiError=" + encodeURIComponent("Vul een OpenAI API-sleutel in."));
+  }
+
+  const service = createServiceRoleClient();
+  try {
+    await setPlatformAiKey(service, rawKey);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Onbekende fout bij opslaan";
+    redirect("/admin?tab=ai&aiError=" + encodeURIComponent(msg.slice(0, 200)));
+  }
+
+  redirect("/admin?tab=ai&aiSaved=1");
 }
 
 export async function enterTenantBackoffice(formData: FormData) {

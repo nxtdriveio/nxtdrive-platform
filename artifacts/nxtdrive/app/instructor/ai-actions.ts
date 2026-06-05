@@ -13,6 +13,7 @@ import {
   type InternalAttention,
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
+import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
 import type { Lesson } from "@/lib/lessons/types";
 
 /**
@@ -74,6 +75,9 @@ export async function generateLessonReportAction(
 
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  await primeAiClientIfNeeded(service);
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -151,6 +155,9 @@ export async function analyzeProgressAction(
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
 
+  const service = createServiceRoleClient();
+  await primeAiClientIfNeeded(service);
+
   try {
     const supabase = await createServerSupabaseClient();
     const [studentRes, readiness, leskaart] = await Promise.all([
@@ -194,6 +201,9 @@ export async function analyzeInternalAttentionAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  await primeAiClientIfNeeded(service);
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -268,9 +278,10 @@ export async function analyzeInternalAttentionAction(
 
 /**
  * Examenflow C — on-demand AI herexamen-analyse keyed by student (not lesson).
- * Used in the backoffice retake card after a failed exam. Reuses the advisory
- * engine; nothing is persisted. The leskaart rollup drives the weakest skills,
- * so the latest lesson id (if any) is only passed to satisfy the loader.
+ * Used in the backoffice retake card after a failed exam AND for the backoffice
+ * student dossier AI-analyse. Reuses the advisory engine; nothing is persisted.
+ * The leskaart rollup drives the weakest skills, so the latest lesson id (if
+ * any) is only passed to satisfy the loader.
  */
 export async function analyzeRetakeAction(
   studentId: string,
@@ -288,6 +299,8 @@ export async function analyzeRetakeAction(
     .maybeSingle();
   if (studentErr) return { error: studentErr.message };
   if (!studentRow) return { error: "Leerling niet gevonden" };
+
+  await primeAiClientIfNeeded(service);
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -315,4 +328,29 @@ export async function analyzeRetakeAction(
   } catch (err) {
     return { error: aiErrorMessage(err) };
   }
+}
+
+/**
+ * Module 15 — save an AI-generated (or instructor-edited) lesson report draft
+ * to lessons.progress_summary. Requires the same ownership check as the other
+ * lesson-scoped AI actions. Passing an empty summary clears the field.
+ */
+export async function saveLessonProgressSummaryAction(
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const lessonId = String(formData.get("lesson_id") ?? "");
+  const summary = String(formData.get("summary") ?? "").trim().slice(0, 10000);
+
+  const ctx = await loadOwnedLesson(lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("lessons")
+    .update({ progress_summary: summary || null })
+    .eq("id", lessonId)
+    .eq("tenant_id", ctx.tenantId);
+
+  if (error) return { error: error.message };
+  return { ok: true };
 }

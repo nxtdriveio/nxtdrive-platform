@@ -5,7 +5,10 @@ import { Brain, Info, AlertTriangle, Target, Gauge } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { analyzeProgressAction } from "@/app/instructor/ai-actions";
+import {
+  analyzeProgressAction,
+  analyzeRetakeAction,
+} from "@/app/instructor/ai-actions";
 import type { ProgressAnalysis } from "@/lib/ai/leskaart-advisor";
 
 const KANS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
@@ -15,11 +18,18 @@ const KANS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
 };
 
 /**
- * Leskaart L6 — advisory AI analysis: weak onderdelen, qualitative slagingskans
- * and non-binding planningssuggesties. On-demand only (cost): nothing runs until
- * the instructor presses the button, and nothing is persisted.
+ * Leskaart L6 / backoffice student dossier — advisory AI analysis: weak
+ * onderdelen, qualitative slagingskans and non-binding planningssuggesties.
+ * On-demand only (cost): nothing runs until the instructor presses the button,
+ * and nothing is persisted.
+ *
+ * Accepts either a `lessonId` (instructor leskaart context, calls
+ * analyzeProgressAction) or a `studentId` (backoffice dossier context, calls
+ * analyzeRetakeAction which uses the student's full leskaart rollup).
  */
-export function AiProgressAnalysis({ lessonId }: { lessonId: string }) {
+export function AiProgressAnalysis(
+  props: { lessonId: string; studentId?: never } | { studentId: string; lessonId?: never },
+) {
   const [analysis, setAnalysis] = useState<ProgressAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -27,9 +37,14 @@ export function AiProgressAnalysis({ lessonId }: { lessonId: string }) {
   function run() {
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      fd.set("lesson_id", lessonId);
-      const res = await analyzeProgressAction(fd);
+      let res: { analysis?: ProgressAnalysis; error?: string };
+      if (props.lessonId) {
+        const fd = new FormData();
+        fd.set("lesson_id", props.lessonId);
+        res = await analyzeProgressAction(fd);
+      } else {
+        res = await analyzeRetakeAction(props.studentId!);
+      }
       if (res.error) setError(res.error);
       else setAnalysis(res.analysis ?? null);
     });

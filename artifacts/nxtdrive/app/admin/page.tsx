@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { enterTenantBackoffice, createTenant, savePlatformEmailConfig } from "./actions";
+import { enterTenantBackoffice, createTenant, savePlatformEmailConfig, savePlatformAiConfig } from "./actions";
 import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
+import { getAiConfigStatus } from "@/lib/ai/platform-config";
 import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
 import Link from "next/link";
 
@@ -81,6 +82,10 @@ export default async function PlatformAdminPage({
 
   const platformEmailStatus = activeTab === "email"
     ? await getPlatformEmailConfigStatus(service)
+    : null;
+
+  const aiConfigStatus = activeTab === "ai"
+    ? await getAiConfigStatus(service)
     : null;
 
   // MRR is restricted to tenants with activity in the last 30 days.
@@ -169,6 +174,7 @@ export default async function PlatformAdminPage({
             { id: "groei", label: "Groei & MRR" },
             { id: "tenant", label: "Nieuwe rijschool" },
             { id: "email", label: "E-mail" },
+            { id: "ai", label: "AI-model" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
               {tab.label}
@@ -616,6 +622,93 @@ export default async function PlatformAdminPage({
 
             <p className="text-xs text-muted-foreground px-1">
               De API-sleutel wordt versleuteld opgeslagen (AES-256-GCM). Rijscholen kunnen geen eigen e-mailaccount instellen.
+            </p>
+          </div>
+        )}
+
+        {/* Tab: AI-model */}
+        {activeTab === "ai" && aiConfigStatus && (
+          <div className="max-w-lg space-y-4">
+            {params.aiSaved && (
+              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                AI-instellingen opgeslagen.
+              </div>
+            )}
+            {params.aiError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {params.aiError}
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">OpenAI API-sleutel</p>
+                <p className="mt-0.5 font-mono text-xs text-foreground">
+                  {aiConfigStatus.keyPreview ?? "Niet ingesteld"}
+                </p>
+              </div>
+              {aiConfigStatus.keyPreview ? (
+                <Badge variant="success">✓ Geconfigureerd</Badge>
+              ) : (
+                <Badge variant="warning">Ontbreekt</Badge>
+              )}
+            </div>
+
+            {/* Formulier */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  OpenAI API-sleutel instellen
+                  {aiConfigStatus.configured ? (
+                    <Badge variant="success" className="ml-2 text-xs">Geconfigureerd</Badge>
+                  ) : (
+                    <Badge variant="warning" className="ml-2 text-xs">Niet geconfigureerd</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={savePlatformAiConfig} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="openai_api_key" className="text-sm font-medium text-foreground">
+                      API-sleutel
+                      {aiConfigStatus.keyPreview && (
+                        <span className="ml-2 font-normal text-muted-foreground">
+                          (huidig: <span className="font-mono">{aiConfigStatus.keyPreview}</span>)
+                        </span>
+                      )}
+                    </label>
+                    <Input
+                      id="openai_api_key"
+                      name="openai_api_key"
+                      type="password"
+                      placeholder={aiConfigStatus.keyPreview ? "Laat leeg om ongewijzigd te laten" : "sk-..."}
+                      autoComplete="off"
+                      required={!aiConfigStatus.configured}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Begint met <code className="rounded bg-muted px-1">sk-</code> — te vinden in je{" "}
+                      <a
+                        href="https://platform.openai.com/api-keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        OpenAI-dashboard
+                      </a>{" "}
+                      onder API keys.
+                    </p>
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    Opslaan
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <p className="px-1 text-xs text-muted-foreground">
+              De API-sleutel wordt versleuteld opgeslagen (AES-256-GCM). Rijscholen kunnen geen eigen AI-sleutel instellen. Alle AI-functies gebruiken het GPT-4o-mini-model en zijn adviserend: niet bindend, nooit automatisch opgeslagen.
             </p>
           </div>
         )}

@@ -27,6 +27,7 @@ import {
   type IntakeAttentionPoint,
   type LeadIntakeAnalysis,
 } from "@/lib/leads/intake-analysis";
+import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
 import {
   generatePackageAdvice,
   type PackageAdvice,
@@ -742,6 +743,8 @@ export async function generatePackageAdviceAction(
       error: "Er zijn nog geen actieve pakketten om een advies op te baseren.",
     };
   }
+
+  await primeAiClientIfNeeded(service);
 
   const points = (analysis.attention_points as IntakeAttentionPoint[]).map(
     (p) => p.label,

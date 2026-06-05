@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Sparkles, Info, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { generateLessonReportAction } from "@/app/instructor/ai-actions";
-import { addLessonNoteAction } from "@/app/instructor/actions";
+import {
+  generateLessonReportAction,
+  saveLessonProgressSummaryAction,
+} from "@/app/instructor/ai-actions";
 
 /**
  * Leskaart L6 — AI-lesverslag. Short instructor notes → polished NL draft that is
@@ -24,7 +25,6 @@ export function AiLessonReport({ lessonId }: { lessonId: string }) {
   const [saved, setSaved] = useState(false);
   const [generating, startGenerate] = useTransition();
   const [saving, startSave] = useTransition();
-  const router = useRouter();
 
   function generate() {
     setError(null);
@@ -45,15 +45,12 @@ export function AiLessonReport({ lessonId }: { lessonId: string }) {
     startSave(async () => {
       const fd = new FormData();
       fd.set("lesson_id", lessonId);
-      fd.set("body", draft.trim());
-      const res = await addLessonNoteAction(fd);
+      fd.set("summary", draft.trim());
+      const res = await saveLessonProgressSummaryAction(fd);
       if (res?.error) {
         setError(res.error);
       } else {
         setSaved(true);
-        setDraft(null);
-        setNotes("");
-        router.refresh();
       }
     });
   }
@@ -116,7 +113,7 @@ export function AiLessonReport({ lessonId }: { lessonId: string }) {
 
         {saved ? (
           <div className="rounded-md border border-success/40 bg-success/5 px-3 py-2 text-xs text-success">
-            Verslag opgeslagen als lesnotitie.
+            Voortgangstoelichting opgeslagen.
           </div>
         ) : null}
 
@@ -146,7 +143,7 @@ export function AiLessonReport({ lessonId }: { lessonId: string }) {
                 onClick={save}
                 disabled={busy || !draft.trim()}
               >
-                {saving ? "Opslaan…" : "Opslaan als lesnotitie"}
+                {saving ? "Opslaan…" : "Opslaan als voortgangstoelichting"}
               </Button>
             </div>
           </div>
