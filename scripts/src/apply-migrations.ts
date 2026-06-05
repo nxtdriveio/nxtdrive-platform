@@ -62,17 +62,37 @@ async function main(): Promise<void> {
       }
       const sql = await readFile(join(MIGRATIONS_DIR, file), "utf8");
       console.log(`[apply] ${file}`);
-      await client.query("begin");
+
+      // PostgreSQL does not allow using a newly added enum value in the same
+      // transaction that added it (error: "unsafe use of new value of enum type").
+      // Solution: run ALTER TYPE ... ADD VALUE statements BEFORE the transaction
+      // so they auto-commit and are visible to the subsequent transaction.
+      const enumAddRe =
+        /^\s*alter\s+type\s+\S+\s+add\s+value\s+[^;]+;/gim;
+      const enumStatements = sql.match(enumAddRe) ?? [];
+      const sqlWithoutEnumAdds = sql.replace(enumAddRe, "");
+
       try {
-        await client.query(sql);
-        await client.query(
-          "insert into public._migrations (filename) values ($1)",
-          [file],
-        );
-        await client.query("commit");
-        appliedCount++;
+        // Phase 1: commit enum additions individually (outside any transaction).
+        for (const stmt of enumStatements) {
+          await client.query(stmt);
+        }
+
+        // Phase 2: run the rest in a single transaction.
+        await client.query("begin");
+        try {
+          await client.query(sqlWithoutEnumAdds);
+          await client.query(
+            "insert into public._migrations (filename) values ($1)",
+            [file],
+          );
+          await client.query("commit");
+          appliedCount++;
+        } catch (err) {
+          await client.query("rollback");
+          throw err;
+        }
       } catch (err) {
-        await client.query("rollback");
         throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
       }
     }
