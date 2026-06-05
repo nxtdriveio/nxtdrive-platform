@@ -9,16 +9,19 @@ export function BrandingForm({
   initialLogoUrl,
   initialPrimaryColor,
   initialPrimaryForeground,
+  initialWelcomeMessage,
 }: {
   initialLogoUrl: string;
   initialPrimaryColor: string;
   initialPrimaryForeground: string;
+  initialWelcomeMessage: string;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [primary, setPrimary] = useState(initialPrimaryColor || "#6b4eff");
   const [foreground, setForeground] = useState(
     initialPrimaryForeground || "#ffffff",
   );
+  const [welcomeMessage, setWelcomeMessage] = useState(initialWelcomeMessage);
 
   return (
     <form action={saveBranding} className="space-y-5">
@@ -81,6 +84,29 @@ export function BrandingForm({
             />
           </div>
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="welcome_message">Welkomstbericht op de inlogpagina</Label>
+        <textarea
+          id="welcome_message"
+          name="welcome_message"
+          rows={2}
+          maxLength={120}
+          value={welcomeMessage}
+          onChange={(e) => setWelcomeMessage(e.target.value)}
+          placeholder="Welkom bij [Rijschool] — log in op je leerlingportaal."
+          className="w-full resize-none rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <p className="flex justify-between text-xs text-muted-foreground">
+          <span>
+            Wordt getoond op de inlogpagina wanneer white-label actief is. Laat
+            leeg voor de standaardtekst.
+          </span>
+          <span className="shrink-0 pl-2">
+            {welcomeMessage.length}/120
+          </span>
+        </p>
       </div>
 
       <div className="space-y-2">

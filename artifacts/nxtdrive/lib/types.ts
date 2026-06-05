@@ -83,6 +83,7 @@ export type TenantBranding = {
   primary_color: string | null;
   primary_foreground: string | null;
   custom_domain: string | null;
+  welcome_message: string | null;
 };
 
 export type TenantDomainType = "subdomain" | "custom";

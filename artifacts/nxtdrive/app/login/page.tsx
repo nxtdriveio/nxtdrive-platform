@@ -46,9 +46,11 @@ export default async function LoginPage({
               Inloggen
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isWhiteLabel && tenant?.name
-                ? `Log in op ${tenant.name}.`
-                : "Log in met je e-mailadres en wachtwoord."}
+              {isWhiteLabel && branding?.welcome_message
+                ? branding.welcome_message
+                : isWhiteLabel && tenant?.name
+                  ? `Log in op ${tenant.name}.`
+                  : "Log in met je e-mailadres en wachtwoord."}
             </p>
           </div>
 

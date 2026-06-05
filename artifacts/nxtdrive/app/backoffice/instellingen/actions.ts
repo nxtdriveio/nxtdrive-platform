@@ -71,6 +71,7 @@ export async function saveBranding(formData: FormData) {
   const logoUrlRaw = String(formData.get("logo_url") ?? "").trim();
   const primaryRaw = String(formData.get("primary_color") ?? "").trim();
   const foregroundRaw = String(formData.get("primary_foreground") ?? "").trim();
+  const welcomeMessageRaw = String(formData.get("welcome_message") ?? "").trim().slice(0, 120);
 
   if (logoUrlRaw && !/^https?:\/\//i.test(logoUrlRaw)) {
     redirect("/backoffice/instellingen?branding=error&reason=Ongeldige+logo-URL");
@@ -93,6 +94,7 @@ export async function saveBranding(formData: FormData) {
       logo_url: logoUrlRaw || null,
       primary_color: primaryRaw || null,
       primary_foreground: foregroundRaw || null,
+      welcome_message: welcomeMessageRaw || null,
     },
     { onConflict: "tenant_id" },
   );

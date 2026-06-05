@@ -58,7 +58,7 @@ export default async function SettingsPage({
   const status = await getMollieApiKeyStatus(service, tenant.id);
   const { data: brandingRow } = await service
     .from("tenant_branding")
-    .select("logo_url, primary_color, primary_foreground")
+    .select("logo_url, primary_color, primary_foreground, welcome_message")
     .eq("tenant_id", tenant.id)
     .maybeSingle();
 
@@ -231,6 +231,7 @@ export default async function SettingsPage({
             initialLogoUrl={brandingRow?.logo_url ?? ""}
             initialPrimaryColor={brandingRow?.primary_color ?? ""}
             initialPrimaryForeground={brandingRow?.primary_foreground ?? ""}
+            initialWelcomeMessage={brandingRow?.welcome_message ?? ""}
           />
         </CardContent>
       </Card>

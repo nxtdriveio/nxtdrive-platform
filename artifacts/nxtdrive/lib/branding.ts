@@ -14,7 +14,7 @@ export async function getTenantBranding(
   const supabase = await createServerSupabaseClient();
   const { data } = await supabase
     .from("tenant_branding")
-    .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain")
+    .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain, welcome_message")
     .eq("tenant_id", tenantId)
     .maybeSingle();
 
@@ -32,7 +32,7 @@ export async function getTenantBrandingPublic(
   const service = createServiceRoleClient();
   const { data } = await service
     .from("tenant_branding")
-    .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain")
+    .select("tenant_id, logo_url, primary_color, primary_foreground, custom_domain, welcome_message")
     .eq("tenant_id", tenantId)
     .maybeSingle();
 
