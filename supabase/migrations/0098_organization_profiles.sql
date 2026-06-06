@@ -50,18 +50,30 @@ create trigger organization_profiles_set_updated_at
   before update on public.organization_profiles
   for each row execute function public.set_updated_at();
 
+create or replace function public.is_current_user_platform_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select coalesce(
+    (select p.is_platform_admin from public.profiles p where p.id = auth.uid()),
+    false
+  );
+$$;
+
+revoke all on function public.is_current_user_platform_admin() from public;
+grant execute on function public.is_current_user_platform_admin() to authenticated;
+grant execute on function public.is_current_user_platform_admin() to service_role;
+
 alter table public.organization_profiles enable row level security;
 
 drop policy if exists organization_profiles_select on public.organization_profiles;
 create policy organization_profiles_select on public.organization_profiles
   for select
   using (
-    exists (
-      select 1
-        from public.profiles p
-       where p.id = auth.uid()
-         and p.is_platform_admin
-    )
+    public.is_current_user_platform_admin()
     or exists (
       select 1
         from public.memberships m
