@@ -97,10 +97,11 @@ Done in the foundation slice:
 - Add `upsert_organization_profile` as an audited, service-role-only RPC.
 - Backfill existing tenants as active/ready organization profiles.
 - Add organization profile service helpers and `test-organization-profile-foundation` guardrails.
+- Extend platform-admin organization creation server-side with org type, profile fields, owner user, lifecycle/onboarding status, and franchise relation wiring.
 
 Implement next:
 
-- Extend platform-admin organization creation with org type, profile fields, owner user, and franchise relation.
+- Add visible platform-admin form fields for org type, profile metadata, owner user, lifecycle/onboarding status, and franchise relation.
 - Add platform-admin profile edit UI on the organization detail page.
 - Audit every create/update path that changes organization profile or franchise relation state.
 
