@@ -50,6 +50,7 @@
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",
     "test-cancellation-policy": "tsx ./src/test-cancellation-policy.ts",
     "test-organization-foundation": "tsx ./src/test-organization-foundation.ts",
+    "test-organization-profile-foundation": "tsx ./src/test-organization-profile-foundation.ts",
     "db:seed-scenarios": "tsx ./src/seed-scenario-accounts.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
