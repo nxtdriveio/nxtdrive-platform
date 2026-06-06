@@ -89,7 +89,7 @@ export default async function StudentLayout({
     <BrandProvider
       tenant={tenant}
       branding={branding}
-      className="flex min-h-screen flex-col bg-background text-foreground"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground"
     >
       <StudentTopBar
         tenantName={tenant.name}
@@ -101,10 +101,10 @@ export default async function StudentLayout({
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
-      <div className="flex flex-1">
+      <div className="flex min-w-0 flex-1">
         <StudentSidebarNav />
-        <main className="flex-1 px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-8">
-          <div className="mx-auto max-w-2xl lg:max-w-5xl">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-4 sm:px-6 sm:py-6 lg:pb-8">
+          <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
             <Suspense fallback={<StudentSplash />}>{children}</Suspense>
           </div>
         </main>
