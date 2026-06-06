@@ -22,8 +22,10 @@ export type AuthorizedOrganizationContext = ActiveOrganizationContext & {
  * Organization-domain permission guard for new server code.
  *
  * Existing pages can keep using role checks while they are migrated. New module
- * code should call this helper with a resource/action permission and use the
- * returned branchScope to apply explicit branch filters when needed.
+ * code should call this helper with a resource/action permission. Branch-scoped
+ * modules must still load membership branch IDs before applying data filters;
+ * this guard exposes the safe scope type from the authenticated organization
+ * context and returns an empty branch list when IDs have not been expanded.
  */
 export async function requireOrganizationPermission(
   permission: Permission,
