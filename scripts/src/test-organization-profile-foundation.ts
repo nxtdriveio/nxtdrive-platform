@@ -27,8 +27,12 @@ const profileSrc = source("artifacts/nxtdrive/lib/organization/profile.ts");
 const indexSrc = source("artifacts/nxtdrive/lib/organization/index.ts");
 const adminActionsSrc = source("artifacts/nxtdrive/app/admin/actions.ts");
 const adminPageSrc = source("artifacts/nxtdrive/app/admin/page.tsx");
+const newTenantFormSrc = source("artifacts/nxtdrive/app/admin/new-tenant-form.tsx");
 const tenantActionsSrc = source("artifacts/nxtdrive/app/admin/tenants/[id]/actions.ts");
 const tenantPageSrc = source("artifacts/nxtdrive/app/admin/tenants/[id]/page.tsx");
+const tenantProfileFormSrc = source(
+  "artifacts/nxtdrive/app/admin/tenants/[id]/organization-profile-form.tsx",
+);
 
 check(
   "migration creates organization_profiles",
@@ -117,15 +121,20 @@ check(
 );
 check(
   "platform create UI exposes profile fields",
-  adminPageSrc.includes('name="org_type"') &&
-    adminPageSrc.includes('name="billing_email"') &&
-    adminPageSrc.includes('name="franchisegever_tenant_id"'),
+  adminPageSrc.includes("NewTenantForm") &&
+    newTenantFormSrc.includes('name="org_type"') &&
+    newTenantFormSrc.includes('name="billing_email"') &&
+    newTenantFormSrc.includes('name="franchisegever_tenant_id"'),
 );
 check(
   "tenant detail exposes profile edit action",
   tenantActionsSrc.includes("updateOrganizationProfileAction") &&
-    tenantPageSrc.includes("updateOrganizationProfileAction") &&
-    tenantPageSrc.includes("Organisatieprofiel"),
+    tenantPageSrc.includes("OrganizationProfileForm") &&
+    tenantPageSrc.includes("loadOrganizationProfile") &&
+    tenantProfileFormSrc.includes("updateOrganizationProfileAction") &&
+    tenantProfileFormSrc.includes("Organisatieprofiel") &&
+    tenantProfileFormSrc.includes('name="org_type"') &&
+    tenantProfileFormSrc.includes('name="billing_email"'),
 );
 
 console.log("");
