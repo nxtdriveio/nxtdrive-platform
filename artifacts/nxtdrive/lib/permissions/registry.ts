@@ -52,12 +52,12 @@ const TENANT_ADMIN_PERMISSIONS = [
   "report:read",
   "report:export",
   "settings:manage",
-] as const satisfies Permission[];
+] as const satisfies readonly Permission[];
 
 const FRANCHISE_ADMIN_PERMISSIONS = [
   ...TENANT_ADMIN_PERMISSIONS,
   "franchise:manage",
-] as const satisfies Permission[];
+] as const satisfies readonly Permission[];
 
 export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant[]> = {
   tenant_admin: TENANT_ADMIN_PERMISSIONS.map((permission) => ({
