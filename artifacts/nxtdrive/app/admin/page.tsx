@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { enterTenantBackoffice, createTenant, savePlatformEmailConfig, savePlatformAiConfig } from "./actions";
+import { enterTenantBackoffice, savePlatformEmailConfig, savePlatformAiConfig } from "./actions";
+import { NewTenantForm } from "./new-tenant-form";
 import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
@@ -41,6 +41,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   slug_exists: "Deze slug is al in gebruik.",
   invite_failed: "Uitnodiging kon niet worden verstuurd.",
   membership_failed: "Lidmaatschap aanmaken mislukt.",
+  invalid_plan: "Ongeldig abonnement gekozen.",
+  invalid_org_type: "Ongeldig organisatietype gekozen.",
+  invalid_lifecycle_status: "Ongeldige lifecycle-status gekozen.",
+  invalid_onboarding_status: "Ongeldige onboarding-status gekozen.",
+  invalid_franchise_parent: "Franchisegever bestaat niet of is ongeldig.",
+  owner_not_found: "Eigenaar e-mail bestaat nog niet als auth user.",
   unknown: "Er is een onbekende fout opgetreden.",
 };
 
@@ -715,52 +721,14 @@ export default async function PlatformAdminPage({
 
         {/* Tab: Nieuwe rijschool */}
         {activeTab === "tenant" && (
-          <div className="max-w-md">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Nieuwe rijschool</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={createTenant} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="name" className="text-sm font-medium text-foreground">
-                      Naam <span className="text-red-400">*</span>
-                    </label>
-                    <Input id="name" name="name" placeholder="Rijschool De Wit" required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="slug" className="text-sm font-medium text-foreground">
-                      Slug <span className="text-red-400">*</span>
-                    </label>
-                    <Input
-                      id="slug"
-                      name="slug"
-                      placeholder="de-wit"
-                      pattern="[a-z0-9-]+"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Alleen kleine letters, cijfers en koppeltekens. Wordt{" "}
-                      <span className="font-mono">slug.nxtdrive.io</span>.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="plan" className="text-sm font-medium text-foreground">
-                      Plan
-                    </label>
-                    <Select id="plan" name="plan" defaultValue="start">
-                      <option value="start">Start — €49/mnd</option>
-                      <option value="pro">Pro — €99/mnd</option>
-                      <option value="elite">Elite — €199/mnd</option>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Rijschool aanmaken
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+          <NewTenantForm
+            tenants={(tenants ?? []).map((t) => ({
+              id: t.id,
+              name: t.name,
+              slug: t.slug,
+              org_type: (t as unknown as { org_type?: string | null }).org_type ?? null,
+            }))}
+          />
         )}
       </div>
     </main>
