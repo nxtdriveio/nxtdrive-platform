@@ -48,9 +48,9 @@ Every organization-owned entity must answer these questions before it is built:
 | Area | Current state | Foundation action |
 |---|---|---|
 | Organizations | Backed by `tenants`; has `org_type`, `plan`, white-label flag, franchise parent, and `organization_profiles` for legal/commercial metadata. | Keep table; expose `Organization` aliases and use the profile facade for platform-admin metadata. |
-| Branches | `branches`, `membership_branches`, branch-scoped RLS for key modules. | Replace implicit all-access with explicit scope type in a later migration. |
+| Branches | `branches`, `membership_branches`, branch-scoped RLS for key modules, and explicit `memberships.branch_scope_type`. | Retrofit every branch-aware module to consume the same scope helper. |
 | Franchise | `parent_tenant_id`, `franchise_admin`, templates, activations, dashboard. | Avoid cross-tenant `branch_id` overload; introduce assigned tenant/branch fields for routing. |
-| Roles | RBAC exists via `memberships.role`; routing now uses one pure helper. | Add a central permission registry for resource/action/scope checks. |
+| Roles | RBAC exists via `memberships.role`; routing uses one pure helper; permissions now have a central registry. | Move server pages/actions from ad hoc role arrays to resource/action permission checks. |
 | Teams | Task departments exist, but generic people teams do not. | Introduce canonical teams and link task departments where useful. |
 | Vehicles | `vehicles` are tenant-scoped. | Decide branch assignment rules and add branch scope where operationally needed. |
 | Tasks | Tenant-scoped Kanban with departments and assignment rules. | Add team/branch awareness where task ownership requires it. |
@@ -107,11 +107,26 @@ Acceptance:
 
 ### Sprint 3 - Permissions and scope v2
 
-Implement next:
+Started:
 
-- Add a central permission registry and helper API.
-- Replace implicit branch all-access with explicit `scope_type = all | branches`.
-- Retrofit students, agenda, leads, tasks, vehicles, and invoices to use the same scope helper.
+- Add `lib/permissions` as the central permission registry for roles, resources, actions, and allowed scope kinds.
+- Add pure branch-scope helpers for `all` versus explicit branch IDs.
+- Add `requireOrganizationPermission` for new server code that needs a resource/action guard and branch scope output.
+- Add `memberships.branch_scope_type` so branch access is explicit instead of inferred only from empty `membership_branches` rows.
+- Keep `branch_scope_type` synchronized from `membership_branches` with a database trigger.
+- Add `test-permission-foundation` guardrails for registry, scope merging, session metadata, exports, and migration contracts.
+
+Acceptance for this slice:
+
+- `supabase/migrations/0099_permission_scope_foundation.sql` adds and backfills explicit branch scope.
+- `pnpm --filter @workspace/scripts run test-permission-foundation` passes.
+- New server modules can call `requireOrganizationPermission("resource:action")` instead of hardcoding role arrays.
+
+Still required in Sprint 3:
+
+- Retrofit students, agenda, leads, tasks, vehicles, and invoices to consume `requireOrganizationPermission` and returned branch scopes.
+- Update module-specific RLS tests to assert the new explicit branch scope field remains synchronized.
+- Replace ad hoc role arrays in backoffice pages/actions where the permission registry now has equivalent resource/action checks.
 
 ### Sprint 4 - Branch completeness
 
