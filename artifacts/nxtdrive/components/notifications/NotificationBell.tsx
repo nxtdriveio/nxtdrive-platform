@@ -225,7 +225,7 @@ export function NotificationBell({
 
               const cls = cn(
                 "block px-3 py-2.5 transition-colors",
-                floating ? "hover:bg-muted/35" : "hover:bg-muted/60",
+                floating ? "hover:bg-muted/40" : "hover:bg-muted/60",
                 !n.readAt && (floating ? "bg-primary/10" : "bg-muted/30"),
               );
 
