@@ -48,6 +48,7 @@ Every organization-owned entity must answer these questions before it is built:
 | Area | Current state | Foundation action |
 |---|---|---|
 | Organizations | Backed by `tenants`; has `org_type`, `plan`, white-label flag, franchise parent. | Keep table; expose `Organization` aliases and document the mapping. |
+| Organization profile | `organization_profiles` stores legal/billing/support/owner/lifecycle data 1:1 with tenants. | Use this for commercial/customer metadata instead of widening the routing table. |
 | Branches | `branches`, `membership_branches`, branch-scoped RLS for key modules. | Replace implicit all-access with explicit scope type in a later migration. |
 | Franchise | `parent_tenant_id`, `franchise_admin`, templates, activations, dashboard. | Avoid cross-tenant `branch_id` overload; introduce assigned tenant/branch fields for routing. |
 | Roles | RBAC exists via `memberships.role`; routing now uses one pure helper. | Add a central permission registry for resource/action/scope checks. |
@@ -89,11 +90,26 @@ Acceptance:
 
 ### Sprint 2 - Organization profile and platform admin
 
-Implement next:
+Done in the foundation slice:
 
 - Add `organization_profiles` for legal name, billing email, support email, KvK/VAT, owner, lifecycle status, and onboarding status.
-- Extend platform-admin organization creation with org type, plan, owner user, and franchise relation.
-- Audit every create/update in this area.
+- Enable RLS so platform admins can read all profiles and tenant/franchise admins can read their own organization profile.
+- Add `upsert_organization_profile` as an audited, service-role-only RPC.
+- Backfill existing tenants as active/ready organization profiles.
+- Add organization profile service helpers and `test-organization-profile-foundation` guardrails.
+- Extend platform-admin organization creation server-side with org type, profile fields, owner user, lifecycle/onboarding status, and franchise relation wiring.
+
+Implement next:
+
+- Add visible platform-admin form fields for org type, profile metadata, owner user, lifecycle/onboarding status, and franchise relation.
+- Add platform-admin profile edit UI on the organization detail page.
+- Audit every create/update path that changes organization profile or franchise relation state.
+
+Acceptance:
+
+- `pnpm --filter @workspace/scripts run test-organization-profile-foundation` passes.
+- Existing tenants have profile rows after migrations.
+- New platform-admin flows write commercial profile data outside the core `tenants` routing table.
 
 ### Sprint 3 - Permissions and scope v2
 
