@@ -50,7 +50,7 @@ Every organization-owned entity must answer these questions before it is built:
 | Organizations | Backed by `tenants`; has `org_type`, `plan`, white-label flag, franchise parent. | Keep table; expose `Organization` aliases and document the mapping. |
 | Branches | `branches`, `membership_branches`, branch-scoped RLS for key modules. | Replace implicit all-access with explicit scope type in a later migration. |
 | Franchise | `parent_tenant_id`, `franchise_admin`, templates, activations, dashboard. | Avoid cross-tenant `branch_id` overload; introduce assigned tenant/branch fields for routing. |
-| Roles | RBAC exists via `memberships.role`. | Add a central permission registry for resource/action/scope checks. |
+| Roles | RBAC exists via `memberships.role`; routing now uses one pure helper. | Add a central permission registry for resource/action/scope checks. |
 | Teams | Task departments exist, but generic people teams do not. | Introduce canonical teams and link task departments where useful. |
 | Vehicles | `vehicles` are tenant-scoped. | Decide branch assignment rules and add branch scope where operationally needed. |
 | Tasks | Tenant-scoped Kanban with departments and assignment rules. | Add team/branch awareness where task ownership requires it. |
@@ -60,7 +60,7 @@ Every organization-owned entity must answer these questions before it is built:
 
 ### Sprint 0 - Canon audit and foundation alignment
 
-Done in this branch:
+Done:
 
 - Document `tenant = Organization` as the canonical mapping.
 - Add product-domain aliases for organization types.
@@ -74,15 +74,22 @@ Acceptance:
 
 ### Sprint 1 - Quick hardening
 
-Implement next:
+Done:
 
-- Add a lightweight `lib/organization` service facade for loading active organization context.
-- Add tests for franchise-admin landing and organization metadata in auth bootstrap.
-- Audit tenant selects and replace partial tenant columns where `org_type` or franchise state is needed.
+- Add `lib/organization` context facade for active organization access.
+- Centralize role-to-home routing in a pure helper shared by login and denial redirects.
+- Add `test-organization-foundation` to cover franchise-admin routing and metadata guardrails.
+- Keep auth bootstrap and host resolution selecting `org_type` and `parent_tenant_id`.
+
+Acceptance:
+
+- `pnpm --filter @workspace/scripts run test-organization-foundation` passes.
+- New server code can call `requireActiveOrganization` instead of speaking tenant directly.
+- Future role-routing changes are made in one testable location.
 
 ### Sprint 2 - Organization profile and platform admin
 
-Implement:
+Implement next:
 
 - Add `organization_profiles` for legal name, billing email, support email, KvK/VAT, owner, lifecycle status, and onboarding status.
 - Extend platform-admin organization creation with org type, plan, owner user, and franchise relation.
