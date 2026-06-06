@@ -63,10 +63,12 @@ export async function updateTenantPlanAction(formData: FormData) {
 
   // Audit log: record the plan change.
   await service.from("audit_log").insert({
+    actor_user_id: actor.id,
     tenant_id: tenantId,
-    actor_id: actor.id,
     action: "tenant.plan_changed",
-    metadata: { plan },
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { plan },
   });
 
   revalidatePath(`/admin/tenants/${tenantId}`);
@@ -122,6 +124,15 @@ export async function updateOrganizationProfileAction(formData: FormData) {
     );
   }
 
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.org_type_changed",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { org_type: orgType },
+  });
+
   try {
     await upsertOrganizationProfile(service, {
       tenantId,
@@ -173,10 +184,12 @@ export async function toggleWhiteLabelAction(formData: FormData) {
   }
 
   await service.from("audit_log").insert({
+    actor_user_id: actor.id,
     tenant_id: tenantId,
-    actor_id: actor.id,
     action: "tenant.white_label_changed",
-    metadata: { white_label_enabled: enabled },
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { white_label_enabled: enabled },
   });
 
   revalidatePath(`/admin/tenants/${tenantId}`);
