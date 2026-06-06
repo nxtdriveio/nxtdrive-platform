@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BadgeCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
+import { PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
 import { StudentCbrCard } from "@/components/student/StudentCbrCard";
 import { StudentExamResultCard } from "@/components/student/StudentExamResultCard";
 import { ExamPrepCard } from "@/components/student/ExamPrepCard";
@@ -27,11 +27,7 @@ export default async function StudentCbrPage() {
   if (needsChildPicker) redirect("/student/select-child");
   if (!student) {
     return (
-      <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">
-          Je account is nog niet gekoppeld aan een leerlingdossier.
-        </CardContent>
-      </Card>
+      <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
     );
   }
 
@@ -59,20 +55,17 @@ export default async function StudentCbrPage() {
     <div className="space-y-4">
       <Link
         href="/student"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-xl transition hover:bg-card hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Terug naar home
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        Home
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          CBR &amp; examens
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Je status richting het examen, je examenmoment en de voorbereiding.
-        </p>
-      </div>
+      <PWAPageHeader
+        title="CBR & examens"
+        subtitle="Je examenstatus, geplande momenten en voorbereiding in één overzicht."
+        icon={<BadgeCheck className="h-4 w-4" aria-hidden />}
+      />
 
       {cbrSummary.derived.lastExamResult ? (
         <StudentExamResultCard

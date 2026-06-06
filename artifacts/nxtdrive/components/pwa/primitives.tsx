@@ -30,7 +30,7 @@ export function PWACard({
   return (
     <div
       className={cn(
-        "min-w-0 overflow-hidden rounded-[1.65rem] border border-border/80 bg-card/85 shadow-sm backdrop-blur",
+        "min-w-0 overflow-hidden rounded-[1.45rem] border border-border/80 bg-card/85 shadow-sm backdrop-blur",
         className,
       )}
     >
@@ -112,17 +112,17 @@ export function PWAPageHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-4", className)}>
-      <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+    <div className={cn("mb-3", className)}>
+      <h1 className="flex min-w-0 items-center gap-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">
         {icon ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
             {icon}
           </span>
         ) : null}
-        {title}
+        <span className="min-w-0 truncate">{title}</span>
       </h1>
       {subtitle ? (
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{subtitle}</p>
       ) : null}
     </div>
   );

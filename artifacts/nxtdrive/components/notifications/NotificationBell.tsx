@@ -39,11 +39,14 @@ function relativeNL(iso: string): string {
 export function NotificationBell({
   items: initialItems,
   unreadCount: initialUnread,
+  variant = "default",
 }: {
   items: InAppNotification[];
   unreadCount: number;
+  variant?: "default" | "floating";
 }) {
   const router = useRouter();
+  const floating = variant === "floating";
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(initialItems);
   const [unread, setUnread] = useState(initialUnread);
@@ -114,9 +117,14 @@ export function NotificationBell({
         aria-label="Meldingen"
         aria-haspopup="true"
         aria-expanded={open}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+        className={cn(
+          "relative inline-flex items-center justify-center transition active:scale-95",
+          floating
+            ? "h-10 w-10 rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90"
+            : "h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
       >
-        <Bell className="h-4 w-4" aria-hidden />
+        <Bell className={cn(floating ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
         {unread > 0 && (
           <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
             {badge}
@@ -125,8 +133,22 @@ export function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <div
+          className={cn(
+            "absolute right-0 z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden text-popover-foreground",
+            floating
+              ? "rounded-[1.75rem] border border-border/60 bg-popover/80 shadow-2xl shadow-black/20 backdrop-blur-2xl"
+              : "rounded-lg border border-border bg-popover shadow-lg",
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-center justify-between px-3 py-2",
+              floating
+                ? "border-b border-border/50 bg-background/20"
+                : "border-b border-border",
+            )}
+          >
             <span className="text-sm font-medium">Meldingen</span>
             {unread > 0 && (
               <button
@@ -140,7 +162,12 @@ export function NotificationBell({
             )}
           </div>
 
-          <ul className="max-h-96 divide-y divide-border overflow-y-auto">
+          <ul
+            className={cn(
+              "max-h-96 overflow-y-auto",
+              floating ? "divide-y divide-border/50" : "divide-y divide-border",
+            )}
+          >
             {items.length === 0 && (
               <li className="px-3 py-6 text-center text-sm text-muted-foreground">
                 Geen meldingen
@@ -185,7 +212,10 @@ export function NotificationBell({
                         markOne(n.id);
                       }}
                       aria-label="Markeer als gelezen"
-                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className={cn(
+                        "shrink-0 rounded p-1 text-muted-foreground hover:text-foreground",
+                        floating ? "hover:bg-muted/40" : "hover:bg-muted",
+                      )}
                     >
                       <Check className="h-3.5 w-3.5" aria-hidden />
                     </button>
@@ -194,8 +224,9 @@ export function NotificationBell({
               );
 
               const cls = cn(
-                "block px-3 py-2.5 transition-colors hover:bg-muted/60",
-                !n.readAt && "bg-muted/30",
+                "block px-3 py-2.5 transition-colors",
+                floating ? "hover:bg-muted/40" : "hover:bg-muted/60",
+                !n.readAt && (floating ? "bg-primary/10" : "bg-muted/30"),
               );
 
               return (

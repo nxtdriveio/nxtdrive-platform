@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
 import { StudentLessonCard } from "@/components/student/LessonCard";
 import type { Lesson } from "@/lib/lessons/types";
 
@@ -80,7 +79,7 @@ export function PlanningTabs({
       <div
         role="tablist"
         aria-label="Lessen"
-        className="inline-flex rounded-lg border border-border bg-muted/40 p-1"
+        className="grid grid-cols-2 rounded-[1.5rem] border border-border/60 bg-card/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl"
       >
         <TabButton
           active={tab === "upcoming"}
@@ -99,16 +98,14 @@ export function PlanningTabs({
       </div>
 
       {groups.length === 0 ? (
-        <Card>
-          <CardContent className="pt-5 text-sm text-muted-foreground">
-            {emptyText}
-          </CardContent>
-        </Card>
+        <div className="rounded-[1.45rem] border border-dashed border-border/70 bg-card/60 p-6 text-center text-sm leading-6 text-muted-foreground shadow-sm backdrop-blur-xl">
+          {emptyText}
+        </div>
       ) : (
         <div className="space-y-5">
           {groups.map((g) => (
             <section key={g.key} className="space-y-2">
-              <h2 className="text-xs font-medium capitalize text-muted-foreground">
+              <h2 className="inline-flex rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs font-semibold capitalize text-muted-foreground backdrop-blur-xl">
                 {g.label}
               </h2>
               <ol className="space-y-2">
@@ -148,14 +145,19 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+        "rounded-[1.2rem] px-3 py-2 text-sm font-bold transition active:scale-[0.98]",
         active
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          ? "bg-primary-soft/90 text-primary shadow-sm"
+          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
       )}
     >
       {children}
-      <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
+      <span
+        className={cn(
+          "ml-1.5 text-xs tabular-nums",
+          active ? "text-primary/70" : "text-muted-foreground",
+        )}
+      >
         {count}
       </span>
     </button>
