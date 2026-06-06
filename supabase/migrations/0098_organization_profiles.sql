@@ -56,7 +56,12 @@ drop policy if exists organization_profiles_select on public.organization_profil
 create policy organization_profiles_select on public.organization_profiles
   for select
   using (
-    public.is_platform_admin()
+    exists (
+      select 1
+        from public.profiles p
+       where p.id = auth.uid()
+         and p.is_platform_admin
+    )
     or exists (
       select 1
         from public.memberships m
