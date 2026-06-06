@@ -10,7 +10,7 @@ import {
 /**
  * Subdomain labels of nxtdrive.io that are platform-reserved and must NEVER be
  * resolved to a tenant slug. These belong to the platform itself (login,
- * marketing, staging, the API) — see replit.md "Domains".
+ * marketing, staging, the API) - see replit.md "Domains".
  */
 export const RESERVED_SUBDOMAINS = new Set([
   "app",
@@ -24,17 +24,18 @@ export const RESERVED_SUBDOMAINS = new Set([
   "assets",
 ]);
 
-const TENANT_COLUMNS = "id, slug, name, plan, white_label_enabled";
+const TENANT_COLUMNS =
+  "id, slug, name, plan, white_label_enabled, org_type, parent_tenant_id";
 
 /**
  * Resolves the tenant for an inbound host header.
  *
- *  - `<slug>.nxtdrive.io`  → tenant whose slug === <slug> (reserved labels skipped)
- *  - a custom domain        → tenant owning an *active* tenant_domains row
+ *  - `<slug>.nxtdrive.io`  -> tenant whose slug === <slug> (reserved labels skipped)
+ *  - a custom domain        -> tenant owning an *active* tenant_domains row
  *
  * Returns null for the root domain, reserved subdomains, unknown hosts, or any
  * lookup error. Callers MUST treat null as "no tenant context" and fall back to
- * the default (cookie-based) resolution — host routing is purely additive and
+ * the default (cookie-based) resolution - host routing is purely additive and
  * never throws.
  *
  * Uses the service-role client because anon RLS would hide rows for an
