@@ -16,6 +16,28 @@ function isBypassPath(pathname: string): boolean {
   return BYPASS_PATHS.some((p) => pathname === p || pathname.startsWith(p));
 }
 
+function isLocalHost(host: string): boolean {
+  const normalized = host.toLowerCase().split(":")[0];
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function buildRedirectUrl(request: NextRequest, pathname: string): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost ?? request.headers.get("host");
+
+  if (host && !isLocalHost(host)) {
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}${pathname}`;
+  }
+
+  const publicOrigin = process.env["NEXT_PUBLIC_APP_URL"];
+  if (publicOrigin) {
+    return new URL(pathname, publicOrigin).toString();
+  }
+
+  return new URL(pathname, request.url).toString();
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -59,9 +81,7 @@ export async function middleware(request: NextRequest) {
     user.user_metadata?.["must_change_password"] === true &&
     !isBypassPath(request.nextUrl.pathname)
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = CHANGE_PASSWORD_PATH;
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(buildRedirectUrl(request, CHANGE_PASSWORD_PATH));
   }
 
   return response;
