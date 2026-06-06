@@ -1,13 +1,11 @@
 import type { AuthenticatedUser, MemberRole } from "@/lib/types";
+import { homePathForRoles } from "./role-routing";
 
 /**
  * Picks the most appropriate landing route for a user when they're denied
  * access to another role's section. Priority mirrors the privilege ladder:
  * platform admin -> tenant admin/franchise admin -> backoffice staff ->
  * instructor -> student -> parent.
- *
- * branch_manager, planner, admin_staff, marketing, and franchise_admin all land
- * in /backoffice. Instructors keep their dedicated /instructor PWA route.
  */
 export function roleHomePath(user: AuthenticatedUser, tenantId?: string): string {
   if (user.profile?.is_platform_admin) return "/admin";
@@ -18,14 +16,5 @@ export function roleHomePath(user: AuthenticatedUser, tenantId?: string): string
       : user.memberships
   ).map((m) => m.role as MemberRole);
 
-  if (roles.includes("tenant_admin")) return "/backoffice";
-  if (roles.includes("franchise_admin")) return "/backoffice";
-  if (roles.includes("branch_manager")) return "/backoffice";
-  if (roles.includes("planner")) return "/backoffice";
-  if (roles.includes("admin_staff")) return "/backoffice";
-  if (roles.includes("marketing")) return "/backoffice";
-  if (roles.includes("instructor")) return "/instructor";
-  if (roles.includes("student")) return "/student";
-  if (roles.includes("parent")) return "/ouder";
-  return "/";
+  return homePathForRoles(roles);
 }
