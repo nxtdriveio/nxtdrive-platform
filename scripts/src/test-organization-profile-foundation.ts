@@ -25,6 +25,7 @@ function source(pathFromRepoRoot: string): string {
 const migration = source("supabase/migrations/0098_organization_profiles.sql");
 const profileSrc = source("artifacts/nxtdrive/lib/organization/profile.ts");
 const indexSrc = source("artifacts/nxtdrive/lib/organization/index.ts");
+const adminActionsSrc = source("artifacts/nxtdrive/app/admin/actions.ts");
 
 check(
   "migration creates organization_profiles",
@@ -93,6 +94,23 @@ check(
   indexSrc.includes("loadOrganizationProfile") &&
     indexSrc.includes("upsertOrganizationProfile") &&
     indexSrc.includes("OrganizationProfile"),
+);
+check(
+  "platform create flow writes organization profiles",
+  adminActionsSrc.includes("upsertOrganizationProfile") &&
+    adminActionsSrc.includes("legalName") &&
+    adminActionsSrc.includes("lifecycleStatus") &&
+    adminActionsSrc.includes("onboardingStatus"),
+);
+check(
+  "platform create flow records org type",
+  adminActionsSrc.includes("VALID_ORG_TYPES") &&
+    adminActionsSrc.includes("org_type: orgType"),
+);
+check(
+  "platform create flow links franchise parent through RPC",
+  adminActionsSrc.includes("set_franchisee_parent") &&
+    adminActionsSrc.includes("p_franchisegever_tenant_id"),
 );
 
 console.log("");
