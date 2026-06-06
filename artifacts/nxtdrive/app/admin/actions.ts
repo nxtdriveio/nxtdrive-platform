@@ -9,6 +9,42 @@ import {
   setPlatformFromEmail,
 } from "@/lib/email/platform-config";
 import { getAiConfigStatus, setPlatformAiKey } from "@/lib/ai/platform-config";
+import {
+  upsertOrganizationProfile,
+  type OrganizationLifecycleStatus,
+  type OrganizationOnboardingStatus,
+} from "@/lib/organization";
+import type { OrgType, TenantPlan } from "@/lib/types";
+
+const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
+const VALID_ORG_TYPES: OrgType[] = [
+  "zzp",
+  "rijschool",
+  "groot",
+  "multi_vestiging",
+  "franchise",
+];
+const VALID_LIFECYCLE_STATUSES: OrganizationLifecycleStatus[] = [
+  "prospect",
+  "onboarding",
+  "active",
+  "paused",
+  "churned",
+];
+const VALID_ONBOARDING_STATUSES: OrganizationOnboardingStatus[] = [
+  "not_started",
+  "in_progress",
+  "ready",
+  "blocked",
+];
+
+function trimmed(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+function normalizedSlug(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+}
 
 export async function savePlatformEmailConfig(formData: FormData) {
   await requirePlatformAdmin();
@@ -69,31 +105,124 @@ export async function enterTenantBackoffice(formData: FormData) {
 }
 
 export async function createTenant(formData: FormData) {
-  await requirePlatformAdmin();
+  const actor = await requirePlatformAdmin();
 
-  const name = String(formData.get("name") ?? "").trim();
-  const slug = String(formData.get("slug") ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-");
-  const plan = String(formData.get("plan") ?? "start");
+  const name = trimmed(formData, "name");
+  const slug = normalizedSlug(trimmed(formData, "slug"));
+  const plan = (trimmed(formData, "plan") || "start") as TenantPlan;
+  const orgType = (trimmed(formData, "org_type") || "rijschool") as OrgType;
+  const lifecycleStatus = (trimmed(formData, "lifecycle_status") ||
+    "onboarding") as OrganizationLifecycleStatus;
+  const onboardingStatus = (trimmed(formData, "onboarding_status") ||
+    "not_started") as OrganizationOnboardingStatus;
+  const franchisegeverTenantId = trimmed(formData, "franchisegever_tenant_id") || null;
+  const ownerEmail = trimmed(formData, "owner_email").toLowerCase();
 
   if (!name || !slug) redirect("/admin?tab=tenant&error=missing_fields");
+  if (!VALID_PLANS.includes(plan)) redirect("/admin?tab=tenant&error=invalid_plan");
+  if (!VALID_ORG_TYPES.includes(orgType)) redirect("/admin?tab=tenant&error=invalid_org_type");
+  if (!VALID_LIFECYCLE_STATUSES.includes(lifecycleStatus)) {
+    redirect("/admin?tab=tenant&error=invalid_lifecycle_status");
+  }
+  if (!VALID_ONBOARDING_STATUSES.includes(onboardingStatus)) {
+    redirect("/admin?tab=tenant&error=invalid_onboarding_status");
+  }
 
   const service = createServiceRoleClient();
-  const { error } = await service.from("tenants").insert({
-    name,
-    slug,
-    plan,
-    white_label_enabled: false,
-  });
 
-  if (error) {
-    if (error.code === "23505") redirect("/admin?tab=tenant&error=slug_exists");
+  if (franchisegeverTenantId) {
+    const { data: parentTenant, error: parentError } = await service
+      .from("tenants")
+      .select("id")
+      .eq("id", franchisegeverTenantId)
+      .maybeSingle();
+
+    if (parentError || !parentTenant) {
+      redirect("/admin?tab=tenant&error=invalid_franchise_parent");
+    }
+  }
+
+  let ownerUserId: string | null = null;
+  if (ownerEmail) {
+    const listResult = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const allUsers = (listResult.data?.users ?? []) as Array<{ id: string; email?: string }>;
+    ownerUserId = allUsers.find((u) => u.email?.toLowerCase() === ownerEmail)?.id ?? null;
+
+    if (!ownerUserId) {
+      redirect("/admin?tab=tenant&error=owner_not_found");
+    }
+  }
+
+  const { data: tenant, error } = await service
+    .from("tenants")
+    .insert({
+      name,
+      slug,
+      plan,
+      org_type: orgType,
+      white_label_enabled: false,
+    })
+    .select("id, slug")
+    .single();
+
+  if (error || !tenant) {
+    if (error?.code === "23505") redirect("/admin?tab=tenant&error=slug_exists");
     redirect("/admin?tab=tenant&error=unknown");
   }
 
-  redirect("/admin?tab=tenant&created=" + slug);
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenant.id,
+    action: "tenant.created",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: {
+      name,
+      slug: tenant.slug,
+      plan,
+      org_type: orgType,
+      owner_user_id: ownerUserId,
+      franchisegever_tenant_id: franchisegeverTenantId,
+    },
+  });
+
+  try {
+    await upsertOrganizationProfile(service, {
+      tenantId: tenant.id,
+      actorId: actor.id,
+      legalName: trimmed(formData, "legal_name") || name,
+      billingEmail: trimmed(formData, "billing_email") || null,
+      supportEmail: trimmed(formData, "support_email") || null,
+      kvkNumber: trimmed(formData, "kvk_number") || null,
+      vatNumber: trimmed(formData, "vat_number") || null,
+      ownerUserId,
+      lifecycleStatus,
+      onboardingStatus,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Organisatieprofiel opslaan mislukt";
+    redirect(
+      `/admin/tenants/${tenant.id}?profile_error=` +
+        encodeURIComponent(msg.slice(0, 200)),
+    );
+  }
+
+  if (franchisegeverTenantId) {
+    const { error: franchiseError } = await service.rpc("set_franchisee_parent", {
+      p_franchisee_tenant_id: tenant.id,
+      p_franchisegever_tenant_id: franchisegeverTenantId,
+      p_actor: actor.id,
+    });
+
+    if (franchiseError) {
+      redirect(
+        `/admin/tenants/${tenant.id}?franchise_error=` +
+          encodeURIComponent(franchiseError.message.slice(0, 200)),
+      );
+    }
+  }
+
+  redirect("/admin?tab=tenant&created=" + tenant.slug);
 }
 
 export async function createTenantAdmin(formData: FormData) {
@@ -127,7 +256,7 @@ export async function createTenantAdmin(formData: FormData) {
       });
     }
   } else {
-    // Invite a new user — they get an email to set their password.
+    // Invite a new user - they get an email to set their password.
     const { data: inviteData, error: inviteError } =
       await service.auth.admin.inviteUserByEmail(email);
     if (inviteError || !inviteData?.user) {
@@ -138,7 +267,7 @@ export async function createTenantAdmin(formData: FormData) {
 
   if (!userId) redirect("/admin?tab=admin&error=unknown");
 
-  // Upsert membership (idempotent — unique on user_id + tenant_id + role).
+  // Upsert membership (idempotent - unique on user_id + tenant_id + role).
   const { error: memberError } = await service.from("memberships").upsert(
     { user_id: userId, tenant_id: tenantId, role: "tenant_admin" },
     { onConflict: "user_id,tenant_id,role" },

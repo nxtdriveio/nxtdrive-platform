@@ -2,7 +2,7 @@
 
 Status: architecture foundation
 Owner: platform architecture
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 ## Decision
 
@@ -47,7 +47,7 @@ Every organization-owned entity must answer these questions before it is built:
 
 | Area | Current state | Foundation action |
 |---|---|---|
-| Organizations | Backed by `tenants`; has `org_type`, `plan`, white-label flag, franchise parent. | Keep table; expose `Organization` aliases and document the mapping. |
+| Organizations | Backed by `tenants`; has `org_type`, `plan`, white-label flag, franchise parent, and `organization_profiles` for legal/commercial metadata. | Keep table; expose `Organization` aliases and use the profile facade for platform-admin metadata. |
 | Branches | `branches`, `membership_branches`, branch-scoped RLS for key modules. | Replace implicit all-access with explicit scope type in a later migration. |
 | Franchise | `parent_tenant_id`, `franchise_admin`, templates, activations, dashboard. | Avoid cross-tenant `branch_id` overload; introduce assigned tenant/branch fields for routing. |
 | Roles | RBAC exists via `memberships.role`; routing now uses one pure helper. | Add a central permission registry for resource/action/scope checks. |
@@ -89,15 +89,25 @@ Acceptance:
 
 ### Sprint 2 - Organization profile and platform admin
 
-Implement next:
+Done:
 
 - Add `organization_profiles` for legal name, billing email, support email, KvK/VAT, owner, lifecycle status, and onboarding status.
-- Extend platform-admin organization creation with org type, plan, owner user, and franchise relation.
-- Audit every create/update in this area.
+- Backfill profiles for existing tenants so the admin UI can rely on a one-to-one profile row.
+- Expose `loadOrganizationProfile` and `upsertOrganizationProfile` through the organization domain facade.
+- Extend platform-admin organization creation with org type, plan, owner user, lifecycle, onboarding, and optional franchise parent.
+- Add a tenant-detail organization profile editor for platform admins.
+- Audit profile writes through the service-role-only `upsert_organization_profile` RPC.
+- Add `test-organization-profile-foundation` guardrails for schema, RLS, RPC grants, facade exports, and UI wiring.
+
+Acceptance:
+
+- `supabase/migrations/0098_organization_profiles.sql` creates the profile table, RLS policy, backfill, and audited RPC.
+- `pnpm --filter @workspace/scripts run test-organization-profile-foundation` passes.
+- Platform admins can create an organization with profile metadata and later update that metadata from the tenant detail page.
 
 ### Sprint 3 - Permissions and scope v2
 
-Implement:
+Implement next:
 
 - Add a central permission registry and helper API.
 - Replace implicit branch all-access with explicit `scope_type = all | branches`.

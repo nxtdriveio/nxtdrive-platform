@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
+import { loadOrganizationProfile } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import {
   updateTenantPlanAction,
   toggleWhiteLabelAction,
 } from "./actions";
+import { OrganizationProfileForm } from "./organization-profile-form";
 import {
   FEATURE_PLAN,
   FEATURE_LABELS,
@@ -37,10 +39,25 @@ const PLAN_BADGE: Record<string, "outline" | "primary" | "default"> = {
   elite: "default",
 };
 
+const ORG_TYPE_LABELS: Record<string, string> = {
+  zzp: "ZZP",
+  rijschool: "Rijschool",
+  groot: "Grote rijschool",
+  multi_vestiging: "Multi-vestiging",
+  franchise: "Franchise",
+};
+
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Vul naam, e-mailadres en een wachtwoord van minimaal 8 tekens in.",
   create_failed: "Account aanmaken mislukt. Controleer het e-mailadres.",
   membership_failed: "Account aangemaakt maar lidmaatschap toevoegen mislukt. Neem contact op.",
+};
+
+const PROFILE_ERROR_MESSAGES: Record<string, string> = {
+  invalid_org_type: "Ongeldig organisatietype geselecteerd.",
+  invalid_lifecycle_status: "Ongeldige lifecycle-status geselecteerd.",
+  invalid_onboarding_status: "Ongeldige onboarding-status geselecteerd.",
+  owner_not_found: "Eigenaar-account niet gevonden in Supabase Auth.",
 };
 
 export default async function TenantDetailPage({
@@ -51,7 +68,7 @@ export default async function TenantDetailPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
-  const adminUser = await requirePlatformAdmin();
+  await requirePlatformAdmin();
 
   const service = createServiceRoleClient();
 
@@ -100,26 +117,45 @@ export default async function TenantDetailPage({
 
   if (!tenant) notFound();
 
-  // Resolve admin profile names.
-  let adminProfiles: { user_id: string; email: string; full_name: string }[] = [];
-  if (admins && admins.length > 0) {
+  const tenantRecord = tenant as Record<string, unknown>;
+  const organizationProfile = await loadOrganizationProfile(service, id);
+  const shouldLoadUsers =
+    (admins?.length ?? 0) > 0 || !!organizationProfile?.owner_user_id;
+
+  let allUsers: Array<{
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+  }> = [];
+
+  if (shouldLoadUsers) {
     const listResult = await service.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
-    const allUsers = (listResult.data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
-    adminProfiles = admins.map((m) => {
-      const u = allUsers.find((u) => u.id === m.user_id);
-      return {
-        user_id: m.user_id,
-        email: u?.email ?? "—",
-        full_name: (u?.user_metadata?.full_name as string | undefined) ?? "—",
-      };
-    });
+    allUsers = (listResult.data?.users ?? []) as Array<{
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+    }>;
   }
 
-  const isFranchisee = !!(tenant as Record<string, unknown>).parent_tenant_id;
-  const franchisegeverTenantId = (tenant as Record<string, unknown>).parent_tenant_id as string | null | undefined;
+  const adminProfiles = (admins ?? []).map((m) => {
+    const u = allUsers.find((u) => u.id === m.user_id);
+    return {
+      user_id: m.user_id,
+      email: u?.email ?? "—",
+      full_name: (u?.user_metadata?.full_name as string | undefined) ?? "—",
+    };
+  });
+
+  const ownerEmail = organizationProfile?.owner_user_id
+    ? (allUsers.find((u) => u.id === organizationProfile.owner_user_id)?.email ?? "")
+    : "";
+  const tenantOrgType =
+    typeof tenantRecord.org_type === "string" ? tenantRecord.org_type : null;
+  const isFranchisee = !!tenantRecord.parent_tenant_id;
+  const franchisegeverTenantId = tenantRecord.parent_tenant_id as string | null | undefined;
   const franchisegeverName = franchisegeverTenantId
     ? ((allTenants ?? []).find((t) => t.id === franchisegeverTenantId)?.name ?? franchisegeverTenantId)
     : null;
@@ -127,7 +163,7 @@ export default async function TenantDetailPage({
   const createAction = createTenantAdminAccount.bind(null, id);
 
   const tenantPlan = (tenant.plan as TenantPlan) ?? "start";
-  const tenantObj = { plan: tenantPlan, white_label_enabled: !!(tenant as Record<string, unknown>).white_label_enabled };
+  const tenantObj = { plan: tenantPlan, white_label_enabled: !!tenantRecord.white_label_enabled };
 
   return (
     <main className="min-h-screen bg-background">
@@ -153,14 +189,19 @@ export default async function TenantDetailPage({
         {/* Tenant header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-foreground">
                 {tenant.name}
               </h1>
               <Badge variant={PLAN_BADGE[tenant.plan as string] ?? "outline"}>
                 {PLAN_LABELS[tenant.plan as string] ?? tenant.plan}
               </Badge>
-              {!!(tenant as Record<string, unknown>).white_label_enabled && (
+              {tenantOrgType && (
+                <Badge variant="outline">
+                  {ORG_TYPE_LABELS[tenantOrgType] ?? tenantOrgType}
+                </Badge>
+              )}
+              {!!tenantRecord.white_label_enabled && (
                 <Badge variant="outline">White-label</Badge>
               )}
               {isFranchisee && (
@@ -216,6 +257,24 @@ export default async function TenantDetailPage({
             </Card>
           ))}
         </div>
+
+        {sp.profile_saved && (
+          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+            Organisatieprofiel opgeslagen.
+          </div>
+        )}
+        {sp.profile_error && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {PROFILE_ERROR_MESSAGES[sp.profile_error] ?? decodeURIComponent(sp.profile_error)}
+          </div>
+        )}
+
+        <OrganizationProfileForm
+          tenantId={id}
+          tenantOrgType={tenantOrgType}
+          profile={organizationProfile}
+          ownerEmail={ownerEmail}
+        />
 
         {/* Plan & feature management */}
         {sp.plan_saved && (
