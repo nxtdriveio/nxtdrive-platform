@@ -36,7 +36,6 @@ export function normalizeBranchScopeType(
 
 export function branchScopeFromIds(branchIds: readonly string[]): BranchAccessScope {
   const uniqueIds = Array.from(new Set(branchIds.filter(Boolean)));
-  if (uniqueIds.length === 0) return { scope_type: "all", branch_ids: null };
   return { scope_type: "branches", branch_ids: uniqueIds };
 }
 
@@ -55,6 +54,8 @@ export function branchScopeForMembership(
 ): BranchAccessScope {
   const scopeType = normalizeBranchScopeType(membership.branch_scope_type);
   if (scopeType === "all") return { scope_type: "all", branch_ids: null };
+
+  // Empty explicit branch scopes are intentionally deny-by-default.
   return branchScopeFromIds(membership.branch_ids ?? []);
 }
 
