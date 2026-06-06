@@ -3,19 +3,19 @@ import { randomBytes } from "node:crypto";
 const LOWERCASE = "abcdefghijkmnpqrstuvwxyz";
 const UPPERCASE = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const DIGITS = "23456789";
-const SYMBOLS = "!@#$%&*-_=+?";
 
-const ALL = LOWERCASE + UPPERCASE + DIGITS + SYMBOLS;
+const ALL = LOWERCASE + UPPERCASE + DIGITS;
 
 /**
  * Generates a cryptographically random temporary password.
  *
  * - At least 14 characters
- * - Guaranteed to contain: ≥1 lowercase, ≥1 uppercase, ≥1 digit, ≥1 symbol
+ * - Guaranteed to contain: >=1 lowercase, >=1 uppercase, >=1 digit
+ * - Uses only mail-friendly characters to avoid copy/paste issues
  * - Uses node:crypto so it is safe for server-side use only
  * - Ambiguous characters (0, O, l, 1, I) excluded for readability
  */
-export function generateTemporaryPassword(length = 14): string {
+export function generateTemporaryPassword(length = 16): string {
   if (length < 8) throw new Error("Minimum password length is 8");
 
   const bytes = randomBytes(length + 16);
@@ -24,11 +24,10 @@ export function generateTemporaryPassword(length = 14): string {
     pick(bytes, 0, LOWERCASE),
     pick(bytes, 1, UPPERCASE),
     pick(bytes, 2, DIGITS),
-    pick(bytes, 3, SYMBOLS),
   ];
 
   const rest: string[] = [];
-  for (let i = 4; i < length; i++) {
+  for (let i = 3; i < length; i++) {
     rest.push(pick(bytes, i, ALL));
   }
 

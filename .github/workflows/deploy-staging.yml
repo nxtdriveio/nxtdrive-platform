@@ -74,6 +74,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
           SESSION_SECRET: ${{ secrets.STAGING_SESSION_SECRET }}
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          MOLLIE_KEY_ENCRYPTION_SECRET: ${{ secrets.MOLLIE_KEY_ENCRYPTION_SECRET }}
         run: |
           set -euo pipefail
           umask 002
@@ -90,6 +91,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           SESSION_SECRET=$SESSION_SECRET
           DATABASE_URL=$DATABASE_URL
+          MOLLIE_KEY_ENCRYPTION_SECRET=$MOLLIE_KEY_ENCRYPTION_SECRET
           EOF
           chmod 640 "$DEPLOY_BASE/shared/.env"
 
