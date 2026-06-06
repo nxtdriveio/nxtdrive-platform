@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getActiveStudent } from "@/lib/students/access";
-import { Card, CardContent } from "@/components/ui/card";
 import { ChatThread } from "@/components/chat/ChatThread";
+import {
+  PWACard,
+  PWAEmptyState,
+  PWAPageHeader,
+} from "@/components/pwa/primitives";
 import {
   ensureConversation,
   listStudentInstructors,
@@ -32,14 +36,14 @@ export default async function StudentBerichtenPage({
 
   if (!student) {
     return (
-      <Card>
-        <CardContent className="space-y-2 pt-6">
-          <h1 className="text-xl font-semibold text-foreground">Berichten</h1>
-          <p className="text-sm text-muted-foreground">
-            Je account is nog niet gekoppeld aan een leerlingdossier.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <PWAPageHeader
+          title="Berichten"
+          subtitle="Chat met je instructeur en rijschool."
+          icon={<MessageCircle className="h-4 w-4" aria-hidden />}
+        />
+        <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
+      </div>
     );
   }
 
@@ -54,19 +58,16 @@ export default async function StudentBerichtenPage({
   if (instructors.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-foreground">Berichten</h1>
-        <Card>
-          <CardContent className="space-y-2 pt-6 text-center">
-            <MessageCircle
-              className="mx-auto h-8 w-8 text-muted-foreground"
-              aria-hidden
-            />
-            <p className="text-sm text-muted-foreground">
-              Je hebt nog geen instructeur waarmee je kunt chatten. Zodra je een
-              les hebt gehad, verschijnt je instructeur hier.
-            </p>
-          </CardContent>
-        </Card>
+        <PWAPageHeader
+          title="Berichten"
+          subtitle="Je chat verschijnt zodra er een instructeur aan jou gekoppeld is."
+          icon={<MessageCircle className="h-4 w-4" aria-hidden />}
+        />
+        <PWAEmptyState
+          icon={<MessageCircle className="h-8 w-8" aria-hidden />}
+          title="Nog geen chat"
+          message="Je hebt nog geen instructeur waarmee je kunt chatten. Zodra je een les hebt gehad, verschijnt je instructeur hier."
+        />
       </div>
     );
   }
@@ -80,22 +81,27 @@ export default async function StudentBerichtenPage({
   if (!active) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-foreground">Berichten</h1>
-        <p className="text-sm text-muted-foreground">
-          Kies een instructeur om mee te chatten.
-        </p>
-        <div className="space-y-2">
-          {instructors.map((i) => (
-            <Link
-              key={i.instructorId}
-              href={`/student/berichten?instructor=${i.instructorId}`}
-              className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary-soft/40"
-            >
-              <MessageCircle className="h-5 w-5 text-primary" aria-hidden />
-              {i.name}
-            </Link>
-          ))}
-        </div>
+        <PWAPageHeader
+          title="Berichten"
+          subtitle="Kies met wie je wilt chatten."
+          icon={<MessageCircle className="h-4 w-4" aria-hidden />}
+        />
+        <PWACard>
+          <div className="space-y-2">
+            {instructors.map((i) => (
+              <Link
+                key={i.instructorId}
+                href={`/student/berichten?instructor=${i.instructorId}`}
+                className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/70 px-4 py-3 text-sm font-bold text-foreground shadow-sm backdrop-blur-xl transition hover:border-primary/50 hover:bg-primary-soft/50 active:scale-[0.99]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+                  <MessageCircle className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0 truncate">{i.name}</span>
+              </Link>
+            ))}
+          </div>
+        </PWACard>
       </div>
     );
   }
@@ -115,14 +121,19 @@ export default async function StudentBerichtenPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Berichten</h1>
+      <div className="flex items-start justify-between gap-3">
+        <PWAPageHeader
+          title="Berichten"
+          subtitle={`Chat met ${active.name}.`}
+          icon={<MessageCircle className="h-4 w-4" aria-hidden />}
+          className="mb-0 min-w-0 flex-1"
+        />
         {instructors.length > 1 ? (
           <Link
             href="/student/berichten?pick=1"
-            className="text-sm text-primary hover:underline"
+            className="shrink-0 rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur-xl transition hover:bg-card"
           >
-            Wissel instructeur
+            Wissel
           </Link>
         ) : null}
       </div>
