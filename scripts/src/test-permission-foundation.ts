@@ -102,6 +102,19 @@ check(
     !canAccessBranch(branchScope, "branch-c"),
 );
 
+const emptyBranchScope = branchScopeForMembership({
+  id: "membership-empty",
+  tenant_id: "tenant-a",
+  role: "planner",
+  branch_scope_type: "branches",
+});
+check(
+  "empty explicit branch scope is deny-by-default",
+  emptyBranchScope.scope_type === "branches" &&
+    emptyBranchScope.branch_ids.length === 0 &&
+    !canAccessBranch(emptyBranchScope, "branch-a"),
+);
+
 const legacyAllScope = branchScopeForMembership({
   id: "membership-b",
   tenant_id: "tenant-a",
