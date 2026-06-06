@@ -170,6 +170,22 @@ export async function createTenant(formData: FormData) {
     redirect("/admin?tab=tenant&error=unknown");
   }
 
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenant.id,
+    action: "tenant.created",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: {
+      name,
+      slug: tenant.slug,
+      plan,
+      org_type: orgType,
+      owner_user_id: ownerUserId,
+      franchisegever_tenant_id: franchisegeverTenantId,
+    },
+  });
+
   try {
     await upsertOrganizationProfile(service, {
       tenantId: tenant.id,
