@@ -3,18 +3,18 @@ import { uniqueTenants } from "./session";
 
 /**
  * Returns the best landing path for a user after login. Priority:
- *  1. Platform admin → /admin
- *  2. Multiple tenants → /select-tenant
+ *  1. Platform admin -> /admin
+ *  2. Multiple tenants -> /select-tenant
  *  3. Single tenant:
- *     - tenant_admin / backoffice staff roles → /backoffice
- *     - instructor → /instructor (PWA)
- *     - student (or student+parent) → /student
- *     - pure parent → /ouder
- *  4. No memberships → /  (will show a "no access" prompt)
+ *     - tenant_admin / franchise_admin / backoffice staff roles -> /backoffice
+ *     - instructor -> /instructor (PWA)
+ *     - student (or student+parent) -> /student
+ *     - pure parent -> /ouder
+ *  4. No memberships -> /  (will show a "no access" prompt)
  *
- * Backoffice staff roles (branch_manager, planner, admin_staff, marketing)
- * land in /backoffice — the shared staff backoffice. They do NOT get their
- * own PWA route (unlike instructors who have /instructor).
+ * Backoffice staff roles (branch_manager, planner, admin_staff, marketing) and
+ * franchise_admin land in /backoffice - the shared staff backoffice. They do
+ * NOT get their own PWA route (unlike instructors who have /instructor).
  */
 export function landingPathFor(user: AuthenticatedUser): string {
   if (user.profile?.is_platform_admin) return "/admin";
@@ -29,6 +29,7 @@ export function landingPathFor(user: AuthenticatedUser): string {
     .map((m) => m.role);
 
   if (roles.includes("tenant_admin")) return "/backoffice";
+  if (roles.includes("franchise_admin")) return "/backoffice";
   if (roles.includes("branch_manager")) return "/backoffice";
   if (roles.includes("planner")) return "/backoffice";
   if (roles.includes("admin_staff")) return "/backoffice";
