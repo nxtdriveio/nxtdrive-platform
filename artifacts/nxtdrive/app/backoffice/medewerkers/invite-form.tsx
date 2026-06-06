@@ -44,15 +44,16 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
       {!open ? (
         <Button onClick={() => setOpen(true)} size="sm">
           <UserPlus className="h-4 w-4" aria-hidden />
-          Medewerker uitnodigen
+          Medewerker toevoegen
         </Button>
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Medewerker uitnodigen</CardTitle>
+            <CardTitle>Medewerker toevoegen</CardTitle>
             <p className="text-sm text-muted-foreground">
-              De uitgenodigde persoon ontvangt een e-mail om een wachtwoord in
-              te stellen en krijgt direct toegang tot de geselecteerde omgeving.
+              Nieuwe medewerkers ontvangen automatisch een e-mail met een
+              tijdelijk wachtwoord. Bij de eerste login moeten ze direct een
+              eigen wachtwoord instellen.
             </p>
           </CardHeader>
           <CardContent>
@@ -149,7 +150,7 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
 
               <div className="flex gap-2">
                 <Button type="submit" size="sm">
-                  Uitnodiging versturen
+                  Inloggegevens versturen
                 </Button>
                 <Button
                   type="button"

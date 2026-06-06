@@ -70,10 +70,18 @@ function Feedback({
   email: string | null;
   reason: string | null;
 }) {
-  if (success === "invited") {
+  if (success === "credentials_sent" || success === "invited") {
     return (
       <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-        Uitnodiging verstuurd naar <strong>{email}</strong>.
+        Medewerker aangemaakt en tijdelijke inloggegevens verstuurd naar{" "}
+        <strong>{email}</strong>.
+      </p>
+    );
+  }
+  if (success === "added") {
+    return (
+      <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+        Bestaand account toegevoegd aan dit team: <strong>{email}</strong>.
       </p>
     );
   }
@@ -101,8 +109,8 @@ function Feedback({
 
   const errorMessages: Record<string, string> = {
     missing_fields: "Vul alle verplichte velden in.",
-    already_member: `${email ? `${email} heeft` : "Dit account heeft"} al deze rol in jouw school.`,
-    invite_failed: `Uitnodiging mislukt${reason ? `: ${reason}` : "."}`,
+    already_member: `${email ? `${email} heeft` : "Dit account heeft"} al toegang tot jouw school.`,
+    invite_failed: `Medewerker toevoegen mislukt${reason ? `: ${reason}` : "."}`,
     membership_failed: "Lidmaatschap kon niet worden aangemaakt.",
     remove_failed: "Verwijderen mislukt. Probeer het opnieuw.",
     cannot_remove_self: "Je kunt jezelf niet verwijderen.",
@@ -246,8 +254,8 @@ export default async function MedewerkersPage({
         <CardContent>
           {members.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nog geen medewerkers. Gebruik de knop rechtsboven om iemand uit
-              te nodigen.
+              Nog geen medewerkers. Gebruik de knop rechtsboven om iemand toe
+              te voegen en tijdelijke inloggegevens te versturen.
             </p>
           ) : (
             <div className="overflow-x-auto">

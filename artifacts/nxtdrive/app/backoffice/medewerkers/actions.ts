@@ -1,7 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { generateTemporaryPassword } from "@/lib/auth/generate-password";
+import { getPlatformEmailConfig } from "@/lib/email/platform-config";
+import { loadEmailBranding } from "@/lib/notifications/branding";
+import { sendEmail } from "@/lib/notifications/provider";
+import { renderStaffWelcome } from "@/lib/notifications/staff-welcome";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
@@ -14,8 +20,55 @@ const STAFF_ROLES: MemberRole[] = [
   "marketing",
 ];
 
+const ROLE_LABEL: Partial<Record<MemberRole, string>> = {
+  tenant_admin: "Beheerder",
+  instructor: "Instructeur",
+  branch_manager: "Vestigingsmanager",
+  planner: "Planner",
+  admin_staff: "Administratie",
+  marketing: "Marketing",
+};
+
 function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
   if (isPlatformAdmin) redirect("/backoffice/medewerkers?error=forbidden");
+}
+
+/** Find an existing auth user id by email, paging through the admin list. */
+async function findUserIdByEmail(
+  service: SupabaseClient,
+  email: string,
+): Promise<string | null> {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await service.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error) throw error;
+    const match = data.users.find(
+      (u) => (u.email ?? "").toLowerCase() === target,
+    );
+    if (match) return match.id;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
+async function rollbackNewStaffUser(
+  service: SupabaseClient,
+  tenantId: string,
+  userId: string,
+  membershipId?: string,
+) {
+  if (membershipId) {
+    await service
+      .from("memberships")
+      .delete()
+      .eq("id", membershipId)
+      .eq("tenant_id", tenantId);
+  }
+  await service.from("profiles").delete().eq("id", userId);
+  await service.auth.admin.deleteUser(userId).catch(() => {});
 }
 
 export async function inviteInstructor(formData: FormData) {
@@ -42,39 +95,91 @@ export async function inviteInstructor(formData: FormData) {
     .eq("email", email)
     .maybeSingle();
 
-  let userId: string;
-
-  if (profileRow) {
-    userId = profileRow.id as string;
-
-    const { data: existingAny } = await service
-      .from("memberships")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("tenant_id", tenant.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingAny) {
-      redirect(
-        "/backoffice/medewerkers?error=already_member&email=" +
-          encodeURIComponent(email),
-      );
-    }
-  } else {
-    const { data: inviteData, error: inviteError } =
-      await service.auth.admin.inviteUserByEmail(email, {
-        data: fullName ? { full_name: fullName } : undefined,
-      });
-
-    if (inviteError || !inviteData?.user) {
+  let userId = (profileRow?.id as string | undefined) ?? null;
+  if (!userId) {
+    try {
+      userId = await findUserIdByEmail(service, email);
+    } catch (err) {
       redirect(
         "/backoffice/medewerkers?error=invite_failed&reason=" +
-          encodeURIComponent(inviteError?.message ?? "onbekende fout"),
+          encodeURIComponent(
+            err instanceof Error ? err.message : "Account opzoeken mislukt.",
+          ),
+      );
+    }
+  }
+
+  let temporaryPassword: string | null = null;
+  let createdNewUser = false;
+
+  if (!userId) {
+    temporaryPassword = generateTemporaryPassword();
+    const { data: created, error: createError } =
+      await service.auth.admin.createUser({
+        email,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          must_change_password: true,
+          ...(fullName ? { full_name: fullName } : {}),
+        },
+      });
+
+    if (createError || !created.user) {
+      const msg = createError?.message ?? "Accountaanmaak mislukt.";
+      if (
+        msg.toLowerCase().includes("already registered") ||
+        msg.toLowerCase().includes("already been registered")
+      ) {
+        redirect(
+          "/backoffice/medewerkers?error=invite_failed&reason=" +
+            encodeURIComponent("Dit e-mailadres bestaat al als account."),
+        );
+      }
+      redirect(
+        "/backoffice/medewerkers?error=invite_failed&reason=" +
+          encodeURIComponent(msg),
       );
     }
 
-    userId = inviteData!.user.id;
+    userId = created.user.id;
+    createdNewUser = true;
+  }
+
+  const { data: existingAny } = await service
+    .from("memberships")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("tenant_id", tenant.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingAny) {
+    redirect(
+      "/backoffice/medewerkers?error=already_member&email=" +
+        encodeURIComponent(email),
+    );
+  }
+
+  const profilePayload: { id: string; email: string; full_name?: string } = {
+    id: userId,
+    email,
+  };
+  if (fullName) profilePayload.full_name = fullName;
+
+  const { error: profileError } = await service.from("profiles").upsert(
+    profilePayload,
+    { onConflict: "id" },
+  );
+
+  if (profileError) {
+    if (createdNewUser) {
+      await rollbackNewStaffUser(service, tenant.id, userId);
+    }
+    redirect(
+      "/backoffice/medewerkers?error=invite_failed&reason=" +
+        encodeURIComponent(profileError.message),
+    );
   }
 
   const { data: memberRow, error: memberError } = await service
@@ -83,8 +188,11 @@ export async function inviteInstructor(formData: FormData) {
     .select("id")
     .maybeSingle();
 
-  if (memberError) {
-    if (memberError.code === "23505") {
+  if (memberError || !memberRow) {
+    if (createdNewUser) {
+      await rollbackNewStaffUser(service, tenant.id, userId);
+    }
+    if (memberError?.code === "23505") {
       redirect(
         "/backoffice/medewerkers?error=already_member&email=" +
           encodeURIComponent(email),
@@ -97,7 +205,7 @@ export async function inviteInstructor(formData: FormData) {
   // Failure here is blocking — a failed scope leaves the membership
   // unrestricted, violating least-privilege. Roll back by deleting the
   // membership and surfacing the error.
-  if (memberRow && branchIds.length > 0) {
+  if (branchIds.length > 0) {
     const { error: branchError } = await service.rpc("set_membership_branches", {
       p_membership_id: memberRow.id,
       p_branch_ids: branchIds,
@@ -112,6 +220,10 @@ export async function inviteInstructor(formData: FormData) {
         .eq("id", memberRow.id)
         .eq("tenant_id", tenant.id);
 
+      if (createdNewUser) {
+        await rollbackNewStaffUser(service, tenant.id, userId);
+      }
+
       redirect(
         "/backoffice/medewerkers?error=invite_failed&reason=" +
           encodeURIComponent(
@@ -121,8 +233,52 @@ export async function inviteInstructor(formData: FormData) {
     }
   }
 
+  if (temporaryPassword) {
+    let emailError: string | null = null;
+    try {
+      const [branding, platformConfig] = await Promise.all([
+        loadEmailBranding(service, tenant.id),
+        getPlatformEmailConfig(service).catch(() => null),
+      ]);
+      const appUrl =
+        process.env["NEXT_PUBLIC_APP_URL"] ??
+        process.env["NEXTAUTH_URL"] ??
+        "https://app.nxtdrive.io";
+      const loginUrl = `${appUrl}/login`;
+      const emailContent = renderStaffWelcome(branding, {
+        staffName: fullName || email,
+        email,
+        temporaryPassword,
+        loginUrl,
+        roleLabel: ROLE_LABEL[role] ?? role,
+      });
+      const emailResult = await sendEmail({
+        to: email,
+        fromName: branding.tenantName,
+        email: emailContent,
+        platformConfig: platformConfig ?? undefined,
+      });
+      if (!emailResult.ok) {
+        emailError = emailResult.skipped
+          ? "E-mailprovider is niet geconfigureerd voor deze omgeving."
+          : `E-mail versturen mislukt: ${emailResult.error}`;
+        console.error("[inviteInstructor] sendEmail failed:", emailResult.error);
+      }
+    } catch (err) {
+      emailError = err instanceof Error ? err.message : "E-mail versturen mislukt.";
+    }
+
+    if (emailError) {
+      await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+      redirect(
+        "/backoffice/medewerkers?error=invite_failed&reason=" +
+          encodeURIComponent(emailError),
+      );
+    }
+  }
+
   redirect(
-    "/backoffice/medewerkers?success=invited&email=" +
+    `/backoffice/medewerkers?success=${temporaryPassword ? "credentials_sent" : "added"}&email=` +
       encodeURIComponent(email),
   );
 }
