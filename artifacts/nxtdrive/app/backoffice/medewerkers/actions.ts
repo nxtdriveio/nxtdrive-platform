@@ -20,15 +20,13 @@ const STAFF_ROLES: MemberRole[] = [
   "marketing",
 ];
 
-const ROLE_LABEL: Record<MemberRole, string> = {
+const ROLE_LABEL: Partial<Record<MemberRole, string>> = {
   tenant_admin: "Beheerder",
   instructor: "Instructeur",
   branch_manager: "Vestigingsmanager",
   planner: "Planner",
   admin_staff: "Administratie",
   marketing: "Marketing",
-  student: "Leerling",
-  parent: "Ouder",
 };
 
 function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
@@ -134,8 +132,8 @@ export async function inviteInstructor(formData: FormData) {
         msg.toLowerCase().includes("already been registered")
       ) {
         redirect(
-          "/backoffice/medewerkers?error=already_member&email=" +
-            encodeURIComponent(email),
+          "/backoffice/medewerkers?error=invite_failed&reason=" +
+            encodeURIComponent("Dit e-mailadres bestaat al als account."),
         );
       }
       redirect(
