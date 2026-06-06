@@ -96,14 +96,18 @@ export default async function StudentLayout({
         userLabel={userLabel}
         logoUrl={logoUrl}
         notifications={
-          <NotificationBell items={items} unreadCount={unreadCount} />
+          <NotificationBell
+            items={items}
+            unreadCount={unreadCount}
+            variant="floating"
+          />
         }
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
       <div className="flex min-w-0 flex-1">
         <StudentSidebarNav />
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-4 sm:px-6 sm:py-6 lg:pb-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 lg:pb-8">
           <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
             <Suspense fallback={<StudentSplash />}>{children}</Suspense>
           </div>
