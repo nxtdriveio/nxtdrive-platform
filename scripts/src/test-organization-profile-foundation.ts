@@ -64,7 +64,9 @@ check(
 );
 check(
   "platform admins can read profiles",
-  migration.includes("public.is_platform_admin()"),
+  migration.includes("from public.profiles p") &&
+    migration.includes("p.id = auth.uid()") &&
+    migration.includes("p.is_platform_admin"),
 );
 check(
   "tenant/franchise admins can read own profile",
