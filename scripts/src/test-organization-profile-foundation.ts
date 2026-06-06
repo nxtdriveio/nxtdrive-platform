@@ -127,6 +127,23 @@ check(
     adminActionsSrc.includes("p_franchisegever_tenant_id"),
 );
 check(
+  "platform create flow audits tenant creation",
+  adminActionsSrc.includes("tenant.created") &&
+    adminActionsSrc.includes("actor_user_id") &&
+    adminActionsSrc.includes("target_type") &&
+    adminActionsSrc.includes("payload"),
+);
+check(
+  "tenant detail audits tenant metadata updates",
+  tenantActionsSrc.includes("tenant.org_type_changed") &&
+    tenantActionsSrc.includes("tenant.plan_changed") &&
+    tenantActionsSrc.includes("tenant.white_label_changed") &&
+    tenantActionsSrc.includes("actor_user_id") &&
+    tenantActionsSrc.includes("payload") &&
+    !tenantActionsSrc.includes("actor_id:") &&
+    !tenantActionsSrc.includes("metadata:"),
+);
+check(
   "platform create UI exposes profile fields",
   adminPageSrc.includes("NewTenantForm") &&
     newTenantFormSrc.includes('name="org_type"') &&
