@@ -4,9 +4,38 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import type { TenantPlan } from "@/lib/types";
+import {
+  upsertOrganizationProfile,
+  type OrganizationLifecycleStatus,
+  type OrganizationOnboardingStatus,
+} from "@/lib/organization";
+import type { OrgType, TenantPlan } from "@/lib/types";
 
 const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
+const VALID_ORG_TYPES: OrgType[] = [
+  "zzp",
+  "rijschool",
+  "groot",
+  "multi_vestiging",
+  "franchise",
+];
+const VALID_LIFECYCLE_STATUSES: OrganizationLifecycleStatus[] = [
+  "prospect",
+  "onboarding",
+  "active",
+  "paused",
+  "churned",
+];
+const VALID_ONBOARDING_STATUSES: OrganizationOnboardingStatus[] = [
+  "not_started",
+  "in_progress",
+  "ready",
+  "blocked",
+];
+
+function trimmed(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
 
 /** Platform admin: update a tenant's subscription plan. */
 export async function updateTenantPlanAction(formData: FormData) {
@@ -43,6 +72,80 @@ export async function updateTenantPlanAction(formData: FormData) {
   revalidatePath(`/admin/tenants/${tenantId}`);
   revalidatePath("/admin");
   redirect(`/admin/tenants/${tenantId}?plan_saved=1`);
+}
+
+/** Platform admin: update organization commercial/profile metadata. */
+export async function updateOrganizationProfileAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = trimmed(formData, "tenant_id");
+  const orgType = (trimmed(formData, "org_type") || "rijschool") as OrgType;
+  const lifecycleStatus = (trimmed(formData, "lifecycle_status") ||
+    "onboarding") as OrganizationLifecycleStatus;
+  const onboardingStatus = (trimmed(formData, "onboarding_status") ||
+    "not_started") as OrganizationOnboardingStatus;
+  const ownerEmail = trimmed(formData, "owner_email").toLowerCase();
+
+  if (!tenantId) redirect("/admin?tab=tenants");
+  if (!VALID_ORG_TYPES.includes(orgType)) {
+    redirect(`/admin/tenants/${tenantId}?profile_error=invalid_org_type`);
+  }
+  if (!VALID_LIFECYCLE_STATUSES.includes(lifecycleStatus)) {
+    redirect(`/admin/tenants/${tenantId}?profile_error=invalid_lifecycle_status`);
+  }
+  if (!VALID_ONBOARDING_STATUSES.includes(onboardingStatus)) {
+    redirect(`/admin/tenants/${tenantId}?profile_error=invalid_onboarding_status`);
+  }
+
+  const service = createServiceRoleClient();
+
+  let ownerUserId: string | null = null;
+  if (ownerEmail) {
+    const listResult = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const allUsers = (listResult.data?.users ?? []) as Array<{ id: string; email?: string }>;
+    ownerUserId = allUsers.find((u) => u.email?.toLowerCase() === ownerEmail)?.id ?? null;
+
+    if (!ownerUserId) {
+      redirect(`/admin/tenants/${tenantId}?profile_error=owner_not_found`);
+    }
+  }
+
+  const { error: tenantError } = await service
+    .from("tenants")
+    .update({ org_type: orgType })
+    .eq("id", tenantId);
+
+  if (tenantError) {
+    redirect(
+      `/admin/tenants/${tenantId}?profile_error=` +
+        encodeURIComponent(tenantError.message.slice(0, 200)),
+    );
+  }
+
+  try {
+    await upsertOrganizationProfile(service, {
+      tenantId,
+      actorId: actor.id,
+      legalName: trimmed(formData, "legal_name") || null,
+      billingEmail: trimmed(formData, "billing_email") || null,
+      supportEmail: trimmed(formData, "support_email") || null,
+      kvkNumber: trimmed(formData, "kvk_number") || null,
+      vatNumber: trimmed(formData, "vat_number") || null,
+      ownerUserId,
+      lifecycleStatus,
+      onboardingStatus,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Organisatieprofiel opslaan mislukt";
+    redirect(
+      `/admin/tenants/${tenantId}?profile_error=` +
+        encodeURIComponent(msg.slice(0, 200)),
+    );
+  }
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?profile_saved=1`);
 }
 
 /** Platform admin: toggle white_label_enabled for a tenant. */
