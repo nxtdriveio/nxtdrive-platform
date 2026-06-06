@@ -18,6 +18,8 @@ export type OrgType =
 
 export type TenantPlan = "start" | "pro" | "elite";
 
+export type BranchScopeType = "all" | "branches";
+
 export type Tenant = {
   id: string;
   slug: string;
@@ -72,6 +74,7 @@ export type Membership = {
   user_id: string;
   tenant_id: string;
   role: MemberRole;
+  branch_scope_type: BranchScopeType;
   created_at: string;
   tenant?: Tenant;
 };
