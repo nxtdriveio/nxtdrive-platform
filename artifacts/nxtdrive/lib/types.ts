@@ -28,6 +28,12 @@ export type Tenant = {
   parent_tenant_id?: string | null;
 };
 
+// Product-domain aliases. In the current database model, a tenant is the
+// organization boundary: one commercial customer, one data container.
+export type Organization = Tenant;
+export type OrganizationType = OrgType;
+export type OrganizationPlan = TenantPlan;
+
 export type FranchiseTemplate = {
   id: string;
   tenant_id: string;
