@@ -22,24 +22,27 @@ export function StudentTopBar({
   const today = dateFmt.format(new Date());
   return (
     <header
-      className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/95 px-4 backdrop-blur sm:px-6"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="sticky top-0 z-30 border-b border-border/70 bg-background/85 px-4 py-3 backdrop-blur-xl sm:px-6"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <NxtdriveLogo
-          className="text-base"
-          logoUrl={logoUrl}
-          brandName={tenantName}
-        />
-      </div>
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="min-w-0 overflow-hidden">
+            <NxtdriveLogo
+              className="truncate text-base sm:text-lg"
+              logoUrl={logoUrl}
+              brandName={tenantName}
+            />
+          </div>
+          <div className="hidden min-w-0 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-xs font-medium capitalize text-muted-foreground md:block">
+            {today}
+          </div>
+        </div>
 
-      <div className="hidden text-sm font-medium capitalize text-foreground sm:block">
-        {today}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {notifications}
-        <Avatar name={userLabel} className="h-8 w-8 text-xs" />
+        <div className="flex shrink-0 items-center gap-2">
+          {notifications}
+          <Avatar name={userLabel} className="h-9 w-9 text-xs shadow-lg shadow-primary/10" />
+        </div>
       </div>
     </header>
   );

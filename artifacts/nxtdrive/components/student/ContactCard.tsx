@@ -25,17 +25,21 @@ export function ContactCard({
       >
         Contact met {schoolName}
       </PWASectionHeader>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid min-w-0 grid-cols-2 gap-3">
         <Link
           href="/student/berichten"
-          className="relative flex min-h-[3.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary-soft/40"
+          className="group relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card px-3 py-4 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-primary/10 transition group-hover:scale-125" />
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-soft text-primary shadow-lg shadow-primary/10">
             <MessageCircle className="h-5 w-5" aria-hidden />
           </span>
-          Chat
+          <div className="relative mt-3 text-sm font-bold text-foreground">Chat</div>
+          <div className="relative mt-0.5 text-[11px] leading-4 text-muted-foreground">
+            Stuur bericht
+          </div>
           {unreadCount > 0 ? (
-            <span className="absolute right-2 top-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+            <span className="absolute right-3 top-3 inline-flex min-w-[1.35rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           ) : null}
@@ -43,17 +47,26 @@ export function ContactCard({
         {tel ? (
           <a
             href={tel}
-            className="flex min-h-[3.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary-soft/40"
+            className="group relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card px-3 py-4 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-primary/10 transition group-hover:scale-125" />
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-soft text-primary shadow-lg shadow-primary/10">
               <Phone className="h-5 w-5" aria-hidden />
             </span>
-            Bel
+            <div className="relative mt-3 text-sm font-bold text-foreground">Bel</div>
+            <div className="relative mt-0.5 text-[11px] leading-4 text-muted-foreground">
+              Direct contact
+            </div>
           </a>
         ) : (
-          <div className="flex min-h-[3.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
-            <Phone className="h-5 w-5 opacity-40" aria-hidden />
-            Geen telefoonnummer
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-4 text-left text-muted-foreground">
+            <Phone className="h-6 w-6 opacity-40" aria-hidden />
+            <div className="mt-3 text-sm font-semibold text-muted-foreground">
+              Geen nummer
+            </div>
+            <div className="mt-0.5 text-[11px] leading-4">
+              Gebruik chat
+            </div>
           </div>
         )}
       </div>
