@@ -8,29 +8,27 @@ import { STUDENT_NAV_ITEMS, isNavItemActive } from "./nav-items";
 
 /**
  * Mobile-first bottom navigation. Hidden on desktop (sidebar takes over).
- * Premium app feel: a shared Framer Motion `layoutId` pill slides under the
- * active tab, active icons are wrapped in a background-circle for a filled
- * treatment. All touch targets are ≥ 44 px via `py-3` + icon + label height.
+ * Fixed to the viewport so the PWA always has both top chrome and bottom nav.
  */
 export function StudentBottomNav() {
   const pathname = usePathname();
   return (
     <nav
       aria-label="Hoofdnavigatie"
-      className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur lg:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/85 px-3 pt-2 backdrop-blur-xl lg:hidden"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.35rem)" }}
     >
-      <ul className="mx-auto grid max-w-2xl grid-cols-5">
+      <ul className="mx-auto grid max-w-md grid-cols-5 rounded-2xl border border-border/70 bg-card/80 p-1 shadow-2xl shadow-primary/10">
         {STUDENT_NAV_ITEMS.map((it) => {
           const active = isNavItemActive(it, pathname);
           const Icon = it.icon;
           return (
-            <li key={it.href} className="relative">
+            <li key={it.href} className="relative min-w-0">
               <Link
                 href={it.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 px-2 py-3 text-[11px] font-medium transition-colors active:scale-95",
+                  "relative flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold transition active:scale-95",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
@@ -39,16 +37,11 @@ export function StudentBottomNav() {
                 {active ? (
                   <motion.span
                     layoutId="student-nav-active"
-                    className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    className="absolute inset-0 rounded-xl bg-primary-soft/70"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 ) : null}
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                    active ? "bg-primary-soft" : "bg-transparent",
-                  )}
-                >
+                <span className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full">
                   <Icon
                     className={cn(
                       "h-4.5 w-4.5 transition-transform",
@@ -58,7 +51,7 @@ export function StudentBottomNav() {
                     aria-hidden
                   />
                 </span>
-                {it.label}
+                <span className="relative z-10 max-w-full truncate">{it.label}</span>
               </Link>
             </li>
           );
