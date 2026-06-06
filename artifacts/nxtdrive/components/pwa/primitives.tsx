@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * tuned for the denser, app-like PWA context.
  */
 
-// ─── PWACard ──────────────────────────────────────────────────────────────────
+// ─── PWACard ─────────────────────────────────────────────────────────────────
 
 export function PWACard({
   title,
@@ -30,21 +30,21 @@ export function PWACard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card shadow-sm",
+        "min-w-0 overflow-hidden rounded-[1.65rem] border border-border/80 bg-card/85 shadow-sm backdrop-blur",
         className,
       )}
     >
       {title ? (
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
             {title}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {headerRight}
             {actionLabel && actionHref ? (
               <Link
                 href={actionHref}
-                className="text-xs text-primary hover:underline"
+                className="text-xs font-semibold text-primary hover:underline"
               >
                 {actionLabel} →
               </Link>
@@ -52,12 +52,12 @@ export function PWACard({
           </div>
         </div>
       ) : null}
-      <div className="px-4 py-4">{children}</div>
+      <div className="min-w-0 px-4 py-4">{children}</div>
     </div>
   );
 }
 
-// ─── PWASectionHeader ─────────────────────────────────────────────────────────
+// ─── PWASectionHeader ────────────────────────────────────────────────────────
 
 /**
  * Consistent section title treatment: icon badge + text.
@@ -76,17 +76,17 @@ export function PWASectionHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center justify-between gap-2 mb-3", className)}>
-      <div className="flex items-center gap-2">
+    <div className={cn("mb-3 flex min-w-0 items-center justify-between gap-2", className)}>
+      <div className="flex min-w-0 items-center gap-2">
         {icon ? (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
             {icon}
           </span>
         ) : null}
-        <span className="text-sm font-semibold text-foreground">{children}</span>
+        <span className="min-w-0 truncate text-sm font-bold text-foreground">{children}</span>
       </div>
       {right ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {right}
         </div>
       ) : null}
@@ -94,7 +94,7 @@ export function PWASectionHeader({
   );
 }
 
-// ─── PWAPageHeader ────────────────────────────────────────────────────────────
+// ─── PWAPageHeader ───────────────────────────────────────────────────────────
 
 /**
  * Consistent page header: h1 + optional subtitle. Used at the top of every
@@ -128,7 +128,7 @@ export function PWAPageHeader({
   );
 }
 
-// ─── PWAStatusBadge ───────────────────────────────────────────────────────────
+// ─── PWAStatusBadge ──────────────────────────────────────────────────────────
 
 const LESSON_STATUS: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
   planned: { label: "Gepland", variant: "primary" },
@@ -175,7 +175,7 @@ export function PWAStatusBadge({
   return <Badge variant={resolved.variant}>{resolved.label}</Badge>;
 }
 
-// ─── PWAEmptyState ────────────────────────────────────────────────────────────
+// ─── PWAEmptyState ───────────────────────────────────────────────────────────
 
 /**
  * Consistent empty-state treatment: icon + heading + message.
@@ -196,7 +196,7 @@ export function PWAEmptyState({
   return (
     <div
       className={cn(
-        "flex min-h-[6rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-6 text-center",
+        "flex min-h-[6rem] min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border p-6 text-center",
         className,
       )}
     >
@@ -206,7 +206,7 @@ export function PWAEmptyState({
       {title ? (
         <p className="text-sm font-medium text-foreground">{title}</p>
       ) : null}
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <p className="text-sm leading-6 text-muted-foreground">{message}</p>
     </div>
   );
 }
