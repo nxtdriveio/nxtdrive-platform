@@ -63,10 +63,15 @@ check(
   migration.includes("alter table public.organization_profiles enable row level security"),
 );
 check(
+  "platform admin RLS helper is security definer",
+  migration.includes("create or replace function public.is_current_user_platform_admin()") &&
+    migration.includes("security definer") &&
+    migration.includes("p.is_platform_admin") &&
+    migration.includes("grant execute on function public.is_current_user_platform_admin() to authenticated"),
+);
+check(
   "platform admins can read profiles",
-  migration.includes("from public.profiles p") &&
-    migration.includes("p.id = auth.uid()") &&
-    migration.includes("p.is_platform_admin"),
+  migration.includes("public.is_current_user_platform_admin()"),
 );
 check(
   "tenant/franchise admins can read own profile",
