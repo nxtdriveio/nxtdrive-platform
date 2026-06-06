@@ -22,26 +22,26 @@ export function StudentTopBar({
   const today = dateFmt.format(new Date());
   return (
     <header
-      className="sticky top-0 z-30 border-b border-border/70 bg-background/85 px-4 py-3 backdrop-blur-xl sm:px-6"
-      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      className="sticky top-0 z-30 border-b border-border/70 bg-background/85 px-4 py-2 backdrop-blur-xl sm:px-6"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)" }}
     >
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="min-w-0 overflow-hidden">
             <NxtdriveLogo
-              className="truncate text-base sm:text-lg"
+              className="truncate text-sm sm:text-base"
               logoUrl={logoUrl}
               brandName={tenantName}
             />
           </div>
-          <div className="hidden min-w-0 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-xs font-medium capitalize text-muted-foreground md:block">
+          <div className="hidden min-w-0 rounded-full border border-border/70 bg-card/60 px-2.5 py-1 text-[11px] font-medium capitalize text-muted-foreground md:block">
             {today}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {notifications}
-          <Avatar name={userLabel} className="h-9 w-9 text-xs shadow-lg shadow-primary/10" />
+          <Avatar name={userLabel} className="h-8 w-8 text-[11px] shadow-lg shadow-primary/10" />
         </div>
       </div>
     </header>
