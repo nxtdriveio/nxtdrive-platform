@@ -112,11 +112,15 @@ export default async function LeadsPage({
   });
   const tenant = context.organization;
   const branchScope = await loadOrganizationBranchScope(supabase, context);
+  const leadQueryOptions = {
+    branchScope,
+    assignedUserId: context.roles.includes("instructor") ? context.user.id : null,
+  };
   const now = Date.now();
   const scorePolicy = await loadLeadScorePolicy(supabase, tenant.id);
   const [kpis, leads] = await Promise.all([
-    getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot, { branchScope }),
-    getLeadsForTab(supabase, tenant.id, tab, now, filters, { branchScope }),
+    getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot, leadQueryOptions),
+    getLeadsForTab(supabase, tenant.id, tab, now, filters, leadQueryOptions),
   ]);
 
   return (
