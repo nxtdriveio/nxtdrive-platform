@@ -16,6 +16,7 @@ import {
   type StudentBackofficeAccess,
 } from "@/lib/students/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTenantInstructors } from "@/lib/availability/service";
 import {
   AGENDA_APPOINTMENT_TYPES,
   AGENDA_APPOINTMENT_RESULTS,
@@ -66,6 +67,17 @@ function canManageAgendaBranch(
     rolesGrantPermission(context.roles, "planning:manage") &&
     canAccessBranch(branchScope, branchId)
   );
+}
+
+async function instructorCanServeBranch(
+  tenantId: string,
+  instructorId: string,
+  branchId: string | null,
+): Promise<boolean> {
+  const instructors = await loadTenantInstructors(tenantId, {
+    branchIds: branchId ? [branchId] : null,
+  });
+  return instructors.some((instructor) => instructor.id === instructorId);
 }
 
 export async function createAppointment(formData: FormData) {
@@ -131,6 +143,15 @@ export async function createAppointment(formData: FormData) {
     !studentId &&
     !canManageAgendaBranch(context, branchScope, appointmentBranchId) &&
     !instructorOwnAppointment
+  ) {
+    redirect(`${errorTo}?error=forbidden`);
+  }
+  if (
+    !(await instructorCanServeBranch(
+      context.organization.id,
+      instructorId,
+      appointmentBranchId,
+    ))
   ) {
     redirect(`${errorTo}?error=forbidden`);
   }
@@ -266,6 +287,15 @@ export async function updateAppointment(formData: FormData) {
     !studentId &&
     !canManageAgendaBranch(context, branchScope, appointmentBranchId) &&
     !instructorOwnAppointment
+  ) {
+    redirect(`${errorTo}?error=forbidden`);
+  }
+  if (
+    !(await instructorCanServeBranch(
+      context.organization.id,
+      appointmentAccess.appointment.instructor_id,
+      appointmentBranchId,
+    ))
   ) {
     redirect(`${errorTo}?error=forbidden`);
   }
