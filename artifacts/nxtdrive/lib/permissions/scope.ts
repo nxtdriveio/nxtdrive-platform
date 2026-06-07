@@ -46,7 +46,11 @@ export function mergeBranchAccessScopes(
     return { scope_type: "all", branch_ids: null };
   }
 
-  return branchScopeFromIds(scopes.flatMap((scope) => scope.branch_ids));
+  return branchScopeFromIds(
+    scopes.flatMap((scope) =>
+      scope.scope_type === "branches" ? scope.branch_ids : [],
+    ),
+  );
 }
 
 export function branchScopeForMembership(
