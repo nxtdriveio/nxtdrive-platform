@@ -10,19 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { listBranches } from "@/lib/branches/service";
-import type { MemberRole } from "@/lib/types";
+import { STUDENT_BACKOFFICE_READ_ROLES } from "@/lib/students/access";
 
 export const dynamic = "force-dynamic";
-
-const STUDENT_BACKOFFICE_READ_ROLES = [
-  "tenant_admin",
-  "franchise_admin",
-  "branch_manager",
-  "planner",
-  "admin_staff",
-  "marketing",
-  "instructor",
-] as const satisfies readonly MemberRole[];
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",

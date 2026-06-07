@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
+import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import { loadStudentDossier } from "@/lib/students/dossier";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +37,6 @@ import {
   formatTegoed,
   formatTegoedDelta,
   type CreditLedgerRow,
-  type Student,
   type StudentBalance,
   type StudentCreditBreakdown,
 } from "@/lib/students/types";
@@ -80,23 +79,18 @@ export default async function StudentDetailPage({
     welcome_resent: welcomeResent,
     welcome_error: welcomeError,
   } = await searchParams;
-  const { tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin = roles.includes("tenant_admin");
 
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    id,
+    "read",
+  );
+  if (!student) notFound();
 
-  const { data: studentRaw } = await supabase
-    .from("students")
-    .select("*")
-    .eq("id", id)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (!studentRaw) notFound();
-  const student = studentRaw as Student;
+  const { organization: tenant, roles } = context;
+  const isAdmin = context.user.profile?.is_platform_admin || roles.includes("tenant_admin");
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 

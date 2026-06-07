@@ -1,7 +1,91 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+  type AuthorizedOrganizationContext,
+} from "@/lib/organization";
+import { canAccessBranch, type BranchAccessScope } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { AuthenticatedUser, MemberRole } from "@/lib/types";
 import { getActiveChildId } from "./active-child";
 import type { Student } from "./types";
+
+export const STUDENT_BACKOFFICE_READ_ROLES = [
+  "tenant_admin",
+  "franchise_admin",
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+  "instructor",
+] as const satisfies readonly MemberRole[];
+
+export const STUDENT_BACKOFFICE_ADMIN_ROLES = [
+  "tenant_admin",
+] as const satisfies readonly MemberRole[];
+
+export const STUDENT_BACKOFFICE_COLLABORATE_ROLES = [
+  "tenant_admin",
+  "instructor",
+] as const satisfies readonly MemberRole[];
+
+export type StudentBackofficeAccessMode = "read" | "admin" | "collaborate";
+
+export type StudentBackofficeAccess = {
+  context: AuthorizedOrganizationContext;
+  branchScope: BranchAccessScope;
+  student: Student | null;
+};
+
+const STUDENT_SELECT =
+  "id, tenant_id, branch_id, user_id, lead_id, full_name, email, phone, postcode, notes, preferred_dayparts, refill_opt_in, refill_preferred_dayparts, review_consent, review_consent_at, review_consent_by, active, created_at, updated_at";
+
+function rolesForStudentAccessMode(
+  mode: StudentBackofficeAccessMode,
+): readonly MemberRole[] {
+  if (mode === "admin") return STUDENT_BACKOFFICE_ADMIN_ROLES;
+  if (mode === "collaborate") return STUDENT_BACKOFFICE_COLLABORATE_ROLES;
+  return STUDENT_BACKOFFICE_READ_ROLES;
+}
+
+/**
+ * Validates backoffice access to a single student before service-role or dossier reads.
+ *
+ * This intentionally does not model learner/parent own-scope portal access. It is
+ * only for staff-facing backoffice routes/actions, and therefore accepts an
+ * explicit staff role allowlist per mode.
+ */
+export async function requireStudentBackofficeAccess(
+  client: SupabaseClient,
+  studentId: string,
+  mode: StudentBackofficeAccessMode,
+  options: { allowedRoles?: readonly MemberRole[] } = {},
+): Promise<StudentBackofficeAccess> {
+  const allowedRoles = [...(options.allowedRoles ?? rolesForStudentAccessMode(mode))];
+  const permission = mode === "admin" ? "student:manage" : "student:read";
+  const context = await requireOrganizationPermission(permission, { allowedRoles });
+  const branchScope = await loadOrganizationBranchScope(client, context);
+
+  const { data, error } = await client
+    .from("students")
+    .select(STUDENT_SELECT)
+    .eq("id", studentId)
+    .eq("tenant_id", context.organization.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`requireStudentBackofficeAccess: ${error.message}`);
+  }
+
+  const student = (data ?? null) as Student | null;
+  if (!student) return { context, branchScope, student: null };
+
+  if (!canAccessBranch(branchScope, student.branch_id)) {
+    return { context, branchScope, student: null };
+  }
+
+  return { context, branchScope, student };
+}
 
 /**
  * Returns every student record the authenticated user has read access to

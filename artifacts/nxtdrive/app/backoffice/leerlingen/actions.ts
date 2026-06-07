@@ -4,8 +4,12 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  requireStudentBackofficeAccess,
+  STUDENT_BACKOFFICE_ADMIN_ROLES,
+} from "@/lib/students/access";
 import { hoursToMinutes } from "@/lib/students/types";
 import {
   STUDENT_DOCUMENT_BUCKET,
@@ -38,7 +42,10 @@ export type CreateStudentDirectResult =
 export async function createStudentDirect(
   formData: FormData,
 ): Promise<CreateStudentDirectResult> {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization: tenant } = await requireOrganizationPermission(
+    "student:manage",
+    { allowedRoles: [...STUDENT_BACKOFFICE_ADMIN_ROLES] },
+  );
 
   const naam = String(formData.get("naam") ?? "").trim().slice(0, 200);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -174,21 +181,19 @@ export type ResendWelcomeEmailResult =
  * ?welcome_error=<encoded> on failure.
  */
 export async function resendWelcomeEmail(formData: FormData): Promise<never> {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "").trim();
   const base = `/backoffice/leerlingen/${studentId}`;
   if (!studentId) redirect("/backoffice/leerlingen");
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  const { user, organization: tenant } = context;
 
-  const { data: student, error: studentErr } = await service
-    .from("students")
-    .select("id, user_id, full_name, email")
-    .eq("id", studentId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-
-  if (studentErr || !student) {
+  if (!student) {
     redirect(`${base}?welcome_error=${encodeURIComponent("Leerling niet gevonden.")}`);
   }
 
@@ -230,13 +235,13 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
       "https://app.nxtdrive.io";
     const loginUrl = `${appUrl}/login`;
     const emailContent = renderStudentWelcome(branding, {
-      studentName: student.full_name as string,
-      email: student.email as string,
+      studentName: student.full_name,
+      email: student.email,
       temporaryPassword: tijdelijkWachtwoord,
       loginUrl,
     });
     const emailResult = await sendEmail({
-      to: student.email as string,
+      to: student.email,
       fromName: branding.tenantName,
       email: emailContent,
       platformConfig: platformConfig ?? undefined,
@@ -266,12 +271,19 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
 }
 
 export async function grantPackageToStudent(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");
   const packageId = String(formData.get("package_id") ?? "");
   if (!studentId || !packageId) redirect("/backoffice/leerlingen");
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  const { user, organization: tenant } = context;
   const { error } = await service.rpc("grant_package", {
     p_student_id: studentId,
     p_tenant_id: tenant.id,
@@ -287,15 +299,19 @@ export async function grantPackageToStudent(formData: FormData) {
 
 export async function updateStudentNotes(formData: FormData) {
   // Internal notes may be edited by admins and instructors (RPC enforces this).
-  const { user, tenant } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const studentId = String(formData.get("student_id") ?? "");
   const notes = String(formData.get("notes") ?? "").slice(0, 4000);
   if (!studentId) redirect("/backoffice/leerlingen");
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "collaborate",
+  );
+  if (!student) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  const { user, organization: tenant } = context;
   const { error } = await service.rpc("update_student_notes", {
     p_student_id: studentId,
     p_tenant_id: tenant.id,
@@ -310,12 +326,19 @@ export async function updateStudentNotes(formData: FormData) {
 
 export async function setStudentReviewConsent(formData: FormData) {
   // Privacy-sensitive: tenant admins only (RPC re-checks).
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");
   const consent = String(formData.get("consent") ?? "") === "true";
   if (!studentId) redirect("/backoffice/leerlingen");
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  const { user, organization: tenant } = context;
   const { error } = await service.rpc("set_student_review_consent", {
     p_student_id: studentId,
     p_tenant_id: tenant.id,
@@ -331,11 +354,18 @@ export async function setStudentReviewConsent(formData: FormData) {
 // Examenflow C — rond het traject af na een geslaagd examen (leerling op
 // inactief). Admin-only; de geguarde RPC her-controleert en audit logt.
 export async function finishStudentTraject(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");
   if (!studentId) redirect("/backoffice/leerlingen");
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  const { user, organization: tenant } = context;
   const { error } = await service.rpc("finish_student_traject", {
     p_student_id: studentId,
     p_tenant_id: tenant.id,
@@ -365,7 +395,6 @@ export async function finishStudentTraject(formData: FormData) {
 }
 
 export async function adjustCredits(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const studentId = String(formData.get("student_id") ?? "");
   // Admin enters a number of hours (may be decimal); tegoed is stored in minutes.
   const deltaHours = parseFloat(String(formData.get("delta") ?? "0"));
@@ -376,6 +405,14 @@ export async function adjustCredits(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) redirect(`/backoffice/leerlingen/${studentId}`);
+
+  const { user, organization: tenant } = context;
   const { error } = await service.rpc("adjust_credits", {
     p_student_id: studentId,
     p_tenant_id: tenant.id,
@@ -394,10 +431,6 @@ export async function adjustCredits(formData: FormData) {
 
 export async function uploadStudentDocument(formData: FormData) {
   // Admin OR instructor may upload (RPC re-checks via _lesson_actor_authorized).
-  const { user, tenant } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const studentId = String(formData.get("student_id") ?? "");
   if (!studentId) redirect("/backoffice/leerlingen");
 
@@ -416,16 +449,14 @@ export async function uploadStudentDocument(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
-
-  // Confirm the student belongs to this tenant before writing anything.
-  const { data: student } = await service
-    .from("students")
-    .select("id")
-    .eq("id", studentId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "collaborate",
+  );
   if (!student) redirect("/backoffice/leerlingen");
 
+  const { user, organization: tenant } = context;
   const safeName = sanitizeFileName(file.name);
   const storagePath = `${tenant.id}/${studentId}/${randomUUID()}-${safeName}`;
 
@@ -461,20 +492,24 @@ export async function uploadStudentDocument(formData: FormData) {
 }
 
 export async function deleteStudentDocument(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const studentId = String(formData.get("student_id") ?? "");
   const documentId = String(formData.get("document_id") ?? "");
   const base = `/backoffice/leerlingen/${studentId}`;
   if (!studentId || !documentId) redirect(base);
 
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "collaborate",
+  );
+  if (!student) redirect(base);
+
+  const { organization: tenant } = context;
   const { data: path, error } = await service.rpc("delete_student_document", {
     p_document_id: documentId,
     p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_actor: context.user.id,
   });
   if (error) redirect(`${base}?doc_error=delete_failed`);
 
@@ -525,8 +560,6 @@ async function findUserIdByEmail(
 export async function addGuardian(
   formData: FormData,
 ): Promise<GuardianActionResult> {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-
   const studentId = String(formData.get("student_id") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const relation = String(formData.get("relation") ?? "").trim().slice(0, 80);
@@ -536,16 +569,14 @@ export async function addGuardian(
   }
 
   const service = createServiceRoleClient();
-
-  // The student must belong to this tenant.
-  const { data: student, error: studentErr } = await service
-    .from("students")
-    .select("id, full_name")
-    .eq("id", studentId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (studentErr) return { ok: false, error: studentErr.message };
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
   if (!student) return { ok: false, error: "Leerling niet gevonden." };
+
+  const { user, organization: tenant } = context;
 
   // Resolve or provision the parent auth user.
   let guardianUserId: string;
@@ -607,16 +638,24 @@ export async function addGuardian(
 export async function removeGuardian(
   formData: FormData,
 ): Promise<GuardianActionResult> {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-
   const guardianId = String(formData.get("guardian_id") ?? "").trim();
   const studentId = String(formData.get("student_id") ?? "").trim();
   if (!guardianId) return { ok: false, error: "Koppeling ontbreekt." };
 
   const service = createServiceRoleClient();
+  const { context, student } = studentId
+    ? await requireStudentBackofficeAccess(service, studentId, "admin")
+    : {
+        context: await requireOrganizationPermission("student:manage", {
+          allowedRoles: [...STUDENT_BACKOFFICE_ADMIN_ROLES],
+        }),
+        student: null,
+      };
+  if (studentId && !student) return { ok: false, error: "Leerling niet gevonden." };
+
   const { error } = await service.rpc("unlink_student_guardian", {
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
     p_guardian_id: guardianId,
   });
   if (error) return { ok: false, error: error.message };

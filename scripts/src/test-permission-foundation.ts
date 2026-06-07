@@ -33,7 +33,10 @@ const scopeSrc = source("artifacts/nxtdrive/lib/permissions/scope.ts");
 const organizationIndex = source("artifacts/nxtdrive/lib/organization/index.ts");
 const organizationPermissionSrc = source("artifacts/nxtdrive/lib/organization/permissions.ts");
 const organizationBranchScopeSrc = source("artifacts/nxtdrive/lib/organization/branch-scope.ts");
+const studentAccessSrc = source("artifacts/nxtdrive/lib/students/access.ts");
 const studentsPageSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/page.tsx");
+const studentDetailSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/[id]/page.tsx");
+const studentActionsSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/actions.ts");
 const typesSrc = source("artifacts/nxtdrive/lib/types.ts");
 const studentTypesSrc = source("artifacts/nxtdrive/lib/students/types.ts");
 const sessionSrc = source("artifacts/nxtdrive/lib/auth/session.ts");
@@ -183,7 +186,15 @@ check(
     organizationBranchScopeSrc.includes("branch_scope_type === \"branches\""),
 );
 check(
-  "students list consumes organization permission branch scope",
+  "student backoffice access guard centralizes role and branch checks",
+  studentAccessSrc.includes("requireStudentBackofficeAccess") &&
+    studentAccessSrc.includes("STUDENT_BACKOFFICE_READ_ROLES") &&
+    studentAccessSrc.includes("STUDENT_BACKOFFICE_COLLABORATE_ROLES") &&
+    studentAccessSrc.includes("canAccessBranch(branchScope, student.branch_id)") &&
+    studentAccessSrc.includes('mode === "admin" ? "student:manage" : "student:read"'),
+);
+check(
+  "students list consumes shared organization permission branch scope",
   studentsPageSrc.includes('requireOrganizationPermission("student:read",') &&
     studentsPageSrc.includes("STUDENT_BACKOFFICE_READ_ROLES") &&
     !studentsPageSrc.includes('"student",') &&
@@ -191,6 +202,22 @@ check(
     studentsPageSrc.includes("loadOrganizationBranchScope") &&
     studentsPageSrc.includes('.in("branch_id", branchScope.branch_ids)') &&
     studentsPageSrc.includes("Alle toegestane vestigingen"),
+);
+check(
+  "student detail uses backoffice access guard before dossier reads",
+  studentDetailSrc.includes("requireStudentBackofficeAccess") &&
+    !studentDetailSrc.includes("requireActiveTenant") &&
+    studentDetailSrc.indexOf("requireStudentBackofficeAccess") <
+      studentDetailSrc.indexOf("loadStudentDossier") &&
+    studentDetailSrc.includes("if (!student) notFound()"),
+);
+check(
+  "student actions use backoffice access guard before protected writes",
+  studentActionsSrc.includes("requireStudentBackofficeAccess") &&
+    studentActionsSrc.includes("requireOrganizationPermission") &&
+    !studentActionsSrc.includes("requireActiveTenant") &&
+    studentActionsSrc.includes('"collaborate"') &&
+    studentActionsSrc.includes('"admin"'),
 );
 check(
   "membership type and auth bootstrap include branch_scope_type",
