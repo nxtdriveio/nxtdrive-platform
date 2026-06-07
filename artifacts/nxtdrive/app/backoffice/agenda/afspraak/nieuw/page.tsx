@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { listBranches } from "@/lib/branches/service";
+import { requireAgendaAccessContext, AGENDA_BACKOFFICE_MANAGE_ROLES } from "@/lib/agenda/access";
+import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { createAppointment } from "@/lib/agenda/actions";
@@ -17,18 +20,27 @@ export default async function NewAppointmentPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const sp = await searchParams;
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+  const service = createServiceRoleClient();
+  const { context, branchScope } = await requireAgendaAccessContext(
+    service,
+    AGENDA_BACKOFFICE_MANAGE_ROLES,
+  );
+  const { user, organization: tenant, roles } = context;
+  const canSelectInstructor =
+    !!user.profile?.is_platform_admin ||
+    rolesGrantPermission(roles, "planning:manage");
 
   const supabase = await createServerSupabaseClient();
-  const instructors = isAdmin
+  const instructors = canSelectInstructor
     ? await loadTenantInstructors(tenant.id)
     : undefined;
+
+  const allBranches = await listBranches(service, tenant.id, { activeOnly: true });
+  const branches =
+    branchScope.scope_type === "branches"
+      ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
+      : allBranches;
 
   const { data: studentsRaw } = await supabase
     .from("students")
@@ -58,7 +70,7 @@ export default async function NewAppointmentPage({
         </h1>
         <p className="text-sm text-muted-foreground">
           Examen, tussentijdse toets, theoriebegeleiding of een blok dat tijd
-          bezet (pauze, vrij blok, vakantie, …).
+          bezet (pauze, vrij blok, vakantie, ...).
         </p>
       </div>
 
@@ -78,14 +90,16 @@ export default async function NewAppointmentPage({
             mode="create"
             redirectTo="/backoffice/agenda"
             errorTo={FORM_PATH}
+            branches={branches}
             instructors={instructors}
             ownInstructor={
-              isAdmin
+              canSelectInstructor
                 ? undefined
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
             defaults={{
+              branchId: branches[0]?.id ?? null,
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),
             }}
