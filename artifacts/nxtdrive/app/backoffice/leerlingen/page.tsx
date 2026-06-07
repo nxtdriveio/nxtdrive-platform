@@ -22,7 +22,7 @@ const STUDENT_BACKOFFICE_READ_ROLES = [
   "admin_staff",
   "marketing",
   "instructor",
-] as const satisfies MemberRole[];
+] as const satisfies readonly MemberRole[];
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
