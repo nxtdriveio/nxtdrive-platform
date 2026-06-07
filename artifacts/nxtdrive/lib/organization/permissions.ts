@@ -41,12 +41,14 @@ export async function requireOrganizationPermission(
     redirect(roleHomePath(context.user, context.organization.id));
   }
 
-  const branchScope = branchScopeForRoles(
-    context.roles,
-    context.user.memberships.filter(
-      (membership) => membership.tenant_id === context.organization.id,
-    ),
-  );
+  const branchScope: BranchAccessScope = context.user.profile?.is_platform_admin
+    ? { scope_type: "all", branch_ids: null }
+    : branchScopeForRoles(
+        context.roles,
+        context.user.memberships.filter(
+          (membership) => membership.tenant_id === context.organization.id,
+        ),
+      );
 
   return {
     ...context,
