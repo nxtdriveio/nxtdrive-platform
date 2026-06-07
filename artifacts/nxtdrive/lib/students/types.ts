@@ -21,7 +21,7 @@ export const CREDIT_REASON_LABEL: Record<CreditReason, string> = {
 
 // Per-student tegoed split (all in MINUTES, shown in hours). Mirrors the
 // public.student_credit_breakdown view. `available_minutes` equals the ledger
-// balance: purchased + refunded + adjustments − driven − planned − expired.
+// balance: purchased + refunded + adjustments - driven - planned - expired.
 export type StudentCreditBreakdown = {
   student_id: string;
   tenant_id: string;
@@ -38,6 +38,7 @@ export type StudentCreditBreakdown = {
 export type Student = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   user_id: string | null;
   lead_id: string | null;
   full_name: string;
@@ -77,7 +78,7 @@ export type StudentBalance = {
   balance: number;
 };
 
-// Tegoed is stored internally in MINUTES (exact — lessons consume whole minutes)
+// Tegoed is stored internally in MINUTES (exact - lessons consume whole minutes)
 // and displayed to users in hours ("uren"). 90 minutes => "1,5 uur".
 const HOURS_FMT = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 2 });
 
@@ -91,9 +92,9 @@ export function formatTegoed(minutes: number): string {
   return `${formatHours(minutes)} uur`;
 }
 
-/** Format a signed ledger delta in minutes (e.g. -60 => "−1 uur", 90 => "+1,5 uur"). */
+/** Format a signed ledger delta in minutes (e.g. -60 => "-1 uur", 90 => "+1,5 uur"). */
 export function formatTegoedDelta(minutes: number): string {
-  const sign = minutes > 0 ? "+" : minutes < 0 ? "−" : "";
+  const sign = minutes > 0 ? "+" : minutes < 0 ? "-" : "";
   return `${sign}${formatHours(Math.abs(minutes))} uur`;
 }
 
