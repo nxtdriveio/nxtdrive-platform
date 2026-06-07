@@ -98,6 +98,14 @@ check(
 );
 
 check(
+  "task actions default single-branch launcher submissions safely",
+  taskActionsSrc.includes("resolveSubmittedBranchId") &&
+    taskActionsSrc.includes('access.branchScope.scope_type === "branches"') &&
+    taskActionsSrc.includes("access.branchScope.branch_ids.length === 1") &&
+    taskActionsSrc.includes('formData.has("branch_id")'),
+);
+
+check(
   "task actions validate board and column branch scope",
   taskActionsSrc.includes("loadBoardBranch") &&
     taskActionsSrc.includes("requireTaskColumnAccess") &&
