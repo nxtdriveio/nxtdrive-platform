@@ -79,6 +79,20 @@ function canUseTaskBoardBranch(
   return canAccessBranch(branchScope, branchId);
 }
 
+function resolveSubmittedBranchId(
+  access: TaskManageAccess,
+  submittedBranchId: string | null,
+): string | null {
+  if (submittedBranchId) return submittedBranchId;
+  if (
+    access.branchScope.scope_type === "branches" &&
+    access.branchScope.branch_ids.length === 1
+  ) {
+    return access.branchScope.branch_ids[0] ?? null;
+  }
+  return null;
+}
+
 async function loadBoardBranch(
   access: TaskManageAccess,
   boardId: string,
@@ -215,7 +229,10 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
 
   const boardId = String(formData.get("board_id") ?? "");
   const columnId = String(formData.get("column_id") ?? "");
-  const branchId = parseBranchId(formData.get("branch_id"));
+  const branchId = resolveSubmittedBranchId(
+    access,
+    parseBranchId(formData.get("branch_id")),
+  );
   const title = cleanStr(formData.get("title"), 200);
   if (!boardId || !columnId) return { ok: false, error: "Bord of kolom ontbreekt." };
   if (!title) return { ok: false, error: "Titel is verplicht." };
@@ -558,7 +575,9 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
   const target = await requireExistingTaskManage(access, taskId);
   if (!target.ok) return target;
 
-  const branchId = parseBranchId(formData.get("branch_id"));
+  const branchId = formData.has("branch_id")
+    ? resolveSubmittedBranchId(access, parseBranchId(formData.get("branch_id")))
+    : target.branchId;
   const branchCheck = validateTargetBranch(access, branchId);
   if (!branchCheck.ok) return branchCheck;
   const boardBranchCheck = validateTaskBoardBranch(
