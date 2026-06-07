@@ -10,8 +10,19 @@ import { Badge } from "@/components/ui/badge";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { listBranches } from "@/lib/branches/service";
+import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const STUDENT_BACKOFFICE_READ_ROLES = [
+  "tenant_admin",
+  "franchise_admin",
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+  "instructor",
+] as const satisfies MemberRole[];
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
@@ -24,7 +35,9 @@ export default async function StudentsPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const context = await requireOrganizationPermission("student:read");
+  const context = await requireOrganizationPermission("student:read", {
+    allowedRoles: [...STUDENT_BACKOFFICE_READ_ROLES],
+  });
   const { organization: tenant, roles } = context;
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
