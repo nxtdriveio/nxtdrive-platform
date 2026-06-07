@@ -1,13 +1,13 @@
 # Sprint 4 - Branch Completeness
 
-Status: started
+Status: in progress
 Owner: platform architecture
 
 Sprint 4 applies the organization/branch permission foundation from Sprint 3 to the remaining operational modules.
 
 ## Sprint 4A - Vehicles and Locations
 
-Implemented in this slice:
+Implemented:
 
 - Add nullable `branch_id` to `vehicles` and `locations`.
 - Treat `branch_id = null` as a shared organization-wide vehicle/location.
@@ -20,17 +20,24 @@ Implemented in this slice:
 - Move vehicle/location server actions to `requireOrganizationPermission("vehicle:manage")`.
 - Add `test-vehicle-branch-foundation` static guardrails.
 
-## Deliberate Limit
+## Sprint 4B - Explicit Branch Assignment
 
-This slice does not change the existing `upsert_vehicle`, `set_vehicle_active`, `upsert_location`, or `set_location_active` RPC signatures. New assets created from the current UI remain shared organization assets until a branch-assignment write flow is added.
+Implemented in this slice:
 
-Reason: this session does not have a browsable local clone or GitHub tree access for the original RPC migration definitions, so changing existing function signatures here would be higher risk than the rest of the slice.
+- Add focused `assign_vehicle_branch` and `assign_location_branch` RPCs.
+- Keep the existing `upsert_vehicle`, `set_vehicle_active`, `upsert_location`, and `set_location_active` RPC signatures unchanged.
+- Grant the assignment RPCs only to `service_role`.
+- Validate in app code that the caller has `vehicle:manage` before invoking the RPCs.
+- Validate target branch scope before assigning a non-null `branch_id`.
+- Add branch assignment dropdowns to the vehicle and location table rows.
+- Preserve `branch_id = null` as the shared asset option labelled `Alle vestigingen`.
+- Extend `test-vehicle-branch-foundation` to cover assignment actions, UI, and RPC migration.
 
-## Sprint 4B Follow-Up
+## Remaining Follow-Up
 
-Next recommended slice:
+Next recommended slices:
 
-- Add explicit branch assignment controls for vehicles and locations.
-- Extend the relevant RPCs or add focused branch-assignment RPCs.
-- Add database/RLS tests for cross-branch read and write denial.
+- Add database/RLS integration tests for cross-branch vehicle/location read and write denial.
 - Reuse the `branch_id = null` shared-asset convention consistently in planning screens.
+- Decide whether branch managers should receive scoped `vehicle:manage` in the permission registry or remain read-only for assets.
+- Continue Sprint 4 with task routing, invoice branch scope, and availability/location branch behavior.

@@ -2,10 +2,19 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+} from "@/lib/organization";
+import { canAccessBranch } from "@/lib/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 const PAGE = "/backoffice/voertuigen";
+
+function parseBranchId(raw: FormDataEntryValue | null): string | null {
+  const value = String(raw ?? "").trim();
+  return value || null;
+}
 
 export async function createVehicle(formData: FormData) {
   const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
@@ -49,6 +58,31 @@ export async function toggleVehicleActive(formData: FormData) {
   redirect(PAGE);
 }
 
+export async function assignVehicleBranch(formData: FormData) {
+  const context = await requireOrganizationPermission("vehicle:manage");
+  const { organization: tenant, user } = context;
+  const id = String(formData.get("vehicle_id") ?? "").trim();
+  const branchId = parseBranchId(formData.get("branch_id"));
+  if (!id) redirect(PAGE);
+
+  const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  if (branchId && !canAccessBranch(branchScope, branchId)) {
+    redirect(`${PAGE}?error=forbidden`);
+  }
+
+  const { error } = await service.rpc("assign_vehicle_branch", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_id: id,
+    p_branch_id: branchId,
+  });
+  if (error) throw new Error(`Voertuigvestiging wijzigen mislukt: ${error.message}`);
+
+  revalidatePath(PAGE);
+  redirect(PAGE);
+}
+
 export async function createLocation(formData: FormData) {
   const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
   const name = String(formData.get("name") ?? "").trim().slice(0, 160);
@@ -84,6 +118,31 @@ export async function toggleLocationActive(formData: FormData) {
     p_active: !active,
   });
   if (error) throw new Error(`Locatiestatus wijzigen mislukt: ${error.message}`);
+
+  revalidatePath(PAGE);
+  redirect(PAGE);
+}
+
+export async function assignLocationBranch(formData: FormData) {
+  const context = await requireOrganizationPermission("vehicle:manage");
+  const { organization: tenant, user } = context;
+  const id = String(formData.get("location_id") ?? "").trim();
+  const branchId = parseBranchId(formData.get("branch_id"));
+  if (!id) redirect(PAGE);
+
+  const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  if (branchId && !canAccessBranch(branchScope, branchId)) {
+    redirect(`${PAGE}?error=forbidden`);
+  }
+
+  const { error } = await service.rpc("assign_location_branch", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_id: id,
+    p_branch_id: branchId,
+  });
+  if (error) throw new Error(`Locatievestiging wijzigen mislukt: ${error.message}`);
 
   revalidatePath(PAGE);
   redirect(PAGE);
