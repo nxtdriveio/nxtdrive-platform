@@ -4,8 +4,9 @@
 //
 // Planned appointments occupy a slot on every agenda view alongside lessons and
 // trial lessons, so nothing can be double-booked over them. This loader fetches
-// the planned rows for a time window — RLS-scoped to the caller's tenant — and
-// enriches the student-linked types with the student's name for the card label.
+// the planned rows for a time window and enriches the student-linked types with
+// the student's name for the card label. Backoffice callers must pass branchIds
+// when the authenticated scope is branch-limited.
 // ---------------------------------------------------------------------------
 
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -27,12 +28,13 @@ export async function loadAgendaAppointments(
     to: Date;
     // When set, restrict to a single instructor (instructor PWA, non-admin).
     instructorId?: string;
-    // When set, restrict student-linked appointments to visible students.
-    // This intentionally excludes unbranched block appointments in branch-scoped
-    // backoffice views until appointments get first-class branch_id support.
+    // When set, restrict to rows assigned to the expanded branch scope.
+    branchIds?: readonly string[];
+    // Kept for narrow legacy callers that already pre-filter visible students.
     studentIds?: readonly string[];
   },
 ): Promise<AgendaAppointmentView[]> {
+  if (opts.branchIds && opts.branchIds.length === 0) return [];
   if (opts.studentIds && opts.studentIds.length === 0) return [];
 
   let query = supabase
@@ -45,6 +47,9 @@ export async function loadAgendaAppointments(
     .order("starts_at", { ascending: true });
   if (opts.instructorId) {
     query = query.eq("instructor_id", opts.instructorId);
+  }
+  if (opts.branchIds) {
+    query = query.in("branch_id", [...opts.branchIds]);
   }
   if (opts.studentIds) {
     query = query.in("student_id", [...opts.studentIds]);
