@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,10 @@ import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
 import { ExamCandidateSuggestions } from "@/components/agenda/exam-candidate-suggestions";
 import { ExamSignalsPanel } from "@/components/exam/exam-signals-panel";
+import {
+  canManageAgendaRow,
+  requireAgendaAppointmentAccess,
+} from "@/lib/agenda/access";
 import { loadExamSignals } from "@/lib/exam/data";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -23,11 +26,17 @@ import {
   durationMinutes,
   isStudentLinkedType,
   isResultableType,
-  type AgendaAppointment,
 } from "@/lib/agenda/types";
 import type { Student } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 export default async function EditAppointmentPage({
   params,
@@ -36,45 +45,47 @@ export default async function EditAppointmentPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const { id } = await params;
   const sp = await searchParams;
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
   const formPath = `/backoffice/agenda/afspraak/${id}`;
 
-  const supabase = await createServerSupabaseClient();
-  const { data: apptRaw } = await supabase
-    .from("agenda_appointments")
-    .select("*")
-    .eq("id", id)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  const appt = apptRaw as AgendaAppointment | null;
+  const service = createServiceRoleClient();
+  const { context, branchScope, appointment: appt, studentBranchId } =
+    await requireAgendaAppointmentAccess(service, id, "read");
   if (!appt) notFound();
 
-  const instructors = isAdmin
+  const { user, organization: tenant, roles } = context;
+  const canSelectInstructor =
+    roles.includes("tenant_admin") ||
+    roles.includes("franchise_admin") ||
+    !!user.profile?.is_platform_admin;
+  const canManageAppointment = canManageAgendaRow(context, branchScope, {
+    branch_id: studentBranchId,
+    instructor_id: appt.instructor_id,
+  });
+  const canEditAppointment =
+    canManageAppointment &&
+    (canSelectInstructor || roles.includes("instructor"));
+
+  const supabase = await createServerSupabaseClient();
+  const instructors = canEditAppointment && canSelectInstructor
     ? await loadTenantInstructors(tenant.id)
     : undefined;
 
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
-  const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
+  let students: Pick<Student, "id" | "full_name">[] = [];
+  if (canEditAppointment) {
+    const { data: studentsRaw } = await supabase
+      .from("students")
+      .select("id, full_name")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+    students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
+  }
 
-  const linked = isStudentLinkedType(appt!.type);
+  const linked = isStudentLinkedType(appt.type);
 
-  const examSignals = await loadExamSignals(
-    createServiceRoleClient(),
-    tenant.id,
-    appt!.id,
-  );
+  const examSignals = await loadExamSignals(service, tenant.id, appt.id);
 
   return (
     <div className="space-y-6">
@@ -91,7 +102,7 @@ export default async function EditAppointmentPage({
           Afspraak bewerken
         </h1>
         <p className="text-sm text-muted-foreground">
-          {APPOINTMENT_TYPE_LABEL[appt!.type]}
+          {APPOINTMENT_TYPE_LABEL[appt.type]}
         </p>
       </div>
 
@@ -101,60 +112,58 @@ export default async function EditAppointmentPage({
         </Card>
       ) : null}
 
-      {linked && appt!.student_id ? (
+      {linked && appt.student_id ? (
         <Link
-          href={`/backoffice/leerlingen/${appt!.student_id}`}
+          href={`/backoffice/leerlingen/${appt.student_id}`}
           className="inline-flex text-sm text-primary hover:underline"
         >
-          Open leerlingdossier →
+          Open leerlingdossier 
         </Link>
       ) : null}
 
-      {appt!.type === "free_block" ? (
+      {appt.type === "free_block" && canEditAppointment ? (
         <SlotStudentSuggestions
           tenantId={tenant.id}
-          instructorId={appt!.instructor_id}
-          startsAt={appt!.starts_at}
-          durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
-          excludeAppointmentId={appt!.id}
+          instructorId={appt.instructor_id}
+          startsAt={appt.starts_at}
+          durationMin={durationMinutes(appt.starts_at, appt.ends_at)}
+          excludeAppointmentId={appt.id}
         />
       ) : null}
 
-      {isResultableType(appt!.type) &&
-      appt!.status === "planned" &&
-      !appt!.result ? (
+      {isResultableType(appt.type) &&
+      appt.status === "planned" &&
+      !appt.result &&
+      canEditAppointment ? (
         <ExamCandidateSuggestions
           tenantId={tenant.id}
-          appointmentId={appt!.id}
-          slotType={appt!.type as "exam" | "interim_test"}
-          startsAt={appt!.starts_at}
-          durationMin={durationMinutes(appt!.starts_at, appt!.ends_at)}
-          excludeStudentId={appt!.student_id}
+          appointmentId={appt.id}
+          slotType={appt.type as "exam" | "interim_test"}
+          startsAt={appt.starts_at}
+          durationMin={durationMinutes(appt.starts_at, appt.ends_at)}
+          excludeStudentId={appt.student_id}
         />
       ) : null}
 
       {examSignals ? (
-        <ExamSignalsPanel
-          appointmentId={appt!.id}
-          signals={examSignals.signals}
-        />
+        <ExamSignalsPanel appointmentId={appt.id} signals={examSignals.signals} />
       ) : null}
 
-      {isResultableType(appt!.type) ? (
+      {isResultableType(appt.type) ? (
         <Card>
           <CardHeader>
             <CardTitle>Uitslag</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {appt!.result ? (
+            {appt.result ? (
               <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <span className="text-muted-foreground">Vastgelegd: </span>
                 <span className="font-medium text-foreground">
-                  {APPOINTMENT_RESULT_LABEL[appt!.result]}
+                  {APPOINTMENT_RESULT_LABEL[appt.result]}
                 </span>
-                {appt!.result_note ? (
+                {appt.result_note ? (
                   <p className="mt-1 text-muted-foreground">
-                    {appt!.result_note}
+                    {appt.result_note}
                   </p>
                 ) : null}
               </div>
@@ -163,50 +172,52 @@ export default async function EditAppointmentPage({
                 Nog geen uitslag vastgelegd.
               </p>
             )}
-            <form action={setAppointmentResult} className="space-y-3">
-              <input type="hidden" name="appointment_id" value={appt!.id} />
-              <input type="hidden" name="redirect_to" value={formPath} />
-              <input type="hidden" name="error_to" value={formPath} />
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="result"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Resultaat
-                </label>
-                <select
-                  id="result"
-                  name="result"
-                  defaultValue={appt!.result ?? ""}
-                  required
-                  className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
-                >
-                  <option value="" disabled>
-                    Kies resultaat…
-                  </option>
-                  <option value="passed">Geslaagd</option>
-                  <option value="failed">Gezakt</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="result_note"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Vervolgadvies <span className="text-muted-foreground">(optioneel)</span>
-                </label>
-                <textarea
-                  id="result_note"
-                  name="result_note"
-                  rows={3}
-                  maxLength={1000}
-                  defaultValue={appt!.result_note ?? ""}
-                  placeholder="Bijv. extra aandacht voor invoegen vóór herexamen."
-                  className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
-                />
-              </div>
-              <Button type="submit">Uitslag opslaan</Button>
-            </form>
+            {canEditAppointment ? (
+              <form action={setAppointmentResult} className="space-y-3">
+                <input type="hidden" name="appointment_id" value={appt.id} />
+                <input type="hidden" name="redirect_to" value={formPath} />
+                <input type="hidden" name="error_to" value={formPath} />
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="result"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Resultaat
+                  </label>
+                  <select
+                    id="result"
+                    name="result"
+                    defaultValue={appt.result ?? ""}
+                    required
+                    className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>
+                      Kies resultaat...
+                    </option>
+                    <option value="passed">Geslaagd</option>
+                    <option value="failed">Gezakt</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="result_note"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Vervolgadvies <span className="text-muted-foreground">(optioneel)</span>
+                  </label>
+                  <textarea
+                    id="result_note"
+                    name="result_note"
+                    rows={3}
+                    maxLength={1000}
+                    defaultValue={appt.result_note ?? ""}
+                    placeholder="Bijv. extra aandacht voor invoegen voor herexamen."
+                    className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  />
+                </div>
+                <Button type="submit">Uitslag opslaan</Button>
+              </form>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -216,50 +227,83 @@ export default async function EditAppointmentPage({
           <CardTitle>Gegevens</CardTitle>
         </CardHeader>
         <CardContent>
-          <AppointmentForm
-            action={updateAppointment}
-            mode="edit"
-            redirectTo="/backoffice/agenda"
-            errorTo={formPath}
-            appointmentId={appt!.id}
-            instructors={instructors}
-            ownInstructor={
-              isAdmin
-                ? undefined
-                : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
-            }
-            students={students}
-            defaults={{
-              type: appt!.type,
-              instructorId: appt!.instructor_id,
-              studentId: appt!.student_id,
-              date: appt!.starts_at.slice(0, 10),
-              time: appt!.starts_at.slice(11, 16),
-              durationMin: durationMinutes(appt!.starts_at, appt!.ends_at),
-              title: appt!.title,
-              location: appt!.location,
-              notes: appt!.notes,
-            }}
-            submitLabel="Wijzigingen opslaan"
-          />
+          {canEditAppointment ? (
+            <AppointmentForm
+              action={updateAppointment}
+              mode="edit"
+              redirectTo="/backoffice/agenda"
+              errorTo={formPath}
+              appointmentId={appt.id}
+              instructors={instructors}
+              ownInstructor={
+                canSelectInstructor
+                  ? undefined
+                  : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
+              }
+              students={students}
+              defaults={{
+                type: appt.type,
+                instructorId: appt.instructor_id,
+                studentId: appt.student_id,
+                date: appt.starts_at.slice(0, 10),
+                time: appt.starts_at.slice(11, 16),
+                durationMin: durationMinutes(appt.starts_at, appt.ends_at),
+                title: appt.title,
+                location: appt.location,
+                notes: appt.notes,
+              }}
+              submitLabel="Wijzigingen opslaan"
+            />
+          ) : (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Je hebt leesrechten voor deze afspraak. Bewerken is uitgeschakeld
+                totdat de afspraak binnen jouw beheerscope valt.
+              </p>
+              <dl className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-foreground">Start</dt>
+                  <dd>{formatDateTime(appt.starts_at)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Einde</dt>
+                  <dd>{formatDateTime(appt.ends_at)}</dd>
+                </div>
+                {appt.location ? (
+                  <div>
+                    <dt className="font-medium text-foreground">Locatie</dt>
+                    <dd>{appt.location}</dd>
+                  </div>
+                ) : null}
+                {appt.title ? (
+                  <div>
+                    <dt className="font-medium text-foreground">Titel</dt>
+                    <dd>{appt.title}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card className="border-danger/30">
-        <CardContent className="flex items-center justify-between gap-4 pt-6">
-          <div className="text-sm text-muted-foreground">
-            Verwijder deze afspraak definitief uit de agenda.
-          </div>
-          <form action={deleteAppointment}>
-            <input type="hidden" name="appointment_id" value={appt!.id} />
-            <input type="hidden" name="redirect_to" value="/backoffice/agenda" />
-            <Button type="submit" variant="danger">
-              <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
-              Verwijderen
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {canEditAppointment ? (
+        <Card className="border-danger/30">
+          <CardContent className="flex items-center justify-between gap-4 pt-6">
+            <div className="text-sm text-muted-foreground">
+              Verwijder deze afspraak definitief uit de agenda.
+            </div>
+            <form action={deleteAppointment}>
+              <input type="hidden" name="appointment_id" value={appt.id} />
+              <input type="hidden" name="redirect_to" value="/backoffice/agenda" />
+              <Button type="submit" variant="danger">
+                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
+                Verwijderen
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
