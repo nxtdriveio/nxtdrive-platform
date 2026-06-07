@@ -30,6 +30,8 @@ import {
   updateTask,
 } from "./actions";
 
+type BranchOption = { id: string; name: string };
+
 export function TaskDialog({
   boardId,
   members,
@@ -39,6 +41,9 @@ export function TaskDialog({
   links,
   boards,
   initialLink,
+  branches = [],
+  canUseSharedBranch = true,
+  defaultBranchId = null,
   onClose,
 }: {
   boardId: string;
@@ -51,6 +56,9 @@ export function TaskDialog({
   boards?: LaunchBoard[];
   /** Pre-filled link applied right after task creation. */
   initialLink?: { entity_type: TaskLinkType; entity_id: string; label: string };
+  branches?: BranchOption[];
+  canUseSharedBranch?: boolean;
+  defaultBranchId?: string | null;
   onClose: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -62,6 +70,8 @@ export function TaskDialog({
   const selBoard = boards?.find((b) => b.id === boardSel);
   const effBoardId = boards ? boardSel : boardId;
   const effColumnId = boards ? (selBoard?.firstColumnId ?? "") : (columnId ?? "");
+  const branchDefaultValue =
+    task?.branch_id ?? defaultBranchId ?? (!canUseSharedBranch ? (branches[0]?.id ?? null) : null) ?? "";
 
   function submit(formData: FormData) {
     setError(null);
@@ -217,6 +227,21 @@ export function TaskDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="branch_id">Vestiging</Label>
+            <Select
+              id="branch_id"
+              name="branch_id"
+              defaultValue={branchDefaultValue}
+            >
+              <BranchOptions
+                branches={branches}
+                canUseSharedBranch={canUseSharedBranch}
+                currentBranchId={task?.branch_id ?? null}
+              />
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="assignee_user_id">Toegewezen aan</Label>
             <Select
               id="assignee_user_id"
@@ -265,7 +290,7 @@ export function TaskDialog({
                 Annuleren
               </Button>
               <Button type="submit" size="sm" disabled={isPending}>
-                {isPending ? "Opslaan…" : "Opslaan"}
+                {isPending ? "Opslaan..." : "Opslaan"}
               </Button>
             </div>
           </div>
@@ -276,6 +301,33 @@ export function TaskDialog({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function BranchOptions({
+  branches,
+  canUseSharedBranch,
+  currentBranchId,
+}: {
+  branches: BranchOption[];
+  canUseSharedBranch: boolean;
+  currentBranchId: string | null;
+}) {
+  const currentBranchIsVisible =
+    !currentBranchId || branches.some((b) => b.id === currentBranchId);
+
+  return (
+    <>
+      {canUseSharedBranch ? <option value="">Alle vestigingen</option> : null}
+      {!currentBranchIsVisible && currentBranchId ? (
+        <option value={currentBranchId}>Huidige vestiging</option>
+      ) : null}
+      {branches.map((branch) => (
+        <option key={branch.id} value={branch.id}>
+          {branch.name}
+        </option>
+      ))}
+    </>
   );
 }
 
@@ -452,7 +504,7 @@ function TaskLinksSection({
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Zoeken…"
+                placeholder="Zoeken..."
                 className="pl-8"
               />
             </div>
@@ -460,7 +512,7 @@ function TaskLinksSection({
 
           <div className="max-h-44 overflow-y-auto rounded-md border border-border">
             {searching ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">Zoeken…</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground">Zoeken...</p>
             ) : results.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
                 Geen resultaten.

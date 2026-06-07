@@ -26,6 +26,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus, CalendarClock, User2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { Branch } from "@/lib/branches/service";
 import {
   TASK_PRIORITY_LABEL,
   TASK_PRIORITY_VARIANT,
@@ -43,6 +44,7 @@ const dueFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 type BoardState = Record<string, Task[]>;
+type BranchOption = Pick<Branch, "id" | "name">;
 
 function groupByColumn(columns: TaskColumn[], tasks: Task[]): BoardState {
   const state: BoardState = {};
@@ -64,6 +66,10 @@ export function Board({
   members,
   links,
   canCreate = true,
+  canManage = true,
+  branches = [],
+  canUseSharedBranch = true,
+  defaultBranchId = null,
 }: {
   boardId: string;
   columns: TaskColumn[];
@@ -71,6 +77,10 @@ export function Board({
   members: TenantMember[];
   links?: Record<string, ResolvedTaskLink[]>;
   canCreate?: boolean;
+  canManage?: boolean;
+  branches?: BranchOption[];
+  canUseSharedBranch?: boolean;
+  defaultBranchId?: string | null;
 }) {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>(() =>
@@ -92,6 +102,7 @@ export function Board({
         cols: columns.map((c) => c.id),
         tasks: initialTasks.map((t) => [
           t.id,
+          t.branch_id,
           t.column_id,
           t.position,
           t.title,
@@ -152,6 +163,7 @@ export function Board({
     : null;
 
   function handleDragStart(e: DragStartEvent) {
+    if (!canManage) return;
     const id = String(e.active.id);
     dragOrigin.current = columnOf(id) ?? null;
     boardSnapshot.current = board;
@@ -159,6 +171,7 @@ export function Board({
   }
 
   function handleDragOver(e: DragOverEvent) {
+    if (!canManage) return;
     const { active, over } = e;
     if (!over) return;
     const activeColId = columnOf(String(active.id));
@@ -185,6 +198,7 @@ export function Board({
   }
 
   function handleDragEnd(e: DragEndEvent) {
+    if (!canManage) return;
     const { active, over } = e;
     const activeIdStr = String(active.id);
     const origin = dragOrigin.current;
@@ -272,9 +286,12 @@ export function Board({
               column={column}
               tasks={board[column.id] ?? []}
               memberMap={memberMap}
-              canCreate={canCreate}
+              canCreate={canCreate && canManage}
+              canManage={canManage}
               onAddCard={() => setDialog({ mode: "create", columnId: column.id })}
-              onCardClick={(task) => setDialog({ mode: "edit", task })}
+              onCardClick={(task) => {
+                if (canManage) setDialog({ mode: "edit", task });
+              }}
             />
           ))}
         </div>
@@ -286,7 +303,7 @@ export function Board({
         </DragOverlay>
       </DndContext>
 
-      {dialog ? (
+      {dialog && canManage ? (
         <TaskDialog
           boardId={boardId}
           members={members}
@@ -296,6 +313,9 @@ export function Board({
           links={
             dialog.mode === "edit" ? (links?.[dialog.task.id] ?? []) : undefined
           }
+          branches={branches}
+          canUseSharedBranch={canUseSharedBranch}
+          defaultBranchId={defaultBranchId}
           onClose={() => setDialog(null)}
         />
       ) : null}
@@ -308,6 +328,7 @@ function Column({
   tasks,
   memberMap,
   canCreate,
+  canManage,
   onAddCard,
   onCardClick,
 }: {
@@ -315,6 +336,7 @@ function Column({
   tasks: Task[];
   memberMap: Map<string, string>;
   canCreate: boolean;
+  canManage: boolean;
   onAddCard: () => void;
   onCardClick: (task: Task) => void;
 }) {
@@ -351,7 +373,7 @@ function Column({
           ref={setNodeRef}
           className={cn(
             "flex-1 space-y-2 px-2 pb-2",
-            isOver && "rounded-md bg-primary-soft/40",
+            isOver && canManage && "rounded-md bg-primary-soft/40",
           )}
           style={{ minHeight: 64 }}
         >
@@ -360,6 +382,7 @@ function Column({
               key={task.id}
               task={task}
               memberMap={memberMap}
+              canManage={canManage}
               onClick={() => onCardClick(task)}
             />
           ))}
@@ -383,10 +406,12 @@ function Column({
 function SortableCard({
   task,
   memberMap,
+  canManage,
   onClick,
 }: {
   task: Task;
   memberMap: Map<string, string>;
+  canManage: boolean;
   onClick: () => void;
 }) {
   const {
@@ -396,7 +421,7 @@ function SortableCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, disabled: !canManage });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -410,9 +435,9 @@ function SortableCard({
       style={style}
       {...attributes}
       {...listeners}
-      onClick={onClick}
+      onClick={canManage ? onClick : undefined}
     >
-      <TaskCard task={task} memberMap={memberMap} />
+      <TaskCard task={task} memberMap={memberMap} canManage={canManage} />
     </div>
   );
 }
@@ -421,10 +446,12 @@ function TaskCard({
   task,
   memberMap,
   overlay = false,
+  canManage = true,
 }: {
   task: Task;
   memberMap: Map<string, string>;
   overlay?: boolean;
+  canManage?: boolean;
 }) {
   const assigneeName = task.assignee_user_id
     ? memberMap.get(task.assignee_user_id) ?? "Onbekend lid"
@@ -433,7 +460,8 @@ function TaskCard({
   return (
     <div
       className={cn(
-        "cursor-grab rounded-md border border-border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary active:cursor-grabbing",
+        "rounded-md border border-border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary",
+        canManage ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         overlay && "shadow-lg",
       )}
     >

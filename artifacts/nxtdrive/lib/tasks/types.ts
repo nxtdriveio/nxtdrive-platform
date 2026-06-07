@@ -1,7 +1,7 @@
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
-// Task #54 — typed tasks. `manual` covers everything the Kanban created before;
+// Task #54 - typed tasks. `manual` covers everything the Kanban created before;
 // the rest are the lead-automation auto-task kinds (idempotent via dedupe_key).
 export const TASK_TYPES = [
   "manual",
@@ -58,6 +58,7 @@ export type TaskDepartment = {
 export type TaskBoard = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   department_id: string | null;
   name: string;
   sort_order: number;
@@ -75,6 +76,7 @@ export type TaskColumn = {
 export type Task = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   board_id: string;
   column_id: string;
   department_id: string | null;
