@@ -52,6 +52,7 @@
     "test-organization-foundation": "tsx ./src/test-organization-foundation.ts",
     "test-organization-profile-foundation": "tsx ./src/test-organization-profile-foundation.ts",
     "test-permission-foundation": "tsx ./src/test-permission-foundation.ts",
+    "test-lead-scope-foundation": "tsx ./src/test-lead-scope-foundation.ts",
     "db:seed-scenarios": "tsx ./src/seed-scenario-accounts.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
