@@ -33,11 +33,31 @@ Implemented in this slice:
 - Preserve `branch_id = null` as the shared asset option labelled `Alle vestigingen`.
 - Extend `test-vehicle-branch-foundation` to cover assignment actions, UI, and RPC migration.
 
+## Sprint 4C - Task Branch Scope
+
+Implemented in this slice:
+
+- Add nullable `branch_id` to `task_boards` and `tasks`.
+- Treat `branch_id = null` as an organization-wide shared board or task.
+- Add tenant/branch indexes for scoped task reads and assignee reads.
+- Add tenant-consistency triggers so task branches must belong to the same organization.
+- Add a service-role-only `assign_task_branch` RPC for branch reassignment without changing the existing task RPC signatures.
+- Extend task board and task TypeScript types with `branch_id`.
+- Move `/backoffice/taken` from tenant-admin-only access to `task:read` permission checks.
+- Add branch filter chips to the tasks page using the caller's organization branch scope.
+- Scope board and task reads by permitted branches, including shared organization rows where appropriate.
+- Split read and manage behavior so read-only task users can view boards without dragging, editing, archiving, or linking entities.
+- Require `task:manage` for task create, update, move, archive, and link/unlink actions.
+- Validate the caller's target branch scope before assigning or changing a task branch.
+- Add branch selection to the task dialog, including an `Alle vestigingen` shared option for organization-wide managers.
+- Scope task entity search by branch for students, leads, lessons, exams, and invoices.
+- Add `test-task-branch-foundation` static guardrails for migration, page access, UI, actions, search, and type coverage.
+
 ## Remaining Follow-Up
 
 Next recommended slices:
 
-- Add database/RLS integration tests for cross-branch vehicle/location read and write denial.
+- Add database/RLS integration tests for cross-branch vehicle/location and task read/write denial.
 - Reuse the `branch_id = null` shared-asset convention consistently in planning screens.
-- Decide whether branch managers should receive scoped `vehicle:manage` in the permission registry or remain read-only for assets.
-- Continue Sprint 4 with task routing, invoice branch scope, and availability/location branch behavior.
+- Decide whether branch managers should receive scoped `vehicle:manage` and `task:manage` in the permission registry or remain read-only for those modules.
+- Continue Sprint 4 with invoice branch scope and availability/location branch behavior.
