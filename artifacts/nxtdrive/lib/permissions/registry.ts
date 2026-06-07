@@ -87,6 +87,7 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
   admin_staff: [
     { permission: "organization:read", scopes: ["organization"] },
     { permission: "student:read", scopes: ["branch"] },
+    { permission: "planning:read", scopes: ["branch"] },
     { permission: "invoice:manage", scopes: ["branch"] },
     { permission: "task:manage", scopes: ["branch"] },
     { permission: "report:read", scopes: ["branch"] },
@@ -95,6 +96,7 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
     { permission: "organization:read", scopes: ["organization"] },
     { permission: "lead:manage", scopes: ["branch"] },
     { permission: "student:read", scopes: ["branch"] },
+    { permission: "planning:read", scopes: ["branch"] },
     { permission: "task:read", scopes: ["branch"] },
     { permission: "report:read", scopes: ["branch"] },
   ],
