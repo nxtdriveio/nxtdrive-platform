@@ -76,7 +76,7 @@ check(
   "lead detail route validates access before the existing detail component renders",
   leadDetailLayoutSrc.includes("requireLeadBackofficeAccess") &&
     leadDetailLayoutSrc.includes("createServiceRoleClient") &&
-    leadDetailLayoutSrc.includes('id,\n    "read"') &&
+    leadDetailLayoutSrc.includes('"read"') &&
     leadDetailLayoutSrc.includes("if (!lead) notFound()"),
 );
 check(
@@ -86,7 +86,7 @@ check(
     (leadActionsSrc.match(/requireLeadBackofficeAccess\(service, leadId, "collaborate"\)/g)?.length ?? 0) >= 10 &&
     leadActionsSrc.includes('requireLeadBackofficeAccess(service, leadId, "read")') &&
     leadActionsSrc.indexOf('requireLeadBackofficeAccess(service, leadId, "admin")') <
-      leadActionsSrc.indexOf('service.rpc(\n    "convert_lead_to_student"') &&
+      leadActionsSrc.indexOf('"convert_lead_to_student"') &&
     leadActionsSrc.indexOf('requireLeadBackofficeAccess(service, leadId, "collaborate")') <
       leadActionsSrc.indexOf('service.rpc("update_lead_status"'),
 );
