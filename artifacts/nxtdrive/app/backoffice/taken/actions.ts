@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+} from "@/lib/organization";
+import { canAccessBranch, type BranchAccessScope } from "@/lib/permissions";
+import type { AuthorizedOrganizationContext } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { notifyTaskAssigned } from "@/lib/notifications/dispatch";
 import {
@@ -11,8 +16,6 @@ import {
   type TaskLinkType,
   type TaskPriority,
 } from "@/lib/tasks/types";
-
-const ROLES = ["tenant_admin", "instructor"] as const;
 
 function priorityOf(v: unknown): TaskPriority {
   return typeof v === "string" &&
@@ -26,7 +29,79 @@ function cleanStr(v: FormDataEntryValue | null, max: number): string | null {
   return s === "" ? null : s.slice(0, max);
 }
 
+function parseBranchId(v: FormDataEntryValue | null): string | null {
+  return cleanStr(v, 100);
+}
+
 export type ActionResult = { ok: boolean; error?: string };
+
+type TaskManageAccess = {
+  context: AuthorizedOrganizationContext;
+  service: ReturnType<typeof createServiceRoleClient>;
+  branchScope: BranchAccessScope;
+};
+
+async function requireTaskManageAccess(): Promise<TaskManageAccess> {
+  const context = await requireOrganizationPermission("task:manage");
+  const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  return { context, service, branchScope };
+}
+
+function canManageTaskBranch(
+  branchScope: BranchAccessScope,
+  branchId: string | null,
+): boolean {
+  if (branchScope.scope_type === "all") return true;
+  if (!branchId) return false;
+  return canAccessBranch(branchScope, branchId);
+}
+
+async function requireExistingTaskManage(
+  access: TaskManageAccess,
+  taskId: string,
+): Promise<{ ok: true; branchId: string | null } | { ok: false; error: string }> {
+  const { data, error } = await access.service
+    .from("tasks")
+    .select("id, branch_id")
+    .eq("tenant_id", access.context.organization.id)
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Taak niet gevonden." };
+
+  const branchId = (data as { branch_id: string | null }).branch_id;
+  if (!canManageTaskBranch(access.branchScope, branchId)) {
+    return { ok: false, error: "Geen toegang tot deze taakvestiging." };
+  }
+
+  return { ok: true, branchId };
+}
+
+function validateTargetBranch(
+  access: TaskManageAccess,
+  branchId: string | null,
+): ActionResult {
+  if (!canManageTaskBranch(access.branchScope, branchId)) {
+    return { ok: false, error: "Geen toegang tot deze vestiging." };
+  }
+  return { ok: true };
+}
+
+async function assignTaskBranch(
+  access: TaskManageAccess,
+  taskId: string,
+  branchId: string | null,
+): Promise<ActionResult> {
+  const { error } = await access.service.rpc("assign_task_branch", {
+    p_task_id: taskId,
+    p_tenant_id: access.context.organization.id,
+    p_actor: access.context.user.id,
+    p_branch_id: branchId,
+  });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
 
 /**
  * Best-effort task-assigned notification. Delivery (or its absence) must never
@@ -42,22 +117,28 @@ async function notifyAssignee(
   try {
     await notifyTaskAssigned(service, tenantId, taskId, assigneeUserId);
   } catch {
-    // swallow — notification is best-effort
+    // swallow - notification is best-effort
   }
 }
 
 export async function createTask(formData: FormData): Promise<ActionResult> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
 
   const boardId = String(formData.get("board_id") ?? "");
   const columnId = String(formData.get("column_id") ?? "");
+  const branchId = parseBranchId(formData.get("branch_id"));
+  const branchCheck = validateTargetBranch(access, branchId);
+  if (!branchCheck.ok) return branchCheck;
+
   const title = cleanStr(formData.get("title"), 200);
   if (!boardId || !columnId) return { ok: false, error: "Bord of kolom ontbreekt." };
   if (!title) return { ok: false, error: "Titel is verplicht." };
 
   const assignee = cleanStr(formData.get("assignee_user_id"), 100);
 
-  const service = createServiceRoleClient();
   const { data: newTaskId, error } = await service.rpc("create_task", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
@@ -71,6 +152,11 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     p_department_id: null,
   });
   if (error) return { ok: false, error: error.message };
+
+  if (newTaskId) {
+    const assignBranch = await assignTaskBranch(access, newTaskId as string, branchId);
+    if (!assignBranch.ok) return assignBranch;
+  }
 
   // Optional initial link (used by "Taak aanmaken" launchers on entity pages).
   const linkType = String(formData.get("link_entity_type") ?? "");
@@ -90,7 +176,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     });
     if (linkErr) {
       // Linking is the whole point of the launcher flow. If it fails, don't
-      // leave an orphan task behind — archive it so the board stays consistent.
+      // leave an orphan task behind - archive it so the board stays consistent.
       await service.rpc("archive_task", {
         p_task_id: newTaskId,
         p_tenant_id: tenant.id,
@@ -114,19 +200,21 @@ export async function linkTaskEntity(input: {
   entityType: TaskLinkType;
   entityId: string;
 }): Promise<{ ok: boolean; linkId?: string; error?: string }> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
   if (!input.taskId || !input.entityId) {
     return { ok: false, error: "Ongeldige koppeling." };
   }
   if (!(TASK_LINK_TYPES as readonly string[]).includes(input.entityType)) {
     return { ok: false, error: "Onbekend entiteitstype." };
   }
+  const target = await requireExistingTaskManage(access, input.taskId);
+  if (!target.ok) return target;
 
-  const service = createServiceRoleClient();
   const { data: linkId, error } = await service.rpc("link_task_entity", {
     p_task_id: input.taskId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
     p_entity_type: input.entityType,
     p_entity_id: input.entityId,
   });
@@ -140,14 +228,28 @@ export async function linkTaskEntity(input: {
 export async function unlinkTaskEntity(input: {
   linkId: string;
 }): Promise<ActionResult> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
   if (!input.linkId) return { ok: false, error: "Koppeling ontbreekt." };
 
-  const service = createServiceRoleClient();
+  const { data: linkRow, error: linkLoadError } = await service
+    .from("task_links")
+    .select("task_id")
+    .eq("tenant_id", context.organization.id)
+    .eq("id", input.linkId)
+    .maybeSingle();
+  if (linkLoadError) return { ok: false, error: linkLoadError.message };
+  if (!linkRow) return { ok: false, error: "Koppeling niet gevonden." };
+  const target = await requireExistingTaskManage(
+    access,
+    String((linkRow as { task_id: string }).task_id),
+  );
+  if (!target.ok) return target;
+
   const { error } = await service.rpc("unlink_task_entity", {
     p_link_id: input.linkId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -158,20 +260,24 @@ export async function unlinkTaskEntity(input: {
 
 /**
  * Searches candidate entities of a given type within the active tenant, for the
- * card link picker. Tenant-scoped via service role after role validation.
+ * card link picker. Service-role reads are constrained by the caller's task
+ * management branch scope before returning options.
  */
 export async function searchLinkEntities(
   entityType: TaskLinkType,
   query: string,
 ): Promise<{ ok: boolean; results: EntitySearchResult[]; error?: string }> {
-  const { tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service, branchScope } = access;
+  const tenant = context.organization;
   if (!(TASK_LINK_TYPES as readonly string[]).includes(entityType)) {
     return { ok: false, results: [], error: "Onbekend entiteitstype." };
   }
 
   const q = query.trim();
-  const service = createServiceRoleClient();
   const limit = 15;
+  const branchIds = branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
+  if (branchIds && branchIds.length === 0) return { ok: true, results: [] };
 
   try {
     if (entityType === "student" || entityType === "exam") {
@@ -179,6 +285,7 @@ export async function searchLinkEntities(
         .from("students")
         .select("id, full_name")
         .eq("tenant_id", tenant.id);
+      if (branchIds) sb = sb.in("branch_id", [...branchIds]);
       if (q) sb = sb.ilike("full_name", `%${q}%`);
       const { data } = await sb
         .order("full_name", { ascending: true })
@@ -196,6 +303,7 @@ export async function searchLinkEntities(
         .from("leads")
         .select("id, full_name")
         .eq("tenant_id", tenant.id);
+      if (branchIds) sb = sb.in("branch_id", [...branchIds]);
       if (q) sb = sb.ilike("full_name", `%${q}%`);
       const { data } = await sb
         .order("full_name", { ascending: true })
@@ -232,10 +340,22 @@ export async function searchLinkEntities(
     }
 
     if (entityType === "invoice") {
+      let studentIds: string[] | null = null;
+      if (branchIds) {
+        const { data: students } = await service
+          .from("students")
+          .select("id")
+          .eq("tenant_id", tenant.id)
+          .in("branch_id", [...branchIds]);
+        studentIds = ((students ?? []) as { id: string }[]).map((s) => s.id);
+        if (studentIds.length === 0) return { ok: true, results: [] };
+      }
+
       let sb = service
         .from("invoices")
         .select("id, invoice_no, student_id")
         .eq("tenant_id", tenant.id);
+      if (studentIds) sb = sb.in("student_id", studentIds);
       const qn = Number(q.replace(/[^0-9]/g, ""));
       if (q && Number.isFinite(qn) && qn > 0) sb = sb.eq("invoice_no", qn);
       const { data } = await sb
@@ -265,17 +385,19 @@ export async function searchLinkEntities(
         results: rows.map((r) => ({
           id: r.id,
           label: `Factuur #${String(r.invoice_no).padStart(4, "0")}${
-            r.student_id ? ` — ${nameMap.get(r.student_id) ?? ""}` : ""
+            r.student_id ? ` - ${nameMap.get(r.student_id) ?? ""}` : ""
           }`,
         })),
       };
     }
 
     if (entityType === "lesson") {
-      const { data } = await service
+      let sb = service
         .from("lessons")
         .select("id, starts_at, student_id")
-        .eq("tenant_id", tenant.id)
+        .eq("tenant_id", tenant.id);
+      if (branchIds) sb = sb.in("branch_id", [...branchIds]);
+      const { data } = await sb
         .order("starts_at", { ascending: false })
         .limit(50);
       const rows = (data ?? []) as {
@@ -305,7 +427,7 @@ export async function searchLinkEntities(
       });
       let mapped = rows.map((r) => ({
         id: r.id,
-        label: `${fmt.format(new Date(r.starts_at))} — ${
+        label: `${fmt.format(new Date(r.starts_at))} - ${
           r.student_id ? (nameMap.get(r.student_id) ?? "Leerling") : "Leerling"
         }`,
       }));
@@ -327,14 +449,22 @@ export async function searchLinkEntities(
 }
 
 export async function updateTask(formData: FormData): Promise<ActionResult> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
 
   const taskId = String(formData.get("task_id") ?? "");
   const title = cleanStr(formData.get("title"), 200);
   if (!taskId) return { ok: false, error: "Taak ontbreekt." };
   if (!title) return { ok: false, error: "Titel is verplicht." };
+  const target = await requireExistingTaskManage(access, taskId);
+  if (!target.ok) return target;
 
-  const service = createServiceRoleClient();
+  const branchId = parseBranchId(formData.get("branch_id"));
+  const branchCheck = validateTargetBranch(access, branchId);
+  if (!branchCheck.ok) return branchCheck;
+
   const { error } = await service.rpc("update_task", {
     p_task_id: taskId,
     p_tenant_id: tenant.id,
@@ -346,6 +476,9 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
     p_department_id: null,
   });
   if (error) return { ok: false, error: error.message };
+
+  const branchAssign = await assignTaskBranch(access, taskId, branchId);
+  if (!branchAssign.ok) return branchAssign;
 
   // Assignment is a separate RPC; always sync it (null clears the assignee).
   const assignee = cleanStr(formData.get("assignee_user_id"), 100);
@@ -369,16 +502,18 @@ export async function moveTask(input: {
   columnId: string;
   position: number;
 }): Promise<ActionResult> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
   if (!input.taskId || !input.columnId) {
     return { ok: false, error: "Ongeldige verplaatsing." };
   }
+  const target = await requireExistingTaskManage(access, input.taskId);
+  if (!target.ok) return target;
 
-  const service = createServiceRoleClient();
   const { error } = await service.rpc("move_task", {
     p_task_id: input.taskId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
     p_column_id: input.columnId,
     p_position: Math.max(0, Math.trunc(input.position)),
   });
@@ -390,15 +525,17 @@ export async function moveTask(input: {
 }
 
 export async function archiveTask(formData: FormData): Promise<ActionResult> {
-  const { user, tenant } = await requireActiveTenant([...ROLES]);
+  const access = await requireTaskManageAccess();
+  const { context, service } = access;
   const taskId = String(formData.get("task_id") ?? "");
   if (!taskId) return { ok: false, error: "Taak ontbreekt." };
+  const target = await requireExistingTaskManage(access, taskId);
+  if (!target.ok) return target;
 
-  const service = createServiceRoleClient();
   const { error } = await service.rpc("archive_task", {
     p_task_id: taskId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
   });
   if (error) return { ok: false, error: error.message };
 
