@@ -80,6 +80,9 @@ export function canCollaborateOnLeadRow(
   ) {
     return true;
   }
+  if (context.roles.includes("instructor") && canAccessBranch(branchScope, lead.branch_id)) {
+    return true;
+  }
   return isAssignedToInstructor(context, lead);
 }
 

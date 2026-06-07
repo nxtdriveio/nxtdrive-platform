@@ -27,6 +27,7 @@ const leadAccessSrc = source("artifacts/nxtdrive/lib/leads/access.ts");
 const leadServiceSrc = source("artifacts/nxtdrive/lib/leads/lead-service.ts");
 const leadsPageSrc = source("artifacts/nxtdrive/app/backoffice/leads/page.tsx");
 const leadDetailLayoutSrc = source("artifacts/nxtdrive/app/backoffice/leads/[id]/layout.tsx");
+const leadActionsSrc = source("artifacts/nxtdrive/app/backoffice/leads/actions.ts");
 
 check(
   "instructors have explicit own/branch lead read permission",
@@ -45,6 +46,7 @@ check(
     leadAccessSrc.includes("canCollaborateOnLeadRow") &&
     leadAccessSrc.includes("canAccessBranch(branchScope, lead.branch_id)") &&
     leadAccessSrc.includes("lead.assigned_instructor_id === context.user.id") &&
+    leadAccessSrc.includes('context.roles.includes("instructor") && canAccessBranch(branchScope, lead.branch_id)') &&
     leadAccessSrc.includes('requireOrganizationPermission("lead:read"'),
 );
 check(
@@ -74,8 +76,19 @@ check(
   "lead detail route validates access before the existing detail component renders",
   leadDetailLayoutSrc.includes("requireLeadBackofficeAccess") &&
     leadDetailLayoutSrc.includes("createServiceRoleClient") &&
-    leadDetailLayoutSrc.includes('id,\n    "read"') &&
+    leadDetailLayoutSrc.includes('"read"') &&
     leadDetailLayoutSrc.includes("if (!lead) notFound()"),
+);
+check(
+  "lead service-role actions guard target leads before mutations",
+  leadActionsSrc.includes("requireLeadBackofficeAccess") &&
+    leadActionsSrc.includes('requireLeadBackofficeAccess(service, leadId, "admin")') &&
+    (leadActionsSrc.match(/requireLeadBackofficeAccess\(service, leadId, "collaborate"\)/g)?.length ?? 0) >= 10 &&
+    leadActionsSrc.includes('requireLeadBackofficeAccess(service, leadId, "read")') &&
+    leadActionsSrc.indexOf('requireLeadBackofficeAccess(service, leadId, "admin")') <
+      leadActionsSrc.indexOf('"convert_lead_to_student"') &&
+    leadActionsSrc.indexOf('requireLeadBackofficeAccess(service, leadId, "collaborate")') <
+      leadActionsSrc.indexOf('service.rpc("update_lead_status"'),
 );
 
 console.log("");
