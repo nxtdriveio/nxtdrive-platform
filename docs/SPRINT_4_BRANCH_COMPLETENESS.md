@@ -73,12 +73,34 @@ Implemented in this slice:
 - Guard create, line, draft update, credit note, manual payment, status, and Mollie payment actions before service-role RPCs run.
 - Add `test-invoice-branch-foundation` static guardrails for permissions, migration, list/detail/form pages, server actions, and Mollie actions.
 
+## Sprint 4E - Planning Resource Branch Scope
+
+Implemented in this slice:
+
+- Scope tenant instructor resource loading by branch membership while keeping organization-wide instructors available as shared resources.
+- Limit agenda background availability to instructors visible in the selected or allowed branch scope.
+- Move new lesson planning onto the agenda access context.
+- Scope instructor, student, balance, appointment and resource options by branch where relevant.
+- Add server-side guards so lessons, refill invites and appointments cannot assign an out-of-branch instructor resource.
+- Extend the `Lesson` TypeScript type with `branch_id`.
+- Add `test-planning-resource-branch-foundation` static guardrails.
+
+## Sprint 4F - Cross-Branch RLS and Integration Tests
+
+Implemented in this slice:
+
+- Add branch-scope helper functions for authenticated RLS checks.
+- Add restrictive RLS policies on branch-complete operational tables so existing tenant/student policies remain intact while branch scope is enforced as an additional layer.
+- Preserve `branch_id = null` as shared only for organization-wide operational resources such as vehicles, locations, task boards and tasks.
+- Treat sensitive rows such as invoices, invoice lines, payments, lessons and agenda appointments as branch-specific for branch-scoped staff.
+- Scope instructor availability by overlapping instructor branch memberships.
+- Add `db:test-branch-cross-scope-foundation`, an integration test that creates branch A and branch B fixtures and verifies branch-A staff can see shared/A rows but not B rows across vehicles, locations, task boards, tasks, invoices, invoice lines, lessons, agenda appointments and instructor availability.
+- Add database write-denial checks for cross-tenant vehicle branch assignment, task branch assignment and invoice branch mismatch.
+
 ## Remaining Follow-Up
 
 Next recommended slices, in exact roadmap order:
 
-- Sprint 4E: Availability, instructor resources, planning resources, and branch-aware resource filtering.
-- Sprint 4F: Database/RLS integration tests for cross-branch denial across vehicles, tasks, invoices, agenda, and planning resources.
 - Sprint 4G: Branch UX cleanup so selectors, empty states, read-only states, and error messages are consistent across all scoped modules.
 - Sprint 5: Organization management UI for organization profile, branches, teams, users, roles, and invitations.
 - Sprint 6: Manageable RBAC and scoped permission administration.
