@@ -2,20 +2,26 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  loadInvoiceForAccess,
+  requireInvoiceBackofficeManageAccess,
+} from "@/lib/invoices/access";
 import { createInvoiceCheckout } from "@/lib/mollie/invoice-checkout";
-import { parseEurosToCents, type Invoice } from "@/lib/invoices/types";
+import { parseEurosToCents } from "@/lib/invoices/types";
 
 /**
  * Server action: create a Mollie payment for an OPEN invoice belonging to
- * the active tenant. By default it charges the remaining balance; an optional
- * `amount_euros` lets the admin request a partial Mollie payment. Stores the
- * resulting mollie_payment_id + checkout URL on the invoice and redirects back
- * to the invoice detail page.
+ * the active tenant and branch scope. By default it charges the remaining
+ * balance; an optional `amount_euros` lets the admin request a partial Mollie
+ * payment. Stores the resulting mollie_payment_id + checkout URL on the invoice
+ * and redirects back to the invoice detail page.
  */
 export async function createMolliePayment(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "");
   if (!invoiceId) redirect("/backoffice/facturen");
 
@@ -29,18 +35,10 @@ export async function createMolliePayment(formData: FormData) {
     amountCents = parsed;
   }
 
-  const service = createServiceRoleClient();
-
-  const { data: invRaw, error: invErr } = await service
-    .from("invoices")
-    .select("*")
-    .eq("id", invoiceId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (invErr || !invRaw) {
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) {
     redirect(`/backoffice/facturen/${invoiceId}?mollie_error=not_found`);
   }
-  const invoice = invRaw as Invoice;
 
   const result = await createInvoiceCheckout(service, {
     tenantId: tenant.id,

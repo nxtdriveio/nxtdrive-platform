@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   Card,
   CardContent,
@@ -12,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Student } from "@/lib/students/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
+import {
+  requireInvoiceBackofficeManageAccess,
+  type InvoiceStudentTarget,
+} from "@/lib/invoices/access";
 import { createInstallmentPlan } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -24,34 +25,39 @@ export default async function NewInstallmentPlanPage({
   searchParams: Promise<{ student_id?: string; error?: string }>;
 }) {
   const sp = await searchParams;
-  const { tenant } = await requireActiveTenant(["tenant_admin"]);
-  const supabase = await createServerSupabaseClient();
+  const { context, service, branchScope } = await requireInvoiceBackofficeManageAccess();
+  const tenant = context.organization;
 
-  const [studentsRes, packagesRes] = await Promise.all([
-    supabase
+  let students: InvoiceStudentTarget[] = [];
+  if (branchScope.scope_type === "all" || branchScope.branch_ids.length > 0) {
+    let studentsQuery = service
       .from("students")
-      .select("id, full_name")
+      .select("id, full_name, branch_id")
       .eq("tenant_id", tenant.id)
       .eq("active", true)
       .order("full_name", { ascending: true })
-      .limit(500),
-    supabase
-      .from("packages")
-      .select("id, name, credits_total, price_cents, active")
-      .eq("tenant_id", tenant.id)
-      .eq("active", true)
-      .order("credits_total", { ascending: true }),
-  ]);
-  const students = (studentsRes.data ?? []) as Pick<
-    Student,
-    "id" | "full_name"
-  >[];
-  const packages = (packagesRes.data ?? []) as Pick<
+      .limit(500);
+    if (branchScope.scope_type === "branches") {
+      studentsQuery = studentsQuery.in("branch_id", branchScope.branch_ids);
+    }
+    const { data } = await studentsQuery;
+    students = (data ?? []) as InvoiceStudentTarget[];
+  }
+
+  const { data: packagesRaw } = await service
+    .from("packages")
+    .select("id, name, credits_total, price_cents, active")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("credits_total", { ascending: true });
+  const packages = (packagesRaw ?? []) as Pick<
     Package,
     "id" | "name" | "credits_total" | "price_cents" | "active"
   >[];
 
-  const preselectedStudent = sp.student_id ?? "";
+  const preselectedStudent = students.some((s) => s.id === sp.student_id)
+    ? (sp.student_id ?? "")
+    : "";
   const errorMsg =
     sp.error === "invalid"
       ? "Controleer de ingevulde gegevens (totaalbedrag en aantal termijnen)."
@@ -74,9 +80,8 @@ export default async function NewInstallmentPlanPage({
           Termijnfactuur
         </h1>
         <p className="text-sm text-muted-foreground">
-          Verdeel een totaalbedrag over meerdere facturen. Elke termijn krijgt
-          een eigen factuurnummer en vervaldatum en wordt direct op openstaand
-          gezet.
+          Verdeel een totaalbedrag over meerdere facturen binnen de toegestane
+          vestiging van de gekozen leerling.
         </p>
       </div>
 
@@ -89,14 +94,8 @@ export default async function NewInstallmentPlanPage({
       {students.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            Er zijn nog geen leerlingen. Voeg er eerst een toe via{" "}
-            <Link
-              href="/backoffice/leerlingen"
-              className="text-primary hover:underline"
-            >
-              Leerlingen
-            </Link>
-            .
+            Er zijn geen actieve leerlingen binnen je facturatie-scope. Voeg een
+            leerling toe of controleer je vestigingstoegang.
           </CardContent>
         </Card>
       ) : (
@@ -115,7 +114,7 @@ export default async function NewInstallmentPlanPage({
                   defaultValue={preselectedStudent}
                 >
                   <option value="" disabled>
-                    Kies een leerling…
+                    Kies een leerling...
                   </option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -129,10 +128,10 @@ export default async function NewInstallmentPlanPage({
                 <div className="space-y-1.5">
                   <Label htmlFor="package_id">Pakket (optioneel)</Label>
                   <Select id="package_id" name="package_id" defaultValue="">
-                    <option value="">Geen pakket — vrije omschrijving</option>
+                    <option value="">Geen pakket - vrije omschrijving</option>
                     {packages.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} · {formatEuros(p.price_cents)}
+                        {p.name} - {formatEuros(p.price_cents)}
                       </option>
                     ))}
                   </Select>

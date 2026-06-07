@@ -74,6 +74,7 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
     { permission: "lead:manage", scopes: ["branch"] },
     { permission: "planning:manage", scopes: ["branch"] },
     { permission: "vehicle:read", scopes: ["branch"] },
+    { permission: "invoice:read", scopes: ["branch"] },
     { permission: "task:manage", scopes: ["branch"] },
     { permission: "report:read", scopes: ["branch"] },
   ],
@@ -104,6 +105,7 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
     { permission: "student:read", scopes: ["branch", "own"] },
     { permission: "lead:read", scopes: ["branch", "own"] },
     { permission: "planning:read", scopes: ["branch", "own"] },
+    { permission: "invoice:read", scopes: ["branch", "own"] },
     { permission: "task:read", scopes: ["own"] },
   ],
   student: [

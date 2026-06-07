@@ -2,8 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  loadInvoiceForAccess,
+  requireInvoiceBackofficeManageAccess,
+  validateInvoiceStudentTarget,
+} from "@/lib/invoices/access";
 import {
   INVOICE_STATUSES,
   parseEurosToCents,
@@ -22,12 +25,16 @@ function isValidStatus(s: string): s is InvoiceStatus {
 }
 
 /**
- * Create a new draft invoice for a student. Optionally seeds the first line —
+ * Create a new draft invoice for a student. Optionally seeds the first line -
  * either from a package (auto-fills description + unit price) or from a free
  * description + price.
  */
 export async function createInvoice(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const studentId = String(formData.get("student_id") ?? "");
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 2000);
@@ -40,9 +47,9 @@ export async function createInvoice(formData: FormData) {
   const lineQuantityRaw = String(formData.get("line_quantity") ?? "1").trim();
 
   if (!studentId) redirect("/backoffice/facturen/nieuw");
+  const student = await validateInvoiceStudentTarget(access, studentId);
+  if (!student) redirect("/backoffice/facturen/nieuw?error=student_scope");
   const dueDate = dueDateRaw ? dueDateRaw : null;
-
-  const service = createServiceRoleClient();
 
   const { data: invoiceId, error } = await service.rpc("create_invoice", {
     p_tenant_id: tenant.id,
@@ -106,7 +113,11 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function addInvoiceLine(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "");
   const description = String(formData.get("description") ?? "")
     .trim()
@@ -116,6 +127,9 @@ export async function addInvoiceLine(formData: FormData) {
   if (!invoiceId || !description) {
     redirect(`/backoffice/facturen/${invoiceId || ""}`);
   }
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
+
   const unitPriceCents = parseEurosToCents(unitPriceEuros);
   const quantity = Number.parseFloat(quantityRaw.replace(",", "."));
   if (
@@ -126,7 +140,6 @@ export async function addInvoiceLine(formData: FormData) {
     redirect(`/backoffice/facturen/${invoiceId}`);
   }
 
-  const service = createServiceRoleClient();
   await service.rpc("add_invoice_line", {
     p_invoice_id: invoiceId,
     p_tenant_id: tenant.id,
@@ -143,14 +156,19 @@ export async function addInvoiceLine(formData: FormData) {
 }
 
 export async function removeInvoiceLine(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "");
   const lineId = String(formData.get("line_id") ?? "");
   if (!invoiceId || !lineId) {
     redirect(`/backoffice/facturen/${invoiceId || ""}`);
   }
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
 
-  const service = createServiceRoleClient();
   await service.rpc("remove_invoice_line", {
     p_line_id: lineId,
     p_tenant_id: tenant.id,
@@ -162,13 +180,18 @@ export async function removeInvoiceLine(formData: FormData) {
 }
 
 export async function updateInvoiceDraft(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "");
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 2000);
   if (!invoiceId) redirect("/backoffice/facturen");
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
 
-  const service = createServiceRoleClient();
   await service.rpc("update_invoice_draft", {
     p_invoice_id: invoiceId,
     p_tenant_id: tenant.id,
@@ -187,7 +210,11 @@ export async function updateInvoiceDraft(formData: FormData) {
  * + audit trail live entirely in the create_installment_plan RPC (service role).
  */
 export async function createInstallmentPlan(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const studentId = String(formData.get("student_id") ?? "").trim();
   const packageId = String(formData.get("package_id") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim().slice(0, 500);
@@ -198,6 +225,8 @@ export async function createInstallmentPlan(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 2000);
 
   if (!studentId) redirect("/backoffice/facturen/termijn");
+  const student = await validateInvoiceStudentTarget(access, studentId);
+  if (!student) redirect("/backoffice/facturen/termijn?error=student_scope");
 
   const totalCents = parseEurosToCents(totalEuros);
   const count = Number.parseInt(countRaw, 10);
@@ -211,8 +240,6 @@ export async function createInstallmentPlan(formData: FormData) {
   ) {
     redirect("/backoffice/facturen/termijn?error=invalid");
   }
-
-  const service = createServiceRoleClient();
 
   let resolvedDescription = description;
   let relatedPackageId: string | null = null;
@@ -263,12 +290,17 @@ export async function createInstallmentPlan(formData: FormData) {
  * All logic + guards live in the create_credit_note RPC (service role).
  */
 export async function createCreditNote(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim().slice(0, 2000);
   if (!invoiceId) redirect("/backoffice/facturen");
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
 
-  const service = createServiceRoleClient();
   const { data: creditId, error } = await service.rpc("create_credit_note", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
@@ -289,14 +321,17 @@ export async function createCreditNote(formData: FormData) {
 }
 
 /**
- * Record a (partial or full) payment received outside Mollie — e.g. cash, a
+ * Record a (partial or full) payment received outside Mollie - e.g. cash, a
  * bank transfer, or a manual correction. Writes a payment_records ledger row +
  * audit trail and accumulates the invoice balance; the invoice auto-flips to
- * paid (releasing any termijn-tegoed) once the total is covered. All logic +
- * guards live in record_invoice_payment (service role).
+ * paid (releasing any termijn-tegoed) once the total is covered.
  */
 export async function recordInvoicePayment(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "").trim();
   const amountRaw = String(formData.get("amount_euros") ?? "").trim();
   const method = String(formData.get("method") ?? "manual")
@@ -304,13 +339,14 @@ export async function recordInvoicePayment(formData: FormData) {
     .slice(0, 40);
   const note = String(formData.get("note") ?? "").trim().slice(0, 2000);
   if (!invoiceId) redirect("/backoffice/facturen");
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
 
   const amountCents = parseEurosToCents(amountRaw);
   if (amountCents === null || amountCents <= 0) {
     redirect(`/backoffice/facturen/${invoiceId}?pay_error=invalid_amount`);
   }
 
-  const service = createServiceRoleClient();
   const { data: prId, error } = await service.rpc("record_invoice_payment", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
@@ -332,8 +368,6 @@ export async function recordInvoicePayment(formData: FormData) {
     );
   }
 
-  // If this payment fully settled the invoice, send the same confirmation as
-  // the Mollie / manual-mark-paid flows. Best-effort + idempotent.
   const { data: invAfter } = await service
     .from("invoices")
     .select("status")
@@ -359,14 +393,19 @@ export async function recordInvoicePayment(formData: FormData) {
 }
 
 export async function setInvoiceStatus(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const access = await requireInvoiceBackofficeManageAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const user = context.user;
+
   const invoiceId = String(formData.get("invoice_id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!invoiceId || !isValidStatus(status)) {
     redirect(`/backoffice/facturen/${invoiceId || ""}`);
   }
+  const invoice = await loadInvoiceForAccess(access, invoiceId);
+  if (!invoice) redirect("/backoffice/facturen");
 
-  const service = createServiceRoleClient();
   await service.rpc("set_invoice_status", {
     p_invoice_id: invoiceId,
     p_tenant_id: tenant.id,
@@ -374,9 +413,6 @@ export async function setInvoiceStatus(formData: FormData) {
     p_status: status as InvoiceStatus,
   });
 
-  // When an invoice is marked paid manually, send the same confirmation email
-  // as the Mollie flow. Idempotent + best-effort; must run before redirect()
-  // (which throws to perform the navigation).
   if (status === "paid") {
     try {
       await notifyInvoicePaid(service, tenant.id, invoiceId);
@@ -389,17 +425,11 @@ export async function setInvoiceStatus(formData: FormData) {
       console.error("[facturen] notifyParentsInvoicePaid failed", err);
     }
   } else if (status === "open") {
-    // Task #107 — meld de leerling dat een nieuwe factuur klaarstaat. Best-effort
-    // + idempotent; termijnfacturen worden bewust overgeslagen (die lopen via de
-    // installment_due cron) zodat het openen van een plan geen N mails oplevert.
     try {
       await notifyInvoiceCreated(service, tenant.id, invoiceId);
     } catch (err) {
       console.error("[facturen] notifyInvoiceCreated failed", err);
     }
-    // Task #131 — meld ook de gekoppelde voogd(en) dat er een factuur voor hun
-    // kind klaarstaat. Best-effort + idempotent per (factuur, voogd); respecteert
-    // de per-school zichtbaarheid van de 'facturen'-sectie in het ouderportaal.
     try {
       await notifyParentsInvoiceReady(service, tenant.id, invoiceId);
     } catch (err) {

@@ -34,6 +34,7 @@ export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
 export type Invoice = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   student_id: string;
   invoice_no: number;
   kind: InvoiceKind;
@@ -88,7 +89,7 @@ export type InvoiceLine = {
 };
 
 /**
- * UI-only derived status. We never store these — recomputed on read.
+ * UI-only derived status. We never store these - recomputed on read.
  *  - 'partially_paid': an open invoice with 0 < amount_paid_cents < total_cents.
  *  - 'overdue':        an open, unpaid invoice whose due_date has passed.
  * 'partially_paid' takes precedence over 'overdue' because a school cares most
