@@ -184,7 +184,10 @@ check(
 );
 check(
   "students list consumes organization permission branch scope",
-  studentsPageSrc.includes('requireOrganizationPermission("student:read")') &&
+  studentsPageSrc.includes('requireOrganizationPermission("student:read",') &&
+    studentsPageSrc.includes("STUDENT_BACKOFFICE_READ_ROLES") &&
+    !studentsPageSrc.includes('"student",') &&
+    !studentsPageSrc.includes('"parent",') &&
     studentsPageSrc.includes("loadOrganizationBranchScope") &&
     studentsPageSrc.includes('.in("branch_id", branchScope.branch_ids)') &&
     studentsPageSrc.includes("Alle toegestane vestigingen"),
