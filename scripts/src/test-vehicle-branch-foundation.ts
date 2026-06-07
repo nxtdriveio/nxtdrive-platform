@@ -1,5 +1,5 @@
 /**
- * Static guardrails for Sprint 4A vehicle/location branch scope.
+ * Static guardrails for Sprint 4A/4B vehicle/location branch scope.
  *
  *   pnpm --filter @workspace/scripts run test-vehicle-branch-foundation
  */
@@ -24,6 +24,7 @@ const vehicleActionsSrc = source("artifacts/nxtdrive/app/backoffice/voertuigen/a
 const contextDataSrc = source("artifacts/nxtdrive/lib/lessons/context-data.ts");
 const lessonTypesSrc = source("artifacts/nxtdrive/lib/lessons/types.ts");
 const vehicleBranchMigration = source("supabase/migrations/0103_vehicle_location_branch_scope.sql");
+const vehicleAssignmentMigration = source("supabase/migrations/0104_vehicle_location_branch_assignment_rpc.sql");
 
 check(
   "vehicle permissions distinguish read and manage scope",
@@ -46,10 +47,31 @@ check(
 );
 
 check(
+  "vehicles page exposes branch assignment controls for managed assets",
+  vehiclesPageSrc.includes("assignVehicleBranch") &&
+    vehiclesPageSrc.includes("assignLocationBranch") &&
+    vehiclesPageSrc.includes('name="branch_id"') &&
+    vehiclesPageSrc.includes("BranchOptions") &&
+    vehiclesPageSrc.includes("Alle vestigingen") &&
+    vehiclesPageSrc.includes("Huidige vestiging"),
+);
+
+check(
   "vehicle actions use organization manage permission",
   vehicleActionsSrc.includes('requireOrganizationPermission("vehicle:manage")') &&
     vehicleActionsSrc.includes("createServiceRoleClient") &&
+    vehicleActionsSrc.includes("loadOrganizationBranchScope") &&
+    vehicleActionsSrc.includes("canAccessBranch") &&
     !vehicleActionsSrc.includes("requireActiveTenant"),
+);
+
+check(
+  "vehicle actions call focused branch assignment RPCs",
+  vehicleActionsSrc.includes("assignVehicleBranch") &&
+    vehicleActionsSrc.includes("assignLocationBranch") &&
+    vehicleActionsSrc.includes('service.rpc("assign_vehicle_branch"') &&
+    vehicleActionsSrc.includes('service.rpc("assign_location_branch"') &&
+    vehicleActionsSrc.includes("p_branch_id: branchId"),
 );
 
 check(
@@ -78,6 +100,17 @@ check(
     vehicleBranchMigration.includes("vehicles_branch_tenant_guard") &&
     vehicleBranchMigration.includes("locations_branch_tenant_guard") &&
     vehicleBranchMigration.includes("Null means shared across the organization"),
+);
+
+check(
+  "vehicle branch assignment migration adds service-role-only RPCs",
+  vehicleAssignmentMigration.includes("assign_vehicle_branch") &&
+    vehicleAssignmentMigration.includes("assign_location_branch") &&
+    vehicleAssignmentMigration.includes("security definer") &&
+    vehicleAssignmentMigration.includes("branch_id must belong to the same tenant") &&
+    vehicleAssignmentMigration.includes("grant execute on function public.assign_vehicle_branch") &&
+    vehicleAssignmentMigration.includes("grant execute on function public.assign_location_branch") &&
+    vehicleAssignmentMigration.includes("to service_role"),
 );
 
 console.log("");
