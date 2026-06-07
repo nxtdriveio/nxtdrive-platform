@@ -38,6 +38,7 @@ export type StudentCreditBreakdown = {
 export type Student = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   user_id: string | null;
   lead_id: string | null;
   full_name: string;

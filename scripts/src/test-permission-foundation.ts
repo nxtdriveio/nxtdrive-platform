@@ -32,7 +32,10 @@ const registrySrc = source("artifacts/nxtdrive/lib/permissions/registry.ts");
 const scopeSrc = source("artifacts/nxtdrive/lib/permissions/scope.ts");
 const organizationIndex = source("artifacts/nxtdrive/lib/organization/index.ts");
 const organizationPermissionSrc = source("artifacts/nxtdrive/lib/organization/permissions.ts");
+const organizationBranchScopeSrc = source("artifacts/nxtdrive/lib/organization/branch-scope.ts");
+const studentsPageSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/page.tsx");
 const typesSrc = source("artifacts/nxtdrive/lib/types.ts");
+const studentTypesSrc = source("artifacts/nxtdrive/lib/students/types.ts");
 const sessionSrc = source("artifacts/nxtdrive/lib/auth/session.ts");
 const migration = source("supabase/migrations/0099_permission_scope_foundation.sql");
 
@@ -47,6 +50,15 @@ check(
 check(
   "branch_manager can manage branch students",
   rolesGrantPermission(["branch_manager"], "student:manage"),
+);
+check(
+  "manage grants cover same-resource read checks",
+  rolesGrantPermission(["tenant_admin"], "student:read") &&
+    rolesGrantPermission(["franchise_admin"], "student:read") &&
+    rolesGrantPermission(["branch_manager"], "student:read") &&
+    rolesForPermission("student:read").includes("tenant_admin") &&
+    rolesForPermission("student:read").includes("branch_manager") &&
+    scopesForPermission(["branch_manager"], "student:read").includes("branch"),
 );
 check(
   "planner can manage planning but not invoices",
@@ -157,20 +169,38 @@ check(
   "permission package exports registry and scope APIs",
   permissionIndex.includes("rolesGrantPermission") &&
     permissionIndex.includes("branchScopeForRoles") &&
+    registrySrc.includes("grantCoversPermission") &&
     registrySrc.includes("ROLE_PERMISSION_GRANTS") &&
     scopeSrc.includes("BranchAccessScope"),
 );
 check(
-  "organization facade exports permission guard",
+  "organization facade exports permission and branch scope guards",
   organizationIndex.includes("requireOrganizationPermission") &&
+    organizationIndex.includes("loadOrganizationBranchScope") &&
     organizationPermissionSrc.includes("rolesGrantPermission") &&
-    organizationPermissionSrc.includes("branchScopeForRoles"),
+    organizationPermissionSrc.includes("branchScopeForRoles") &&
+    organizationBranchScopeSrc.includes("membership_branches") &&
+    organizationBranchScopeSrc.includes("branch_scope_type === \"branches\""),
+);
+check(
+  "students list consumes organization permission branch scope",
+  studentsPageSrc.includes('requireOrganizationPermission("student:read",') &&
+    studentsPageSrc.includes("STUDENT_BACKOFFICE_READ_ROLES") &&
+    !studentsPageSrc.includes('"student",') &&
+    !studentsPageSrc.includes('"parent",') &&
+    studentsPageSrc.includes("loadOrganizationBranchScope") &&
+    studentsPageSrc.includes('.in("branch_id", branchScope.branch_ids)') &&
+    studentsPageSrc.includes("Alle toegestane vestigingen"),
 );
 check(
   "membership type and auth bootstrap include branch_scope_type",
   typesSrc.includes("export type BranchScopeType") &&
     typesSrc.includes("branch_scope_type: BranchScopeType") &&
     sessionSrc.includes("branch_scope_type"),
+);
+check(
+  "student type includes branch id",
+  studentTypesSrc.includes("branch_id: string | null"),
 );
 check(
   "migration adds explicit membership branch scope",

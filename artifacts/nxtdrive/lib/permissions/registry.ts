@@ -116,11 +116,33 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
   ],
 };
 
+function splitPermission(permission: Permission): [PermissionResource, PermissionAction] {
+  return permission.split(":") as [PermissionResource, PermissionAction];
+}
+
+function grantCoversPermission(
+  grantedPermission: Permission,
+  requestedPermission: Permission,
+): boolean {
+  if (grantedPermission === requestedPermission) return true;
+
+  const [grantedResource, grantedAction] = splitPermission(grantedPermission);
+  const [requestedResource, requestedAction] = splitPermission(requestedPermission);
+
+  return (
+    grantedResource === requestedResource &&
+    grantedAction === "manage" &&
+    requestedAction !== "manage"
+  );
+}
+
 export function roleGrantsPermission(
   role: MemberRole,
   permission: Permission,
 ): boolean {
-  return ROLE_PERMISSION_GRANTS[role].some((grant) => grant.permission === permission);
+  return ROLE_PERMISSION_GRANTS[role].some((grant) =>
+    grantCoversPermission(grant.permission, permission),
+  );
 }
 
 export function rolesGrantPermission(
@@ -137,7 +159,7 @@ export function scopesForPermission(
   const scopes = new Set<PermissionScopeKind>();
   for (const role of roles) {
     for (const grant of ROLE_PERMISSION_GRANTS[role]) {
-      if (grant.permission === permission) {
+      if (grantCoversPermission(grant.permission, permission)) {
         for (const scope of grant.scopes) scopes.add(scope);
       }
     }
