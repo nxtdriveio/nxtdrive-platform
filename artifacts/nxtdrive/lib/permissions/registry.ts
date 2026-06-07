@@ -102,6 +102,7 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
   ],
   instructor: [
     { permission: "student:read", scopes: ["branch", "own"] },
+    { permission: "lead:read", scopes: ["branch", "own"] },
     { permission: "planning:read", scopes: ["branch", "own"] },
     { permission: "task:read", scopes: ["own"] },
   ],
