@@ -2,13 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 const PAGE = "/backoffice/voertuigen";
 
 export async function createVehicle(formData: FormData) {
-  const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+  const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
   const label = String(formData.get("label") ?? "").trim().slice(0, 120);
   const plate = String(formData.get("license_plate") ?? "").trim().slice(0, 20);
   const transmission = String(formData.get("transmission") ?? "").trim();
@@ -31,7 +31,7 @@ export async function createVehicle(formData: FormData) {
 }
 
 export async function toggleVehicleActive(formData: FormData) {
-  const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+  const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
   const id = String(formData.get("vehicle_id") ?? "");
   const active = String(formData.get("active") ?? "") === "true";
   if (!id) redirect(PAGE);
@@ -50,7 +50,7 @@ export async function toggleVehicleActive(formData: FormData) {
 }
 
 export async function createLocation(formData: FormData) {
-  const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+  const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
   const name = String(formData.get("name") ?? "").trim().slice(0, 160);
   const address = String(formData.get("address") ?? "").trim().slice(0, 300);
   if (!name) redirect(PAGE);
@@ -71,7 +71,7 @@ export async function createLocation(formData: FormData) {
 }
 
 export async function toggleLocationActive(formData: FormData) {
-  const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+  const { organization: tenant, user } = await requireOrganizationPermission("vehicle:manage");
   const id = String(formData.get("location_id") ?? "");
   const active = String(formData.get("active") ?? "") === "true";
   if (!id) redirect(PAGE);
