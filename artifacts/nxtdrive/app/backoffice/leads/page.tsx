@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+} from "@/lib/organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,7 @@ import {
   type DashboardTab,
   type LeadFilters,
 } from "@/lib/leads/lead-service";
+import { LEAD_BACKOFFICE_READ_ROLES } from "@/lib/leads/access";
 import { createLeadManual } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -97,18 +101,26 @@ export default async function LeadsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
   const sp = await searchParams;
   const tab: DashboardTab = isTab(sp.tab) ? sp.tab : "today";
   const newFlag = sp.new;
   const filters = parseFilters(sp);
 
   const supabase = await createServerSupabaseClient();
+  const context = await requireOrganizationPermission("lead:read", {
+    allowedRoles: [...LEAD_BACKOFFICE_READ_ROLES],
+  });
+  const tenant = context.organization;
+  const branchScope = await loadOrganizationBranchScope(supabase, context);
+  const leadQueryOptions = {
+    branchScope,
+    assignedUserId: context.roles.includes("instructor") ? context.user.id : null,
+  };
   const now = Date.now();
   const scorePolicy = await loadLeadScorePolicy(supabase, tenant.id);
   const [kpis, leads] = await Promise.all([
-    getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot),
-    getLeadsForTab(supabase, tenant.id, tab, now, filters),
+    getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot, leadQueryOptions),
+    getLeadsForTab(supabase, tenant.id, tab, now, filters, leadQueryOptions),
   ]);
 
   return (
