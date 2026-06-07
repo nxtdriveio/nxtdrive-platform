@@ -55,11 +55,36 @@ Implemented in this slice:
 - Scope task entity search by branch for students, leads, lessons, exams, and invoices.
 - Add `test-task-branch-foundation` static guardrails for migration, page access, UI, actions, search, and type coverage.
 
+## Sprint 4D - Invoice and Payment Branch Scope
+
+Implemented in this slice:
+
+- Add nullable `branch_id` to `invoices`, `installment_plans`, and `payment_records`.
+- Backfill invoice and installment plan branch scope from the billed student's branch.
+- Backfill payment branch scope from the related invoice.
+- Add tenant/branch indexes for invoice, installment plan, and payment reporting.
+- Add tenant/branch consistency triggers that keep invoice branches aligned with student branches and payment branches aligned with invoice branches.
+- Extend the `Invoice` TypeScript type with `branch_id`.
+- Add centralized invoice backoffice access helpers for `invoice:read`, `invoice:manage`, branch filtering, target-student validation, and target-invoice validation.
+- Add scoped `invoice:read` grants for branch managers and instructors while keeping `invoice:manage` limited to organization admins, franchise admins, and administration staff.
+- Move `/backoffice/facturen` from role checks to invoice permission checks with branch filter chips.
+- Hide create and payment controls unless the caller has `invoice:manage`.
+- Scope new invoice and installment invoice student pickers to the caller's allowed branches.
+- Guard create, line, draft update, credit note, manual payment, status, and Mollie payment actions before service-role RPCs run.
+- Add `test-invoice-branch-foundation` static guardrails for permissions, migration, list/detail/form pages, server actions, and Mollie actions.
+
 ## Remaining Follow-Up
 
-Next recommended slices:
+Next recommended slices, in exact roadmap order:
 
-- Add database/RLS integration tests for cross-branch vehicle/location and task read/write denial.
-- Reuse the `branch_id = null` shared-asset convention consistently in planning screens.
-- Decide whether branch managers should receive scoped `vehicle:manage` and `task:manage` in the permission registry or remain read-only for those modules.
-- Continue Sprint 4 with invoice branch scope and availability/location branch behavior.
+- Sprint 4E: Availability, instructor resources, planning resources, and branch-aware resource filtering.
+- Sprint 4F: Database/RLS integration tests for cross-branch denial across vehicles, tasks, invoices, agenda, and planning resources.
+- Sprint 4G: Branch UX cleanup so selectors, empty states, read-only states, and error messages are consistent across all scoped modules.
+- Sprint 5: Organization management UI for organization profile, branches, teams, users, roles, and invitations.
+- Sprint 6: Manageable RBAC and scoped permission administration.
+- Sprint 7: Franchise architecture and franchise-level dashboards/planning visibility.
+- Sprint 8: White-label foundation for branding, domains, colors, and app-shell configuration.
+- Sprint 9: Organization, branch, and franchise dashboards and reporting.
+- Sprint 10: Student, instructor, and backoffice app polish.
+- Sprint 11: AI readiness data contracts for matching, planning, capacity, and franchise analysis.
+- Sprint 12: Hardening, release quality, security audit, monitoring, and rollback discipline.
