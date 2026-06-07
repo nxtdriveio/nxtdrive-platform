@@ -123,6 +123,8 @@ Started:
 - Retrofit `backoffice/leerlingen/actions.ts` so protected student writes validate per-student access before service-role RPC/storage/auth operations.
 - Retrofit student-adjacent daypart, retake AI, and CBR overview reads to use the same student/branch access boundary.
 - Retrofit the backoffice agenda overview to use `requireOrganizationPermission("planning:read")`, expanded branch scope, branch-limited lesson/proefles filters, and visible-student appointment filters.
+- Add `lib/agenda/access` to centralize lesson and appointment read/manage checks before agenda detail reads and service-role mutations.
+- Retrofit agenda detail and agenda mutation actions, including lesson completion/cancellation, appointment updates/deletes/results/details, refill invitations, and exam invitations.
 
 Acceptance for current slices:
 
@@ -132,10 +134,11 @@ Acceptance for current slices:
 - The students list only shows students from branches inside the user's expanded organization branch scope.
 - Student dossier and `leerlingen/actions.ts` writes validate the target student against the caller's expanded branch scope first.
 - CBR and agenda overview pages do not batch tenant-wide student-linked data when the caller has explicit branch scope.
+- Agenda detail pages and agenda server actions validate lesson, appointment, instructor, and student scope before service-role RPCs.
 
 Still required in Sprint 3:
 
-- Complete agenda detail and agenda mutation hardening, including lesson completion/cancellation, appointment result/detail updates, refill invitations, and exam invitations.
+- Add first-class branch assignment to unlinked agenda appointments/free blocks so branch managers and planners can manage those without relying on instructor ownership.
 - Retrofit leads, tasks, vehicles, and invoices to consume `requireOrganizationPermission` and returned branch scopes.
 - Update module-specific RLS tests to assert the new explicit branch scope field remains synchronized.
 - Replace remaining ad hoc role arrays in backoffice pages/actions where the permission registry now has equivalent resource/action checks.

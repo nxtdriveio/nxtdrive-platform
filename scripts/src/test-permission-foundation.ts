@@ -38,6 +38,11 @@ const studentsPageSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/pag
 const studentDetailSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/[id]/page.tsx");
 const studentActionsSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/actions.ts");
 const agendaPageSrc = source("artifacts/nxtdrive/app/backoffice/agenda/page.tsx");
+const agendaAccessSrc = source("artifacts/nxtdrive/lib/agenda/access.ts");
+const agendaLessonDetailSrc = source("artifacts/nxtdrive/app/backoffice/agenda/[id]/page.tsx");
+const agendaAppointmentDetailSrc = source("artifacts/nxtdrive/app/backoffice/agenda/afspraak/[id]/page.tsx");
+const agendaActionsSrc = source("artifacts/nxtdrive/app/backoffice/agenda/actions.ts");
+const agendaSharedActionsSrc = source("artifacts/nxtdrive/lib/agenda/actions.ts");
 const agendaTrialSrc = source("artifacts/nxtdrive/lib/trial-lessons/agenda.ts");
 const agendaAppointmentsSrc = source("artifacts/nxtdrive/lib/agenda/appointments.ts");
 const typesSrc = source("artifacts/nxtdrive/lib/types.ts");
@@ -238,6 +243,42 @@ check(
     agendaPageSrc.includes("canAccessBranch(branchScope, requestedBranchId)") &&
     agendaPageSrc.includes("branchFilterIds") &&
     agendaPageSrc.includes("Alle toegestane vestigingen"),
+);
+check(
+  "agenda access helper centralizes lesson and appointment scope checks",
+  agendaAccessSrc.includes("requireAgendaLessonAccess") &&
+    agendaAccessSrc.includes("requireAgendaAppointmentAccess") &&
+    agendaAccessSrc.includes("canManageAgendaRow") &&
+    agendaAccessSrc.includes("loadAppointmentStudentBranchId") &&
+    agendaAccessSrc.includes("canAccessBranch(branchScope, row.branch_id)") &&
+    agendaAccessSrc.includes("appointment.student_id"),
+);
+check(
+  "agenda detail pages consume agenda access guards before reads",
+  agendaLessonDetailSrc.includes("requireAgendaLessonAccess") &&
+    agendaLessonDetailSrc.includes("canManageAgendaRow") &&
+    !agendaLessonDetailSrc.includes("requireActiveTenant") &&
+    agendaAppointmentDetailSrc.includes("requireAgendaAppointmentAccess") &&
+    agendaAppointmentDetailSrc.includes("canManageAgendaRow") &&
+    !agendaAppointmentDetailSrc.includes("requireActiveTenant"),
+);
+check(
+  "agenda server actions guard service-role mutations",
+  !agendaActionsSrc.includes("requireActiveTenant") &&
+    agendaActionsSrc.includes("requireAgendaLessonAccess") &&
+    agendaActionsSrc.includes("requireAgendaAppointmentAccess") &&
+    agendaActionsSrc.includes("requireStudentBackofficeAccess") &&
+    agendaActionsSrc.includes("canManageAgendaForInstructor") &&
+    agendaActionsSrc.includes("createServiceRoleClient"),
+);
+check(
+  "shared appointment actions guard service-role mutations",
+  !agendaSharedActionsSrc.includes("requireActiveTenant") &&
+    agendaSharedActionsSrc.includes("requireAgendaAccessContext") &&
+    agendaSharedActionsSrc.includes("requireAgendaAppointmentAccess") &&
+    agendaSharedActionsSrc.includes("requireStudentBackofficeAccess") &&
+    agendaSharedActionsSrc.includes("canManageAgendaForInstructor") &&
+    agendaSharedActionsSrc.includes("createServiceRoleClient"),
 );
 check(
   "agenda loaders accept expanded branch and visible-student filters",

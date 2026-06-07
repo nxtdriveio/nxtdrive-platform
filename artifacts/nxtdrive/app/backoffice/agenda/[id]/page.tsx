@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
@@ -9,14 +8,17 @@ import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-b
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
   refundPctForHours,
-  type Lesson,
 } from "@/lib/lessons/types";
+import {
+  canManageAgendaRow,
+  requireAgendaLessonAccess,
+} from "@/lib/agenda/access";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { formatTegoed } from "@/lib/students/types";
 import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
@@ -41,23 +43,19 @@ export default async function LessonDetailPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { tenant } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const sp = await searchParams;
 
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const { context, branchScope, lesson } = await requireAgendaLessonAccess(
+    service,
+    id,
+    "read",
+  );
+  if (!lesson) notFound();
 
-  const { data: lessonRaw } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("id", id)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (!lessonRaw) notFound();
-  const lesson = lessonRaw as Lesson;
+  const tenant = context.organization;
+  const canManageLesson = canManageAgendaRow(context, branchScope, lesson);
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
@@ -95,7 +93,7 @@ export default async function LessonDetailPage({
     lesson.status === "cancelled_with_refund" ||
     lesson.status === "cancelled_no_refund";
   const showRefill =
-    isCancelled && startsAt.getTime() > Date.now() && durationMin > 0;
+    canManageLesson && isCancelled && startsAt.getTime() > Date.now() && durationMin > 0;
 
   return (
     <div className="space-y-6">
@@ -185,7 +183,7 @@ export default async function LessonDetailPage({
         </Card>
 
         <div className="space-y-6">
-          {lesson.status === "planned" ? (
+          {lesson.status === "planned" && canManageLesson ? (
             <>
               <Card>
                 <CardHeader>
@@ -249,7 +247,7 @@ export default async function LessonDetailPage({
                 <span className="font-medium text-foreground">
                   {LESSON_STATUS_LABEL[lesson.status].toLowerCase()}
                 </span>
-                . Geen acties beschikbaar.
+                {canManageLesson ? ". Geen acties beschikbaar." : ". Alleen lezen."}
               </CardContent>
             </Card>
           )}
