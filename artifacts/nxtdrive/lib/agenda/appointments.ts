@@ -27,8 +27,14 @@ export async function loadAgendaAppointments(
     to: Date;
     // When set, restrict to a single instructor (instructor PWA, non-admin).
     instructorId?: string;
+    // When set, restrict student-linked appointments to visible students.
+    // This intentionally excludes unbranched block appointments in branch-scoped
+    // backoffice views until appointments get first-class branch_id support.
+    studentIds?: readonly string[];
   },
 ): Promise<AgendaAppointmentView[]> {
+  if (opts.studentIds && opts.studentIds.length === 0) return [];
+
   let query = supabase
     .from("agenda_appointments")
     .select("*")
@@ -39,6 +45,9 @@ export async function loadAgendaAppointments(
     .order("starts_at", { ascending: true });
   if (opts.instructorId) {
     query = query.eq("instructor_id", opts.instructorId);
+  }
+  if (opts.studentIds) {
+    query = query.in("student_id", [...opts.studentIds]);
   }
   const { data: rowsRaw } = await query;
   const rows = (rowsRaw ?? []) as AgendaAppointment[];
