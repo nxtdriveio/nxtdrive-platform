@@ -4,7 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { listBranches } from "@/lib/branches/service";
-import { requireAgendaAccessContext, AGENDA_BACKOFFICE_MANAGE_ROLES } from "@/lib/agenda/access";
+import {
+  requireAgendaAccessContext,
+  AGENDA_BACKOFFICE_MANAGE_ROLES,
+} from "@/lib/agenda/access";
 import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
@@ -30,10 +33,12 @@ export default async function NewAppointmentPage({
   const canSelectInstructor =
     !!user.profile?.is_platform_admin ||
     rolesGrantPermission(roles, "planning:manage");
+  const branchFilterIds =
+    branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
 
   const supabase = await createServerSupabaseClient();
   const instructors = canSelectInstructor
-    ? await loadTenantInstructors(tenant.id)
+    ? await loadTenantInstructors(tenant.id, { branchIds: branchFilterIds })
     : undefined;
 
   const allBranches = await listBranches(service, tenant.id, { activeOnly: true });
@@ -42,13 +47,23 @@ export default async function NewAppointmentPage({
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
       : allBranches;
 
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
-  const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
+  let students: Pick<Student, "id" | "full_name" | "branch_id">[] = [];
+  if (!branchFilterIds || branchFilterIds.length > 0) {
+    let studentsQuery = supabase
+      .from("students")
+      .select("id, full_name, branch_id")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+    if (branchFilterIds) {
+      studentsQuery = studentsQuery.in("branch_id", branchFilterIds);
+    }
+    const { data: studentsRaw } = await studentsQuery;
+    students = (studentsRaw ?? []) as Pick<
+      Student,
+      "id" | "full_name" | "branch_id"
+    >[];
+  }
 
   const now = new Date();
   now.setMinutes(0, 0, 0);
