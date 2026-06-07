@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, X } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service";
+import { rolesGrantPermission } from "@/lib/permissions";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import {
@@ -16,6 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  canManageInvoices,
+  loadInvoiceForAccess,
+  requireInvoiceBackofficeReadAccess,
+} from "@/lib/invoices/access";
 import {
   DISPLAY_STATUS_LABEL,
   DISPLAY_STATUS_VARIANT,
@@ -81,80 +84,72 @@ export default async function InvoiceDetailPage({
     typeof sp.credit_error === "string" ? sp.credit_error : null;
   const payFlag = typeof sp.pay === "string" ? sp.pay : null;
   const payError = typeof sp.pay_error === "string" ? sp.pay_error : null;
-  const { tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin = roles.includes("tenant_admin");
 
-  const supabase = await createServerSupabaseClient();
-  const [invoiceRes, linesRes] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("*")
-      .eq("id", id)
-      .eq("tenant_id", tenant.id)
-      .maybeSingle(),
-    supabase
-      .from("invoice_lines")
-      .select("*")
-      .eq("invoice_id", id)
-      .eq("tenant_id", tenant.id)
-      .order("position", { ascending: true }),
-  ]);
-  if (!invoiceRes.data) notFound();
-  const invoice = invoiceRes.data as Invoice;
-  const lines = (linesRes.data ?? []) as InvoiceLine[];
+  const access = await requireInvoiceBackofficeReadAccess();
+  const { context, service } = access;
+  const tenant = context.organization;
+  const canManage = canManageInvoices(access);
+  const canCreateTask =
+    context.user.profile?.is_platform_admin ||
+    rolesGrantPermission(context.roles, "task:manage");
 
-  const taskLaunch = await loadTaskLaunchData(
-    createServiceRoleClient(),
-    tenant.id,
-  );
+  const invoice = await loadInvoiceForAccess(access, id);
+  if (!invoice) notFound();
 
-  const { data: studentRaw } = await supabase
+  const { data: linesRaw } = await service
+    .from("invoice_lines")
+    .select("*")
+    .eq("invoice_id", id)
+    .eq("tenant_id", tenant.id)
+    .order("position", { ascending: true });
+  const lines = (linesRaw ?? []) as InvoiceLine[];
+
+  const taskLaunch = canCreateTask
+    ? await loadTaskLaunchData(service, tenant.id)
+    : { boards: [], members: [] };
+
+  const { data: studentRaw } = await service
     .from("students")
     .select("id, full_name, email")
+    .eq("tenant_id", tenant.id)
     .eq("id", invoice.student_id)
     .maybeSingle();
   const student = studentRaw as
     | (Pick<Student, "id" | "full_name" | "email">)
     | null;
 
-  // Credit-note relationships: an existing credit note for this invoice, or —
-  // if this IS a credit note — the original it credits.
   const [existingCreditRes, originalRes] = await Promise.all([
     invoice.kind === "invoice"
-      ? supabase
+      ? service
           .from("invoices")
-          .select("id, invoice_no")
+          .select("id, invoice_no, branch_id")
           .eq("credit_of_invoice_id", invoice.id)
           .eq("tenant_id", tenant.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     invoice.credit_of_invoice_id
-      ? supabase
+      ? service
           .from("invoices")
-          .select("id, invoice_no")
+          .select("id, invoice_no, branch_id")
           .eq("id", invoice.credit_of_invoice_id)
           .eq("tenant_id", tenant.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const existingCredit = existingCreditRes.data as
-    | { id: string; invoice_no: number }
+    | { id: string; invoice_no: number; branch_id: string | null }
     | null;
   const creditOriginal = originalRes.data as
-    | { id: string; invoice_no: number }
+    | { id: string; invoice_no: number; branch_id: string | null }
     | null;
 
   const installmentCredit = await loadInvoiceInstallmentCredit(
-    supabase,
+    service,
     tenant.id,
     invoice,
   );
 
-  // Payment history — admins + instructors can read payment_records via RLS.
-  const { data: paymentsRaw } = await supabase
+  const { data: paymentsRaw } = await service
     .from("payment_records")
     .select(PAYMENT_RECORD_COLUMNS)
     .eq("invoice_id", invoice.id)
@@ -172,7 +167,7 @@ export default async function InvoiceDetailPage({
   const remaining = remainingCents(invoice);
   const termijn = installmentLabel(invoice);
   const canCredit =
-    isAdmin &&
+    canManage &&
     invoice.kind === "invoice" &&
     (invoice.status === "open" || invoice.status === "paid") &&
     !existingCredit;
@@ -244,13 +239,15 @@ export default async function InvoiceDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CreateTaskFromEntityButton
-            entityType="invoice"
-            entityId={invoice.id}
-            entityLabel={`Factuur #${String(invoice.invoice_no).padStart(4, "0")}`}
-            boards={taskLaunch.boards}
-            members={taskLaunch.members}
-          />
+          {canCreateTask ? (
+            <CreateTaskFromEntityButton
+              entityType="invoice"
+              entityId={invoice.id}
+              entityLabel={`Factuur #${String(invoice.invoice_no).padStart(4, "0")}`}
+              boards={taskLaunch.boards}
+              members={taskLaunch.members}
+            />
+          ) : null}
           <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
             {DISPLAY_STATUS_LABEL[display]}
           </Badge>
@@ -267,8 +264,8 @@ export default async function InvoiceDetailPage({
               {lines.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nog geen regels.{" "}
-                  {isDraft && isAdmin
-                    ? "Voeg er hieronder één toe."
+                  {isDraft && canManage
+                    ? "Voeg er hieronder een toe."
                     : null}
                 </p>
               ) : (
@@ -279,7 +276,7 @@ export default async function InvoiceDetailPage({
                       <th className="py-2 font-medium">Aantal</th>
                       <th className="py-2 font-medium">Prijs</th>
                       <th className="py-2 font-medium text-right">Bedrag</th>
-                      {isDraft && isAdmin ? <th /> : null}
+                      {isDraft && canManage ? <th /> : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -297,7 +294,7 @@ export default async function InvoiceDetailPage({
                         <td className="py-2 text-right font-medium text-foreground">
                           {formatEuros(l.amount_cents)}
                         </td>
-                        {isDraft && isAdmin ? (
+                        {isDraft && canManage ? (
                           <td className="py-2 text-right">
                             <form action={removeInvoiceLine}>
                               <input
@@ -332,7 +329,7 @@ export default async function InvoiceDetailPage({
                       <td className="py-2 text-right">
                         {formatEuros(invoice.subtotal_cents)}
                       </td>
-                      {isDraft && isAdmin ? <td /> : null}
+                      {isDraft && canManage ? <td /> : null}
                     </tr>
                     <tr>
                       <td colSpan={3} className="py-2 text-right text-muted-foreground">
@@ -341,7 +338,7 @@ export default async function InvoiceDetailPage({
                       <td className="py-2 text-right">
                         {formatEuros(invoice.tax_cents)}
                       </td>
-                      {isDraft && isAdmin ? <td /> : null}
+                      {isDraft && canManage ? <td /> : null}
                     </tr>
                     <tr>
                       <td
@@ -353,7 +350,7 @@ export default async function InvoiceDetailPage({
                       <td className="py-2 text-right font-semibold text-foreground">
                         {formatEuros(invoice.total_cents)}
                       </td>
-                      {isDraft && isAdmin ? <td /> : null}
+                      {isDraft && canManage ? <td /> : null}
                     </tr>
                   </tfoot>
                 </table>
@@ -361,7 +358,7 @@ export default async function InvoiceDetailPage({
             </CardContent>
           </Card>
 
-          {isDraft && isAdmin ? (
+          {isDraft && canManage ? (
             <Card>
               <CardHeader>
                 <CardTitle>Regel toevoegen</CardTitle>
@@ -420,7 +417,7 @@ export default async function InvoiceDetailPage({
                   value={
                     invoice.issued_at
                       ? dtFmt.format(new Date(invoice.issued_at))
-                      : "—"
+                      : "-"
                   }
                 />
                 <Field
@@ -428,7 +425,7 @@ export default async function InvoiceDetailPage({
                   value={
                     invoice.due_date
                       ? dateFmt.format(new Date(invoice.due_date))
-                      : "—"
+                      : "-"
                   }
                 />
                 <Field
@@ -436,7 +433,7 @@ export default async function InvoiceDetailPage({
                   value={
                     invoice.paid_at
                       ? dtFmt.format(new Date(invoice.paid_at))
-                      : "—"
+                      : "-"
                   }
                 />
                 {!isCreditNote && (invoice.amount_paid_cents > 0 || isOpen) ? (
@@ -461,7 +458,7 @@ export default async function InvoiceDetailPage({
                     />
                   </>
                 ) : null}
-                <Field label="Interne notitie" value={invoice.notes ?? "—"} />
+                <Field label="Interne notitie" value={invoice.notes ?? "-"} />
               </dl>
             </CardContent>
           </Card>
@@ -576,7 +573,7 @@ export default async function InvoiceDetailPage({
             </Card>
           ) : null}
 
-          {isDraft && isAdmin ? (
+          {isDraft && canManage ? (
             <Card>
               <CardHeader>
                 <CardTitle>Concept bewerken</CardTitle>
@@ -611,7 +608,7 @@ export default async function InvoiceDetailPage({
             </Card>
           ) : null}
 
-          {isOpen && isAdmin && !isCreditNote ? (
+          {isOpen && canManage && !isCreditNote ? (
             <RecordPaymentCard
               invoice={invoice}
               remaining={remaining}
@@ -620,7 +617,7 @@ export default async function InvoiceDetailPage({
             />
           ) : null}
 
-          {isOpen && isAdmin && !isCreditNote ? (
+          {isOpen && canManage && !isCreditNote ? (
             <MolliePaymentCard
               invoice={invoice}
               remaining={remaining}
@@ -665,7 +662,7 @@ export default async function InvoiceDetailPage({
             </Card>
           ) : null}
 
-          {isAdmin ? (
+          {canManage ? (
             <Card>
               <CardHeader>
                 <CardTitle>Status</CardTitle>
@@ -703,7 +700,7 @@ export default async function InvoiceDetailPage({
                   ) : null}
                   {isDraft && lines.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      Voeg minstens één regel toe voordat je de factuur kunt
+                      Voeg minstens een regel toe voordat je de factuur kunt
                       versturen.
                     </p>
                   ) : null}
@@ -902,7 +899,7 @@ function MolliePaymentCard({
         <form action={createMolliePayment} className="space-y-3">
           <input type="hidden" name="invoice_id" value={invoice.id} />
           <div className="space-y-1">
-            <Label htmlFor="mollie_amount">Bedrag (€) — leeg = resterend</Label>
+            <Label htmlFor="mollie_amount">Bedrag (€) - leeg = resterend</Label>
             <Input
               id="mollie_amount"
               name="amount_euros"
