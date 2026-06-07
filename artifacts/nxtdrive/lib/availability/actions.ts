@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import {
   STUDENT_DAYPARTS,
   type WeeklyBlockInput,
@@ -160,19 +161,23 @@ export async function deleteAvailabilityException(formData: FormData) {
 }
 
 export async function saveStudentDaypartPreference(formData: FormData) {
-  const { tenant, user } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
   const studentId = String(formData.get("student_id") ?? "").trim();
   const back = `/backoffice/leerlingen/${studentId}`;
   if (!studentId) redirect("/backoffice/leerlingen");
 
+  const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) redirect("/backoffice/leerlingen");
+
+  const { user, organization: tenant } = context;
   const dayparts = STUDENT_DAYPARTS.filter(
     (d) => String(formData.get(`daypart_${d}`) ?? "") === "on",
   );
 
-  const service = createServiceRoleClient();
   const { error } = await service.rpc("set_student_daypart_preference", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
