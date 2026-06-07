@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+} from "@/lib/organization";
+import { canAccessBranch } from "@/lib/permissions";
+import type { MemberRole } from "@/lib/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card } from "@/components/ui/card";
@@ -31,6 +36,16 @@ import { listBranches } from "@/lib/branches/service";
 
 export const dynamic = "force-dynamic";
 
+const AGENDA_BACKOFFICE_READ_ROLES = [
+  "tenant_admin",
+  "franchise_admin",
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+  "instructor",
+] as const satisfies readonly MemberRole[];
+
 const dayFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
   day: "2-digit",
@@ -54,14 +69,10 @@ export default async function AgendaPage({
 }: {
   searchParams: Promise<{ week?: string; branch?: string }>;
 }) {
-  const { tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-    "branch_manager",
-    "planner",
-    "admin_staff",
-    "marketing",
-  ]);
+  const context = await requireOrganizationPermission("planning:read", {
+    allowedRoles: [...AGENDA_BACKOFFICE_READ_ROLES],
+  });
+  const { organization: tenant } = context;
   const sp = await searchParams;
 
   const anchor = sp.week ? new Date(sp.week) : new Date();
@@ -74,44 +85,78 @@ export default async function AgendaPage({
   const nextWeek = new Date(weekStart);
   nextWeek.setDate(weekStart.getDate() + 7);
 
-  const selectedBranchId = sp.branch && sp.branch !== "" ? sp.branch : null;
-  const isTenantAdmin = roles.includes("tenant_admin");
+  const requestedBranchId = sp.branch && sp.branch !== "" ? sp.branch : null;
 
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  const selectedBranchId =
+    requestedBranchId && canAccessBranch(branchScope, requestedBranchId)
+      ? requestedBranchId
+      : null;
+  const branchFilterIds = selectedBranchId
+    ? [selectedBranchId]
+    : branchScope.scope_type === "branches"
+      ? branchScope.branch_ids
+      : null;
 
-  // Load branches for the filter dropdown (tenant_admin only — scoped users
-  // have branch access enforced automatically via RLS).
-  const branches = isTenantAdmin
-    ? await listBranches(service, tenant.id, { activeOnly: true })
-    : [];
+  const allBranches = await listBranches(service, tenant.id, { activeOnly: true });
+  const branches =
+    branchScope.scope_type === "branches"
+      ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
+      : allBranches;
 
-  let lessonsQuery = supabase
-    .from("lessons")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .gte("starts_at", weekStart.toISOString())
-    .lt("starts_at", weekEnd.toISOString())
-    .order("starts_at", { ascending: true });
+  let lessons: Lesson[] = [];
+  if (!branchFilterIds || branchFilterIds.length > 0) {
+    let lessonsQuery = supabase
+      .from("lessons")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .gte("starts_at", weekStart.toISOString())
+      .lt("starts_at", weekEnd.toISOString())
+      .order("starts_at", { ascending: true });
 
-  if (selectedBranchId) {
-    lessonsQuery = lessonsQuery.eq("branch_id", selectedBranchId);
+    if (branchFilterIds) {
+      lessonsQuery = lessonsQuery.in("branch_id", branchFilterIds);
+    }
+
+    const { data: lessonsRaw } = await lessonsQuery;
+    lessons = (lessonsRaw ?? []) as Lesson[];
   }
 
-  const { data: lessonsRaw } = await lessonsQuery;
-  const lessons = (lessonsRaw ?? []) as Lesson[];
+  const trials =
+    branchFilterIds && branchFilterIds.length === 0
+      ? []
+      : await loadAgendaTrialLessons(supabase, {
+          tenantId: tenant.id,
+          from: weekStart,
+          to: weekEnd,
+          branchId: selectedBranchId ?? undefined,
+          branchIds: selectedBranchId ? undefined : (branchFilterIds ?? undefined),
+        });
 
-  const trials = await loadAgendaTrialLessons(supabase, {
-    tenantId: tenant.id,
-    from: weekStart,
-    to: weekEnd,
-    branchId: selectedBranchId ?? undefined,
-  });
+  const visibleStudentsRaw = branchFilterIds
+    ? branchFilterIds.length > 0
+      ? await supabase
+          .from("students")
+          .select("id, full_name")
+          .eq("tenant_id", tenant.id)
+          .in("branch_id", branchFilterIds)
+      : { data: [] }
+    : null;
+  const visibleStudents = ((visibleStudentsRaw?.data ?? []) as Pick<
+    Student,
+    "id" | "full_name"
+  >[]);
+  const visibleStudentIds = branchFilterIds
+    ? visibleStudents.map((s) => s.id)
+    : undefined;
 
   const appointments = await loadAgendaAppointments(supabase, {
     tenantId: tenant.id,
     from: weekStart,
     to: weekEnd,
+    studentIds: visibleStudentIds,
   });
 
   // Background availability: union across all instructors ("someone is free").
@@ -123,12 +168,14 @@ export default async function AgendaPage({
 
   // Pull display names for students (RLS-scoped to this tenant).
   const studentIds = Array.from(new Set(lessons.map((l) => l.student_id)));
-  const { data: studentsRaw } = studentIds.length
-    ? await supabase
-        .from("students")
-        .select("id, full_name")
-        .in("id", studentIds)
-    : { data: [] };
+  const { data: studentsRaw } = branchFilterIds
+    ? { data: visibleStudents }
+    : studentIds.length
+      ? await supabase
+          .from("students")
+          .select("id, full_name")
+          .in("id", studentIds)
+      : { data: [] };
   const studentMap = new Map(
     ((studentsRaw ?? []) as Pick<Student, "id" | "full_name">[]).map((s) => [
       s.id,
@@ -193,7 +240,6 @@ export default async function AgendaPage({
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
-  const weekParam = `week=${weekStart.toISOString()}`;
   const branchParam = selectedBranchId ? `&branch=${selectedBranchId}` : "";
   const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
 
@@ -216,8 +262,8 @@ export default async function AgendaPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch filter — only for tenant_admin with multiple branches */}
-          {isTenantAdmin && branches.length > 0 ? (
+          {/* Branch filter — limited to the caller's expanded branch scope. */}
+          {branches.length > 1 ? (
             <form method="get" action="/backoffice/agenda">
               <input type="hidden" name="week" value={weekStart.toISOString()} />
               <select
@@ -226,7 +272,7 @@ export default async function AgendaPage({
                 onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
                 className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">Alle vestigingen</option>
+                <option value="">Alle toegestane vestigingen</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
