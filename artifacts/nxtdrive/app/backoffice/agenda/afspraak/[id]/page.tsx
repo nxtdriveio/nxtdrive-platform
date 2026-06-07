@@ -117,7 +117,7 @@ export default async function EditAppointmentPage({
           href={`/backoffice/leerlingen/${appt.student_id}`}
           className="inline-flex text-sm text-primary hover:underline"
         >
-          Open leerlingdossier 
+          Open leerlingdossier
         </Link>
       ) : null}
 
