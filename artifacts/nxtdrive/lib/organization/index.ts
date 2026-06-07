@@ -6,6 +6,10 @@ export {
 export type { ActiveOrganizationContext } from "./context";
 
 export {
+  loadOrganizationBranchScope,
+} from "./branch-scope";
+
+export {
   requireOrganizationPermission,
 } from "./permissions";
 export type { AuthorizedOrganizationContext } from "./permissions";
