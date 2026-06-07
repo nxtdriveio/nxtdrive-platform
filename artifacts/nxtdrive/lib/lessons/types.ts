@@ -54,7 +54,7 @@ export type Lesson = {
   refunded_credits: number | null;
   progress_score: number | null;
   progress_summary: string | null;
-  // Leskaart L4 — lescontext (zichtbaar voor de leerling). De interne notitie
+  // Leskaart L4 - lescontext (zichtbaar voor de leerling). De interne notitie
   // staat NIET hier maar in lesson_internal (staff-only).
   vehicle_id: string | null;
   location_id: string | null;
@@ -77,6 +77,7 @@ export const VEHICLE_TRANSMISSION_LABEL: Record<VehicleTransmission, string> = {
 export type Vehicle = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   label: string;
   license_plate: string | null;
   transmission: VehicleTransmission | null;
@@ -89,6 +90,7 @@ export type Vehicle = {
 export type Location = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   name: string;
   address: string | null;
   active: boolean;

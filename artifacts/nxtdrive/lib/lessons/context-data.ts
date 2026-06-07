@@ -2,24 +2,51 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Vehicle, Location, LessonContext } from "@/lib/lessons/types";
 
 /**
- * Read-only loaders for the Leskaart L4 lescontext. Pass an RLS-scoped server
- * client. All loaders FAIL LOUD on query error rather than silently rendering
- * empty state. Writes go through the locked `set_lesson_context` /
- * `upsert_vehicle` / `upsert_location` RPCs (server actions), never here.
+ * Read-only loaders for the Leskaart L4 lescontext. Pass an RLS-scoped client,
+ * or pass an already-authorized service-role client together with branchIds.
+ * All loaders FAIL LOUD on query error rather than silently rendering empty
+ * state. Writes go through locked RPCs (server actions), never here.
  */
+
+type BranchScopedAssetLoadOptions = {
+  activeOnly?: boolean;
+  branchIds?: readonly string[] | null;
+  includeShared?: boolean;
+};
+
+function branchScopeFilter(
+  branchIds: readonly string[],
+  includeShared: boolean,
+): string | null {
+  if (branchIds.length === 0) return includeShared ? "branch_id.is.null" : null;
+  if (!includeShared) return null;
+  return `branch_id.is.null,branch_id.in.(${branchIds.join(",")})`;
+}
 
 export async function loadVehicles(
   client: SupabaseClient,
   tenantId: string,
-  opts: { activeOnly?: boolean } = {},
+  opts: BranchScopedAssetLoadOptions = {},
 ): Promise<Vehicle[]> {
+  if (Array.isArray(opts.branchIds) && opts.branchIds.length === 0 && !opts.includeShared) {
+    return [];
+  }
+
   let q = client
     .from("vehicles")
     .select(
-      "id, tenant_id, label, license_plate, transmission, active, sort_order, created_at, updated_at",
+      "id, tenant_id, branch_id, label, license_plate, transmission, active, sort_order, created_at, updated_at",
     )
     .eq("tenant_id", tenantId);
   if (opts.activeOnly) q = q.eq("active", true);
+  if (Array.isArray(opts.branchIds)) {
+    const filter = branchScopeFilter(opts.branchIds, opts.includeShared === true);
+    if (filter) {
+      q = q.or(filter);
+    } else {
+      q = q.in("branch_id", [...opts.branchIds]);
+    }
+  }
   const { data, error } = await q
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
@@ -32,15 +59,27 @@ export async function loadVehicles(
 export async function loadLocations(
   client: SupabaseClient,
   tenantId: string,
-  opts: { activeOnly?: boolean } = {},
+  opts: BranchScopedAssetLoadOptions = {},
 ): Promise<Location[]> {
+  if (Array.isArray(opts.branchIds) && opts.branchIds.length === 0 && !opts.includeShared) {
+    return [];
+  }
+
   let q = client
     .from("locations")
     .select(
-      "id, tenant_id, name, address, active, sort_order, created_at, updated_at",
+      "id, tenant_id, branch_id, name, address, active, sort_order, created_at, updated_at",
     )
     .eq("tenant_id", tenantId);
   if (opts.activeOnly) q = q.eq("active", true);
+  if (Array.isArray(opts.branchIds)) {
+    const filter = branchScopeFilter(opts.branchIds, opts.includeShared === true);
+    if (filter) {
+      q = q.or(filter);
+    } else {
+      q = q.in("branch_id", [...opts.branchIds]);
+    }
+  }
   const { data, error } = await q
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
