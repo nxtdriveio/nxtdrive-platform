@@ -18,8 +18,10 @@ import {
 import {
   createVehicle,
   toggleVehicleActive,
+  assignVehicleBranch,
   createLocation,
   toggleLocationActive,
+  assignLocationBranch,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +89,7 @@ export default async function VoertuigenPage() {
                     <th className="px-4 py-3 font-medium">Kenteken</th>
                     <th className="px-4 py-3 font-medium">Transmissie</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    {canManageAssets ? <th className="px-4 py-3" /> : null}
+                    {canManageAssets ? <th className="px-4 py-3 text-right font-medium">Acties</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -115,18 +117,38 @@ export default async function VoertuigenPage() {
                         )}
                       </td>
                       {canManageAssets ? (
-                        <td className="px-4 py-3 text-right">
-                          <form action={toggleVehicleActive}>
-                            <input type="hidden" name="vehicle_id" value={v.id} />
-                            <input
-                              type="hidden"
-                              name="active"
-                              value={String(v.active)}
-                            />
-                            <Button type="submit" variant="ghost" size="sm">
-                              {v.active ? "Deactiveren" : "Activeren"}
-                            </Button>
-                          </form>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <form action={assignVehicleBranch} className="flex items-center gap-2">
+                              <input type="hidden" name="vehicle_id" value={v.id} />
+                              <Select
+                                name="branch_id"
+                                defaultValue={v.branch_id ?? ""}
+                                className="h-8 w-44 py-1 text-xs"
+                                aria-label={`Vestiging voor ${v.label}`}
+                              >
+                                <BranchOptions
+                                  currentBranchId={v.branch_id}
+                                  branches={branches}
+                                  branchesById={branchesById}
+                                />
+                              </Select>
+                              <Button type="submit" variant="secondary" size="sm">
+                                Opslaan
+                              </Button>
+                            </form>
+                            <form action={toggleVehicleActive}>
+                              <input type="hidden" name="vehicle_id" value={v.id} />
+                              <input
+                                type="hidden"
+                                name="active"
+                                value={String(v.active)}
+                              />
+                              <Button type="submit" variant="ghost" size="sm">
+                                {v.active ? "Deactiveren" : "Activeren"}
+                              </Button>
+                            </form>
+                          </div>
                         </td>
                       ) : null}
                     </tr>
@@ -195,7 +217,7 @@ export default async function VoertuigenPage() {
                     <th className="px-4 py-3 font-medium">Vestiging</th>
                     <th className="px-4 py-3 font-medium">Adres</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    {canManageAssets ? <th className="px-4 py-3" /> : null}
+                    {canManageAssets ? <th className="px-4 py-3 text-right font-medium">Acties</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -218,18 +240,38 @@ export default async function VoertuigenPage() {
                         )}
                       </td>
                       {canManageAssets ? (
-                        <td className="px-4 py-3 text-right">
-                          <form action={toggleLocationActive}>
-                            <input type="hidden" name="location_id" value={l.id} />
-                            <input
-                              type="hidden"
-                              name="active"
-                              value={String(l.active)}
-                            />
-                            <Button type="submit" variant="ghost" size="sm">
-                              {l.active ? "Deactiveren" : "Activeren"}
-                            </Button>
-                          </form>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <form action={assignLocationBranch} className="flex items-center gap-2">
+                              <input type="hidden" name="location_id" value={l.id} />
+                              <Select
+                                name="branch_id"
+                                defaultValue={l.branch_id ?? ""}
+                                className="h-8 w-44 py-1 text-xs"
+                                aria-label={`Vestiging voor ${l.name}`}
+                              >
+                                <BranchOptions
+                                  currentBranchId={l.branch_id}
+                                  branches={branches}
+                                  branchesById={branchesById}
+                                />
+                              </Select>
+                              <Button type="submit" variant="secondary" size="sm">
+                                Opslaan
+                              </Button>
+                            </form>
+                            <form action={toggleLocationActive}>
+                              <input type="hidden" name="location_id" value={l.id} />
+                              <input
+                                type="hidden"
+                                name="active"
+                                value={String(l.active)}
+                              />
+                              <Button type="submit" variant="ghost" size="sm">
+                                {l.active ? "Deactiveren" : "Activeren"}
+                              </Button>
+                            </form>
+                          </div>
                         </td>
                       ) : null}
                     </tr>
@@ -273,6 +315,32 @@ export default async function VoertuigenPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function BranchOptions({
+  currentBranchId,
+  branches,
+  branchesById,
+}: {
+  currentBranchId: string | null;
+  branches: Branch[];
+  branchesById: Map<Branch["id"], Branch["name"]>;
+}) {
+  const hasCurrentBranch = !currentBranchId || branchesById.has(currentBranchId);
+
+  return (
+    <>
+      <option value="">Alle vestigingen</option>
+      {!hasCurrentBranch && currentBranchId ? (
+        <option value={currentBranchId}>Huidige vestiging</option>
+      ) : null}
+      {branches.map((branch) => (
+        <option key={branch.id} value={branch.id}>
+          {branch.name}
+        </option>
+      ))}
+    </>
   );
 }
 
