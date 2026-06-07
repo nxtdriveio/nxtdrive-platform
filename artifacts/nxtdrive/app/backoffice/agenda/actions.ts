@@ -14,12 +14,24 @@ import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
+import { loadTenantInstructors } from "@/lib/availability/service";
 import {
   notifyLessonRefillInvitation,
   notifyExamInvitation,
   notifyLessonCancelled,
   notifyParentsLessonScheduled,
 } from "@/lib/notifications/dispatch";
+
+async function instructorCanServeBranch(
+  tenantId: string,
+  instructorId: string,
+  branchId: string | null,
+): Promise<boolean> {
+  const instructors = await loadTenantInstructors(tenantId, {
+    branchIds: branchId ? [branchId] : null,
+  });
+  return instructors.some((instructor) => instructor.id === instructorId);
+}
 
 export async function scheduleLesson(formData: FormData) {
   const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
@@ -76,6 +88,15 @@ export async function scheduleLesson(formData: FormData) {
   const instructorId = canAssignInstructor ? requestedInstructorId : context.user.id;
   if (!instructorId) redirect("/backoffice/agenda/nieuw?error=missing");
   if (!canManageAgendaForInstructor(context, instructorId)) {
+    redirect("/backoffice/agenda/nieuw?error=forbidden");
+  }
+  if (
+    !(await instructorCanServeBranch(
+      context.organization.id,
+      instructorId,
+      studentAccess.student.branch_id,
+    ))
+  ) {
     redirect("/backoffice/agenda/nieuw?error=forbidden");
   }
 
@@ -197,6 +218,15 @@ export async function inviteStudentToSlot(
   }
   if (!canManageAgendaForInstructor(context, instructorId)) {
     return { ok: false, error: "Geen toegang tot deze instructeuragenda." };
+  }
+  if (
+    !(await instructorCanServeBranch(
+      context.organization.id,
+      instructorId,
+      studentAccess.student.branch_id,
+    ))
+  ) {
+    return { ok: false, error: "Geen toegang tot deze instructeurvestiging." };
   }
 
   const policy = await loadRefillPolicy(service, context.organization.id);

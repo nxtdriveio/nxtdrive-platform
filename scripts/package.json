@@ -57,6 +57,7 @@
     "test-task-branch-foundation": "tsx ./src/test-task-branch-foundation.ts",
     "test-invoice-branch-foundation": "tsx ./src/test-invoice-branch-foundation.ts",
     "db:seed-scenarios": "tsx ./src/seed-scenario-accounts.ts",
+    "test-planning-resource-branch-foundation": "tsx ./src/test-planning-resource-branch-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

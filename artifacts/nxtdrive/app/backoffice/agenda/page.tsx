@@ -30,7 +30,10 @@ import {
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
 import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
-import { loadFreeSpaceForRange } from "@/lib/availability/service";
+import {
+  loadFreeSpaceForRange,
+  loadTenantInstructors,
+} from "@/lib/availability/service";
 import { dateKey } from "@/lib/availability/compute";
 import { listBranches } from "@/lib/branches/service";
 
@@ -156,11 +159,15 @@ export default async function AgendaPage({
     branchIds: branchFilterIds ?? undefined,
   });
 
-  // Background availability: union across all instructors ("someone is free").
+  // Background availability: union across visible instructors only.
+  const availabilityInstructors = await loadTenantInstructors(tenant.id, {
+    branchIds: branchFilterIds,
+  });
   const freeSpace = await loadFreeSpaceForRange(supabase, {
     tenantId: tenant.id,
     from: weekStart,
     to: weekEnd,
+    instructorIds: availabilityInstructors.map((i) => i.id),
   });
 
   // Pull display names for students (RLS-scoped to this tenant).

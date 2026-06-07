@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  AGENDA_BACKOFFICE_MANAGE_ROLES,
+  requireAgendaAccessContext,
+} from "@/lib/agenda/access";
+import { rolesGrantPermission } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +12,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { loadTenantInstructors } from "@/lib/availability/service";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { scheduleLesson } from "../actions";
 import { LessonLocationField } from "./location-field";
@@ -28,58 +33,53 @@ export default async function NewLessonPage({
     duration_min?: string;
   }>;
 }) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
   const sp = await searchParams;
-
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const { context, branchScope } = await requireAgendaAccessContext(
+    service,
+    AGENDA_BACKOFFICE_MANAGE_ROLES,
+  );
+  const { user, organization: tenant, roles } = context;
+  const branchFilterIds =
+    branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
+  const canSelectInstructor =
+    !!user.profile?.is_platform_admin ||
+    rolesGrantPermission(roles, "planning:manage");
 
-  // Admins may pick any instructor in the tenant; a plain instructor only ever
-  // schedules for themselves (and the server action enforces this too).
-  let instructors: Instructor[];
-  if (isAdmin) {
-    const { data: membershipsRaw } = await service
-      .from("memberships")
-      .select("user_id, role")
+  // Managers/planners may pick instructors inside their branch scope. A plain
+  // instructor only schedules for themselves; the server action enforces this.
+  const instructors: Instructor[] = canSelectInstructor
+    ? await loadTenantInstructors(tenant.id, { branchIds: branchFilterIds })
+    : [{ id: user.id, full_name: user.profile?.full_name ?? "Jij" }];
+
+  // Students with balance for selection, constrained to the caller's branch scope.
+  let students: Pick<Student, "id" | "tenant_id" | "branch_id" | "full_name">[] = [];
+  if (!branchFilterIds || branchFilterIds.length > 0) {
+    let studentsQuery = supabase
+      .from("students")
+      .select("id, tenant_id, branch_id, full_name")
       .eq("tenant_id", tenant.id)
-      .in("role", ["instructor", "tenant_admin"]);
-    const instructorIds = Array.from(
-      new Set((membershipsRaw ?? []).map((m) => m.user_id as string)),
-    );
-    const { data: profilesRaw } = instructorIds.length
-      ? await service
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", instructorIds)
-      : { data: [] };
-    instructors = (profilesRaw ?? []) as Instructor[];
-  } else {
-    instructors = [
-      { id: user.id, full_name: user.profile?.full_name ?? "Jij" },
-    ];
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+    if (branchFilterIds) {
+      studentsQuery = studentsQuery.in("branch_id", branchFilterIds);
+    }
+    const { data: studentsRaw } = await studentsQuery;
+    students = (studentsRaw ?? []) as Pick<
+      Student,
+      "id" | "tenant_id" | "branch_id" | "full_name"
+    >[];
   }
 
-  // Students with balance for selection.
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, tenant_id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
-  const students = (studentsRaw ?? []) as Pick<
-    Student,
-    "id" | "tenant_id" | "full_name"
-  >[];
-
-  const { data: balancesRaw } = await supabase
-    .from("student_credit_balance")
-    .select("student_id, balance")
-    .eq("tenant_id", tenant.id);
+  const studentIds = students.map((s) => s.id);
+  const { data: balancesRaw } = studentIds.length
+    ? await supabase
+        .from("student_credit_balance")
+        .select("student_id, balance")
+        .eq("tenant_id", tenant.id)
+        .in("student_id", studentIds)
+    : { data: [] };
   const balanceMap = new Map(
     ((balancesRaw ?? []) as StudentBalance[]).map((b) => [
       b.student_id,
@@ -140,16 +140,11 @@ export default async function NewLessonPage({
 
       {instructors.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground">
-          Er zijn nog geen instructeurs gekoppeld aan deze tenant. Voeg er één
-          toe via{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-            db:add-membership
-          </code>
-          .
+          Er zijn geen instructeurs binnen je huidige vestigingsscope.
         </Card>
       ) : students.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground">
-          Geen leerlingen om in te plannen.{" "}
+          Geen leerlingen om in te plannen binnen je huidige vestigingsscope.{" "}
           <Link
             href="/backoffice/leads"
             className="text-primary hover:underline"
