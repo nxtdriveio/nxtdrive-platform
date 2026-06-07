@@ -121,6 +121,8 @@ Started:
 - Add `requireStudentBackofficeAccess` to validate single-student staff access before dossier/service-role reads.
 - Retrofit the student detail page to validate branch-scoped access before loading the 360-degree dossier.
 - Retrofit `backoffice/leerlingen/actions.ts` so protected student writes validate per-student access before service-role RPC/storage/auth operations.
+- Retrofit student-adjacent daypart, retake AI, and CBR overview reads to use the same student/branch access boundary.
+- Retrofit the backoffice agenda overview to use `requireOrganizationPermission("planning:read")`, expanded branch scope, branch-limited lesson/proefles filters, and visible-student appointment filters.
 
 Acceptance for current slices:
 
@@ -129,13 +131,14 @@ Acceptance for current slices:
 - New server modules can call `requireOrganizationPermission("resource:action")` instead of hardcoding role arrays.
 - The students list only shows students from branches inside the user's expanded organization branch scope.
 - Student dossier and `leerlingen/actions.ts` writes validate the target student against the caller's expanded branch scope first.
+- CBR and agenda overview pages do not batch tenant-wide student-linked data when the caller has explicit branch scope.
 
 Still required in Sprint 3:
 
-- Complete remaining student-adjacent actions outside `backoffice/leerlingen/actions.ts`, including availability/daypart and any CBR/retake actions owned by separate modules.
-- Retrofit agenda, leads, tasks, vehicles, and invoices to consume `requireOrganizationPermission` and returned branch scopes.
+- Complete agenda detail and agenda mutation hardening, including lesson completion/cancellation, appointment result/detail updates, refill invitations, and exam invitations.
+- Retrofit leads, tasks, vehicles, and invoices to consume `requireOrganizationPermission` and returned branch scopes.
 - Update module-specific RLS tests to assert the new explicit branch scope field remains synchronized.
-- Replace ad hoc role arrays in backoffice pages/actions where the permission registry now has equivalent resource/action checks.
+- Replace remaining ad hoc role arrays in backoffice pages/actions where the permission registry now has equivalent resource/action checks.
 
 ### Sprint 4 - Branch completeness
 

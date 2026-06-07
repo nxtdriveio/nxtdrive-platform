@@ -1,6 +1,10 @@
 import Link from "next/link";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  loadOrganizationBranchScope,
+  requireOrganizationPermission,
+} from "@/lib/organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { STUDENT_BACKOFFICE_READ_ROLES } from "@/lib/students/access";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loadTenantCbrOverview } from "@/lib/cbr/data";
@@ -31,9 +35,15 @@ const TONE_VARIANT: Record<
 };
 
 export default async function CbrOverviewPage() {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const context = await requireOrganizationPermission("student:read", {
+    allowedRoles: [...STUDENT_BACKOFFICE_READ_ROLES],
+  });
+  const { organization: tenant } = context;
   const supabase = await createServerSupabaseClient();
-  const rows = await loadTenantCbrOverview(supabase, tenant.id);
+  const branchScope = await loadOrganizationBranchScope(supabase, context);
+  const rows = await loadTenantCbrOverview(supabase, tenant.id, new Date(), {
+    branchScope,
+  });
 
   return (
     <div className="space-y-6">
@@ -50,7 +60,7 @@ export default async function CbrOverviewPage() {
       <Card className="overflow-hidden">
         {rows.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">
-            Nog geen actieve leerlingen.
+            Nog geen actieve leerlingen binnen je toegestane vestigingen.
           </div>
         ) : (
           <table className="w-full text-sm">

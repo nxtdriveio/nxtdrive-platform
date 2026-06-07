@@ -29,8 +29,12 @@ export async function loadAgendaTrialLessons(
     instructorId?: string;
     // When set, restrict to a single branch (vestiging).
     branchId?: string;
+    // When set, restrict to a pre-expanded organization branch scope.
+    branchIds?: readonly string[];
   },
 ): Promise<AgendaTrialLesson[]> {
+  if (opts.branchIds && opts.branchIds.length === 0) return [];
+
   let query = supabase
     .from("trial_lessons")
     .select("*")
@@ -44,6 +48,8 @@ export async function loadAgendaTrialLessons(
   }
   if (opts.branchId) {
     query = query.eq("branch_id", opts.branchId);
+  } else if (opts.branchIds) {
+    query = query.in("branch_id", [...opts.branchIds]);
   }
   const { data: trialsRaw } = await query;
   const trials = (trialsRaw ?? []) as TrialLesson[];
