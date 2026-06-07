@@ -97,6 +97,7 @@ export type LeadFilters = {
 
 export type LeadQueryOptions = {
   branchScope?: BranchAccessScope;
+  assignedUserId?: string | null;
 };
 
 export type LeadKpis = {
@@ -120,17 +121,35 @@ function branchIdsForScope(options: LeadQueryOptions): string[] | null {
   return options.branchScope.branch_ids;
 }
 
-function isEmptyBranchScope(options: LeadQueryOptions): boolean {
+function hasNoLeadVisibility(options: LeadQueryOptions): boolean {
   const branchIds = branchIdsForScope(options);
-  return Array.isArray(branchIds) && branchIds.length === 0;
+  return Array.isArray(branchIds) && branchIds.length === 0 && !options.assignedUserId;
 }
 
-/** Apply expanded organization branch scope to a leads query. */
+function assignedLeadFilter(userId: string): string {
+  return [
+    `assigned_to.eq.${userId}`,
+    `assigned_owner_id.eq.${userId}`,
+    `assigned_instructor_id.eq.${userId}`,
+  ].join(",");
+}
+
+/** Apply expanded organization branch scope plus optional own-assignment scope. */
 function applyBranchScope<T>(q: T, options: LeadQueryOptions): T {
   const branchIds = branchIdsForScope(options);
+  const assignedUserId = options.assignedUserId?.trim();
   if (!branchIds) return q;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (q as any).in("branch_id", branchIds) as T;
+  const out = q as any;
+  if (branchIds.length === 0) {
+    return assignedUserId ? out.or(assignedLeadFilter(assignedUserId)) : out.in("branch_id", []);
+  }
+
+  if (!assignedUserId) return out.in("branch_id", branchIds) as T;
+
+  const branchFilter = `branch_id.in.(${branchIds.join(",")})`;
+  return out.or(`${branchFilter},${assignedLeadFilter(assignedUserId)}`) as T;
 }
 
 /**
@@ -198,7 +217,7 @@ export async function getTodayLeads(
   filters: LeadFilters = {},
   options: LeadQueryOptions = {},
 ): Promise<Lead[]> {
-  if (isEmptyBranchScope(options)) return [];
+  if (hasNoLeadVisibility(options)) return [];
 
   let q = client
     .from("leads")
@@ -223,7 +242,7 @@ export async function getLeadsForTab(
   options: LeadQueryOptions = {},
 ): Promise<Lead[]> {
   if (tab === "today") return getTodayLeads(client, tenantId, now, filters, options);
-  if (isEmptyBranchScope(options)) return [];
+  if (hasNoLeadVisibility(options)) return [];
 
   let q = client.from("leads").select(LEAD_COLUMNS).eq("tenant_id", tenantId);
   q = applyBranchScope(q, options);
@@ -263,7 +282,7 @@ export async function getLeadKpis(
   hotThreshold: number = DEFAULT_LEAD_SCORE_POLICY.bands.hot,
   options: LeadQueryOptions = {},
 ): Promise<LeadKpis> {
-  if (isEmptyBranchScope(options)) {
+  if (hasNoLeadVisibility(options)) {
     return {
       todayCount: 0,
       openCount: 0,
@@ -317,7 +336,7 @@ export async function getLeadById(
   leadId: string,
   options: LeadQueryOptions = {},
 ): Promise<Lead | null> {
-  if (isEmptyBranchScope(options)) return null;
+  if (hasNoLeadVisibility(options)) return null;
 
   let q = client
     .from("leads")
