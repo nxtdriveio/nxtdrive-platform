@@ -98,6 +98,15 @@ check(
 );
 
 check(
+  "task actions validate board and column branch scope",
+  taskActionsSrc.includes("loadBoardBranch") &&
+    taskActionsSrc.includes("requireTaskColumnAccess") &&
+    taskActionsSrc.includes("validateTaskBoardBranch") &&
+    taskActionsSrc.includes("Kolom hoort niet bij dit taakbord") &&
+    taskActionsSrc.includes("Taak kan niet naar een ander bord worden verplaatst"),
+);
+
+check(
   "task entity search is branch scoped",
   taskActionsSrc.includes("branchIds = branchScope.scope_type === \"branches\"") &&
     taskActionsSrc.includes('.in("branch_id", [...branchIds])') &&
