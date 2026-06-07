@@ -8,7 +8,9 @@ import {
   requireAgendaAccessContext,
   requireAgendaAppointmentAccess,
 } from "@/lib/agenda/access";
-import { rolesGrantPermission } from "@/lib/permissions";
+import { canAccessBranch, rolesGrantPermission } from "@/lib/permissions";
+import type { AuthorizedOrganizationContext } from "@/lib/organization";
+import type { BranchAccessScope } from "@/lib/permissions";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -31,10 +33,27 @@ function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null
     : null;
 }
 
+function parseBranchId(raw: FormDataEntryValue | null): string | null {
+  const v = String(raw ?? "").trim();
+  return v || null;
+}
+
 function safeRedirect(raw: FormDataEntryValue | null, fallback: string): string {
   const v = String(raw ?? "").trim();
   // Only allow internal absolute paths to avoid open-redirects.
   return v.startsWith("/") ? v : fallback;
+}
+
+function canManageAgendaBranch(
+  context: AuthorizedOrganizationContext,
+  branchScope: BranchAccessScope,
+  branchId: string | null,
+): boolean {
+  if (context.user.profile?.is_platform_admin) return true;
+  return (
+    rolesGrantPermission(context.roles, "planning:manage") &&
+    canAccessBranch(branchScope, branchId)
+  );
 }
 
 export async function createAppointment(formData: FormData) {
@@ -48,6 +67,7 @@ export async function createAppointment(formData: FormData) {
   if (!type) redirect(`${errorTo}?error=type`);
 
   const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
+  const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
   const studentId = isStudentLinkedType(type) && studentIdRaw
     ? studentIdRaw
@@ -76,7 +96,12 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const { context } = access;
+  const { context, branchScope } = access;
+  const appointmentBranchId =
+    "student" in access && access.student
+      ? access.student.branch_id
+      : requestedBranchId;
+
   const canAssignInstructor =
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "planning:manage");
@@ -88,13 +113,13 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const tenantLevelManage =
-    context.user.profile?.is_platform_admin ||
-    context.roles.includes("tenant_admin") ||
-    context.roles.includes("franchise_admin");
-  const instructorOwnBlock =
+  const instructorOwnAppointment =
     context.roles.includes("instructor") && instructorId === context.user.id;
-  if (!studentId && !tenantLevelManage && !instructorOwnBlock) {
+  if (
+    !studentId &&
+    !canManageAgendaBranch(context, branchScope, appointmentBranchId) &&
+    !instructorOwnAppointment
+  ) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
@@ -106,6 +131,7 @@ export async function createAppointment(formData: FormData) {
     p_starts_at: startsAt.toISOString(),
     p_duration_min: duration,
     p_student_id: studentId,
+    p_branch_id: appointmentBranchId,
     p_title: title || null,
     p_location: location || null,
     p_notes: notes || null,
@@ -173,6 +199,8 @@ export async function updateAppointment(formData: FormData) {
 
   const type = parseType(formData.get("type"));
   if (!type) redirect(`${errorTo}?error=type`);
+  const hasBranchField = formData.has("branch_id");
+  const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
   const studentId = isStudentLinkedType(type) && studentIdRaw
     ? studentIdRaw
@@ -200,7 +228,11 @@ export async function updateAppointment(formData: FormData) {
   if (!appointmentAccess.appointment) {
     redirect(`${errorTo}?error=forbidden`);
   }
-  const { context } = appointmentAccess;
+  if (type !== appointmentAccess.appointment.type) {
+    redirect(`${errorTo}?error=type`);
+  }
+  const { context, branchScope } = appointmentAccess;
+  let appointmentBranchId = appointmentAccess.appointmentBranchId;
 
   if (studentId) {
     const studentAccess = await requireStudentBackofficeAccess(
@@ -210,6 +242,20 @@ export async function updateAppointment(formData: FormData) {
       { allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES] },
     );
     if (!studentAccess.student) redirect(`${errorTo}?error=forbidden`);
+    appointmentBranchId = studentAccess.student.branch_id;
+  } else if (hasBranchField) {
+    appointmentBranchId = requestedBranchId;
+  }
+
+  const instructorOwnAppointment =
+    context.roles.includes("instructor") &&
+    appointmentAccess.appointment.instructor_id === context.user.id;
+  if (
+    !studentId &&
+    !canManageAgendaBranch(context, branchScope, appointmentBranchId) &&
+    !instructorOwnAppointment
+  ) {
+    redirect(`${errorTo}?error=forbidden`);
   }
 
   const { error } = await service.rpc("update_agenda_appointment", {
@@ -219,6 +265,7 @@ export async function updateAppointment(formData: FormData) {
     p_starts_at: startsAt.toISOString(),
     p_duration_min: duration,
     p_student_id: studentId,
+    p_branch_id: appointmentBranchId,
     p_title: title || null,
     p_location: location || null,
     p_notes: notes || null,
