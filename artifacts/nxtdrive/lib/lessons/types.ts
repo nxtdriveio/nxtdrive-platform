@@ -41,6 +41,7 @@ export const LESSON_IN_PROGRESS_CARD =
 export type Lesson = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   student_id: string;
   starts_at: string;
