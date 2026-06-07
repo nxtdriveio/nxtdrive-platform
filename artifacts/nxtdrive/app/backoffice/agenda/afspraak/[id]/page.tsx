@@ -72,7 +72,7 @@ export default async function EditAppointmentPage({
     : undefined;
 
   const allBranches = canEditAppointment
-    ? await listBranches(service, tenant.id, { activeOnly: true })
+    ? await listBranches(service, tenant.id)
     : [];
   const branches =
     branchScope.scope_type === "branches"
