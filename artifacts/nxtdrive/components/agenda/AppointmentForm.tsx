@@ -14,11 +14,13 @@ import {
   type AgendaAppointmentType,
 } from "@/lib/agenda/types";
 
+type BranchOption = { id: string; name: string };
 type InstructorOption = { id: string; full_name: string | null };
 type StudentOption = { id: string; full_name: string };
 
 export type AppointmentFormDefaults = {
   type?: AgendaAppointmentType;
+  branchId?: string | null;
   instructorId?: string;
   studentId?: string | null;
   date?: string;
@@ -38,6 +40,7 @@ export function AppointmentForm({
   redirectTo,
   errorTo,
   appointmentId,
+  branches,
   instructors,
   ownInstructor,
   students,
@@ -49,7 +52,9 @@ export function AppointmentForm({
   redirectTo: string;
   errorTo: string;
   appointmentId?: string;
-  // When provided, the instructor is selectable (admin). Otherwise pinned.
+  // When provided, the appointment can be assigned to a branch explicitly.
+  branches?: BranchOption[];
+  // When provided, the instructor is selectable (admin/planner). Otherwise pinned.
   instructors?: InstructorOption[];
   ownInstructor?: InstructorOption;
   students: StudentOption[];
@@ -61,7 +66,7 @@ export function AppointmentForm({
   );
   // In edit mode the type is immutable (the DB RPC does not change it).
   const typeLocked = mode === "edit";
-  // The instructor is also immutable in edit mode — update_agenda_appointment
+  // The instructor is also immutable in edit mode - update_agenda_appointment
   // keeps the original instructor. Show a read-only display instead of a select
   // so the form never offers an affordance the backend ignores.
   const instructorLocked = mode === "edit";
@@ -71,6 +76,7 @@ export function AppointmentForm({
     "Instructeur";
   const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
   const showStudent = isStudentLinkedType(type);
+  const defaultBranchId = defaults?.branchId ?? branches?.[0]?.id ?? "";
 
   return (
     <form action={action} className="space-y-4">
@@ -79,7 +85,7 @@ export function AppointmentForm({
       {appointmentId ? (
         <input type="hidden" name="appointment_id" value={appointmentId} />
       ) : null}
-      {/* When the type select is disabled it is not submitted — mirror it. */}
+      {/* When the type select is disabled it is not submitted - mirror it. */}
       {typeLocked ? <input type="hidden" name="type" value={type} /> : null}
       {(!instructors || instructorLocked) && lockedInstructorId ? (
         <input type="hidden" name="instructor_id" value={lockedInstructorId} />
@@ -103,6 +109,29 @@ export function AppointmentForm({
             ))}
           </Select>
         </div>
+
+        {branches && branches.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="branch_id">Vestiging</Label>
+            <Select
+              id="branch_id"
+              name="branch_id"
+              defaultValue={defaultBranchId}
+              required
+            >
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </Select>
+            {showStudent ? (
+              <p className="text-xs text-muted-foreground">
+                Bij een gekoppelde leerling wordt de vestiging automatisch gelijkgezet met het leerlingdossier.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {instructors && !instructorLocked ? (
           <div className="space-y-1.5">
@@ -139,7 +168,7 @@ export function AppointmentForm({
               name="student_id"
               defaultValue={defaults?.studentId ?? ""}
             >
-              <option value="">— Geen leerling —</option>
+              <option value="">Geen leerling</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name}

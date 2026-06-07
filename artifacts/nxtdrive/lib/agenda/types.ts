@@ -26,7 +26,7 @@ export const AGENDA_APPOINTMENT_STATUSES = [
 export type AgendaAppointmentStatus =
   (typeof AGENDA_APPOINTMENT_STATUSES)[number];
 
-// Examen-/toetsuitslag — mirror van DB enum `agenda_appointment_result`.
+// Examen-/toetsuitslag - mirror van DB enum `agenda_appointment_result`.
 export const AGENDA_APPOINTMENT_RESULTS = [
   "passed",
   "failed",
@@ -72,7 +72,7 @@ export const APPOINTMENT_TYPE_SHORT: Record<AgendaAppointmentType, string> = {
 };
 
 // Types that may be linked to a student (examen/TTT/theoriebegeleiding). The
-// block types never carry a student — the DB enforces this too.
+// block types never carry a student - the DB enforces this too.
 export const STUDENT_LINKED_TYPES: ReadonlySet<AgendaAppointmentType> = new Set([
   "exam",
   "interim_test",
@@ -104,6 +104,7 @@ export const APPOINTMENT_TYPE_ACCENT: Record<AgendaAppointmentType, string> = {
 export type AgendaAppointment = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   student_id: string | null;
   type: AgendaAppointmentType;

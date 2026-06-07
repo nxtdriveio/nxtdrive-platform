@@ -148,15 +148,12 @@ export default async function AgendaPage({
     Student,
     "id" | "full_name"
   >[]);
-  const visibleStudentIds = branchFilterIds
-    ? visibleStudents.map((s) => s.id)
-    : undefined;
 
   const appointments = await loadAgendaAppointments(supabase, {
     tenantId: tenant.id,
     from: weekStart,
     to: weekEnd,
-    studentIds: visibleStudentIds,
+    branchIds: branchFilterIds ?? undefined,
   });
 
   // Background availability: union across all instructors ("someone is free").
@@ -251,7 +248,7 @@ export default async function AgendaPage({
             Agenda
           </h1>
           <p className="text-sm text-muted-foreground">
-            Week van {dayFmt.format(weekStart)} — {dayFmt.format(
+            Week van {dayFmt.format(weekStart)} - {dayFmt.format(
               new Date(weekEnd.getTime() - 1),
             )}
             {selectedBranchName ? (
@@ -262,7 +259,7 @@ export default async function AgendaPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch filter — limited to the caller's expanded branch scope. */}
+          {/* Branch filter - limited to the caller's expanded branch scope. */}
           {branches.length > 1 ? (
             <form method="get" action="/backoffice/agenda" className="flex gap-2">
               <input type="hidden" name="week" value={weekStart.toISOString()} />
@@ -332,7 +329,7 @@ export default async function AgendaPage({
               intervals={freeSpace.get(dateKey(day.date)) ?? []}
             />
             {day.items.length === 0 ? (
-              <div className="text-xs text-muted-foreground">—</div>
+              <div className="text-xs text-muted-foreground">-</div>
             ) : (
               <ul className="space-y-2">
                 {day.items.map((item) =>

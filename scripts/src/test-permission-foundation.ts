@@ -45,10 +45,14 @@ const agendaActionsSrc = source("artifacts/nxtdrive/app/backoffice/agenda/action
 const agendaSharedActionsSrc = source("artifacts/nxtdrive/lib/agenda/actions.ts");
 const agendaTrialSrc = source("artifacts/nxtdrive/lib/trial-lessons/agenda.ts");
 const agendaAppointmentsSrc = source("artifacts/nxtdrive/lib/agenda/appointments.ts");
+const appointmentFormSrc = source("artifacts/nxtdrive/components/agenda/AppointmentForm.tsx");
+const appointmentTypesSrc = source("artifacts/nxtdrive/lib/agenda/types.ts");
 const typesSrc = source("artifacts/nxtdrive/lib/types.ts");
 const studentTypesSrc = source("artifacts/nxtdrive/lib/students/types.ts");
 const sessionSrc = source("artifacts/nxtdrive/lib/auth/session.ts");
 const migration = source("supabase/migrations/0099_permission_scope_foundation.sql");
+const appointmentBranchMigration = source("supabase/migrations/0100_agenda_appointment_branch_scope.sql");
+const appointmentBranchRlsMigration = source("supabase/migrations/0101_agenda_appointment_branch_rls.sql");
 
 check(
   "tenant_admin can manage organization settings",
@@ -249,9 +253,9 @@ check(
   agendaAccessSrc.includes("requireAgendaLessonAccess") &&
     agendaAccessSrc.includes("requireAgendaAppointmentAccess") &&
     agendaAccessSrc.includes("canManageAgendaRow") &&
-    agendaAccessSrc.includes("loadAppointmentStudentBranchId") &&
-    agendaAccessSrc.includes("canAccessBranch(branchScope, row.branch_id)") &&
-    agendaAccessSrc.includes("appointment.student_id"),
+    agendaAccessSrc.includes("appointmentBranchId") &&
+    agendaAccessSrc.includes("appointment.branch_id ?? studentBranchId") &&
+    agendaAccessSrc.includes("canAccessBranch(branchScope, row.branch_id)"),
 );
 check(
   "agenda detail pages consume agenda access guards before reads",
@@ -260,6 +264,7 @@ check(
     !agendaLessonDetailSrc.includes("requireActiveTenant") &&
     agendaAppointmentDetailSrc.includes("requireAgendaAppointmentAccess") &&
     agendaAppointmentDetailSrc.includes("canManageAgendaRow") &&
+    agendaAppointmentDetailSrc.includes("appointmentBranchId") &&
     !agendaAppointmentDetailSrc.includes("requireActiveTenant"),
 );
 check(
@@ -278,14 +283,33 @@ check(
     agendaSharedActionsSrc.includes("requireAgendaAppointmentAccess") &&
     agendaSharedActionsSrc.includes("requireStudentBackofficeAccess") &&
     agendaSharedActionsSrc.includes("canManageAgendaForInstructor") &&
+    agendaSharedActionsSrc.includes("canManageAgendaBranch") &&
+    agendaSharedActionsSrc.includes("p_branch_id") &&
     agendaSharedActionsSrc.includes("createServiceRoleClient"),
 );
 check(
-  "agenda loaders accept expanded branch and visible-student filters",
+  "agenda loaders accept expanded branch filters",
   agendaTrialSrc.includes("branchIds?: readonly string[]") &&
     agendaTrialSrc.includes('.in("branch_id", [...opts.branchIds])') &&
-    agendaAppointmentsSrc.includes("studentIds?: readonly string[]") &&
-    agendaAppointmentsSrc.includes('.in("student_id", [...opts.studentIds])'),
+    agendaAppointmentsSrc.includes("branchIds?: readonly string[]") &&
+    agendaAppointmentsSrc.includes('.in("branch_id", [...opts.branchIds])'),
+);
+check(
+  "appointment form and type expose branch assignment",
+  appointmentFormSrc.includes("type BranchOption") &&
+    appointmentFormSrc.includes('name="branch_id"') &&
+    appointmentFormSrc.includes("branchId?: string | null") &&
+    appointmentTypesSrc.includes("branch_id: string | null"),
+);
+check(
+  "agenda appointment branch migrations add branch-aware RPCs and RLS",
+  appointmentBranchMigration.includes("add column if not exists branch_id") &&
+    appointmentBranchMigration.includes("idx_agenda_appointments_branch") &&
+    appointmentBranchMigration.includes("p_branch_id") &&
+    appointmentBranchMigration.includes("v_student_branch_id") &&
+    appointmentBranchRlsMigration.includes("drop policy if exists agenda_appointments_select_members") &&
+    appointmentBranchRlsMigration.includes("public.my_branch_ids(agenda_appointments.tenant_id)") &&
+    appointmentBranchRlsMigration.includes("instructor_id = auth.uid()"),
 );
 check(
   "membership type and auth bootstrap include branch_scope_type",

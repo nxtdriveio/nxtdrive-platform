@@ -46,6 +46,7 @@ export type AgendaAppointmentAccess = {
   context: AuthorizedOrganizationContext;
   branchScope: BranchAccessScope;
   appointment: AgendaAppointment | null;
+  appointmentBranchId: string | null;
   studentBranchId: string | null;
 };
 
@@ -173,16 +174,26 @@ export async function requireAgendaAppointmentAccess(
 
   const appointment = (data ?? null) as AgendaAppointment | null;
   if (!appointment) {
-    return { context, branchScope, appointment: null, studentBranchId: null };
+    return {
+      context,
+      branchScope,
+      appointment: null,
+      appointmentBranchId: null,
+      studentBranchId: null,
+    };
   }
 
+  // appointment.branch_id is the source of truth for branch-scoped reads/writes.
+  // The student fallback keeps pre-migration student-linked rows accessible until
+  // production has run the branch backfill migration.
   const studentBranchId = await loadAppointmentStudentBranchId(
     client,
     context.organization.id,
     appointment.student_id,
   );
+  const appointmentBranchId = appointment.branch_id ?? studentBranchId;
   const scopedAppointment = {
-    branch_id: studentBranchId,
+    branch_id: appointmentBranchId,
     instructor_id: appointment.instructor_id,
   };
   const allowed =
@@ -194,6 +205,7 @@ export async function requireAgendaAppointmentAccess(
     context,
     branchScope,
     appointment: allowed ? appointment : null,
+    appointmentBranchId,
     studentBranchId,
   };
 }
