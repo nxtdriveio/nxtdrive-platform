@@ -45,6 +45,7 @@
     "db:test-review-requests": "tsx ./src/test-review-requests.ts",
     "db:test-rls-branches": "tsx ./src/test-rls-branches.ts",
     "db:test-rls-franchise": "tsx ./src/test-rls-franchise.ts",
+    "db:test-branch-cross-scope-foundation": "tsx ./src/test-branch-cross-scope-foundation.ts",
     "test-route-scoring": "tsx ./src/test-route-scoring.ts",
     "test-lesson-planning": "tsx ./src/test-lesson-planning.ts",
     "test-availability-compute": "tsx ./src/test-availability-compute.ts",
