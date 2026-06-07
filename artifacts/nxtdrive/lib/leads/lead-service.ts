@@ -7,6 +7,7 @@ import type {
   LeadStatus,
 } from "@/lib/leads/types";
 import { DEFAULT_LEAD_SCORE_POLICY } from "@/lib/leads/lead-score";
+import type { BranchAccessScope } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Dashboard read layer (Task #54). Server-component reads of the denormalised
@@ -16,7 +17,7 @@ import { DEFAULT_LEAD_SCORE_POLICY } from "@/lib/leads/lead-score";
 // ---------------------------------------------------------------------------
 
 const LEAD_COLUMNS =
-  "id, tenant_id, status, source, full_name, email, phone, postcode, message, assigned_to, " +
+  "id, tenant_id, branch_id, status, source, full_name, email, phone, postcode, message, assigned_to, " +
   "action_status, priority, lead_score, lead_score_reason, assigned_owner_id, assigned_instructor_id, " +
   "assigned_location_id, preferred_license_goal, preferred_transmission, role_type, birth_date, city, " +
   "neighborhood, pickup_address, pickup_place_id, pickup_lat, pickup_lng, desired_start_date, " +
@@ -94,6 +95,10 @@ export type LeadFilters = {
   overdueOnly?: boolean;
 };
 
+export type LeadQueryOptions = {
+  branchScope?: BranchAccessScope;
+};
+
 export type LeadKpis = {
   todayCount: number;
   openCount: number;
@@ -108,6 +113,24 @@ function endOfTodayIso(now: number): string {
   const d = new Date(now);
   d.setHours(23, 59, 59, 999);
   return d.toISOString();
+}
+
+function branchIdsForScope(options: LeadQueryOptions): string[] | null {
+  if (!options.branchScope || options.branchScope.scope_type === "all") return null;
+  return options.branchScope.branch_ids;
+}
+
+function isEmptyBranchScope(options: LeadQueryOptions): boolean {
+  const branchIds = branchIdsForScope(options);
+  return Array.isArray(branchIds) && branchIds.length === 0;
+}
+
+/** Apply expanded organization branch scope to a leads query. */
+function applyBranchScope<T>(q: T, options: LeadQueryOptions): T {
+  const branchIds = branchIdsForScope(options);
+  if (!branchIds) return q;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (q as any).in("branch_id", branchIds) as T;
 }
 
 /**
@@ -142,7 +165,7 @@ const PRIORITY_WEIGHT: Record<Lead["priority"], number> = {
 
 /**
  * "Next best actions" ordering contract:
- *   overdue first → urgent (priority) → high lead score → due_at → desired start.
+ *   overdue first -> urgent (priority) -> high lead score -> due_at -> desired start.
  * Sorted in JS because "overdue" is a now-relative bucket not expressible as a
  * single SQL ORDER BY.
  */
@@ -173,7 +196,10 @@ export async function getTodayLeads(
   tenantId: string,
   now: number = Date.now(),
   filters: LeadFilters = {},
+  options: LeadQueryOptions = {},
 ): Promise<Lead[]> {
+  if (isEmptyBranchScope(options)) return [];
+
   let q = client
     .from("leads")
     .select(LEAD_COLUMNS)
@@ -181,6 +207,7 @@ export async function getTodayLeads(
     .eq("action_status", "awaiting_us" satisfies LeadActionStatus)
     .in("status", OPEN_STATUSES as unknown as string[])
     .or(`next_action_at.is.null,next_action_at.lte.${endOfTodayIso(now)}`);
+  q = applyBranchScope(q, options);
   q = applyFilters(q, filters, new Date(now).toISOString());
   const { data, error } = await q;
   if (error) throw error;
@@ -193,10 +220,13 @@ export async function getLeadsForTab(
   tab: DashboardTab,
   now: number = Date.now(),
   filters: LeadFilters = {},
+  options: LeadQueryOptions = {},
 ): Promise<Lead[]> {
-  if (tab === "today") return getTodayLeads(client, tenantId, now, filters);
+  if (tab === "today") return getTodayLeads(client, tenantId, now, filters, options);
+  if (isEmptyBranchScope(options)) return [];
 
   let q = client.from("leads").select(LEAD_COLUMNS).eq("tenant_id", tenantId);
+  q = applyBranchScope(q, options);
 
   if (tab === "new_requests") {
     q = q.in("status", NEW_REQUEST_STATUSES as unknown as string[]);
@@ -231,8 +261,25 @@ export async function getLeadKpis(
   tenantId: string,
   now: number = Date.now(),
   hotThreshold: number = DEFAULT_LEAD_SCORE_POLICY.bands.hot,
+  options: LeadQueryOptions = {},
 ): Promise<LeadKpis> {
-  const base = () => client.from("leads").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
+  if (isEmptyBranchScope(options)) {
+    return {
+      todayCount: 0,
+      openCount: 0,
+      waitingCount: 0,
+      overdueCount: 0,
+      wonCount: 0,
+      lostCount: 0,
+      hotCount: 0,
+    };
+  }
+
+  const base = () =>
+    applyBranchScope(
+      client.from("leads").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+      options,
+    );
   const endToday = endOfTodayIso(now);
   const nowIso = new Date(now).toISOString();
 
@@ -268,13 +315,17 @@ export async function getLeadById(
   client: SupabaseClient,
   tenantId: string,
   leadId: string,
+  options: LeadQueryOptions = {},
 ): Promise<Lead | null> {
-  const { data, error } = await client
+  if (isEmptyBranchScope(options)) return null;
+
+  let q = client
     .from("leads")
     .select(LEAD_COLUMNS)
     .eq("tenant_id", tenantId)
-    .eq("id", leadId)
-    .maybeSingle();
+    .eq("id", leadId);
+  q = applyBranchScope(q, options);
+  const { data, error } = await q.maybeSingle();
   if (error) throw error;
   return (data as unknown as Lead) ?? null;
 }
