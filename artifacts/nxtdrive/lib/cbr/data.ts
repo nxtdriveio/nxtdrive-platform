@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgendaAppointmentResult } from "@/lib/agenda/types";
+import type { BranchAccessScope } from "@/lib/permissions";
 import {
   deriveCbrExamStatus,
   type CbrAppointmentInput,
@@ -140,39 +141,60 @@ export type CbrOverviewRow = {
   lastExamNote: string | null;
 };
 
+type CbrOverviewStudentRow = {
+  id: string;
+  full_name: string;
+  branch_id: string | null;
+};
+
 /**
- * Backoffice-overzicht: alle actieve leerlingen met hun voorwaarden + afgeleide
- * CBR-status. Eén batchquery per tabel (geen N+1), in geheugen samengevoegd.
+ * Backoffice-overzicht: actieve leerlingen met hun voorwaarden + afgeleide
+ * CBR-status. De optionele branch-scope houdt multi-vestiging views dezelfde
+ * grens als het leerlingenoverzicht en voorkomt tenant-brede batchreads.
  */
 export async function loadTenantCbrOverview(
   client: SupabaseClient,
   tenantId: string,
   now: Date = new Date(),
+  options: { branchScope?: BranchAccessScope } = {},
 ): Promise<CbrOverviewRow[]> {
   const ctx = `tenant=${tenantId}`;
-  const [studentsRes, statusRes, apptRes] = await Promise.all([
-    client
-      .from("students")
-      .select("id, full_name")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("full_name", { ascending: true }),
+  let studentsQuery = client
+    .from("students")
+    .select("id, full_name, branch_id")
+    .eq("tenant_id", tenantId)
+    .eq("active", true);
+
+  if (options.branchScope?.scope_type === "branches") {
+    if (options.branchScope.branch_ids.length === 0) return [];
+    studentsQuery = studentsQuery.in("branch_id", options.branchScope.branch_ids);
+  }
+
+  const studentsRes = await studentsQuery.order("full_name", { ascending: true });
+  if (studentsRes.error) {
+    throw new Error(`cbr: load students failed (${ctx}): ${studentsRes.error.message}`);
+  }
+
+  const students = (studentsRes.data ?? []) as CbrOverviewStudentRow[];
+  const studentIds = students.map((s) => s.id);
+  if (studentIds.length === 0) return [];
+
+  const [statusRes, apptRes] = await Promise.all([
     client
       .from("student_cbr_status")
       .select(
         "student_id, theorie_behaald, machtiging_status, machtiging_geregeld, gezondheidsverklaring_vereist, gezondheidsverklaring_geregeld",
       )
-      .eq("tenant_id", tenantId),
+      .eq("tenant_id", tenantId)
+      .in("student_id", studentIds),
     client
       .from("agenda_appointments")
       .select("student_id, type, status, starts_at, result, result_note")
       .eq("tenant_id", tenantId)
+      .in("student_id", studentIds)
       .in("type", RESULTABLE_TYPES as unknown as string[]),
   ]);
 
-  if (studentsRes.error) {
-    throw new Error(`cbr: load students failed (${ctx}): ${studentsRes.error.message}`);
-  }
   if (statusRes.error) {
     throw new Error(`cbr: load statuses failed (${ctx}): ${statusRes.error.message}`);
   }
@@ -194,12 +216,12 @@ export async function loadTenantCbrOverview(
     apptsByStudent.set(sid, arr);
   }
 
-  return (studentsRes.data ?? []).map((s) => {
-    const sid = (s as { id: string }).id;
+  return students.map((s) => {
+    const sid = s.id;
     const rows = apptsByStudent.get(sid) ?? [];
     return {
       studentId: sid,
-      fullName: (s as { full_name: string }).full_name,
+      fullName: s.full_name,
       preconditions: mapPreconditions(statusByStudent.get(sid) ?? null),
       derived: deriveCbrExamStatus(toInputs(rows), now),
       lastExamNote: lastExamNote(rows),

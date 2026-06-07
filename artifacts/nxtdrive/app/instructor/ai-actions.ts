@@ -14,6 +14,7 @@ import {
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
+import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import type { Lesson } from "@/lib/lessons/types";
 
 /**
@@ -287,19 +288,15 @@ export async function analyzeRetakeAction(
   studentId: string,
 ): Promise<{ analysis?: ProgressAnalysis; error?: string }> {
   if (!studentId) return { error: "student_id ontbreekt" };
-  const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
   const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "collaborate",
+  );
+  if (!student) return { error: "Leerling niet gevonden" };
 
-  // Confirm the student belongs to the active tenant before any AI call.
-  const { data: studentRow, error: studentErr } = await service
-    .from("students")
-    .select("id, full_name")
-    .eq("id", studentId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (studentErr) return { error: studentErr.message };
-  if (!studentRow) return { error: "Leerling niet gevonden" };
-
+  const { organization: tenant } = context;
   await primeAiClientIfNeeded(service);
 
   try {
@@ -320,7 +317,7 @@ export async function analyzeRetakeAction(
     ]);
 
     const analysis = await analyzeStudentProgress({
-      studentName: (studentRow.full_name as string | undefined) ?? "de leerling",
+      studentName: student.full_name,
       readiness,
       weakestSkills: pickWeakestSkills(leskaart.categories),
     });
