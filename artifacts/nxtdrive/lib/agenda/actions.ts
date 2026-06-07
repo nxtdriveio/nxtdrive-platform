@@ -11,7 +11,10 @@ import {
 import { canAccessBranch, rolesGrantPermission } from "@/lib/permissions";
 import type { AuthorizedOrganizationContext } from "@/lib/organization";
 import type { BranchAccessScope } from "@/lib/permissions";
-import { requireStudentBackofficeAccess } from "@/lib/students/access";
+import {
+  requireStudentBackofficeAccess,
+  type StudentBackofficeAccess,
+} from "@/lib/students/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   AGENDA_APPOINTMENT_TYPES,
@@ -25,6 +28,15 @@ import {
 // and the instructor PWA. Writes go exclusively through the SECURITY DEFINER
 // RPCs as service_role; every write first resolves explicit agenda/student
 // access so service_role never becomes the authorization boundary.
+
+type AgendaContextAccess = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+type AppointmentCreateAccess = StudentBackofficeAccess | AgendaContextAccess;
+
+function hasStudentAccess(
+  access: AppointmentCreateAccess,
+): access is StudentBackofficeAccess {
+  return "student" in access;
+}
 
 function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null {
   const v = String(raw ?? "");
@@ -87,20 +99,20 @@ export async function createAppointment(formData: FormData) {
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
 
   const service = createServiceRoleClient();
-  const access = studentId
+  const access: AppointmentCreateAccess = studentId
     ? await requireStudentBackofficeAccess(service, studentId, "read", {
         allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES],
       })
     : await requireAgendaAccessContext(service, AGENDA_BACKOFFICE_MANAGE_ROLES);
-  if ("student" in access && !access.student) {
+  if (hasStudentAccess(access) && !access.student) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
   const { context, branchScope } = access;
-  const appointmentBranchId =
-    "student" in access && access.student
-      ? access.student.branch_id
-      : requestedBranchId;
+  let appointmentBranchId = requestedBranchId;
+  if (hasStudentAccess(access)) {
+    appointmentBranchId = access.student?.branch_id ?? null;
+  }
 
   const canAssignInstructor =
     context.user.profile?.is_platform_admin ||
