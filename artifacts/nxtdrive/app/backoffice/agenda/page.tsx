@@ -264,12 +264,11 @@ export default async function AgendaPage({
         <div className="flex flex-wrap items-center gap-2">
           {/* Branch filter — limited to the caller's expanded branch scope. */}
           {branches.length > 1 ? (
-            <form method="get" action="/backoffice/agenda">
+            <form method="get" action="/backoffice/agenda" className="flex gap-2">
               <input type="hidden" name="week" value={weekStart.toISOString()} />
               <select
                 name="branch"
                 defaultValue={selectedBranchId ?? ""}
-                onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
                 className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">Alle toegestane vestigingen</option>
@@ -279,6 +278,12 @@ export default async function AgendaPage({
                   </option>
                 ))}
               </select>
+              <button
+                type="submit"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Filter
+              </button>
             </form>
           ) : null}
 
