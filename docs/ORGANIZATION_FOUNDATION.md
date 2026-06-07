@@ -118,6 +118,9 @@ Started:
 - Teach permission checks that `resource:manage` covers lower-level actions on the same resource, including `resource:read`.
 - Add `loadOrganizationBranchScope` to expand branch-scoped memberships with actual `membership_branches` IDs before module filters are applied.
 - Retrofit the backoffice students list to use `requireOrganizationPermission("student:read")`, expanded branch scopes, branch-limited filters, and balance queries scoped to the visible students.
+- Add `requireStudentBackofficeAccess` to validate single-student staff access before dossier/service-role reads.
+- Retrofit the student detail page to validate branch-scoped access before loading the 360-degree dossier.
+- Retrofit `backoffice/leerlingen/actions.ts` so protected student writes validate per-student access before service-role RPC/storage/auth operations.
 
 Acceptance for current slices:
 
@@ -125,10 +128,11 @@ Acceptance for current slices:
 - `pnpm --filter @workspace/scripts run test-permission-foundation` passes.
 - New server modules can call `requireOrganizationPermission("resource:action")` instead of hardcoding role arrays.
 - The students list only shows students from branches inside the user's expanded organization branch scope.
+- Student dossier and `leerlingen/actions.ts` writes validate the target student against the caller's expanded branch scope first.
 
 Still required in Sprint 3:
 
-- Complete the student detail/actions retrofit where mutations or dossier reads need explicit branch/own authorization.
+- Complete remaining student-adjacent actions outside `backoffice/leerlingen/actions.ts`, including availability/daypart and any CBR/retake actions owned by separate modules.
 - Retrofit agenda, leads, tasks, vehicles, and invoices to consume `requireOrganizationPermission` and returned branch scopes.
 - Update module-specific RLS tests to assert the new explicit branch scope field remains synchronized.
 - Replace ad hoc role arrays in backoffice pages/actions where the permission registry now has equivalent resource/action checks.
