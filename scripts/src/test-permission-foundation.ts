@@ -37,6 +37,9 @@ const studentAccessSrc = source("artifacts/nxtdrive/lib/students/access.ts");
 const studentsPageSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/page.tsx");
 const studentDetailSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/[id]/page.tsx");
 const studentActionsSrc = source("artifacts/nxtdrive/app/backoffice/leerlingen/actions.ts");
+const agendaPageSrc = source("artifacts/nxtdrive/app/backoffice/agenda/page.tsx");
+const agendaTrialSrc = source("artifacts/nxtdrive/lib/trial-lessons/agenda.ts");
+const agendaAppointmentsSrc = source("artifacts/nxtdrive/lib/agenda/appointments.ts");
 const typesSrc = source("artifacts/nxtdrive/lib/types.ts");
 const studentTypesSrc = source("artifacts/nxtdrive/lib/students/types.ts");
 const sessionSrc = source("artifacts/nxtdrive/lib/auth/session.ts");
@@ -67,6 +70,13 @@ check(
   "planner can manage planning but not invoices",
   rolesGrantPermission(["planner"], "planning:manage") &&
     !rolesGrantPermission(["planner"], "invoice:manage"),
+);
+check(
+  "backoffice support roles can read planning without managing it",
+  rolesGrantPermission(["admin_staff"], "planning:read") &&
+    rolesGrantPermission(["marketing"], "planning:read") &&
+    !rolesGrantPermission(["admin_staff"], "planning:manage") &&
+    !rolesGrantPermission(["marketing"], "planning:manage"),
 );
 check(
   "admin_staff can manage invoices",
@@ -218,6 +228,23 @@ check(
     !studentActionsSrc.includes("requireActiveTenant") &&
     studentActionsSrc.includes('"collaborate"') &&
     studentActionsSrc.includes('"admin"'),
+);
+check(
+  "agenda overview consumes planning permission branch scope",
+  agendaPageSrc.includes('requireOrganizationPermission("planning:read",') &&
+    agendaPageSrc.includes("AGENDA_BACKOFFICE_READ_ROLES") &&
+    !agendaPageSrc.includes("requireActiveTenant") &&
+    agendaPageSrc.includes("loadOrganizationBranchScope") &&
+    agendaPageSrc.includes("canAccessBranch(branchScope, requestedBranchId)") &&
+    agendaPageSrc.includes("branchFilterIds") &&
+    agendaPageSrc.includes("Alle toegestane vestigingen"),
+);
+check(
+  "agenda loaders accept expanded branch and visible-student filters",
+  agendaTrialSrc.includes("branchIds?: readonly string[]") &&
+    agendaTrialSrc.includes('.in("branch_id", [...opts.branchIds])') &&
+    agendaAppointmentsSrc.includes("studentIds?: readonly string[]") &&
+    agendaAppointmentsSrc.includes('.in("student_id", [...opts.studentIds])'),
 );
 check(
   "membership type and auth bootstrap include branch_scope_type",
