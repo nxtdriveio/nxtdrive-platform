@@ -2,7 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  AGENDA_BACKOFFICE_MANAGE_ROLES,
+  canManageAgendaForInstructor,
+  requireAgendaAccessContext,
+  requireAgendaAppointmentAccess,
+} from "@/lib/agenda/access";
+import { rolesGrantPermission } from "@/lib/permissions";
+import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   AGENDA_APPOINTMENT_TYPES,
@@ -14,8 +21,8 @@ import {
 
 // Shared agenda-appointment server actions, used by both the backoffice agenda
 // and the instructor PWA. Writes go exclusively through the SECURITY DEFINER
-// RPCs as service_role; non-admin actors are always pinned to their own
-// instructor_id so an instructor can only manage their own time.
+// RPCs as service_role; every write first resolves explicit agenda/student
+// access so service_role never becomes the authorization boundary.
 
 function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null {
   const v = String(raw ?? "");
@@ -31,13 +38,6 @@ function safeRedirect(raw: FormDataEntryValue | null, fallback: string): string 
 }
 
 export async function createAppointment(formData: FormData) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-
   const redirectTo = safeRedirect(
     formData.get("redirect_to"),
     "/backoffice/agenda",
@@ -47,113 +47,9 @@ export async function createAppointment(formData: FormData) {
   const type = parseType(formData.get("type"));
   if (!type) redirect(`${errorTo}?error=type`);
 
-  const instructorId = isAdmin
-    ? String(formData.get("instructor_id") ?? "")
-    : user.id;
+  const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = isStudentLinkedType(type!) && studentIdRaw
-    ? studentIdRaw
-    : null;
-  const date = String(formData.get("date") ?? "");
-  const time = String(formData.get("time") ?? "");
-  const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
-
-  if (!instructorId || !date || !time) redirect(`${errorTo}?error=missing`);
-  if (!Number.isFinite(duration) || duration < 5) {
-    redirect(`${errorTo}?error=duration`);
-  }
-  const startsAt = new Date(`${date}T${time}:00`);
-  if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
-
-  const service = createServiceRoleClient();
-  const { data: newId, error } = await service.rpc("create_agenda_appointment", {
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
-    p_instructor_id: instructorId,
-    p_type: type,
-    p_starts_at: startsAt.toISOString(),
-    p_duration_min: duration,
-    p_student_id: studentId,
-    p_title: title || null,
-    p_location: location || null,
-    p_notes: notes || null,
-  });
-  if (error) {
-    redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
-  }
-
-  // White-label-bewuste "examen ingepland"-mail naar de leerling. Idempotent
-  // per afspraak (dedupe op appointment id) en faalt nooit de planactie:
-  // degradeert stil naar 'skipped' zonder mailprovider of leerling-e-mail.
-  if (studentId && (type === "exam" || type === "interim_test") && newId) {
-    await maybeNotifyExamPlanned(service, tenant.id, String(newId));
-  }
-
-  revalidatePath("/backoffice/agenda");
-  revalidatePath("/instructor/week");
-  revalidatePath("/instructor");
-  if (studentId) revalidatePath(`/backoffice/leerlingen/${studentId}`);
-  redirect(redirectTo);
-}
-
-// Fire-and-forget wrapper: een mislukte notificatie mag de planning nooit
-// blokkeren. De dispatch zelf is al idempotent en degradeert naar 'skipped'.
-async function maybeNotifyExamPlanned(
-  service: ReturnType<typeof createServiceRoleClient>,
-  tenantId: string,
-  appointmentId: string,
-) {
-  try {
-    const { notifyExamPlanned } = await import("@/lib/notifications/dispatch");
-    await notifyExamPlanned(service, tenantId, appointmentId);
-  } catch {
-    // Bewust ingeslikt: notificaties zijn best-effort, planning is leidend.
-  }
-}
-
-// Fire-and-forget wrapper voor de uitslag-mail (geslaagd/gezakt). Idempotent en
-// degradeert naar 'skipped'; een mislukte mail mag het vastleggen van de uitslag
-// nooit blokkeren.
-async function maybeNotifyExamResult(
-  service: ReturnType<typeof createServiceRoleClient>,
-  tenantId: string,
-  appointmentId: string,
-) {
-  try {
-    const { notifyExamResult, maybeFireExamPassedReview } = await import(
-      "@/lib/notifications/dispatch"
-    );
-    await notifyExamResult(service, tenantId, appointmentId);
-    // Task #113 — reviewverzoek na een geslaagd rijexamen (idempotent per
-    // afspraak; no-op bij gezakt/TTT of als het moment uit staat).
-    await maybeFireExamPassedReview(service, tenantId, appointmentId);
-  } catch {
-    // Bewust ingeslikt: notificaties zijn best-effort, de uitslag is leidend.
-  }
-}
-
-export async function updateAppointment(formData: FormData) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-
-  const appointmentId = String(formData.get("appointment_id") ?? "");
-  const redirectTo = safeRedirect(
-    formData.get("redirect_to"),
-    "/backoffice/agenda",
-  );
-  const errorTo = safeRedirect(formData.get("error_to"), redirectTo);
-  if (!appointmentId) redirect(redirectTo);
-
-  const type = parseType(formData.get("type"));
-  const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = type && isStudentLinkedType(type) && studentIdRaw
+  const studentId = isStudentLinkedType(type) && studentIdRaw
     ? studentIdRaw
     : null;
   const date = String(formData.get("date") ?? "");
@@ -170,24 +66,43 @@ export async function updateAppointment(formData: FormData) {
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
 
-  // Non-admins may only edit their own appointments.
   const service = createServiceRoleClient();
-  if (!isAdmin) {
-    const { data: row } = await service
-      .from("agenda_appointments")
-      .select("instructor_id")
-      .eq("id", appointmentId)
-      .eq("tenant_id", tenant.id)
-      .maybeSingle();
-    if (!row || row.instructor_id !== user.id) {
-      redirect(`${errorTo}?error=forbidden`);
-    }
+  const access = studentId
+    ? await requireStudentBackofficeAccess(service, studentId, "read", {
+        allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES],
+      })
+    : await requireAgendaAccessContext(service, AGENDA_BACKOFFICE_MANAGE_ROLES);
+  if ("student" in access && !access.student) {
+    redirect(`${errorTo}?error=forbidden`);
   }
 
-  const { error } = await service.rpc("update_agenda_appointment", {
-    p_appointment_id: appointmentId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+  const { context } = access;
+  const canAssignInstructor =
+    context.user.profile?.is_platform_admin ||
+    rolesGrantPermission(context.roles, "planning:manage");
+  const instructorId = canAssignInstructor
+    ? requestedInstructorId
+    : context.user.id;
+  if (!instructorId) redirect(`${errorTo}?error=missing`);
+  if (!canManageAgendaForInstructor(context, instructorId)) {
+    redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const tenantLevelManage =
+    context.user.profile?.is_platform_admin ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  const instructorOwnBlock =
+    context.roles.includes("instructor") && instructorId === context.user.id;
+  if (!studentId && !tenantLevelManage && !instructorOwnBlock) {
+    redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const { data: newId, error } = await service.rpc("create_agenda_appointment", {
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
+    p_instructor_id: instructorId,
+    p_type: type,
     p_starts_at: startsAt.toISOString(),
     p_duration_min: duration,
     p_student_id: studentId,
@@ -199,11 +114,123 @@ export async function updateAppointment(formData: FormData) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
 
-  // Idempotent per afspraak: een latere wijziging her-zendt nooit (zelfde
-  // dedupe key). Stuurt alleen alsnog als planning→examen met leerling pas
-  // bij deze edit compleet werd.
+  // White-label-aware "exam scheduled" mail to the student. Idempotent per
+  // appointment and best-effort; mail failures must never block planning.
+  if (studentId && (type === "exam" || type === "interim_test") && newId) {
+    await maybeNotifyExamPlanned(service, context.organization.id, String(newId));
+  }
+
+  revalidatePath("/backoffice/agenda");
+  revalidatePath("/instructor/week");
+  revalidatePath("/instructor");
+  if (studentId) revalidatePath(`/backoffice/leerlingen/${studentId}`);
+  redirect(redirectTo);
+}
+
+// Fire-and-forget wrapper: a notification failure must never block planning.
+// The dispatch itself is already idempotent and degrades to 'skipped'.
+async function maybeNotifyExamPlanned(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  appointmentId: string,
+) {
+  try {
+    const { notifyExamPlanned } = await import("@/lib/notifications/dispatch");
+    await notifyExamPlanned(service, tenantId, appointmentId);
+  } catch {
+    // Intentional no-op: notifications are best-effort, planning is leading.
+  }
+}
+
+// Fire-and-forget wrapper for the result mail (passed/failed). Idempotent and
+// best-effort; a mail failure must never block storing the result.
+async function maybeNotifyExamResult(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  appointmentId: string,
+) {
+  try {
+    const { notifyExamResult, maybeFireExamPassedReview } = await import(
+      "@/lib/notifications/dispatch"
+    );
+    await notifyExamResult(service, tenantId, appointmentId);
+    // Task #113 - review request after a passed driving exam. Idempotent per
+    // appointment; no-op for failed/TTT or when disabled.
+    await maybeFireExamPassedReview(service, tenantId, appointmentId);
+  } catch {
+    // Intentional no-op: notifications are best-effort, the result is leading.
+  }
+}
+
+export async function updateAppointment(formData: FormData) {
+  const appointmentId = String(formData.get("appointment_id") ?? "");
+  const redirectTo = safeRedirect(
+    formData.get("redirect_to"),
+    "/backoffice/agenda",
+  );
+  const errorTo = safeRedirect(formData.get("error_to"), redirectTo);
+  if (!appointmentId) redirect(redirectTo);
+
+  const type = parseType(formData.get("type"));
+  if (!type) redirect(`${errorTo}?error=type`);
+  const studentIdRaw = String(formData.get("student_id") ?? "").trim();
+  const studentId = isStudentLinkedType(type) && studentIdRaw
+    ? studentIdRaw
+    : null;
+  const date = String(formData.get("date") ?? "");
+  const time = String(formData.get("time") ?? "");
+  const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
+  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
+  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+
+  if (!date || !time) redirect(`${errorTo}?error=missing`);
+  if (!Number.isFinite(duration) || duration < 5) {
+    redirect(`${errorTo}?error=duration`);
+  }
+  const startsAt = new Date(`${date}T${time}:00`);
+  if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
+
+  const service = createServiceRoleClient();
+  const appointmentAccess = await requireAgendaAppointmentAccess(
+    service,
+    appointmentId,
+    "manage",
+  );
+  if (!appointmentAccess.appointment) {
+    redirect(`${errorTo}?error=forbidden`);
+  }
+  const { context } = appointmentAccess;
+
+  if (studentId) {
+    const studentAccess = await requireStudentBackofficeAccess(
+      service,
+      studentId,
+      "read",
+      { allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES] },
+    );
+    if (!studentAccess.student) redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const { error } = await service.rpc("update_agenda_appointment", {
+    p_appointment_id: appointmentId,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
+    p_starts_at: startsAt.toISOString(),
+    p_duration_min: duration,
+    p_student_id: studentId,
+    p_title: title || null,
+    p_location: location || null,
+    p_notes: notes || null,
+  });
+  if (error) {
+    redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // Idempotent per appointment: later edits never re-send with the same dedupe
+  // key, but an appointment made complete by this edit can still notify once.
   if (studentId && (type === "exam" || type === "interim_test")) {
-    await maybeNotifyExamPlanned(service, tenant.id, appointmentId);
+    await maybeNotifyExamPlanned(service, context.organization.id, appointmentId);
   }
 
   revalidatePath("/backoffice/agenda");
@@ -214,13 +241,6 @@ export async function updateAppointment(formData: FormData) {
 }
 
 export async function deleteAppointment(formData: FormData) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-
   const appointmentId = String(formData.get("appointment_id") ?? "");
   const redirectTo = safeRedirect(
     formData.get("redirect_to"),
@@ -229,22 +249,17 @@ export async function deleteAppointment(formData: FormData) {
   if (!appointmentId) redirect(redirectTo);
 
   const service = createServiceRoleClient();
-  if (!isAdmin) {
-    const { data: row } = await service
-      .from("agenda_appointments")
-      .select("instructor_id")
-      .eq("id", appointmentId)
-      .eq("tenant_id", tenant.id)
-      .maybeSingle();
-    if (!row || row.instructor_id !== user.id) {
-      redirect(`${redirectTo}?error=forbidden`);
-    }
-  }
+  const { context, appointment } = await requireAgendaAppointmentAccess(
+    service,
+    appointmentId,
+    "manage",
+  );
+  if (!appointment) redirect(`${redirectTo}?error=forbidden`);
 
   const { error } = await service.rpc("delete_agenda_appointment", {
     p_appointment_id: appointmentId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
   });
   if (error) {
     redirect(`${redirectTo}?error=${encodeURIComponent(error.message)}`);
@@ -265,17 +280,9 @@ function parseResult(
     : null;
 }
 
-// Legt de uitslag (geslaagd/gezakt) van een examen of tussentijdse toets vast.
-// Server-side only via de SECURITY DEFINER RPC; non-admins worden — net als de
-// overige agenda-mutaties — gecontroleerd tegen hun eigen instructor_id.
+// Stores the result (passed/failed) for an exam or interim test. Server-side
+// only via the SECURITY DEFINER RPC after scoped agenda access has been checked.
 export async function setAppointmentResult(formData: FormData) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-
   const appointmentId = String(formData.get("appointment_id") ?? "");
   const redirectTo = safeRedirect(
     formData.get("redirect_to"),
@@ -289,22 +296,17 @@ export async function setAppointmentResult(formData: FormData) {
   const note = String(formData.get("result_note") ?? "").trim().slice(0, 1000);
 
   const service = createServiceRoleClient();
-  if (!isAdmin) {
-    const { data: row } = await service
-      .from("agenda_appointments")
-      .select("instructor_id")
-      .eq("id", appointmentId)
-      .eq("tenant_id", tenant.id)
-      .maybeSingle();
-    if (!row || row.instructor_id !== user.id) {
-      redirect(`${errorTo}?error=forbidden`);
-    }
-  }
+  const { context, appointment } = await requireAgendaAppointmentAccess(
+    service,
+    appointmentId,
+    "manage",
+  );
+  if (!appointment) redirect(`${errorTo}?error=forbidden`);
 
   const { error } = await service.rpc("set_appointment_result", {
     p_appointment_id: appointmentId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
     p_result: result,
     p_note: note || null,
   });
@@ -312,9 +314,9 @@ export async function setAppointmentResult(formData: FormData) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
 
-  // Examenflow C: stuur de uitslag-mail (geslaagd/gezakt). Idempotent per
-  // (afspraak, uitslag) en best-effort — een mislukte mail blokkeert niets.
-  await maybeNotifyExamResult(service, tenant.id, appointmentId);
+  // Examenflow C: send the result mail (passed/failed). Idempotent per
+  // (appointment, result) and best-effort - a mail failure blocks nothing.
+  await maybeNotifyExamResult(service, context.organization.id, appointmentId);
 
   revalidatePath("/backoffice/agenda");
   revalidatePath("/backoffice/cbr");
@@ -324,18 +326,9 @@ export async function setAppointmentResult(formData: FormData) {
   redirect(redirectTo);
 }
 
-// Legt de examenvoorbereiding (ophaaltijd/-locatie, afvinkbare documentenlijst,
-// aandachtspunten) van een examen of tussentijdse toets vast. Server-side only
-// via de SECURITY DEFINER RPC; non-admins worden gecontroleerd tegen hun eigen
-// instructor_id, net als de overige agenda-mutaties.
+// Stores exam-day preparation details for an exam or interim test. Server-side
+// only via the SECURITY DEFINER RPC after scoped agenda access has been checked.
 export async function setExamAppointmentDetails(formData: FormData) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "tenant_admin",
-    "instructor",
-  ]);
-  const isAdmin =
-    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-
   const appointmentId = String(formData.get("appointment_id") ?? "");
   const redirectTo = safeRedirect(
     formData.get("redirect_to"),
@@ -356,8 +349,8 @@ export async function setExamAppointmentDetails(formData: FormData) {
     .trim()
     .slice(0, 2000);
 
-  // Afvinkbare documentenlijst komt als JSON-string binnen; valideer naar een
-  // schone {code,label,checked}[] zodat een malformede waarde nooit doorlekt.
+  // The document checklist comes in as JSON; validate into a clean array so a
+  // malformed payload never leaks into the RPC.
   const documents: { code: string; label: string; checked: boolean }[] = [];
   const docsRaw = formData.get("required_documents");
   if (typeof docsRaw === "string" && docsRaw.trim()) {
@@ -380,22 +373,17 @@ export async function setExamAppointmentDetails(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
-  if (!isAdmin) {
-    const { data: row } = await service
-      .from("agenda_appointments")
-      .select("instructor_id")
-      .eq("id", appointmentId)
-      .eq("tenant_id", tenant.id)
-      .maybeSingle();
-    if (!row || row.instructor_id !== user.id) {
-      redirect(`${errorTo}?error=forbidden`);
-    }
-  }
+  const { context, appointment } = await requireAgendaAppointmentAccess(
+    service,
+    appointmentId,
+    "manage",
+  );
+  if (!appointment) redirect(`${errorTo}?error=forbidden`);
 
   const { error } = await service.rpc("set_exam_appointment_details", {
     p_appointment_id: appointmentId,
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
     p_pickup_at: pickupAt ? pickupAt.toISOString() : null,
     p_pickup_location: pickupLocation || null,
     p_required_documents: documents,
