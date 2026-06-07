@@ -41,6 +41,19 @@ type TaskManageAccess = {
   branchScope: BranchAccessScope;
 };
 
+type ExistingTaskManage = {
+  ok: true;
+  branchId: string | null;
+  boardId: string;
+  boardBranchId: string | null;
+};
+
+type TaskColumnAccess = {
+  ok: true;
+  boardId: string;
+  boardBranchId: string | null;
+};
+
 async function requireTaskManageAccess(): Promise<TaskManageAccess> {
   const context = await requireOrganizationPermission("task:manage");
   const service = createServiceRoleClient();
@@ -57,13 +70,65 @@ function canManageTaskBranch(
   return canAccessBranch(branchScope, branchId);
 }
 
+function canUseTaskBoardBranch(
+  branchScope: BranchAccessScope,
+  branchId: string | null,
+): boolean {
+  if (!branchId) return true;
+  if (branchScope.scope_type === "all") return true;
+  return canAccessBranch(branchScope, branchId);
+}
+
+async function loadBoardBranch(
+  access: TaskManageAccess,
+  boardId: string,
+): Promise<{ ok: true; branchId: string | null } | { ok: false; error: string }> {
+  const { data, error } = await access.service
+    .from("task_boards")
+    .select("id, branch_id")
+    .eq("tenant_id", access.context.organization.id)
+    .eq("id", boardId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Taakbord niet gevonden." };
+
+  const branchId = (data as { branch_id: string | null }).branch_id;
+  if (!canUseTaskBoardBranch(access.branchScope, branchId)) {
+    return { ok: false, error: "Geen toegang tot dit taakbord." };
+  }
+
+  return { ok: true, branchId };
+}
+
+async function requireTaskColumnAccess(
+  access: TaskManageAccess,
+  columnId: string,
+): Promise<TaskColumnAccess | { ok: false; error: string }> {
+  const { data, error } = await access.service
+    .from("task_columns")
+    .select("id, board_id")
+    .eq("tenant_id", access.context.organization.id)
+    .eq("id", columnId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Taakkolom niet gevonden." };
+
+  const boardId = (data as { board_id: string }).board_id;
+  const board = await loadBoardBranch(access, boardId);
+  if (!board.ok) return board;
+
+  return { ok: true, boardId, boardBranchId: board.branchId };
+}
+
 async function requireExistingTaskManage(
   access: TaskManageAccess,
   taskId: string,
-): Promise<{ ok: true; branchId: string | null } | { ok: false; error: string }> {
+): Promise<ExistingTaskManage | { ok: false; error: string }> {
   const { data, error } = await access.service
     .from("tasks")
-    .select("id, branch_id")
+    .select("id, branch_id, board_id")
     .eq("tenant_id", access.context.organization.id)
     .eq("id", taskId)
     .maybeSingle();
@@ -71,12 +136,20 @@ async function requireExistingTaskManage(
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "Taak niet gevonden." };
 
-  const branchId = (data as { branch_id: string | null }).branch_id;
-  if (!canManageTaskBranch(access.branchScope, branchId)) {
+  const row = data as { branch_id: string | null; board_id: string };
+  if (!canManageTaskBranch(access.branchScope, row.branch_id)) {
     return { ok: false, error: "Geen toegang tot deze taakvestiging." };
   }
 
-  return { ok: true, branchId };
+  const board = await loadBoardBranch(access, row.board_id);
+  if (!board.ok) return board;
+
+  return {
+    ok: true,
+    branchId: row.branch_id,
+    boardId: row.board_id,
+    boardBranchId: board.branchId,
+  };
 }
 
 function validateTargetBranch(
@@ -85,6 +158,19 @@ function validateTargetBranch(
 ): ActionResult {
   if (!canManageTaskBranch(access.branchScope, branchId)) {
     return { ok: false, error: "Geen toegang tot deze vestiging." };
+  }
+  return { ok: true };
+}
+
+function validateTaskBoardBranch(
+  boardBranchId: string | null,
+  taskBranchId: string | null,
+): ActionResult {
+  if (boardBranchId && boardBranchId !== taskBranchId) {
+    return {
+      ok: false,
+      error: "Taak moet binnen de vestiging van dit bord blijven.",
+    };
   }
   return { ok: true };
 }
@@ -130,12 +216,23 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
   const boardId = String(formData.get("board_id") ?? "");
   const columnId = String(formData.get("column_id") ?? "");
   const branchId = parseBranchId(formData.get("branch_id"));
-  const branchCheck = validateTargetBranch(access, branchId);
-  if (!branchCheck.ok) return branchCheck;
-
   const title = cleanStr(formData.get("title"), 200);
   if (!boardId || !columnId) return { ok: false, error: "Bord of kolom ontbreekt." };
   if (!title) return { ok: false, error: "Titel is verplicht." };
+
+  const branchCheck = validateTargetBranch(access, branchId);
+  if (!branchCheck.ok) return branchCheck;
+
+  const column = await requireTaskColumnAccess(access, columnId);
+  if (!column.ok) return column;
+  if (column.boardId !== boardId) {
+    return { ok: false, error: "Kolom hoort niet bij dit taakbord." };
+  }
+  const boardBranchCheck = validateTaskBoardBranch(
+    column.boardBranchId,
+    branchId,
+  );
+  if (!boardBranchCheck.ok) return boardBranchCheck;
 
   const assignee = cleanStr(formData.get("assignee_user_id"), 100);
 
@@ -464,6 +561,11 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
   const branchId = parseBranchId(formData.get("branch_id"));
   const branchCheck = validateTargetBranch(access, branchId);
   if (!branchCheck.ok) return branchCheck;
+  const boardBranchCheck = validateTaskBoardBranch(
+    target.boardBranchId,
+    branchId,
+  );
+  if (!boardBranchCheck.ok) return boardBranchCheck;
 
   const { error } = await service.rpc("update_task", {
     p_task_id: taskId,
@@ -509,6 +611,14 @@ export async function moveTask(input: {
   }
   const target = await requireExistingTaskManage(access, input.taskId);
   if (!target.ok) return target;
+  const column = await requireTaskColumnAccess(access, input.columnId);
+  if (!column.ok) return column;
+  if (column.boardId !== target.boardId) {
+    return {
+      ok: false,
+      error: "Taak kan niet naar een ander bord worden verplaatst.",
+    };
+  }
 
   const { error } = await service.rpc("move_task", {
     p_task_id: input.taskId,
