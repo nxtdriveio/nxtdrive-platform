@@ -12,6 +12,7 @@ import {
   type LeadSource,
   type LeadStatus,
 } from "@/lib/leads/types";
+import { requireLeadBackofficeAccess } from "@/lib/leads/access";
 import { reconcileLeadSafe } from "@/lib/leads/automation";
 import { LEAD_ELIGIBLE_STATUSES } from "@/lib/lesson-planning/candidates";
 import { notifyTrialLessonConfirmed } from "@/lib/notifications/dispatch";
@@ -41,6 +42,9 @@ export async function convertLeadToStudent(formData: FormData) {
   if (!leadId) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "admin");
+  if (!lead) redirect("/backoffice/leads");
+
   const { data: studentId, error } = await service.rpc(
     "convert_lead_to_student",
     {
@@ -144,6 +148,9 @@ export async function updateStatus(formData: FormData) {
   if (!leadId || !isValidStatus(next)) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("update_lead_status", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -179,6 +186,9 @@ export async function confirmTrialLesson(formData: FormData) {
   if (!leadId || !trialId) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("confirm_trial_lesson", {
     p_trial_id: trialId,
     p_tenant_id: tenant.id,
@@ -237,22 +247,9 @@ export async function bookTrialAtSlot(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
-
-  // The lead must belong to this tenant AND still be trial-eligible. These
-  // mirror the candidate engine's eligibility (open status, not yet a student,
-  // no active trial) — never trust the form to have respected them.
-  const { data: lead } = await service
-    .from("leads")
-    .select("id, status")
-    .eq("id", leadId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
   if (!lead) redirect("/backoffice/leads");
-  if (
-    !(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes(
-      (lead as { status: string }).status,
-    )
-  ) {
+  if (!(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes(lead.status)) {
     redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
   }
 
@@ -312,6 +309,9 @@ export async function rejectTrialLesson(formData: FormData) {
   if (!leadId || !trialId) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("reject_trial_lesson", {
     p_trial_id: trialId,
     p_tenant_id: tenant.id,
@@ -354,6 +354,9 @@ export async function rescheduleTrialLesson(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("reschedule_trial_lesson", {
     p_trial_id: trialId,
     p_tenant_id: tenant.id,
@@ -383,6 +386,9 @@ export async function addNote(formData: FormData) {
   if (!leadId || !note) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("add_lead_note", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -409,6 +415,9 @@ export async function markLeadLost(formData: FormData) {
   if (!leadId) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("mark_lead_lost", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -441,6 +450,9 @@ export async function scheduleLeadFollowUp(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("schedule_lead_follow_up", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -525,18 +537,10 @@ export async function createTasksFromIntakePoints(
   }
 
   const service = createServiceRoleClient();
-
-  // Lead must belong to this tenant (also gives us the name for task titles).
-  const { data: leadRaw } = await service
-    .from("leads")
-    .select("id, full_name")
-    .eq("id", leadId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (!leadRaw) {
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) {
     return { ok: false, created: 0, existing: 0, error: "Lead niet gevonden." };
   }
-  const lead = leadRaw as Pick<Lead, "id" | "full_name">;
 
   // Source of truth for which attention points exist: stored analysis, or a
   // fresh compute from the intake answers when no analysis row exists yet.
@@ -661,16 +665,8 @@ export async function generatePackageAdviceAction(
   if (!leadId) return { error: "lead_id ontbreekt." };
 
   const service = createServiceRoleClient();
-
-  // Lead must belong to this tenant (also gives us the name for the prompt).
-  const { data: leadRaw } = await service
-    .from("leads")
-    .select("id, full_name")
-    .eq("id", leadId)
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-  if (!leadRaw) return { error: "Lead niet gevonden." };
-  const lead = leadRaw as Pick<Lead, "id" | "full_name">;
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "read");
+  if (!lead) return { error: "Lead niet gevonden." };
 
   // Intake-analysis profile: stored row, or a fresh compute from intake answers.
   const { data: analysisRaw } = await service
@@ -781,6 +777,9 @@ export async function completeLeadTask(formData: FormData) {
   if (!leadId || !taskId) redirect("/backoffice/leads");
 
   const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
   const { error } = await service.rpc("complete_lead_task", {
     p_task_id: taskId,
     p_tenant_id: tenant.id,
