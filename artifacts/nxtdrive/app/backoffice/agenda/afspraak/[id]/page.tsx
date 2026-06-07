@@ -3,6 +3,8 @@ import { ChevronLeft, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { listBranches } from "@/lib/branches/service";
+import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
@@ -50,27 +52,32 @@ export default async function EditAppointmentPage({
   const formPath = `/backoffice/agenda/afspraak/${id}`;
 
   const service = createServiceRoleClient();
-  const { context, branchScope, appointment: appt, studentBranchId } =
+  const { context, branchScope, appointment: appt, appointmentBranchId } =
     await requireAgendaAppointmentAccess(service, id, "read");
   if (!appt) notFound();
 
   const { user, organization: tenant, roles } = context;
   const canSelectInstructor =
-    roles.includes("tenant_admin") ||
-    roles.includes("franchise_admin") ||
-    !!user.profile?.is_platform_admin;
+    !!user.profile?.is_platform_admin ||
+    rolesGrantPermission(roles, "planning:manage");
   const canManageAppointment = canManageAgendaRow(context, branchScope, {
-    branch_id: studentBranchId,
+    branch_id: appointmentBranchId,
     instructor_id: appt.instructor_id,
   });
-  const canEditAppointment =
-    canManageAppointment &&
-    (canSelectInstructor || roles.includes("instructor"));
+  const canEditAppointment = canManageAppointment;
 
   const supabase = await createServerSupabaseClient();
   const instructors = canEditAppointment && canSelectInstructor
     ? await loadTenantInstructors(tenant.id)
     : undefined;
+
+  const allBranches = canEditAppointment
+    ? await listBranches(service, tenant.id, { activeOnly: true })
+    : [];
+  const branches =
+    branchScope.scope_type === "branches"
+      ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
+      : allBranches;
 
   let students: Pick<Student, "id" | "full_name">[] = [];
   if (canEditAppointment) {
@@ -234,6 +241,7 @@ export default async function EditAppointmentPage({
               redirectTo="/backoffice/agenda"
               errorTo={formPath}
               appointmentId={appt.id}
+              branches={branches}
               instructors={instructors}
               ownInstructor={
                 canSelectInstructor
@@ -243,6 +251,7 @@ export default async function EditAppointmentPage({
               students={students}
               defaults={{
                 type: appt.type,
+                branchId: appt.branch_id ?? appointmentBranchId,
                 instructorId: appt.instructor_id,
                 studentId: appt.student_id,
                 date: appt.starts_at.slice(0, 10),
