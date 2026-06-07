@@ -55,6 +55,7 @@
     "test-lead-scope-foundation": "tsx ./src/test-lead-scope-foundation.ts",
     "test-vehicle-branch-foundation": "tsx ./src/test-vehicle-branch-foundation.ts",
     "test-task-branch-foundation": "tsx ./src/test-task-branch-foundation.ts",
+    "test-planning-resource-branch-foundation": "tsx ./src/test-planning-resource-branch-foundation.ts",
     "db:seed-scenarios": "tsx ./src/seed-scenario-accounts.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
