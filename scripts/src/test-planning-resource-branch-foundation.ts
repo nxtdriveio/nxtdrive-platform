@@ -23,6 +23,8 @@ const availabilityServiceSrc = source("artifacts/nxtdrive/lib/availability/servi
 const agendaPageSrc = source("artifacts/nxtdrive/app/backoffice/agenda/page.tsx");
 const newLessonPageSrc = source("artifacts/nxtdrive/app/backoffice/agenda/nieuw/page.tsx");
 const newAppointmentPageSrc = source("artifacts/nxtdrive/app/backoffice/agenda/afspraak/nieuw/page.tsx");
+const lessonActionsSrc = source("artifacts/nxtdrive/app/backoffice/agenda/actions.ts");
+const appointmentActionsSrc = source("artifacts/nxtdrive/lib/agenda/actions.ts");
 const lessonTypesSrc = source("artifacts/nxtdrive/lib/lessons/types.ts");
 
 check(
@@ -80,6 +82,22 @@ check(
     newAppointmentPageSrc.includes("branchIds: branchFilterIds") &&
     newAppointmentPageSrc.includes('.in("branch_id", branchFilterIds)') &&
     newAppointmentPageSrc.includes("AppointmentForm"),
+);
+
+check(
+  "lesson server actions reject out-of-branch instructor resources",
+  lessonActionsSrc.includes("instructorCanServeBranch") &&
+    lessonActionsSrc.includes("loadTenantInstructors") &&
+    lessonActionsSrc.includes("studentAccess.student.branch_id") &&
+    lessonActionsSrc.includes("Geen toegang tot deze instructeurvestiging"),
+);
+
+check(
+  "appointment server actions reject out-of-branch instructor resources",
+  appointmentActionsSrc.includes("instructorCanServeBranch") &&
+    appointmentActionsSrc.includes("loadTenantInstructors") &&
+    appointmentActionsSrc.includes("appointmentBranchId") &&
+    appointmentActionsSrc.includes("appointmentAccess.appointment.instructor_id"),
 );
 
 check(
