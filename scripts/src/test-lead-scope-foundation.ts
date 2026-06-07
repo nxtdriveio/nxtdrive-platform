@@ -48,23 +48,26 @@ check(
     leadAccessSrc.includes('requireOrganizationPermission("lead:read"'),
 );
 check(
-  "lead dashboard read layer accepts expanded branch scope",
+  "lead dashboard read layer accepts expanded branch and own-assignment scope",
   leadServiceSrc.includes("type LeadQueryOptions") &&
     leadServiceSrc.includes("branchScope?: BranchAccessScope") &&
+    leadServiceSrc.includes("assignedUserId?: string | null") &&
     leadServiceSrc.includes("applyBranchScope") &&
-    leadServiceSrc.includes("isEmptyBranchScope") &&
+    leadServiceSrc.includes("hasNoLeadVisibility") &&
+    leadServiceSrc.includes("assignedLeadFilter") &&
     leadServiceSrc.includes('"id, tenant_id, branch_id') &&
     leadServiceSrc.includes('.in("branch_id", branchIds)') &&
     leadServiceSrc.includes("getLeadKpis(") &&
     leadServiceSrc.includes("options: LeadQueryOptions = {}"),
 );
 check(
-  "leads overview uses organization permission and branch-scoped queries",
+  "leads overview uses organization permission and scoped query options",
   leadsPageSrc.includes('requireOrganizationPermission("lead:read",') &&
     leadsPageSrc.includes("LEAD_BACKOFFICE_READ_ROLES") &&
     leadsPageSrc.includes("loadOrganizationBranchScope") &&
-    leadsPageSrc.includes("getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot, { branchScope })") &&
-    leadsPageSrc.includes("getLeadsForTab(supabase, tenant.id, tab, now, filters, { branchScope })") &&
+    leadsPageSrc.includes('assignedUserId: context.roles.includes("instructor") ? context.user.id : null') &&
+    leadsPageSrc.includes("getLeadKpis(supabase, tenant.id, now, scorePolicy.bands.hot, leadQueryOptions)") &&
+    leadsPageSrc.includes("getLeadsForTab(supabase, tenant.id, tab, now, filters, leadQueryOptions)") &&
     !leadsPageSrc.includes("requireActiveTenant"),
 );
 check(
