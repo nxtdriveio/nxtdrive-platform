@@ -49,6 +49,7 @@ Implemented in this slice:
 - Split read and manage behavior so read-only task users can view boards without dragging, editing, archiving, or linking entities.
 - Require `task:manage` for task create, update, move, archive, and link/unlink actions.
 - Validate the caller's target branch scope before assigning or changing a task branch.
+- Validate task board and column branch scope before create, update, and move mutations.
 - Add branch selection to the task dialog, including an `Alle vestigingen` shared option for organization-wide managers.
 - Scope task entity search by branch for students, leads, lessons, exams, and invoices.
 - Add `test-task-branch-foundation` static guardrails for migration, page access, UI, actions, search, and type coverage.
