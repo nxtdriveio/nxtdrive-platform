@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Building2,
   MapPin,
-  ShieldCheck,
   Users,
   Workflow,
 } from "lucide-react";
@@ -11,7 +10,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { listBranches } from "@/lib/branches/service";
-import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  listOrganizationTeams,
+  requireOrganizationPermission,
+} from "@/lib/organization";
 import { loadOrganizationProfile } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
@@ -196,9 +198,10 @@ export default async function OrganisatiePage({
   const reason = typeof sp.reason === "string" ? sp.reason : null;
 
   const service = createServiceRoleClient();
-  const [profile, branches, membershipsResult] = await Promise.all([
+  const [profile, branches, teams, membershipsResult] = await Promise.all([
     loadOrganizationProfile(service, organization.id),
     listBranches(service, organization.id),
+    listOrganizationTeams(service, organization.id),
     service
       .from("memberships")
       .select("id, user_id, role, created_at")
@@ -234,6 +237,7 @@ export default async function OrganisatiePage({
     ? profileMap.get(profile.owner_user_id)
     : null;
   const activeBranches = branches.filter((branch) => branch.is_active).length;
+  const activeTeams = teams.filter((team) => team.is_active).length;
   const roleCounts = memberships.reduce<Record<string, number>>((acc, row) => {
     acc[row.role] = (acc[row.role] ?? 0) + 1;
     return acc;
@@ -266,7 +270,7 @@ export default async function OrganisatiePage({
             </h1>
             <p className="text-sm text-muted-foreground">
               Beheer de hoogste operationele laag van {organization.name}: profiel,
-              vestigingen, medewerkers, rollen en straks teams.
+              vestigingen, medewerkers, rollen en teams.
             </p>
           </div>
         </div>
@@ -301,8 +305,8 @@ export default async function OrganisatiePage({
         />
         <StatCard
           title="Teams"
-          value="Voorbereid"
-          description="Teams worden de configureerbare laag voor afdelingen."
+          value={`${activeTeams}/${teams.length}`}
+          description="Configureerbare afdelingen binnen deze organisatie."
           icon={Workflow}
         />
       </div>
@@ -430,30 +434,13 @@ export default async function OrganisatiePage({
             cta="Medewerkers beheren"
             icon={Users}
           />
-          <Card className="border-dashed">
-            <CardHeader className="flex-row items-start gap-3">
-              <span className="rounded-full bg-primary-soft p-2 text-primary">
-                <ShieldCheck className="h-5 w-5" aria-hidden />
-              </span>
-              <div className="space-y-1">
-                <CardTitle className="text-foreground">Teams</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Teams zijn voorbereid als organisatielaag voor Planning,
-                  Administratie, Marketing en Management. Beheerbare teams worden
-                  in de volgende Sprint 5-slice aan dit scherm gekoppeld.
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {["Planning", "Administratie", "Marketing", "Theorie", "Management"].map((team) => (
-                  <Badge key={team} variant="outline">
-                    {team}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <SectionLinkCard
+            title="Teams"
+            description="Beheer configureerbare afdelingen zoals Planning, Administratie, Marketing, Theorie en Management."
+            href="/backoffice/organisatie/teams"
+            cta="Teams beheren"
+            icon={Workflow}
+          />
         </div>
       </div>
 
