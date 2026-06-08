@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GovernanceAlerts } from "@/components/organization/governance-alerts";
 import { requireOrganizationPermission } from "@/lib/organization";
-import { listBranches } from "@/lib/branches/service";
+import { listBranches, listMembershipBranches } from "@/lib/branches/service";
 import {
   isStaffGovernanceRole,
   listMembershipOrganizationTeamIds,
@@ -60,8 +60,9 @@ export default async function MemberTeamsPage({
     (profileRow?.email as string | null) ??
     "Onbekend";
 
-  const [branches, teams, currentTeamIds] = await Promise.all([
+  const [branches, currentBranchIds, teams, currentTeamIds] = await Promise.all([
     listBranches(service, organization.id, { activeOnly: true }),
+    listMembershipBranches(service, membershipId),
     listOrganizationTeams(service, organization.id, { activeOnly: true }),
     listMembershipOrganizationTeamIds(service, organization.id, membershipId),
   ]);
@@ -71,7 +72,7 @@ export default async function MemberTeamsPage({
     ? roleGovernanceDefinition(role)
     : null;
   const governanceAlerts = roleGovernanceAlerts(role, {
-    selectedBranchCount: 0,
+    selectedBranchCount: currentBranchIds.length,
     availableBranchCount: branches.length,
     selectedTeamCount: currentTeamIds.length,
     includeTeamHint: true,
@@ -98,7 +99,7 @@ export default async function MemberTeamsPage({
           <div className="flex flex-wrap gap-2">
             <Badge variant="primary">{roleLabel(role)}</Badge>
             {governanceDefinition ? (
-              <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+              <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
             ) : null}
             <Badge variant="outline">{currentTeamIds.length} team(s)</Badge>
           </div>
@@ -134,7 +135,7 @@ export default async function MemberTeamsPage({
             <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="primary">{governanceDefinition.label}</Badge>
-                <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+                <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
               </div>
               <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
               <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
