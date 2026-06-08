@@ -82,9 +82,20 @@ check(
 );
 
 check(
+  "agenda page hides planning actions for read-only roles",
+  agendaPageSrc.includes("ReadOnlyScopeNotice") &&
+    agendaPageSrc.includes("BranchScopedEmptyState") &&
+    agendaPageSrc.includes("Geen agenda-items deze week") &&
+    agendaPageSrc.includes('rolesGrantPermission(context.roles, "planning:manage")') &&
+    agendaPageSrc.includes("canManagePlanning ?"),
+);
+
+check(
   "Sprint 4 documentation records the branch UX cleanup slice",
   sprintDocSrc.includes("Sprint 4G") &&
-    sprintDocSrc.includes("Branch UX cleanup"),
+    sprintDocSrc.includes("Branch UX cleanup") &&
+    sprintDocSrc.includes("test-branch-ux-foundation") &&
+    !sprintDocSrc.includes("- Sprint 4G: Branch UX cleanup"),
 );
 
 console.log("");
