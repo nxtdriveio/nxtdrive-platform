@@ -201,7 +201,7 @@ export default async function MembershipAccessPage({
             <Badge variant="primary">{roleLabel(role)}</Badge>
             <Badge variant="outline">{scopeSummary}</Badge>
             {governanceDefinition ? (
-              <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+              <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
             ) : null}
             {teamNames.length > 0 ? <Badge variant="outline">{teamNames.length} team(s)</Badge> : null}
           </div>
@@ -273,7 +273,7 @@ export default async function MembershipAccessPage({
                 <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="primary">{governanceDefinition.label}</Badge>
-                    <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+                    <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
                   </div>
                   <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
                   <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
