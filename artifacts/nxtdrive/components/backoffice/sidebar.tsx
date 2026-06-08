@@ -13,6 +13,7 @@ import {
   Receipt,
   Calculator,
   Settings,
+  Building2,
   Car,
   BookOpen,
   CalendarClock,
@@ -99,6 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: "Beheer",
     items: [
+      { href: "/backoffice/organisatie", label: "Organisatie", icon: Building2, adminOnly: true },
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
       { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
       { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
