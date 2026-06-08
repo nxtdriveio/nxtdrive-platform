@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Users, Workflow } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Workflow } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +106,37 @@ function Feedback({
       {messages[error] ?? "Er is een fout opgetreden."}
       {reason ? ` ${reason}` : null}
     </p>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {value}
+          </p>
+        </div>
+        <span className="rounded-full bg-primary-soft p-2 text-primary">
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -343,10 +374,12 @@ export default async function OrganizationTeamsPage({
   const branchMap = new Map(branches.map((branch) => [branch.id, branch]));
   const editTeam = editId ? teams.find((team) => team.id === editId) ?? null : null;
   const activeTeams = teams.filter((team) => team.is_active).length;
+  const branchScopedTeams = teams.filter((team) => team.branch_id).length;
   const memberCountByTeam = new Map<string, number>();
   for (const member of teamMembers) {
     memberCountByTeam.set(member.team_id, (memberCountByTeam.get(member.team_id) ?? 0) + 1);
   }
+  const assignedMembers = new Set(teamMembers.map((member) => member.membership_id)).size;
 
   return (
     <div className="space-y-6">
@@ -369,9 +402,21 @@ export default async function OrganizationTeamsPage({
             </p>
           </div>
         </div>
-        <Badge variant="primary">
-          {activeTeams}/{teams.length} actief
-        </Badge>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <Link
+            href="/backoffice/medewerkers"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Medewerkers
+          </Link>
+          <span>·</span>
+          <Link
+            href="/backoffice/instellingen/vestigingen"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Vestigingen
+          </Link>
+        </div>
       </div>
 
       <Feedback
@@ -381,6 +426,33 @@ export default async function OrganizationTeamsPage({
         slug={slug}
         reason={reason}
       />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Teams"
+          value={`${activeTeams}/${teams.length}`}
+          description="Actieve teams binnen deze organisatie."
+          icon={Workflow}
+        />
+        <StatCard
+          title="Branch-aware"
+          value={String(branchScopedTeams)}
+          description="Teams die expliciet aan een vestiging zijn gekoppeld."
+          icon={MapPin}
+        />
+        <StatCard
+          title="Medewerkers in teams"
+          value={String(assignedMembers)}
+          description="Unieke medewerkers met minstens één teamlidmaatschap."
+          icon={Users}
+        />
+        <StatCard
+          title="Organisatiebreed"
+          value={String(teams.length - branchScopedTeams)}
+          description="Teams zonder vestigingskoppeling die voor de hele organisatie gelden."
+          icon={Workflow}
+        />
+      </div>
 
       <Card>
         <CardHeader>
@@ -434,6 +506,10 @@ export default async function OrganizationTeamsPage({
               <p className="mt-1 text-sm text-muted-foreground">
                 Maak je eerste team aan om afdelingen binnen de organisatie vast
                 te leggen.
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Je kunt meteen medewerkers koppelen of later eerst vestigingen
+                aanmaken als je branch-specifieke teams wilt gebruiken.
               </p>
             </div>
           </CardContent>
