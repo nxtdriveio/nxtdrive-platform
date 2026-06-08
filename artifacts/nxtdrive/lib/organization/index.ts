@@ -30,6 +30,7 @@ export type {
 export {
   defaultPermissionState,
   effectiveRolePermission,
+  effectiveRolePermissions,
   effectiveRolesGrantPermission,
   listOrganizationRolePermissionOverrides,
   manageablePermissions,
