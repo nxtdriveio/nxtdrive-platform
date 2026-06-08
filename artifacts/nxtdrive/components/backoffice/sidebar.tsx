@@ -20,6 +20,7 @@ import {
   CalendarX,
   BadgeCheck,
   Gift,
+  KeyRound,
   Users,
   LogOut,
   MapPin,
@@ -103,6 +104,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Beheer",
     items: [
       { href: "/backoffice/organisatie", label: "Organisatie", icon: Building2, adminOnly: true },
+      { href: "/backoffice/organisatie/rollen", label: "Rollen", icon: KeyRound, adminOnly: true },
       { href: "/backoffice/organisatie/permissies", label: "Permissies", icon: ShieldCheck, adminOnly: true },
       { href: "/backoffice/organisatie/teams", label: "Teams", icon: Workflow, adminOnly: true },
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
@@ -146,7 +148,6 @@ export function BackofficeSidebar({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo header */}
       <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-5">
         <NxtdriveLogo
           className="text-base"
@@ -155,12 +156,10 @@ export function BackofficeSidebar({
         />
       </div>
 
-      {/* Tenant label */}
       <div className="px-4 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
         {tenantName}
       </div>
 
-      {/* Nav sections */}
       <nav className="flex-1 overflow-y-auto px-3 pb-3">
         {NAV_SECTIONS.map((section) => {
           const sectionItems = section.items.filter(
@@ -203,7 +202,6 @@ export function BackofficeSidebar({
         })}
       </nav>
 
-      {/* Footer */}
       <div className="shrink-0 border-t border-border p-3 space-y-2">
         <p className="px-2 text-[10px] text-muted-foreground">
           Powered by <span className="font-semibold text-foreground">NXTDRIVE</span>
