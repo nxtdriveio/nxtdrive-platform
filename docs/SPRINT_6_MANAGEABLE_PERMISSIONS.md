@@ -128,3 +128,33 @@ Nog niet in deze sprint:
 - approval workflow voor rolwijzigingen
 - audit history per toegangswijziging
 - per-gebruiker exception policies buiten de rolcanon
+
+# Sprint 6E - Role Management Wrap-up
+
+## Doel
+
+Sprint 6E maakt Sprint 6 af als één samenhangend beheerdomein. De belangrijkste ontbrekende stap was een veilige, bewuste flow voor rolwijzigingen zelf.
+
+## Wat deze sprint toevoegt
+
+- aparte pagina `/backoffice/medewerkers/[membershipId]/rol` voor rolbeheer
+- live governance-uitleg tijdens rolwijziging, inclusief alerts op basis van bestaande branch-scope en teams
+- medewerkerslijst verwijst nu naar expliciet rolbeheer in plaats van een losse inline wijziging
+- organisatiehub toont nu een access blueprint voor de vaste volgorde: rol, scope, teams, permissies
+- guardrail test: `pnpm --filter @workspace/scripts run test-role-management-wrapup-foundation`
+
+## Canon voor 6E
+
+- een rolwijziging is een governance-keuze, geen snelle tabelmutatie
+- eerst de juiste basisrol, daarna pas branch-scope, teams en permissie-overrides
+- permissies mogen een verkeerde basisrol niet maskeren
+- de organisatiehub moet dezelfde beheerroute uitleggen als de detailschermen
+
+## Buiten scope voor 6E
+
+Nog niet in deze sprint:
+
+- goedkeuringsflows voor rolwijzigingen
+- auditlog van wie welke rol wanneer wijzigde
+- custom rollen of role templates per tenant
+- per-gebruiker uitzonderingsrechten buiten de rolcanon
