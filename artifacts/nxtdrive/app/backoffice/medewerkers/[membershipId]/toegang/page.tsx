@@ -314,7 +314,7 @@ export default async function MembershipAccessPage({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {group.items.map((permission) => (
-                    <Badge key={permission} variant="secondary">
+                    <Badge key={permission} variant="info">
                       {permissionLabel(permission)}
                     </Badge>
                   ))}
