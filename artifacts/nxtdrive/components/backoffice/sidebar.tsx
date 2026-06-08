@@ -24,6 +24,7 @@ import {
   LogOut,
   MapPin,
   Network,
+  ShieldCheck,
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Beheer",
     items: [
       { href: "/backoffice/organisatie", label: "Organisatie", icon: Building2, adminOnly: true },
+      { href: "/backoffice/organisatie/permissies", label: "Permissies", icon: ShieldCheck, adminOnly: true },
       { href: "/backoffice/organisatie/teams", label: "Teams", icon: Workflow, adminOnly: true },
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
       { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
