@@ -25,6 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, CalendarClock, User2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ReadOnlyScopeNotice } from "@/components/backoffice/branch-scope-ui";
 import { cn } from "@/lib/utils";
 import type { Branch } from "@/lib/branches/service";
 import {
@@ -260,6 +261,9 @@ export function Board({
 
   return (
     <>
+      {!canManage ? (
+        <ReadOnlyScopeNotice className="mb-3" />
+      ) : null}
       {moveError ? (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-md bg-danger/10 px-3 py-2 text-xs text-danger">
           <span>{moveError}</span>
@@ -377,6 +381,11 @@ function Column({
           )}
           style={{ minHeight: 64 }}
         >
+          {tasks.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+              Geen taken in deze kolom.
+            </div>
+          ) : null}
           {tasks.map((task) => (
             <SortableCard
               key={task.id}
