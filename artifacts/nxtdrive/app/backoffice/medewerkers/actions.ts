@@ -33,6 +33,13 @@ function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
   if (isPlatformAdmin) redirect("/backoffice/medewerkers?error=forbidden");
 }
 
+function formIds(formData: FormData, key: string): string[] {
+  return formData
+    .getAll(key)
+    .map((value) => String(value).trim())
+    .filter((value) => value.length > 0);
+}
+
 /** Find an existing auth user id by email, paging through the admin list. */
 async function findUserIdByEmail(
   service: SupabaseClient,
@@ -71,6 +78,37 @@ async function rollbackNewStaffUser(
   await service.auth.admin.deleteUser(userId).catch(() => {});
 }
 
+async function removeMembership(
+  service: SupabaseClient,
+  tenantId: string,
+  membershipId: string,
+) {
+  await service
+    .from("memberships")
+    .delete()
+    .eq("id", membershipId)
+    .eq("tenant_id", tenantId);
+}
+
+async function setMembershipTeamsOrThrow(
+  service: SupabaseClient,
+  membershipId: string,
+  tenantId: string,
+  actorId: string,
+  teamIds: string[],
+) {
+  const { error } = await service.rpc("set_membership_organization_teams", {
+    p_membership_id: membershipId,
+    p_tenant_id: tenantId,
+    p_actor: actorId,
+    p_team_ids: teamIds,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function inviteInstructor(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   blockPlatformAdmin(user.profile?.is_platform_admin);
@@ -78,10 +116,8 @@ export async function inviteInstructor(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "") as MemberRole;
-  const rawBranchIds = formData.getAll("branch_ids[]");
-  const branchIds = rawBranchIds
-    .map((v) => String(v).trim())
-    .filter((v) => v.length > 0);
+  const branchIds = formIds(formData, "branch_ids[]");
+  const teamIds = formIds(formData, "team_ids[]");
 
   if (!email || !STAFF_ROLES.includes(role)) {
     redirect("/backoffice/medewerkers?error=missing_fields");
@@ -201,10 +237,6 @@ export async function inviteInstructor(formData: FormData) {
     redirect("/backoffice/medewerkers?error=membership_failed");
   }
 
-  // If branch IDs were specified, scope the membership.
-  // Failure here is blocking — a failed scope leaves the membership
-  // unrestricted, violating least-privilege. Roll back by deleting the
-  // membership and surfacing the error.
   if (branchIds.length > 0) {
     const { error: branchError } = await service.rpc("set_membership_branches", {
       p_membership_id: memberRow.id,
@@ -213,21 +245,41 @@ export async function inviteInstructor(formData: FormData) {
     });
 
     if (branchError) {
-      // Roll back: remove the newly-created membership so the user stays outside.
-      await service
-        .from("memberships")
-        .delete()
-        .eq("id", memberRow.id)
-        .eq("tenant_id", tenant.id);
+      await removeMembership(service, tenant.id, memberRow.id as string);
 
       if (createdNewUser) {
-        await rollbackNewStaffUser(service, tenant.id, userId);
+        await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
       }
 
       redirect(
         "/backoffice/medewerkers?error=invite_failed&reason=" +
           encodeURIComponent(
             `Vestigingstoegang instellen mislukt: ${branchError.message}`,
+          ),
+      );
+    }
+  }
+
+  if (teamIds.length > 0) {
+    try {
+      await setMembershipTeamsOrThrow(
+        service,
+        memberRow.id as string,
+        tenant.id,
+        user.id,
+        teamIds,
+      );
+    } catch (err) {
+      if (createdNewUser) {
+        await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+      } else {
+        await removeMembership(service, tenant.id, memberRow.id as string);
+      }
+
+      redirect(
+        "/backoffice/medewerkers?error=invite_failed&reason=" +
+          encodeURIComponent(
+            `Teamindeling instellen mislukt: ${err instanceof Error ? err.message : "Onbekende fout"}`,
           ),
       );
     }
@@ -356,4 +408,39 @@ export async function changeRole(formData: FormData) {
   }
 
   redirect("/backoffice/medewerkers?success=role_changed");
+}
+
+export async function setMembershipTeams(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  blockPlatformAdmin(user.profile?.is_platform_admin);
+
+  const membershipId = String(formData.get("membership_id") ?? "").trim();
+  const teamIds = formIds(formData, "team_ids[]");
+
+  if (!membershipId) {
+    redirect("/backoffice/medewerkers?error=missing_fields");
+  }
+
+  const service = createServiceRoleClient();
+  const { data: membershipRow } = await service
+    .from("memberships")
+    .select("id")
+    .eq("id", membershipId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (!membershipRow) {
+    redirect("/backoffice/medewerkers?error=not_found");
+  }
+
+  try {
+    await setMembershipTeamsOrThrow(service, membershipId, tenant.id, user.id, teamIds);
+  } catch (err) {
+    redirect(
+      `/backoffice/medewerkers/${membershipId}/teams?error=save_failed&reason=` +
+        encodeURIComponent(err instanceof Error ? err.message : "Onbekende fout"),
+    );
+  }
+
+  redirect(`/backoffice/medewerkers/${membershipId}/teams?success=updated`);
 }
