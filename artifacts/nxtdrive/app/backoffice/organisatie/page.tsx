@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Building2,
+  CheckCircle2,
   MapPin,
   Users,
   Workflow,
@@ -250,6 +251,24 @@ export default async function OrganisatiePage({
     profile?.vat_number,
     profile?.owner_user_id,
   ].filter(Boolean).length;
+  const setupChecklist = [
+    {
+      label: "Profiel compleet",
+      done: completedProfileFields >= 4,
+    },
+    {
+      label: "Minstens één medewerker",
+      done: memberships.length > 0,
+    },
+    {
+      label: "Vestigingen gekozen waar nodig",
+      done: branches.length > 0 || organization.org_type !== "multi_vestiging",
+    },
+    {
+      label: "Teams ingericht waar nodig",
+      done: teams.length > 0 || memberships.length <= 3,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -420,6 +439,28 @@ export default async function OrganisatiePage({
         </Card>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-foreground">Operationele voortgang</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Snelle check om te zien of de organisatiestructuur al werkbaar is
+                voor dagelijkse operatie.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {setupChecklist.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  <span className="text-foreground">{item.label}</span>
+                  <span className={item.done ? "text-emerald-600" : "text-muted-foreground"}>
+                    <CheckCircle2 className="h-4 w-4" aria-hidden />
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
           <SectionLinkCard
             title="Vestigingen"
             description="Maak locaties aan, zet ze actief/inactief en gebruik ze als scope voor planning, voertuigen, facturen en taken."
