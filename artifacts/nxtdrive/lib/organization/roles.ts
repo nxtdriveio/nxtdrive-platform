@@ -11,6 +11,7 @@ export const STAFF_GOVERNANCE_ROLES = [
 
 export type StaffGovernanceRole = (typeof STAFF_GOVERNANCE_ROLES)[number];
 export type RoleScopePolicy = "organization" | "branch";
+export type RoleGovernanceAlertTone = "info" | "warning";
 
 export type RoleGovernanceDefinition = {
   role: StaffGovernanceRole;
@@ -20,6 +21,12 @@ export type RoleGovernanceDefinition = {
   intended_use: string;
   scope_policy: RoleScopePolicy;
   governance_note: string;
+};
+
+export type RoleGovernanceAlert = {
+  title: string;
+  description: string;
+  tone: RoleGovernanceAlertTone;
 };
 
 const ROLE_DEFINITIONS: Record<StaffGovernanceRole, RoleGovernanceDefinition> = {
@@ -101,6 +108,12 @@ export function governanceRoles(): readonly StaffGovernanceRole[] {
   return STAFF_GOVERNANCE_ROLES;
 }
 
+export function isStaffGovernanceRole(
+  role: MemberRole,
+): role is StaffGovernanceRole {
+  return STAFF_GOVERNANCE_ROLES.includes(role as StaffGovernanceRole);
+}
+
 export function roleGovernanceDefinition(
   role: StaffGovernanceRole,
 ): RoleGovernanceDefinition {
@@ -123,4 +136,72 @@ export function isBranchScopedGovernanceRole(role: MemberRole): boolean {
   return role in ROLE_DEFINITIONS
     ? ROLE_DEFINITIONS[role as StaffGovernanceRole].scope_policy === "branch"
     : false;
+}
+
+function selectedBranchSummary(selectedBranchCount: number): string {
+  return selectedBranchCount === 1
+    ? "1 geselecteerde vestiging"
+    : `${selectedBranchCount} geselecteerde vestigingen`;
+}
+
+export function roleGovernanceAlerts(
+  role: MemberRole,
+  context: {
+    selectedBranchCount: number;
+    availableBranchCount: number;
+    selectedTeamCount?: number;
+    includeTeamHint?: boolean;
+  },
+): RoleGovernanceAlert[] {
+  const alerts: RoleGovernanceAlert[] = [];
+  const branchScoped = isBranchScopedGovernanceRole(role);
+
+  if (branchScoped) {
+    if (context.availableBranchCount === 0) {
+      alerts.push({
+        tone: "info",
+        title: "Nog geen vestigingen om te begrenzen",
+        description:
+          "Deze rol hoort meestal lokaal te blijven. Zodra vestigingen bestaan, kun je de scope hier expliciet beperken.",
+      });
+    } else if (context.selectedBranchCount === 0) {
+      alerts.push({
+        tone: "warning",
+        title: "Deze branch-scoped rol is nu organisatiebreed",
+        description:
+          "Er zijn geen vestigingen geselecteerd, dus deze medewerker kan over alle vestigingen werken. Laat dat alleen zo als centrale inzet echt de bedoeling is.",
+      });
+    } else {
+      alerts.push({
+        tone: "info",
+        title: "Branch-scope is actief",
+        description: `Deze rol is nu beperkt tot ${selectedBranchSummary(context.selectedBranchCount)}.`,
+      });
+    }
+  } else if (context.selectedBranchCount > 0) {
+    alerts.push({
+      tone: "info",
+      title: "Organisatiebrede rol met extra branch-selectie",
+      description:
+        "Deze basisrol is canoniek organisatiebreed. Gebruik branchselectie hier alleen als je bewust wilt afwijken van die standaard.",
+    });
+  } else {
+    alerts.push({
+      tone: "info",
+      title: "Rolcanon klopt",
+      description:
+        "Deze basisrol hoort organisatiebreed te blijven en heeft geen extra branch-begrenzing nodig.",
+    });
+  }
+
+  if (context.includeTeamHint && (context.selectedTeamCount ?? 0) === 0) {
+    alerts.push({
+      tone: "info",
+      title: "Geen teams gekoppeld",
+      description:
+        "Teams blijven optioneel. Gebruik ze voor samenwerking en routing, niet als vervanging van rechten of scope.",
+    });
+  }
+
+  return alerts;
 }
