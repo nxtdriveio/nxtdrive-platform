@@ -7,6 +7,7 @@ import {
   requireOrganizationPermission,
   roleGovernanceDefinition,
   roleLabel,
+  roleScopeLabel,
 } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { changeRole } from "./actions";
 import { RemoveMemberButton } from "./remove-button";
 import { InviteForm } from "./invite-form";
 import { listBranches, listMembershipBranches } from "@/lib/branches/service";
@@ -40,15 +40,6 @@ type MemberRow = {
   confirmed: boolean;
   branch_names: string[];
   team_names: string[];
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  tenant_admin: "Beheerder",
-  instructor: "Instructeur",
-  branch_manager: "Vestigingsmanager",
-  planner: "Planner",
-  admin_staff: "Administratie",
-  marketing: "Marketing",
 };
 
 const ALL_STAFF_ROLES: MemberRole[] = [
@@ -480,6 +471,9 @@ export default async function MedewerkersPage({
                     const canScopeBranches =
                       isBranchScopedGovernanceRole(member.role) &&
                       branches.length > 0;
+                    const governanceDefinition = governanceRoles().includes(member.role as (typeof governanceRoles)[number])
+                      ? roleGovernanceDefinition(member.role as (typeof governanceRoles)[number])
+                      : null;
                     return (
                       <tr key={member.id}>
                         <td className="py-3 pr-4">
@@ -503,39 +497,26 @@ export default async function MedewerkersPage({
                           {member.email}
                         </td>
                         <td className="py-3 pr-4">
-                          {isSelf ? (
-                            <Badge variant="primary">
-                              {roleLabel(member.role)}
-                            </Badge>
-                          ) : (
-                            <form
-                              action={changeRole}
-                              className="flex items-center gap-2"
-                            >
-                              <input
-                                type="hidden"
-                                name="membership_id"
-                                value={member.id}
-                              />
-                              <select
-                                name="role"
-                                defaultValue={member.role}
-                                className="h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="primary">
+                                {roleLabel(member.role)}
+                              </Badge>
+                              {governanceDefinition ? (
+                                <Badge variant="outline">
+                                  {roleScopeLabel(governanceDefinition.role)}
+                                </Badge>
+                              ) : null}
+                            </div>
+                            {!isSelf ? (
+                              <Link
+                                href={`/backoffice/medewerkers/${member.id}/rol`}
+                                className="text-xs text-primary underline-offset-2 hover:underline"
                               >
-                                {ALL_STAFF_ROLES.map((r) => (
-                                  <option key={r} value={r}>
-                                    {ROLE_LABEL[r] ?? r}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="submit"
-                                className="text-xs text-primary hover:underline"
-                              >
-                                Opslaan
-                              </button>
-                            </form>
-                          )}
+                                Rol veilig wijzigen
+                              </Link>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="py-3 pr-4">
                           {member.branch_names.length > 0 ? (
@@ -585,6 +566,12 @@ export default async function MedewerkersPage({
                                 className="text-xs text-primary underline-offset-2 hover:underline"
                               >
                                 Toegangsoverzicht
+                              </a>
+                              <a
+                                href={`/backoffice/medewerkers/${member.id}/rol`}
+                                className="text-xs text-primary underline-offset-2 hover:underline"
+                              >
+                                Rol beheren
                               </a>
                               {canScopeBranches ? (
                                 <a
