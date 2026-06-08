@@ -26,3 +26,14 @@ export type {
   OrganizationProfile,
   UpsertOrganizationProfileInput,
 } from "./profile";
+
+export {
+  listOrganizationTeamMembers,
+  listOrganizationTeams,
+  loadOrganizationTeam,
+  teamMemberIdsForTeam,
+} from "./teams";
+export type {
+  OrganizationTeam,
+  OrganizationTeamMember,
+} from "./teams";
