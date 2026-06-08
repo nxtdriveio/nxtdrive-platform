@@ -97,11 +97,22 @@ Implemented in this slice:
 - Add `db:test-branch-cross-scope-foundation`, an integration test that creates branch A and branch B fixtures and verifies branch-A staff can see shared/A rows but not B rows across vehicles, locations, task boards, tasks, invoices, invoice lines, lessons, agenda appointments and instructor availability.
 - Add database write-denial checks for cross-tenant vehicle branch assignment, task branch assignment and invoice branch mismatch.
 
+## Sprint 4G - Branch UX Cleanup
+
+Implemented in this slice:
+
+- Add shared backoffice branch UX helpers for scope summaries, branch filter chips, branch badges, scoped empty states and read-only notices.
+- Standardize the label `Alle toegestane vestigingen` for branch filters and reserve `Alle vestigingen` for shared organization-wide rows.
+- Apply the shared branch scope summary and badges to vehicles and locations.
+- Apply shared branch filter chips and scoped empty states to tasks and invoices.
+- Replace the agenda-specific branch select with the shared branch chip pattern.
+- Add clearer read-only and empty-column states to task boards.
+- Add `test-branch-ux-foundation` static guardrails so branch UX patterns do not drift across modules.
+
 ## Remaining Follow-Up
 
 Next recommended slices, in exact roadmap order:
 
-- Sprint 4G: Branch UX cleanup so selectors, empty states, read-only states, and error messages are consistent across all scoped modules.
 - Sprint 5: Organization management UI for organization profile, branches, teams, users, roles, and invitations.
 - Sprint 6: Manageable RBAC and scoped permission administration.
 - Sprint 7: Franchise architecture and franchise-level dashboards/planning visibility.

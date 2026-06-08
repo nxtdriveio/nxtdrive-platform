@@ -6,7 +6,11 @@ import {
 import { rolesGrantPermission, scopesForPermission } from "@/lib/permissions";
 import type { MemberRole } from "@/lib/types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { Card } from "@/components/ui/card";
+import {
+  BranchFilterChips,
+  BranchScopeSummary,
+  BranchScopedEmptyState,
+} from "@/components/backoffice/branch-scope-ui";
 import { cn } from "@/lib/utils";
 import { listBranches, type Branch } from "@/lib/branches/service";
 import type {
@@ -70,6 +74,7 @@ export default async function TakenPage({
       : allBranches;
   const selectedBranchId =
     branchParam && branches.some((b) => b.id === branchParam) ? branchParam : null;
+  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
   const branchFilterIds = selectedBranchId
     ? [selectedBranchId]
     : branchScope.scope_type === "branches"
@@ -110,10 +115,22 @@ export default async function TakenPage({
     return (
       <div className="space-y-6">
         <Header tenantName={tenant.name} />
-        <BranchFilters branches={branches} selectedBranchId={selectedBranchId} />
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Er zijn nog geen taakborden binnen je huidige scope.
-        </Card>
+        <BranchScopeSummary
+          scope={branchScope}
+          selectedBranchName={selectedBranchName}
+          branchCount={branches.length}
+          sharedRowsLabel="Gedeelde taakborden blijven zichtbaar wanneer je daar toegang toe hebt."
+        />
+        <BranchFilterChips
+          branches={branches}
+          selectedBranchId={selectedBranchId}
+          allHref="/backoffice/taken"
+          hrefForBranch={(branchId) => `/backoffice/taken?branch=${branchId}`}
+        />
+        <BranchScopedEmptyState
+          title="Geen taakborden binnen deze scope"
+          description="Er zijn geen gedeelde taakborden of taakborden voor de geselecteerde vestiging gevonden. Kies een andere vestiging of maak een nieuw bord aan via organisatiebeheer zodra die module beschikbaar is."
+        />
       </div>
     );
   }
@@ -179,7 +196,18 @@ export default async function TakenPage({
   return (
     <div className="space-y-6">
       <Header tenantName={tenant.name} />
-      <BranchFilters branches={branches} selectedBranchId={selectedBranchId} />
+      <BranchScopeSummary
+        scope={branchScope}
+        selectedBranchName={selectedBranchName}
+        branchCount={branches.length}
+        sharedRowsLabel="Gedeelde taakborden en taken blijven zichtbaar."
+      />
+      <BranchFilterChips
+        branches={branches}
+        selectedBranchId={selectedBranchId}
+        allHref={boardHref(selectedBoard.id, null)}
+        hrefForBranch={(branchId) => boardHref(selectedBoard.id, branchId)}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {boards.map((b) => (
@@ -220,46 +248,6 @@ function boardHref(boardId: string, branchId: string | null): string {
   return `/backoffice/taken?${params.toString()}`;
 }
 
-function BranchFilters({
-  branches,
-  selectedBranchId,
-}: {
-  branches: Branch[];
-  selectedBranchId: string | null;
-}) {
-  if (branches.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2 text-xs">
-      <Link
-        href="/backoffice/taken"
-        className={cn(
-          "rounded-full border px-3 py-1 font-medium transition-colors",
-          selectedBranchId === null
-            ? "border-primary bg-primary-soft text-primary"
-            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-        )}
-      >
-        Alle toegestane vestigingen
-      </Link>
-      {branches.map((branch) => (
-        <Link
-          key={branch.id}
-          href={`/backoffice/taken?branch=${branch.id}`}
-          className={cn(
-            "rounded-full border px-3 py-1 font-medium transition-colors",
-            selectedBranchId === branch.id
-              ? "border-primary bg-primary-soft text-primary"
-              : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          {branch.name}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function Header({ tenantName }: { tenantName: string }) {
   return (
     <div>
@@ -267,8 +255,8 @@ function Header({ tenantName }: { tenantName: string }) {
         Taken
       </h1>
       <p className="text-sm text-muted-foreground">
-        Werkborden per afdeling voor {tenantName}. Versleep kaarten om ze te
-        herordenen of naar een andere kolom te verplaatsen.
+        Werkborden per afdeling voor {tenantName}. Je ziet alleen taken binnen
+        jouw organisatie- en vestigingsscope.
       </p>
     </div>
   );

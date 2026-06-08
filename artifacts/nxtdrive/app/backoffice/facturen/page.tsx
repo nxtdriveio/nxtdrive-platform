@@ -3,8 +3,12 @@ import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { listBranches, type Branch } from "@/lib/branches/service";
-import { cn } from "@/lib/utils";
+import {
+  BranchFilterChips,
+  BranchScopeSummary,
+  BranchScopedEmptyState,
+} from "@/components/backoffice/branch-scope-ui";
+import { listBranches } from "@/lib/branches/service";
 import {
   canManageInvoices,
   requireInvoiceBackofficeReadAccess,
@@ -54,6 +58,7 @@ export default async function FacturenListPage({
       : allBranches;
   const selectedBranchId =
     sp.branch && branches.some((b) => b.id === sp.branch) ? sp.branch : null;
+  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
   const branchFilterIds = selectedInvoiceBranchIds(
     branchScope,
     selectedBranchId,
@@ -119,10 +124,17 @@ export default async function FacturenListPage({
         ) : null}
       </div>
 
-      <BranchFilters
+      <BranchScopeSummary
+        scope={branchScope}
+        selectedBranchName={selectedBranchName}
+        branchCount={branches.length}
+        sharedRowsLabel={null}
+      />
+      <BranchFilterChips
         branches={branches}
         selectedBranchId={selectedBranchId}
-        statusFilter={statusFilter}
+        allHref={filterHref({ status: statusFilter })}
+        hrefForBranch={(branchId) => filterHref({ status: statusFilter, branchId })}
       />
 
       <div className="flex flex-wrap gap-2 text-xs">
@@ -143,14 +155,24 @@ export default async function FacturenListPage({
         ))}
       </div>
 
-      <Card className="overflow-hidden">
-        {invoices.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
-            {statusFilter || selectedBranchId
-              ? "Geen facturen binnen deze filter."
-              : "Nog geen facturen. Maak er een aan om te beginnen."}
-          </div>
-        ) : (
+      {invoices.length === 0 ? (
+        <BranchScopedEmptyState
+          title={statusFilter || selectedBranchId ? "Geen facturen binnen deze filter" : "Nog geen facturen"}
+          description={
+            statusFilter || selectedBranchId
+              ? "Er zijn geen facturen gevonden voor deze combinatie van status en vestiging. Kies een ruimere filter om meer resultaten te zien."
+              : "Maak een eerste factuur aan zodra je leerlingen of pakketten wilt factureren."
+          }
+          action={
+            canManage && !statusFilter && !selectedBranchId ? (
+              <Link href="/backoffice/facturen/nieuw" className={buttonVariants({ size: "sm" })}>
+                Nieuwe factuur
+              </Link>
+            ) : undefined
+          }
+        />
+      ) : (
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
               <tr>
@@ -204,8 +226,8 @@ export default async function FacturenListPage({
               })}
             </tbody>
           </table>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
@@ -222,48 +244,6 @@ function filterHref({
   if (branchId) params.set("branch", branchId);
   const qs = params.toString();
   return qs ? `/backoffice/facturen?${qs}` : "/backoffice/facturen";
-}
-
-function BranchFilters({
-  branches,
-  selectedBranchId,
-  statusFilter,
-}: {
-  branches: Branch[];
-  selectedBranchId: string | null;
-  statusFilter: InvoiceStatus | null;
-}) {
-  if (branches.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2 text-xs">
-      <Link
-        href={filterHref({ status: statusFilter })}
-        className={cn(
-          "rounded-full border px-3 py-1 font-medium transition-colors",
-          selectedBranchId === null
-            ? "border-primary bg-primary-soft text-primary"
-            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-        )}
-      >
-        Alle toegestane vestigingen
-      </Link>
-      {branches.map((branch) => (
-        <Link
-          key={branch.id}
-          href={filterHref({ status: statusFilter, branchId: branch.id })}
-          className={cn(
-            "rounded-full border px-3 py-1 font-medium transition-colors",
-            selectedBranchId === branch.id
-              ? "border-primary bg-primary-soft text-primary"
-              : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          {branch.name}
-        </Link>
-      ))}
-    </div>
-  );
 }
 
 function FilterChip({
