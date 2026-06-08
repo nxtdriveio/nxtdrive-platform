@@ -1,10 +1,15 @@
 export {
+  ALL_PERMISSIONS,
   assertRolesGrantPermission,
+  grantCoversPermission,
+  permissionAction,
+  permissionResource,
   roleGrantsPermission,
   ROLE_PERMISSION_GRANTS,
   rolesForPermission,
   rolesGrantPermission,
   scopesForPermission,
+  splitPermission,
 } from "./registry";
 export type {
   Permission,
