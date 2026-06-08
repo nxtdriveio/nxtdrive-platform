@@ -8,6 +8,14 @@ import { UserPlus } from "lucide-react";
 import { inviteInstructor } from "./actions";
 import type { Branch } from "@/lib/branches/service";
 
+type TeamOption = {
+  id: string;
+  name: string;
+  branch_id: string | null;
+  color: string;
+  is_active: boolean;
+};
+
 const ROLE_OPTIONS = [
   { value: "instructor", label: "Instructeur" },
   { value: "branch_manager", label: "Vestigingsmanager" },
@@ -25,13 +33,20 @@ const BRANCH_SCOPED_ROLES = new Set([
   "instructor",
 ]);
 
-export function InviteForm({ branches }: { branches: Branch[] }) {
+export function InviteForm({
+  branches,
+  teams,
+}: {
+  branches: Branch[];
+  teams: TeamOption[];
+}) {
   const [open, setOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState("instructor");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
   const showBranchPicker =
     branches.length > 0 && BRANCH_SCOPED_ROLES.has(selectedRole);
+  const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
 
   function toggleBranch(id: string) {
     setSelectedBranches((prev) =>
@@ -106,7 +121,6 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
                 </div>
               </div>
 
-              {/* Branch multi-select for scoped roles */}
               {showBranchPicker ? (
                 <div className="space-y-2">
                   <Label>
@@ -144,6 +158,54 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
                   <p className="text-[11px] text-muted-foreground">
                     Selecteer vestigingen om deze medewerker te beperken tot
                     die locaties. Geen selectie = toegang tot alle vestigingen.
+                  </p>
+                </div>
+              ) : null}
+
+              {teams.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>
+                    Teams{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optioneel)
+                    </span>
+                  </Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {teams.map((team) => {
+                      const branchLabel = team.branch_id
+                        ? branchNameById.get(team.branch_id) ?? "Vestiging onbekend"
+                        : "Organisatiebreed";
+                      return (
+                        <label
+                          key={team.id}
+                          className="flex cursor-pointer items-start gap-2 rounded-md border border-input px-3 py-2 text-sm transition-colors hover:bg-muted"
+                        >
+                          <input
+                            type="checkbox"
+                            name="team_ids[]"
+                            value={team.id}
+                            className="mt-0.5 rounded"
+                          />
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="flex items-center gap-2 font-medium text-foreground">
+                              <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: team.color }}
+                                aria-hidden
+                              />
+                              {team.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {branchLabel}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Teams zijn operationeel. Rollen en vestigingstoegang blijven
+                    voorlopig leidend voor rechten.
                   </p>
                 </div>
               ) : null}

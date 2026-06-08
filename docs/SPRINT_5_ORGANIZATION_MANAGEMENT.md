@@ -41,6 +41,19 @@ Implemented in this slice:
 - Add a direct Beheer sidebar entry for Teams.
 - Add `test-organization-teams-foundation` static guardrails.
 
+## Sprint 5C - Staff Team Assignment
+
+Implemented in this slice:
+
+- Extend the staff invite flow so tenant admins can optionally assign one or more teams while inviting a medewerker.
+- Keep the temporary-password onboarding flow intact for new staff accounts.
+- Keep branch scope and role assignment intact while adding team assignment as an operational layer.
+- Add audited RPC usage through `set_membership_organization_teams` so writes stay tenant-safe and branch-compatible.
+- Roll back membership creation if team assignment fails, so we never leave half-configured staff access behind.
+- Add `/backoffice/medewerkers/[membershipId]/teams` for per-medewerker teambeheer.
+- Show current team assignments in the medewerkers overview table.
+- Add `test-staff-team-assignment-foundation` static guardrails.
+
 ## Already Present Before Sprint 5
 
 The codebase already had important pieces in place:
@@ -56,7 +69,6 @@ The codebase already had important pieces in place:
 
 Recommended next slices:
 
-- Sprint 5C: connect employee invitations and membership management to optional team assignment.
 - Sprint 5D: improve branch/staff/organization/team UX consistency after real usage feedback.
 
 ## Boundary With Sprint 6
