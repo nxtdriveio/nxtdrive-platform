@@ -11,7 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { changeRole } from "./actions";
 import { RemoveMemberButton } from "./remove-button";
 import { InviteForm } from "./invite-form";
-import { listBranches, listMembershipBranches, type Branch } from "@/lib/branches/service";
+import { listBranches, listMembershipBranches } from "@/lib/branches/service";
+import {
+  listOrganizationTeamMembers,
+  listOrganizationTeams,
+  teamIdsForMembership,
+} from "@/lib/organization";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +30,7 @@ type MemberRow = {
   email: string;
   confirmed: boolean;
   branch_names: string[];
+  team_names: string[];
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -106,6 +112,13 @@ function Feedback({
       </p>
     );
   }
+  if (success === "teams_updated") {
+    return (
+      <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+        Teamindeling bijgewerkt.
+      </p>
+    );
+  }
 
   const errorMessages: Record<string, string> = {
     missing_fields: "Vul alle verplichte velden in.",
@@ -119,6 +132,7 @@ function Feedback({
     update_failed: "Rolwijziging mislukt. Probeer het opnieuw.",
     forbidden: "Je hebt geen toegang tot deze pagina.",
     branches_failed: `Vestigingstoegang instellen mislukt${reason ? `: ${reason}` : "."}`,
+    teams_failed: `Teamindeling instellen mislukt${reason ? `: ${reason}` : "."}`,
   };
 
   if (error) {
@@ -149,7 +163,7 @@ export default async function MedewerkersPage({
 
   const service = createServiceRoleClient();
 
-  const [{ data: membershipRows }, branches] = await Promise.all([
+  const [{ data: membershipRows }, branches, teams, teamMembers] = await Promise.all([
     service
       .from("memberships")
       .select("id, user_id, role, created_at")
@@ -157,6 +171,8 @@ export default async function MedewerkersPage({
       .in("role", ALL_STAFF_ROLES)
       .order("created_at", { ascending: true }),
     listBranches(service, tenant.id, { activeOnly: true }),
+    listOrganizationTeams(service, tenant.id, { activeOnly: true }),
+    listOrganizationTeamMembers(service, tenant.id),
   ]);
 
   const userIds = (membershipRows ?? []).map((m) => m.user_id as string);
@@ -192,6 +208,9 @@ export default async function MedewerkersPage({
   const branchMap = new Map<string, string>(
     branches.map((b) => [b.id, b.name]),
   );
+  const teamMap = new Map<string, string>(
+    teams.map((team) => [team.id, team.name]),
+  );
 
   const memberBranchPromises = (membershipRows ?? []).map(async (m) => {
     const branchIds = await listMembershipBranches(
@@ -208,6 +227,7 @@ export default async function MedewerkersPage({
   const members: MemberRow[] = (membershipRows ?? []).map((m) => {
     const profile = profileMap.get(m.user_id as string);
     const branchIds = memberBranchMap.get(m.id as string) ?? [];
+    const memberTeamIds = teamIdsForMembership(teamMembers, m.id as string);
     return {
       id: m.id as string,
       user_id: m.user_id as string,
@@ -218,6 +238,9 @@ export default async function MedewerkersPage({
       confirmed: confirmedMap.get(m.user_id as string) ?? false,
       branch_names: branchIds
         .map((id) => branchMap.get(id))
+        .filter((n): n is string => !!n),
+      team_names: memberTeamIds
+        .map((id) => teamMap.get(id))
         .filter((n): n is string => !!n),
     };
   });
@@ -233,7 +256,7 @@ export default async function MedewerkersPage({
             Beheer de medewerkers van {tenant.name}.
           </p>
         </div>
-        <InviteForm branches={branches} />
+        <InviteForm branches={branches} teams={teams} />
       </div>
 
       <Feedback
@@ -266,6 +289,7 @@ export default async function MedewerkersPage({
                     <th className="pb-2 pr-4 font-medium">E-mail</th>
                     <th className="pb-2 pr-4 font-medium">Rol</th>
                     <th className="pb-2 pr-4 font-medium">Vestigingen</th>
+                    <th className="pb-2 pr-4 font-medium">Teams</th>
                     <th className="pb-2 pr-4 font-medium">Status</th>
                     <th className="pb-2 pr-4 font-medium">Lid sinds</th>
                     <th className="pb-2 font-medium">Acties</th>
@@ -347,6 +371,17 @@ export default async function MedewerkersPage({
                           )}
                         </td>
                         <td className="py-3 pr-4">
+                          {member.team_names.length > 0 ? (
+                            <span className="text-xs text-muted-foreground">
+                              {member.team_names.join(", ")}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/60 italic">
+                              Geen team
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
                           {member.confirmed ? (
                             <Badge variant="success">Actief</Badge>
                           ) : (
@@ -373,6 +408,14 @@ export default async function MedewerkersPage({
                                   className="text-xs text-primary underline-offset-2 hover:underline"
                                 >
                                   Vestigingen
+                                </a>
+                              ) : null}
+                              {teams.length > 0 ? (
+                                <a
+                                  href={`/backoffice/medewerkers/${member.id}/teams`}
+                                  className="text-xs text-primary underline-offset-2 hover:underline"
+                                >
+                                  Teams
                                 </a>
                               ) : null}
                             </div>
