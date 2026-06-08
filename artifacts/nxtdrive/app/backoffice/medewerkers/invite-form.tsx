@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { UserPlus } from "lucide-react";
 import { inviteInstructor } from "./actions";
 import type { Branch } from "@/lib/branches/service";
+import { GovernanceAlerts } from "@/components/organization/governance-alerts";
 import {
   governanceRoles,
   isBranchScopedGovernanceRole,
+  roleGovernanceAlerts,
   roleGovernanceDefinition,
   type StaffGovernanceRole,
 } from "@/lib/organization/roles";
@@ -43,6 +45,10 @@ export function InviteForm({
     branches.length > 0 && isBranchScopedGovernanceRole(selectedRole);
   const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
   const roleDefinition = roleGovernanceDefinition(selectedRole);
+  const governanceAlerts = roleGovernanceAlerts(selectedRole, {
+    selectedBranchCount: selectedBranches.length,
+    availableBranchCount: branches.length,
+  });
 
   function toggleBranch(id: string) {
     setSelectedBranches((prev) =>
@@ -130,6 +136,8 @@ export function InviteForm({
                 <p className="mt-2 text-muted-foreground">{roleDefinition.intended_use}</p>
                 <p className="mt-2 text-xs text-muted-foreground">{roleDefinition.governance_note}</p>
               </div>
+
+              <GovernanceAlerts alerts={governanceAlerts} />
 
               {showBranchPicker ? (
                 <div className="space-y-2">

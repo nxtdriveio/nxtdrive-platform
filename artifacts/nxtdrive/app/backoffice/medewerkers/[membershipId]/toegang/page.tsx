@@ -1,18 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { KeyRound, MapPin, ShieldCheck, Workflow } from "lucide-react";
+import { GovernanceAlerts } from "@/components/organization/governance-alerts";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listBranches, listMembershipBranches } from "@/lib/branches/service";
 import {
   effectiveRolePermissions,
+  isBranchScopedGovernanceRole,
+  isStaffGovernanceRole,
   listMembershipOrganizationTeamIds,
   listOrganizationRolePermissionOverrides,
   listOrganizationTeams,
   manageableRoles,
   permissionOverrideValue,
   requireOrganizationPermission,
+  roleGovernanceAlerts,
+  roleGovernanceDefinition,
+  roleLabel,
+  roleScopeLabel,
   type ManageablePermissionRole,
 } from "@/lib/organization";
 import {
@@ -24,15 +31,6 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABEL: Record<string, string> = {
-  tenant_admin: "Beheerder",
-  instructor: "Instructeur",
-  branch_manager: "Vestigingsmanager",
-  planner: "Planner",
-  admin_staff: "Administratie",
-  marketing: "Marketing",
-};
 
 const RESOURCE_LABEL: Record<string, string> = {
   organization: "Organisatie",
@@ -169,6 +167,17 @@ export default async function MembershipAccessPage({
     branchIds.length === 0 || branchScopeType === "all"
       ? "Alle vestigingen"
       : `${branchIds.length} vestiging(en)`;
+  const governanceDefinition = isStaffGovernanceRole(role)
+    ? roleGovernanceDefinition(role)
+    : null;
+  const governanceAlerts = roleGovernanceAlerts(role, {
+    selectedBranchCount: branchIds.length,
+    availableBranchCount: branches.length,
+    selectedTeamCount: teamNames.length,
+    includeTeamHint: true,
+  });
+  const showBranchEditor =
+    branches.length > 0 && (isBranchScopedGovernanceRole(role) || branchIds.length > 0);
 
   return (
     <div className="space-y-6">
@@ -189,18 +198,23 @@ export default async function MembershipAccessPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{ROLE_LABEL[role] ?? role}</Badge>
+            <Badge variant="primary">{roleLabel(role)}</Badge>
             <Badge variant="outline">{scopeSummary}</Badge>
+            {governanceDefinition ? (
+              <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+            ) : null}
             {teamNames.length > 0 ? <Badge variant="outline">{teamNames.length} team(s)</Badge> : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/backoffice/medewerkers/${membershipId}/vestigingen`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Vestigingen beheren
-          </Link>
+          {showBranchEditor ? (
+            <Link
+              href={`/backoffice/medewerkers/${membershipId}/vestigingen`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Vestigingen beheren
+            </Link>
+          ) : null}
           <Link
             href={`/backoffice/medewerkers/${membershipId}/teams`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -210,7 +224,7 @@ export default async function MembershipAccessPage({
           {isManageableRole(role) ? (
             <Link
               href={`/backoffice/organisatie/permissies?role=${role}`}
-              className={buttonVariants({ variant: "secondary", size: "sm" })}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               Rolpermissies bekijken
             </Link>
@@ -221,7 +235,7 @@ export default async function MembershipAccessPage({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Rol"
-          value={ROLE_LABEL[role] ?? role}
+          value={roleLabel(role)}
           description="Basisrol blijft de eerste laag van toegang binnen de organisatie."
           icon={ShieldCheck}
         />
@@ -249,9 +263,37 @@ export default async function MembershipAccessPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle>Governance context</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Gebruik deze laag om eerst te toetsen of de basisrol en scope logisch zijn, voordat je permissies gaat finetunen.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {governanceDefinition ? (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="primary">{governanceDefinition.label}</Badge>
+                    <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+                  </div>
+                  <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
+                  <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{governanceDefinition.governance_note}</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground">
+                  Deze rol valt buiten de standaard staff-canon. Gebruik permissiebeheer en organisatiestructuur daarom extra bewust.
+                </div>
+              )}
+
+              <GovernanceAlerts alerts={governanceAlerts} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Vestigingstoegang</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Scope-based access bepaalt op welke vestigingen branch-scoped rechten echt toepasbaar zijn.
+                Scope-based access bepaalt op welke vestigingen branch-gebonden rechten echt toepasbaar zijn.
               </p>
             </CardHeader>
             <CardContent>

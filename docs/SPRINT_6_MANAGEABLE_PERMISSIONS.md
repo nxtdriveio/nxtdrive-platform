@@ -99,3 +99,32 @@ Nog niet in deze sprint:
 - workflow approvals voor rolwijzigingen
 - auditlog-weergave per rol of medewerker
 - automatische aanbevelingen voor rolkeuze via AI
+
+# Sprint 6D - Access Governance Polish
+
+## Doel
+
+Sprint 6D trekt de hele beheerervaring recht zodat rolcanon, scope en permissies overal op dezelfde manier uitgelegd worden. Het doel is minder losse schermen en meer één consistente access-management flow.
+
+## Wat deze sprint toevoegt
+
+- gedeelde governance alerts voor uitnodigen, toegangsoverzicht, vestigingen en teams
+- rijkere governance-context op medewerkerstoegang en permissiebeheer
+- expliciete vervolgflow tussen rollen, medewerkers, teams en permissies
+- guardrail test: `pnpm --filter @workspace/scripts run test-role-governance-polish-foundation`
+
+## Canon voor 6D
+
+- governance komt vóór permissie-overrides
+- branch-scoped rollen moeten bewust organisatiebreed gezet worden
+- teams blijven operationeel en mogen de rechtenstructuur niet maskeren
+- dezelfde taal en waarschuwingen moeten overal terugkomen in de admin UX
+
+## Buiten scope voor 6D
+
+Nog niet in deze sprint:
+
+- custom rollen via UI
+- approval workflow voor rolwijzigingen
+- audit history per toegangswijziging
+- per-gebruiker exception policies buiten de rolcanon

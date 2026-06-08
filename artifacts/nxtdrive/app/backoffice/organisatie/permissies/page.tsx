@@ -5,12 +5,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   defaultPermissionState,
+  isStaffGovernanceRole,
   listOrganizationRolePermissionOverrides,
   manageablePermissions,
   manageableRoles,
   permissionOverrideExplains,
   permissionOverrideValue,
   requireOrganizationPermission,
+  roleGovernanceDefinition,
+  roleScopeLabel,
   type ManageablePermissionRole,
 } from "@/lib/organization";
 import {
@@ -174,6 +177,9 @@ export default async function OrganizationPermissionsPage({
   const rolesWithOverrides = new Set(overrides.map((override) => override.role)).size;
   const groups = groupPermissions();
   const message = feedbackMessage(feedbackCode, reason);
+  const governanceDefinition = isStaffGovernanceRole(selectedRole)
+    ? roleGovernanceDefinition(selectedRole)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -192,12 +198,26 @@ export default async function OrganizationPermissionsPage({
             </p>
           </div>
         </div>
-        <Link
-          href="/backoffice/organisatie"
-          className={buttonVariants({ variant: "secondary", size: "sm" })}
-        >
-          Terug naar organisatiebeheer
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/backoffice/organisatie/rollen"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Rollen bekijken
+          </Link>
+          <Link
+            href="/backoffice/medewerkers"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Medewerkers beheren
+          </Link>
+          <Link
+            href="/backoffice/organisatie"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Terug naar organisatiebeheer
+          </Link>
+        </div>
       </div>
 
       {message ? (
@@ -278,6 +298,28 @@ export default async function OrganizationPermissionsPage({
         </Card>
 
         <div className="space-y-6">
+          {governanceDefinition ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Governance eerst</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Controleer eerst of de basisrol logisch is. Overrides zijn pas de tweede laag nadat rol en scope kloppen.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="primary">{governanceDefinition.label}</Badge>
+                    <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+                  </div>
+                  <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
+                  <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{governanceDefinition.governance_note}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">

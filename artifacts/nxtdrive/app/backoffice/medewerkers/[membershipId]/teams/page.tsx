@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GovernanceAlerts } from "@/components/organization/governance-alerts";
 import { requireOrganizationPermission } from "@/lib/organization";
-import { listBranches } from "@/lib/branches/service";
+import { listBranches, listMembershipBranches } from "@/lib/branches/service";
 import {
+  isStaffGovernanceRole,
   listMembershipOrganizationTeamIds,
   listOrganizationTeams,
+  roleGovernanceAlerts,
+  roleGovernanceDefinition,
+  roleLabel,
+  roleScopeLabel,
 } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +20,6 @@ import { setMembershipTeams } from "../../actions";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABEL: Record<string, string> = {
-  tenant_admin: "Beheerder",
-  instructor: "Instructeur",
-  branch_manager: "Vestigingsmanager",
-  planner: "Planner",
-  admin_staff: "Administratie",
-  marketing: "Marketing",
-};
 
 export default async function MemberTeamsPage({
   params,
@@ -63,13 +60,23 @@ export default async function MemberTeamsPage({
     (profileRow?.email as string | null) ??
     "Onbekend";
 
-  const [branches, teams, currentTeamIds] = await Promise.all([
+  const [branches, currentBranchIds, teams, currentTeamIds] = await Promise.all([
     listBranches(service, organization.id, { activeOnly: true }),
+    listMembershipBranches(service, membershipId),
     listOrganizationTeams(service, organization.id, { activeOnly: true }),
     listMembershipOrganizationTeamIds(service, organization.id, membershipId),
   ]);
 
   const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
+  const governanceDefinition = isStaffGovernanceRole(role)
+    ? roleGovernanceDefinition(role)
+    : null;
+  const governanceAlerts = roleGovernanceAlerts(role, {
+    selectedBranchCount: currentBranchIds.length,
+    availableBranchCount: branches.length,
+    selectedTeamCount: currentTeamIds.length,
+    includeTeamHint: true,
+  });
 
   return (
     <div className="space-y-6">
@@ -86,11 +93,14 @@ export default async function MemberTeamsPage({
               Teams voor {displayName}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Rol: {ROLE_LABEL[role] ?? role}. Teams sturen de operationele samenwerking, maar vervangen het rol- en scope-model niet.
+              Teams sturen de operationele samenwerking, maar vervangen het rol- en scope-model niet.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{ROLE_LABEL[role] ?? role}</Badge>
+            <Badge variant="primary">{roleLabel(role)}</Badge>
+            {governanceDefinition ? (
+              <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+            ) : null}
             <Badge variant="outline">{currentTeamIds.length} team(s)</Badge>
           </div>
         </div>
@@ -112,6 +122,30 @@ export default async function MemberTeamsPage({
           Teamindeling opslaan mislukt{reason ? `: ${reason}` : "."}
         </p>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Governance en teams</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Teams zijn een operationele laag bovenop rol en scope. Ze helpen organiseren, maar geven niet zelfstandig bredere rechten.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {governanceDefinition ? (
+            <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="primary">{governanceDefinition.label}</Badge>
+                <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+              </div>
+              <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
+              <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{governanceDefinition.governance_note}</p>
+            </div>
+          ) : null}
+
+          <GovernanceAlerts alerts={governanceAlerts} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

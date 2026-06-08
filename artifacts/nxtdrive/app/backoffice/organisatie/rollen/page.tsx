@@ -107,7 +107,7 @@ export default async function OrganizationRolesPage() {
           </Link>
           <Link
             href="/backoffice/organisatie/permissies"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             Permissies beheren
           </Link>
@@ -158,6 +158,44 @@ export default async function OrganizationRolesPage() {
           <div className="rounded-xl border border-border px-4 py-4 text-sm text-muted-foreground">
             Tenant-overrides zijn voor uitzonderingen, niet als vervanging van de rolcanon.
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Van canon naar uitvoering</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Gebruik overal dezelfde volgorde: rol kiezen, scope begrenzen en pas daarna uitzonderingen in permissies vastleggen.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Link
+            href="/backoffice/medewerkers"
+            className="rounded-xl border border-border px-4 py-4 transition-colors hover:border-primary/30 hover:bg-muted/40"
+          >
+            <p className="font-medium text-foreground">1. Medewerkers</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Nodig mensen uit, kies de juiste basisrol en ga daarna pas naar detailbeheer.
+            </p>
+          </Link>
+          <Link
+            href="/backoffice/organisatie/permissies"
+            className="rounded-xl border border-border px-4 py-4 transition-colors hover:border-primary/30 hover:bg-muted/40"
+          >
+            <p className="font-medium text-foreground">2. Permissies</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Leg alleen tenant-specifieke afwijkingen vast wanneer de standaardrol operationeel niet genoeg is.
+            </p>
+          </Link>
+          <Link
+            href="/backoffice/organisatie/teams"
+            className="rounded-xl border border-border px-4 py-4 transition-colors hover:border-primary/30 hover:bg-muted/40"
+          >
+            <p className="font-medium text-foreground">3. Teams</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Organiseer samenwerking operationeel, zonder het rol- en rechtenmodel te vervormen.
+            </p>
+          </Link>
         </CardContent>
       </Card>
 
