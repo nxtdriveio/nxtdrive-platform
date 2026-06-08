@@ -54,6 +54,18 @@ Implemented in this slice:
 - Show current team assignments in the medewerkers overview table.
 - Add `test-staff-team-assignment-foundation` static guardrails.
 
+## Sprint 5D - Management UX Consistency
+
+Implemented in this slice:
+
+- Align organization, branches, teams and staff screens so they share the same management language and visual rhythm.
+- Add summary stat cards to core management pages for quicker operational scanning.
+- Add cross-links between organization, vestigingen, teams and medewerkers so admins always see the next logical step.
+- Improve empty states so optional structure is explained clearly instead of feeling like a missing setup step.
+- Clarify upgrade/read-only messaging around multi-branch where relevant.
+- Add an operational readiness checklist to the organization hub.
+- Add `test-organization-management-ux-consistency` static guardrails.
+
 ## Already Present Before Sprint 5
 
 The codebase already had important pieces in place:
@@ -69,7 +81,7 @@ The codebase already had important pieces in place:
 
 Recommended next slices:
 
-- Sprint 5D: improve branch/staff/organization/team UX consistency after real usage feedback.
+- Sprint 6: make roles and scoped permissions beheerbaar via admin UI in plaats van alleen hardcoded registry-defaults.
 
 ## Boundary With Sprint 6
 
