@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { tenantHasFeature } from "@/lib/platform/features";
 
@@ -14,8 +14,8 @@ function assertMultiBranchEnabled(tenant: { plan: string }) {
 }
 
 export async function createBranch(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("branch:manage");
+  assertMultiBranchEnabled(organization);
 
   const name = String(formData.get("name") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
@@ -29,7 +29,7 @@ export async function createBranch(formData: FormData) {
   const service = createServiceRoleClient();
 
   const { error } = await service.rpc("create_branch", {
-    p_tenant_id: tenant.id,
+    p_tenant_id: organization.id,
     p_name: name,
     p_slug: slug,
     p_address: address,
@@ -54,8 +54,8 @@ export async function createBranch(formData: FormData) {
 }
 
 export async function updateBranch(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("branch:manage");
+  assertMultiBranchEnabled(organization);
 
   const branchId = String(formData.get("branch_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -89,8 +89,8 @@ export async function updateBranch(formData: FormData) {
 }
 
 export async function setMembershipBranches(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
+  assertMultiBranchEnabled(organization);
 
   const membershipId = String(formData.get("membership_id") ?? "").trim();
   const raw = formData.getAll("branch_ids[]");
@@ -108,7 +108,7 @@ export async function setMembershipBranches(formData: FormData) {
     .from("memberships")
     .select("id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!membership) {
