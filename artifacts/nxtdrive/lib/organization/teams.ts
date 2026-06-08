@@ -92,6 +92,21 @@ export async function listOrganizationTeamMembers(
   return (data ?? []) as OrganizationTeamMember[];
 }
 
+export async function listMembershipOrganizationTeamIds(
+  client: TeamClient,
+  tenantId: string,
+  membershipId: string,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from("organization_team_members")
+    .select("team_id")
+    .eq("tenant_id", tenantId)
+    .eq("membership_id", membershipId);
+
+  if (error) throw new Error(`listMembershipOrganizationTeamIds: ${error.message}`);
+  return (data ?? []).map((row: { team_id: string }) => row.team_id);
+}
+
 export function teamMemberIdsForTeam(
   members: readonly OrganizationTeamMember[],
   teamId: string,
@@ -99,4 +114,13 @@ export function teamMemberIdsForTeam(
   return members
     .filter((member) => member.team_id === teamId)
     .map((member) => member.membership_id);
+}
+
+export function teamIdsForMembership(
+  members: readonly OrganizationTeamMember[],
+  membershipId: string,
+): string[] {
+  return members
+    .filter((member) => member.membership_id === membershipId)
+    .map((member) => member.team_id);
 }
