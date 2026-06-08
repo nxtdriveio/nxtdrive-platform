@@ -1,4 +1,4 @@
-import type { RoleGovernanceAlert } from "@/lib/organization";
+import type { RoleGovernanceAlert } from "@/lib/organization/roles";
 import { cn } from "@/lib/utils";
 
 function toneClasses(alert: RoleGovernanceAlert): string {
