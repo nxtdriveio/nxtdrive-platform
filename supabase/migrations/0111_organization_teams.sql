@@ -312,9 +312,9 @@ begin
     raise exception 'team niet gevonden';
   end if;
 
-  select count(distinct membership_id)
+  select count(distinct ids.membership_id)
     into v_distinct_count
-    from unnest(coalesce(p_membership_ids, array[]::uuid[])) as membership_id;
+    from unnest(coalesce(p_membership_ids, array[]::uuid[])) as ids(membership_id);
 
   select count(distinct m.id)
     into v_valid_count
@@ -337,11 +337,11 @@ begin
     membership_id,
     created_by
   )
-  select p_tenant_id, p_team_id, membership_id, p_actor
+  select p_tenant_id, p_team_id, ids.membership_id, p_actor
     from (
-      select distinct membership_id
-        from unnest(coalesce(p_membership_ids, array[]::uuid[])) as membership_id
-    ) distinct_members;
+      select distinct ids.membership_id
+        from unnest(coalesce(p_membership_ids, array[]::uuid[])) as ids(membership_id)
+    ) ids;
 
   insert into public.audit_log
     (actor_user_id, tenant_id, action, target_type, target_id, payload)
