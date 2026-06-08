@@ -463,6 +463,28 @@ export default async function OrganisatiePage({
               ))}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-foreground">Access blueprint</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Gebruik overal dezelfde beheerroute zodat rollen, scope en permissies niet door elkaar gaan lopen.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border px-3 py-3">
+                1. Nodig medewerkers uit of open hun toegangsoverzicht vanuit <strong className="text-foreground">Medewerkers</strong>.
+              </div>
+              <div className="rounded-lg border border-border px-3 py-3">
+                2. Wijzig de <strong className="text-foreground">basisrol</strong> via de aparte rolbeheerflow, niet via losse uitzonderingen.
+              </div>
+              <div className="rounded-lg border border-border px-3 py-3">
+                3. Begrens daarna pas <strong className="text-foreground">vestigingen</strong> en koppel optioneel <strong className="text-foreground">teams</strong>.
+              </div>
+              <div className="rounded-lg border border-border px-3 py-3">
+                4. Gebruik <strong className="text-foreground">permissie-overrides</strong> alleen voor echte tenant-specifieke afwijkingen.
+              </div>
+            </CardContent>
+          </Card>
           <SectionLinkCard
             title="Vestigingen"
             description="Maak locaties aan, zet ze actief/inactief en gebruik ze als scope voor planning, voertuigen, facturen en taken."

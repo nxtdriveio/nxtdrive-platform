@@ -207,6 +207,12 @@ export default async function MembershipAccessPage({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/backoffice/medewerkers/${membershipId}/rol`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Rol beheren
+          </Link>
           {showBranchEditor ? (
             <Link
               href={`/backoffice/medewerkers/${membershipId}/vestigingen`}

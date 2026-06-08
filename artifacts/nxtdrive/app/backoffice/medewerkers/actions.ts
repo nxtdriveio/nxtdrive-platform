@@ -40,6 +40,27 @@ function formIds(formData: FormData, key: string): string[] {
     .filter((value) => value.length > 0);
 }
 
+function appendQuery(url: string, key: string, value: string | null | undefined): string {
+  if (!value) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${key}=${encodeURIComponent(value)}`;
+}
+
+function redirectToRoleTarget(
+  formData: FormData,
+  fallback: string,
+  params?: Record<string, string>,
+): never {
+  const raw = String(formData.get("return_to") ?? "").trim();
+  let target = raw || fallback;
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      target = appendQuery(target, key, value);
+    }
+  }
+  redirect(target);
+}
+
 /** Find an existing auth user id by email, paging through the admin list. */
 async function findUserIdByEmail(
   service: SupabaseClient,
@@ -376,7 +397,9 @@ export async function changeRole(formData: FormData) {
   const newRole = String(formData.get("role") ?? "") as MemberRole;
 
   if (!membershipId || !STAFF_ROLES.includes(newRole)) {
-    redirect("/backoffice/medewerkers?error=missing_fields");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "missing_fields",
+    });
   }
 
   const service = createServiceRoleClient();
@@ -388,10 +411,16 @@ export async function changeRole(formData: FormData) {
     .eq("tenant_id", organization.id)
     .maybeSingle();
 
-  if (!row) redirect("/backoffice/medewerkers?error=not_found");
+  if (!row) {
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "not_found",
+    });
+  }
 
   if ((row.user_id as string) === user.id) {
-    redirect("/backoffice/medewerkers?error=cannot_change_own_role");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "cannot_change_own_role",
+    });
   }
 
   const { error } = await service
@@ -402,12 +431,18 @@ export async function changeRole(formData: FormData) {
 
   if (error) {
     if (error.code === "23505") {
-      redirect("/backoffice/medewerkers?error=role_conflict");
+      redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+        error: "role_conflict",
+      });
     }
-    redirect("/backoffice/medewerkers?error=update_failed");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "update_failed",
+    });
   }
 
-  redirect("/backoffice/medewerkers?success=role_changed");
+  redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+    success: "role_changed",
+  });
 }
 
 export async function setMembershipTeams(formData: FormData) {
