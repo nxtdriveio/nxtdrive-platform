@@ -13,7 +13,7 @@ import {
   isBranchScopedGovernanceRole,
   roleGovernanceDefinition,
   type StaffGovernanceRole,
-} from "@/lib/organization";
+} from "@/lib/organization/roles";
 
 type TeamOption = {
   id: string;
