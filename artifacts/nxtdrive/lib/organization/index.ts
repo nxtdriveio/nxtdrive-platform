@@ -28,9 +28,11 @@ export type {
 } from "./profile";
 
 export {
+  listMembershipOrganizationTeamIds,
   listOrganizationTeamMembers,
   listOrganizationTeams,
   loadOrganizationTeam,
+  teamIdsForMembership,
   teamMemberIdsForTeam,
 } from "./teams";
 export type {
