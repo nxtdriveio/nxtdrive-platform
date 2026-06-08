@@ -3,7 +3,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ALL_PERMISSIONS,
-  grantCoversPermission,
   permissionAction,
   permissionResource,
   roleGrantsPermission,
@@ -37,6 +36,12 @@ export type OrganizationRolePermissionOverride = {
 };
 
 type RolePermissionClient = Pick<SupabaseClient, "from">;
+
+function isManageablePermissionRole(
+  role: MemberRole,
+): role is ManageablePermissionRole {
+  return MANAGEABLE_PERMISSION_ROLES.includes(role as ManageablePermissionRole);
+}
 
 export function manageableRoles(): readonly ManageablePermissionRole[] {
   return MANAGEABLE_PERMISSION_ROLES;
@@ -114,7 +119,7 @@ export function effectiveRolesGrantPermission(
   overrides: readonly OrganizationRolePermissionOverride[],
 ): boolean {
   return roles.some((role) => {
-    const roleOverrides = MANAGEABLE_PERMISSION_ROLES.includes(role)
+    const roleOverrides = isManageablePermissionRole(role)
       ? permissionOverridesForRole(overrides, role)
       : [];
     return effectiveRolePermission(role, permission, roleOverrides);
