@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GovernanceAlerts } from "@/components/organization/governance-alerts";
 import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -7,21 +8,20 @@ import {
   listMembershipBranches,
 } from "@/lib/branches/service";
 import { setMembershipBranches } from "@/lib/branches/actions";
+import {
+  isBranchScopedGovernanceRole,
+  isStaffGovernanceRole,
+  roleGovernanceAlerts,
+  roleGovernanceDefinition,
+  roleLabel,
+  roleScopeLabel,
+} from "@/lib/organization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABEL: Record<string, string> = {
-  tenant_admin: "Beheerder",
-  instructor: "Instructeur",
-  branch_manager: "Vestigingsmanager",
-  planner: "Planner",
-  admin_staff: "Administratie",
-  marketing: "Marketing",
-};
 
 export default async function MemberBranchesPage({
   params,
@@ -67,6 +67,15 @@ export default async function MemberBranchesPage({
     listMembershipBranches(service, membershipId),
   ]);
 
+  const governanceDefinition = isStaffGovernanceRole(role)
+    ? roleGovernanceDefinition(role)
+    : null;
+  const governanceAlerts = roleGovernanceAlerts(role, {
+    selectedBranchCount: currentBranchIds.length,
+    availableBranchCount: branches.length,
+  });
+  const rolePrefersBranchScope = isBranchScopedGovernanceRole(role);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -82,11 +91,14 @@ export default async function MemberBranchesPage({
               Vestigingen voor {displayName}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Rol: {ROLE_LABEL[role] ?? role}. Hier bepaal je de scope waar branch-gebonden rechten van deze medewerker echt mogen gelden.
+              Hier bepaal je de scope waar branch-gebonden rechten van deze medewerker echt mogen gelden.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{ROLE_LABEL[role] ?? role}</Badge>
+            <Badge variant="primary">{roleLabel(role)}</Badge>
+            {governanceDefinition ? (
+              <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+            ) : null}
             <Badge variant="outline">
               {currentBranchIds.length === 0 ? "Alle vestigingen" : `${currentBranchIds.length} geselecteerd`}
             </Badge>
@@ -110,6 +122,36 @@ export default async function MemberBranchesPage({
           Opslaan mislukt{reason ? `: ${reason}` : "."}
         </p>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Governance bij branch-scope</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Eerst de juiste basisrol, daarna pas vestigingsbeperking. Zo blijft lokaal werk lokaal en centrale toegang bewust.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {governanceDefinition ? (
+            <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="primary">{governanceDefinition.label}</Badge>
+                <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+              </div>
+              <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
+              <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{governanceDefinition.governance_note}</p>
+            </div>
+          ) : null}
+
+          <GovernanceAlerts alerts={governanceAlerts} />
+
+          {!rolePrefersBranchScope ? (
+            <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground">
+              Deze rol is normaal organisatiebreed. Pas branch-selectie hier alleen toe als je echt bewust wilt afwijken van die standaard.
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
