@@ -28,6 +28,19 @@ export type {
 } from "./profile";
 
 export {
+  governanceRoles,
+  isBranchScopedGovernanceRole,
+  roleGovernanceDefinition,
+  roleLabel,
+  roleScopeLabel,
+} from "./roles";
+export type {
+  RoleGovernanceDefinition,
+  RoleScopePolicy,
+  StaffGovernanceRole,
+} from "./roles";
+
+export {
   defaultPermissionState,
   effectiveRolePermission,
   effectiveRolePermissions,

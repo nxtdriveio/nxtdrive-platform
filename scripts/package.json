@@ -66,6 +66,7 @@
     "test-branch-ux-foundation": "tsx ./src/test-branch-ux-foundation.ts",
     "test-manageable-role-permissions-foundation": "tsx ./src/test-manageable-role-permissions-foundation.ts",
     "test-membership-access-management-foundation": "tsx ./src/test-membership-access-management-foundation.ts",
+    "test-role-governance-foundation": "tsx ./src/test-role-governance-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

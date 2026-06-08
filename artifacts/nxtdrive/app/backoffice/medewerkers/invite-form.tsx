@@ -4,9 +4,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { UserPlus } from "lucide-react";
 import { inviteInstructor } from "./actions";
 import type { Branch } from "@/lib/branches/service";
+import {
+  governanceRoles,
+  isBranchScopedGovernanceRole,
+  roleGovernanceDefinition,
+  type StaffGovernanceRole,
+} from "@/lib/organization/roles";
 
 type TeamOption = {
   id: string;
@@ -16,22 +23,10 @@ type TeamOption = {
   is_active: boolean;
 };
 
-const ROLE_OPTIONS = [
-  { value: "instructor", label: "Instructeur" },
-  { value: "branch_manager", label: "Vestigingsmanager" },
-  { value: "planner", label: "Planner" },
-  { value: "admin_staff", label: "Administratie" },
-  { value: "marketing", label: "Marketing" },
-  { value: "tenant_admin", label: "Beheerder" },
-];
-
-const BRANCH_SCOPED_ROLES = new Set([
-  "branch_manager",
-  "planner",
-  "admin_staff",
-  "marketing",
-  "instructor",
-]);
+const ROLE_OPTIONS = governanceRoles().map((role) => ({
+  value: role,
+  label: roleGovernanceDefinition(role).short_label,
+}));
 
 export function InviteForm({
   branches,
@@ -41,12 +36,13 @@ export function InviteForm({
   teams: TeamOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("instructor");
+  const [selectedRole, setSelectedRole] = useState<StaffGovernanceRole>("instructor");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
   const showBranchPicker =
-    branches.length > 0 && BRANCH_SCOPED_ROLES.has(selectedRole);
+    branches.length > 0 && isBranchScopedGovernanceRole(selectedRole);
   const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
+  const roleDefinition = roleGovernanceDefinition(selectedRole);
 
   function toggleBranch(id: string) {
     setSelectedBranches((prev) =>
@@ -107,7 +103,7 @@ export function InviteForm({
                     required
                     value={selectedRole}
                     onChange={(e) => {
-                      setSelectedRole(e.target.value);
+                      setSelectedRole(e.target.value as StaffGovernanceRole);
                       setSelectedBranches([]);
                     }}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -119,6 +115,20 @@ export function InviteForm({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="primary">{roleDefinition.label}</Badge>
+                  <Badge variant="outline">
+                    {roleDefinition.scope_policy === "branch"
+                      ? "Vestiging-scoped"
+                      : "Organisatiebreed"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-foreground">{roleDefinition.description}</p>
+                <p className="mt-2 text-muted-foreground">{roleDefinition.intended_use}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{roleDefinition.governance_note}</p>
               </div>
 
               {showBranchPicker ? (

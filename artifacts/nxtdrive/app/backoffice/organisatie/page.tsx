@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Building2,
   CheckCircle2,
+  KeyRound,
   MapPin,
   ShieldCheck,
   Users,
@@ -475,6 +476,13 @@ export default async function OrganisatiePage({
             href="/backoffice/medewerkers"
             cta="Medewerkers beheren"
             icon={Users}
+          />
+          <SectionLinkCard
+            title="Rollen"
+            description="Beheer de rolcanon, scope-aanpak en governance-afspraken voordat je permissie-overrides inzet."
+            href="/backoffice/organisatie/rollen"
+            cta="Rollen bekijken"
+            icon={KeyRound}
           />
           <SectionLinkCard
             title="Teams"

@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MapPin, ShieldCheck, Users, Workflow } from "lucide-react";
-import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  governanceRoles,
+  isBranchScopedGovernanceRole,
+  requireOrganizationPermission,
+  roleGovernanceDefinition,
+  roleLabel,
+} from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   Card,
@@ -53,14 +59,6 @@ const ALL_STAFF_ROLES: MemberRole[] = [
   "admin_staff",
   "marketing",
 ];
-
-const BRANCH_SCOPED_ROLES = new Set<MemberRole>([
-  "instructor",
-  "branch_manager",
-  "planner",
-  "admin_staff",
-  "marketing",
-]);
 
 const DATE_FMT = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
@@ -309,6 +307,13 @@ export default async function MedewerkersPage({
             </Link>
             <span>·</span>
             <Link
+              href="/backoffice/organisatie/rollen"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Rollen
+            </Link>
+            <span>·</span>
+            <Link
               href="/backoffice/organisatie/permissies"
               className="underline-offset-2 hover:text-foreground hover:underline"
             >
@@ -366,6 +371,32 @@ export default async function MedewerkersPage({
           icon={Workflow}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rolgovernance</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Gebruik de rolcanon als leidraad: eerst de juiste basisrol, daarna pas branch-scope en eventuele tenant-overrides.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {governanceRoles().map((role) => {
+            const definition = roleGovernanceDefinition(role);
+            return (
+              <div key={role} className="rounded-xl border border-border px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="primary">{definition.short_label}</Badge>
+                  <Badge variant="outline">
+                    {isBranchScopedGovernanceRole(role) ? "Vestiging-scoped" : "Organisatiebreed"}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm text-foreground">{definition.description}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{definition.governance_note}</p>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       {branches.length === 0 || teams.length === 0 ? (
         <Card>
@@ -447,7 +478,7 @@ export default async function MedewerkersPage({
                     const isSelf = member.user_id === user.id;
                     const displayName = member.full_name ?? member.email;
                     const canScopeBranches =
-                      BRANCH_SCOPED_ROLES.has(member.role) &&
+                      isBranchScopedGovernanceRole(member.role) &&
                       branches.length > 0;
                     return (
                       <tr key={member.id}>
@@ -474,7 +505,7 @@ export default async function MedewerkersPage({
                         <td className="py-3 pr-4">
                           {isSelf ? (
                             <Badge variant="primary">
-                              {ROLE_LABEL[member.role] ?? member.role}
+                              {roleLabel(member.role)}
                             </Badge>
                           ) : (
                             <form
