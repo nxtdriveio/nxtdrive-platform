@@ -38,3 +38,33 @@ Nog niet in deze sprint:
 ## Waarom deze volgorde
 
 Eerst moet NXTDRIVE veilige tenant-overrides kunnen opslaan en afdwingen. Daarna kunnen we in latere Sprint 6-slices beheer rond rollen, scopes en mogelijk custom roltemplates verder uitbouwen zonder opnieuw aan de kern te moeten sleutelen.
+
+# Sprint 6B - Membership Access Management
+
+## Doel
+
+Sprint 6B brengt de rollen- en permissiefundering naar het niveau van individuele medewerkers. Niet alleen de rol zelf, maar ook branch-scope, teams en effectieve toegang moeten nu als één beheerflow zichtbaar en bestuurbaar zijn.
+
+## Wat deze sprint toevoegt
+
+- medewerkersbeheer en branch-mutaties draaien nu op `requireOrganizationPermission("user:manage")` of `requireOrganizationPermission("branch:manage")`
+- nieuwe pagina `/backoffice/medewerkers/[membershipId]/toegang`
+- toegangsoverzicht toont rol, vestigingsscope, teamindeling en effectieve permissies per medewerker
+- teams- en vestigingenschermen linken terug naar het toegangsoverzicht
+- guardrail test: `pnpm --filter @workspace/scripts run test-membership-access-management-foundation`
+
+## Canon voor 6B
+
+- rollen blijven leidend voor basisrechten
+- branch-scope bepaalt waar branch-gebonden rechten mogen gelden
+- teams blijven operationeel en geven niet zelfstandig nieuwe rechten
+- tenant-overrides op rolbasis blijven centraal zichtbaar via permissiebeheer
+
+## Buiten scope voor 6B
+
+Nog niet in deze sprint:
+
+- per-gebruiker permission overrides
+- approval flows voor access changes
+- audit timeline per medewerker
+- delegatie door branch managers buiten de tenant admin-flow
