@@ -15,7 +15,7 @@ Implemented in this slice:
 
 - Add `/backoffice/organisatie` as the canonical admin entry point for organization management.
 - Expose organization profile fields for legal name, billing e-mail, support e-mail, KvK, VAT and organization owner.
-- Save organization profile changes through the existing audited `upsert_organization_profile` RPC.
+- Save organization profile changes through the audited `upsert_organization_profile` RPC, now scoped so tenant/franchise admins can update their own organization only.
 - Validate owner selection against staff memberships inside the current organization.
 - Surface organization type, plan, lifecycle and onboarding state without making platform-owned lifecycle controls tenant-editable.
 - Link directly to the existing branch management UI.
