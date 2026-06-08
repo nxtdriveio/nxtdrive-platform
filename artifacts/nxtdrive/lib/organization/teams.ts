@@ -60,7 +60,7 @@ export async function listOrganizationTeams(
 
   const { data, error } = await query;
   if (error) throw new Error(`listOrganizationTeams: ${error.message}`);
-  return (data ?? []) as OrganizationTeam[];
+  return (data ?? []) as unknown as OrganizationTeam[];
 }
 
 export async function loadOrganizationTeam(
@@ -76,7 +76,7 @@ export async function loadOrganizationTeam(
     .maybeSingle();
 
   if (error) throw new Error(`loadOrganizationTeam: ${error.message}`);
-  return (data ?? null) as OrganizationTeam | null;
+  return (data ?? null) as unknown as OrganizationTeam | null;
 }
 
 export async function listOrganizationTeamMembers(
@@ -89,7 +89,7 @@ export async function listOrganizationTeamMembers(
     .eq("tenant_id", tenantId);
 
   if (error) throw new Error(`listOrganizationTeamMembers: ${error.message}`);
-  return (data ?? []) as OrganizationTeamMember[];
+  return (data ?? []) as unknown as OrganizationTeamMember[];
 }
 
 export async function listMembershipOrganizationTeamIds(
