@@ -3,6 +3,7 @@ import {
   Building2,
   CheckCircle2,
   MapPin,
+  ShieldCheck,
   Users,
   Workflow,
 } from "lucide-react";
@@ -481,6 +482,13 @@ export default async function OrganisatiePage({
             href="/backoffice/organisatie/teams"
             cta="Teams beheren"
             icon={Workflow}
+          />
+          <SectionLinkCard
+            title="Permissies"
+            description="Beheer tenant-specifieke permissie-overrides per rol, bovenop de standaard permission registry van NXTDRIVE."
+            href="/backoffice/organisatie/permissies"
+            cta="Permissies beheren"
+            icon={ShieldCheck}
           />
         </div>
       </div>

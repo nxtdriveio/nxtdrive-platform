@@ -121,11 +121,29 @@ export const ROLE_PERMISSION_GRANTS: Record<MemberRole, readonly PermissionGrant
   ],
 };
 
-function splitPermission(permission: Permission): [PermissionResource, PermissionAction] {
+export const ALL_PERMISSIONS = Array.from(
+  new Set(
+    Object.values(ROLE_PERMISSION_GRANTS).flatMap((grants) =>
+      grants.map((grant) => grant.permission),
+    ),
+  ),
+).sort() as Permission[];
+
+export function splitPermission(
+  permission: Permission,
+): [PermissionResource, PermissionAction] {
   return permission.split(":") as [PermissionResource, PermissionAction];
 }
 
-function grantCoversPermission(
+export function permissionResource(permission: Permission): PermissionResource {
+  return splitPermission(permission)[0];
+}
+
+export function permissionAction(permission: Permission): PermissionAction {
+  return splitPermission(permission)[1];
+}
+
+export function grantCoversPermission(
   grantedPermission: Permission,
   requestedPermission: Permission,
 ): boolean {
