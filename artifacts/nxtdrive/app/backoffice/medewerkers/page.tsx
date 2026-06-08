@@ -4,6 +4,7 @@ import { MapPin, ShieldCheck, Users, Workflow } from "lucide-react";
 import {
   governanceRoles,
   isBranchScopedGovernanceRole,
+  isStaffGovernanceRole,
   requireOrganizationPermission,
   roleGovernanceDefinition,
   roleLabel,
@@ -471,8 +472,8 @@ export default async function MedewerkersPage({
                     const canScopeBranches =
                       isBranchScopedGovernanceRole(member.role) &&
                       branches.length > 0;
-                    const governanceDefinition = governanceRoles().includes(member.role as (typeof governanceRoles)[number])
-                      ? roleGovernanceDefinition(member.role as (typeof governanceRoles)[number])
+                    const governanceDefinition = isStaffGovernanceRole(member.role)
+                      ? roleGovernanceDefinition(member.role)
                       : null;
                     return (
                       <tr key={member.id}>
