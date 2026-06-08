@@ -2,14 +2,17 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import { roleHomePath } from "@/lib/auth/role-home";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { requireActiveOrganization } from "./context";
 import {
   branchScopeForRoles,
-  rolesForPermission,
-  rolesGrantPermission,
   type BranchAccessScope,
   type Permission,
 } from "@/lib/permissions";
+import {
+  effectiveRolesGrantPermission,
+  listOrganizationRolePermissionOverrides,
+} from "./role-permissions";
 import type { ActiveOrganizationContext } from "./context";
 import type { MemberRole } from "@/lib/types";
 
@@ -17,6 +20,18 @@ export type AuthorizedOrganizationContext = ActiveOrganizationContext & {
   permission: Permission;
   branchScope: BranchAccessScope;
 };
+
+const ALL_MEMBER_ROLES: MemberRole[] = [
+  "tenant_admin",
+  "franchise_admin",
+  "branch_manager",
+  "planner",
+  "admin_staff",
+  "marketing",
+  "instructor",
+  "student",
+  "parent",
+];
 
 /**
  * Organization-domain permission guard for new server code.
@@ -31,14 +46,19 @@ export async function requireOrganizationPermission(
   permission: Permission,
   options: { allowedRoles?: MemberRole[] } = {},
 ): Promise<AuthorizedOrganizationContext> {
-  const allowedRoles = options.allowedRoles ?? rolesForPermission(permission);
+  const allowedRoles = options.allowedRoles ?? ALL_MEMBER_ROLES;
   const context = await requireActiveOrganization(allowedRoles);
 
-  if (
-    !context.user.profile?.is_platform_admin &&
-    !rolesGrantPermission(context.roles, permission)
-  ) {
-    redirect(roleHomePath(context.user, context.organization.id));
+  if (!context.user.profile?.is_platform_admin) {
+    const service = createServiceRoleClient();
+    const overrides = await listOrganizationRolePermissionOverrides(
+      service,
+      context.organization.id,
+    );
+
+    if (!effectiveRolesGrantPermission(context.roles, permission, overrides)) {
+      redirect(roleHomePath(context.user, context.organization.id));
+    }
   }
 
   const branchScope: BranchAccessScope = context.user.profile?.is_platform_admin
