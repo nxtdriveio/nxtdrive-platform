@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  BranchScopeBadge,
+  BranchScopeSummary,
+  ReadOnlyScopeNotice,
+} from "@/components/backoffice/branch-scope-ui";
 import { listBranches, type Branch } from "@/lib/branches/service";
 import { loadVehicles, loadLocations } from "@/lib/lessons/context-data";
 import {
@@ -63,12 +68,16 @@ export default async function VoertuigenPage() {
         <p className="text-sm text-muted-foreground">
           Beheer de lesvoertuigen en ophaal-/vertreklocaties van je rijschool.
         </p>
-        {branchScope.scope_type === "branches" ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Je ziet gedeelde assets en assets van je toegestane vestigingen.
-          </p>
-        ) : null}
       </div>
+
+      <BranchScopeSummary
+        scope={branchScope}
+        branchCount={branches.length}
+        sharedRowsLabel="Gedeelde voertuigen en locaties blijven zichtbaar."
+      />
+      {!canManageAssets ? (
+        <ReadOnlyScopeNotice description="Je kunt voertuigen en locaties bekijken binnen je vestigingsscope, maar aanmaken, koppelen en activeren is voorbehouden aan beheerders." />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className={canManageAssets ? "lg:col-span-2" : "lg:col-span-3"}>
@@ -78,7 +87,7 @@ export default async function VoertuigenPage() {
             </CardHeader>
             {vehicles.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
-                Nog geen voertuigen binnen je vestigingsscope.
+                Geen voertuigen binnen deze vestigingsscope.
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -99,7 +108,7 @@ export default async function VoertuigenPage() {
                         {v.label}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {branchLabel(v.branch_id, branchesById)}
+                        <BranchScopeBadge branchId={v.branch_id} branchesById={branchesById} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {v.license_plate ?? "-"}
@@ -207,7 +216,7 @@ export default async function VoertuigenPage() {
             </CardHeader>
             {locations.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
-                Nog geen locaties binnen je vestigingsscope.
+                Geen locaties binnen deze vestigingsscope.
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -227,7 +236,7 @@ export default async function VoertuigenPage() {
                         {l.name}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {branchLabel(l.branch_id, branchesById)}
+                        <BranchScopeBadge branchId={l.branch_id} branchesById={branchesById} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {l.address ?? "-"}
@@ -342,12 +351,4 @@ function BranchOptions({
       ))}
     </>
   );
-}
-
-function branchLabel(
-  branchId: string | null,
-  branchesById: Map<Branch["id"], Branch["name"]>,
-): string {
-  if (!branchId) return "Alle vestigingen";
-  return branchesById.get(branchId) ?? "Onbekende vestiging";
 }
