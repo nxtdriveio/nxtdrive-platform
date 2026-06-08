@@ -44,17 +44,18 @@ export function BranchScopeSummary({
   sharedRowsLabel?: string | null;
   className?: string;
 }) {
-  const isAll = scope.scope_type === "all";
+  const scopedBranchCount =
+    scope.scope_type === "branches" ? scope.branch_ids.length : branchCount;
   const title = selectedBranchName
     ? `Vestiging: ${selectedBranchName}`
-    : isAll
+    : scope.scope_type === "all"
       ? "Alle vestigingen"
       : "Alle toegestane vestigingen";
   const description = selectedBranchName
     ? "Je bekijkt alleen data van deze vestiging."
-    : isAll
+    : scope.scope_type === "all"
       ? `${branchCount} actieve vestiging${branchCount === 1 ? "" : "en"} beschikbaar binnen deze organisatie.`
-      : `${scope.branch_ids.length} toegestane vestiging${scope.branch_ids.length === 1 ? "" : "en"} binnen jouw rol.`;
+      : `${scopedBranchCount} toegestane vestiging${scopedBranchCount === 1 ? "" : "en"} binnen jouw rol.`;
 
   return (
     <div
