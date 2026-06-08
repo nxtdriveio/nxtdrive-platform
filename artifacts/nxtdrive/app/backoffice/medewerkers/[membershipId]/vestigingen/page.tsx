@@ -97,7 +97,7 @@ export default async function MemberBranchesPage({
           <div className="flex flex-wrap gap-2">
             <Badge variant="primary">{roleLabel(role)}</Badge>
             {governanceDefinition ? (
-              <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+              <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
             ) : null}
             <Badge variant="outline">
               {currentBranchIds.length === 0 ? "Alle vestigingen" : `${currentBranchIds.length} geselecteerd`}
@@ -135,7 +135,7 @@ export default async function MemberBranchesPage({
             <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="primary">{governanceDefinition.label}</Badge>
-                <Badge variant="outline">{roleScopeLabel(role)}</Badge>
+                <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
               </div>
               <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
               <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
