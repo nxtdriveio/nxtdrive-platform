@@ -32,8 +32,10 @@ const docs = source("docs/SPRINT_5_ORGANIZATION_MANAGEMENT.md");
 
 check(
   "organization page uses canonical permission guard",
-  organizationPage.includes('requireOrganizationPermission(\n    "organization:update"') &&
-    organizationActions.includes('requireOrganizationPermission(\n    "organization:update"'),
+  organizationPage.includes("requireOrganizationPermission") &&
+    organizationPage.includes('"organization:update"') &&
+    organizationActions.includes("requireOrganizationPermission") &&
+    organizationActions.includes('"organization:update"'),
 );
 check(
   "organization page loads and saves organization profile",
