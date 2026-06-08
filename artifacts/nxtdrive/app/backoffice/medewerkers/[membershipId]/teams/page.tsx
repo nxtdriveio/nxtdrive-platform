@@ -1,13 +1,15 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { listBranches } from "@/lib/branches/service";
 import {
   listMembershipOrganizationTeamIds,
   listOrganizationTeams,
 } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { setMembershipTeams } from "../../actions";
 import type { MemberRole } from "@/lib/types";
 
@@ -29,7 +31,7 @@ export default async function MemberTeamsPage({
   params: Promise<{ membershipId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { organization } = await requireOrganizationPermission("user:manage");
   const { membershipId } = await params;
   const sp = await searchParams;
   const success = typeof sp.success === "string" ? sp.success : null;
@@ -42,7 +44,7 @@ export default async function MemberTeamsPage({
     .from("memberships")
     .select("id, user_id, role")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!membershipRow) notFound();
@@ -62,32 +64,42 @@ export default async function MemberTeamsPage({
     "Onbekend";
 
   const [branches, teams, currentTeamIds] = await Promise.all([
-    listBranches(service, tenant.id, { activeOnly: true }),
-    listOrganizationTeams(service, tenant.id, { activeOnly: true }),
-    listMembershipOrganizationTeamIds(service, tenant.id, membershipId),
+    listBranches(service, organization.id, { activeOnly: true }),
+    listOrganizationTeams(service, organization.id, { activeOnly: true }),
+    listMembershipOrganizationTeamIds(service, organization.id, membershipId),
   ]);
 
   const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
 
   return (
     <div className="space-y-6">
-      <div>
-        <a
-          href="/backoffice/medewerkers"
-          className="text-sm text-muted-foreground hover:text-foreground"
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-2">
+          <Link
+            href={`/backoffice/medewerkers/${membershipId}/toegang`}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Terug naar toegangsoverzicht
+          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Teams voor {displayName}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Rol: {ROLE_LABEL[role] ?? role}. Teams sturen de operationele samenwerking, maar vervangen het rol- en scope-model niet.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="primary">{ROLE_LABEL[role] ?? role}</Badge>
+            <Badge variant="outline">{currentTeamIds.length} team(s)</Badge>
+          </div>
+        </div>
+        <Link
+          href={`/backoffice/medewerkers/${membershipId}/vestigingen`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
-          ← Terug naar team
-        </a>
-      </div>
-
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Teams voor {displayName}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Rol: {ROLE_LABEL[role] ?? role} · Teamindeling is operationeel. Rollen
-          en vestigingstoegang blijven leidend voor rechten tot Sprint 6.
-        </p>
+          Vestigingen beheren
+        </Link>
       </div>
 
       {success === "updated" ? (
@@ -104,17 +116,20 @@ export default async function MemberTeamsPage({
       <Card>
         <CardHeader>
           <CardTitle>Teams</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Gebruik teams om planners, administratie of marketing operationeel te organiseren zonder nieuwe rechtenmodellen te introduceren.
+          </p>
         </CardHeader>
         <CardContent>
           {teams.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nog geen teams aangemaakt.{" "}
-              <a
+              <Link
                 href="/backoffice/organisatie/teams"
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Teams beheren →
-              </a>
+              </Link>
             </p>
           ) : (
             <form action={setMembershipTeams} className="space-y-4">
@@ -168,12 +183,12 @@ export default async function MemberTeamsPage({
                 <Button type="submit" size="sm">
                   Opslaan
                 </Button>
-                <a
-                  href="/backoffice/medewerkers"
-                  className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+                <Link
+                  href={`/backoffice/medewerkers/${membershipId}/toegang`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
                   Annuleren
-                </a>
+                </Link>
               </div>
             </form>
           )}
