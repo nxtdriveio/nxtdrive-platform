@@ -9,24 +9,41 @@ Organization is the highest operational customer container in NXTDRIVE. Branches
 
 A branch is optional. A single-instructor school still has one organization and can operate without branches.
 
+Teams are configurable departments inside the organization. Team membership is structural and operational. It is not a replacement for RBAC roles or branch scope.
+
 ## Sprint 5A - Organization Management Hub
 
 Implemented in this slice:
 
 - Add `/backoffice/organisatie` as the canonical admin entry point for organization management.
 - Expose organization profile fields for legal name, billing e-mail, support e-mail, KvK, VAT and organization owner.
-- Save organization profile changes through the existing audited `upsert_organization_profile` RPC.
+- Save organization profile changes through the audited `upsert_organization_profile` RPC, scoped so tenant/franchise admins can update their own organization only.
 - Validate owner selection against staff memberships inside the current organization.
 - Surface organization type, plan, lifecycle and onboarding state without making platform-owned lifecycle controls tenant-editable.
 - Link directly to the existing branch management UI.
 - Link directly to the existing staff invite, role and branch-scope UI.
 - Show role counts so admins can sanity-check the current staff model quickly.
-- Add a teams placeholder that documents the intended layer without pretending the full teams datamodel is finished.
 - Add `test-organization-management-ui` static guardrails.
 
-## Already Present Before This Slice
+## Sprint 5B - Teams Foundation
 
-The current codebase already had important pieces in place:
+Implemented in this slice:
+
+- Add `organization_teams` for configurable departments such as Planning, Administratie, Marketing, Theorie and Management.
+- Add `organization_team_members` for linking existing staff memberships to teams.
+- Keep teams organization-wide by default with optional `branch_id` for branch-specific teams.
+- Add branch/tenant validation triggers so a team cannot point at another organization's branch.
+- Add member validation triggers so team members must be staff memberships inside the same organization.
+- Enable RLS and explicit Supabase Data API grants for team reads.
+- Keep writes behind service-role-only audited RPCs: `create_organization_team`, `update_organization_team`, `set_organization_team_members`.
+- Add `/backoffice/organisatie/teams` for creating, editing, scoping and populating teams.
+- Replace the organizationhub teams placeholder with live team counts and a teams management link.
+- Add a direct Beheer sidebar entry for Teams.
+- Add `test-organization-teams-foundation` static guardrails.
+
+## Already Present Before Sprint 5
+
+The codebase already had important pieces in place:
 
 - Organization profile table, RLS and audited upsert RPC.
 - Platform-admin organization profile editing.
@@ -39,9 +56,8 @@ The current codebase already had important pieces in place:
 
 Recommended next slices:
 
-- Sprint 5B: create the real teams datamodel and team management UI.
-- Sprint 5C: connect employee invitations and memberships to optional team assignment.
-- Sprint 5D: improve branch/staff/organization UX consistency after PR #31 branch UX cleanup lands.
+- Sprint 5C: connect employee invitations and membership management to optional team assignment.
+- Sprint 5D: improve branch/staff/organization/team UX consistency after real usage feedback.
 
 ## Boundary With Sprint 6
 
