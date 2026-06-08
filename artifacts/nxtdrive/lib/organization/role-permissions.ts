@@ -119,9 +119,11 @@ export function effectiveRolesGrantPermission(
   overrides: readonly OrganizationRolePermissionOverride[],
 ): boolean {
   return roles.some((role) => {
-    const roleOverrides = isManageablePermissionRole(role)
-      ? permissionOverridesForRole(overrides, role)
-      : [];
+    if (!isManageablePermissionRole(role)) {
+      return effectiveRolePermission(role, permission, []);
+    }
+
+    const roleOverrides = permissionOverridesForRole(overrides, role);
     return effectiveRolePermission(role, permission, roleOverrides);
   });
 }
