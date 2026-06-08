@@ -68,3 +68,34 @@ Nog niet in deze sprint:
 - approval flows voor access changes
 - audit timeline per medewerker
 - delegatie door branch managers buiten de tenant admin-flow
+
+# Sprint 6C - Role Governance
+
+## Doel
+
+Sprint 6C maakt de rolcanon zelf zichtbaar en bestuurbaar in de beheerervaring. Een admin moet nu vooraf kunnen zien wat een rol betekent, wanneer die branch-scoped hoort te zijn en hoe die zich verhoudt tot permissie-overrides.
+
+## Wat deze sprint toevoegt
+
+- centrale rolmetadata voor label, scopebeleid, use-case en governance-notes
+- nieuwe pagina `/backoffice/organisatie/rollen`
+- rolgovernance-sectie in medewerkersbeheer
+- uitnodigformulier met live roluitleg en scope-uitleg
+- sidebar- en organisatiehub-links naar de rollenpagina
+- guardrail test: `pnpm --filter @workspace/scripts run test-role-governance-foundation`
+
+## Canon voor 6C
+
+- kies eerst de juiste basisrol
+- gebruik branch-scope om lokale rollen te begrenzen
+- gebruik tenant-overrides alleen voor echte uitzonderingen
+- teams blijven ondersteunend en vervangen de rolcanon niet
+
+## Buiten scope voor 6C
+
+Nog niet in deze sprint:
+
+- custom rollen aanmaken via UI
+- workflow approvals voor rolwijzigingen
+- auditlog-weergave per rol of medewerker
+- automatische aanbevelingen voor rolkeuze via AI
