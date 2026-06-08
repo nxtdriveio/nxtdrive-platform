@@ -54,6 +54,7 @@
     "test-organization-profile-foundation": "tsx ./src/test-organization-profile-foundation.ts",
     "test-organization-management-ui": "tsx ./src/test-organization-management-ui.ts",
     "test-organization-teams-foundation": "tsx ./src/test-organization-teams-foundation.ts",
+    "test-staff-team-assignment-foundation": "tsx ./src/test-staff-team-assignment-foundation.ts",
     "test-permission-foundation": "tsx ./src/test-permission-foundation.ts",
     "test-lead-scope-foundation": "tsx ./src/test-lead-scope-foundation.ts",
     "test-vehicle-branch-foundation": "tsx ./src/test-vehicle-branch-foundation.ts",
