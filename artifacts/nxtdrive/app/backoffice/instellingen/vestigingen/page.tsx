@@ -1,11 +1,14 @@
+import Link from "next/link";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { listBranches, type Branch } from "@/lib/branches/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { BranchForm } from "./branch-form";
 import { createBranch, updateBranch } from "@/lib/branches/actions";
 import { tenantHasFeature } from "@/lib/platform/features";
+import { ArrowLeft, MapPin, Users, Workflow } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +63,37 @@ function Feedback({
   return null;
 }
 
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {value}
+          </p>
+        </div>
+        <span className="rounded-full bg-primary-soft p-2 text-primary">
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function VestigingenPage({
   searchParams,
 }: {
@@ -83,17 +117,45 @@ export default async function VestigingenPage({
   const editBranch = editId
     ? (branches.find((b) => b.id === editId) ?? null)
     : null;
+  const activeBranches = branches.filter((branch) => branch.is_active).length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Vestigingen
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Beheer de vestigingen van {tenant.name}. Medewerkers kunnen worden
-          beperkt tot één of meerdere vestigingen.
-        </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-2">
+          <Link
+            href="/backoffice/organisatie"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Terug naar organisatiebeheer
+          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Vestigingen
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Beheer locaties binnen {tenant.name}. Deze vestigingen worden later
+              gebruikt voor scope in medewerkers, teams, planning, voertuigen en
+              rapportage.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <Link
+            href="/backoffice/medewerkers"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Medewerkers
+          </Link>
+          <span>·</span>
+          <Link
+            href="/backoffice/organisatie/teams"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Teams
+          </Link>
+        </div>
       </div>
 
       {!hasMultiBranch && (
@@ -121,11 +183,42 @@ export default async function VestigingenPage({
         reason={reason}
       />
 
-      {/* Create form — only for Pro+ tenants */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Actieve vestigingen"
+          value={`${activeBranches}/${branches.length}`}
+          description="Actieve locaties binnen deze organisatiecontainer."
+          icon={MapPin}
+        />
+        <StatCard
+          title="Scope"
+          value={hasMultiBranch ? "Pro+" : "Start"}
+          description="Beschikbaarheid van multi-vestiging binnen het huidige abonnement."
+          icon={Workflow}
+        />
+        <StatCard
+          title="Medewerkers"
+          value={branches.length === 0 ? "0" : "Scope klaar"}
+          description="Vestigingen kunnen gebruikt worden om medewerkers per locatie te beperken."
+          icon={Users}
+        />
+        <StatCard
+          title="Teams"
+          value={branches.length === 0 ? "Optioneel" : "Branch-aware"}
+          description="Teams kunnen organisatiebreed blijven of aan een vestiging gekoppeld worden."
+          icon={Workflow}
+        />
+      </div>
+
       {hasMultiBranch && (
         <Card>
           <CardHeader>
             <CardTitle>Nieuwe vestiging</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Maak een operationele locatie aan. De slug is later niet meer
+              wijzigbaar en vormt de stabiele branch-identiteit in de code en
+              data-laag.
+            </p>
           </CardHeader>
           <CardContent>
             <BranchForm action={createBranch} />
@@ -133,7 +226,6 @@ export default async function VestigingenPage({
         </Card>
       )}
 
-      {/* Edit form (shown when ?edit=<id> is in URL) */}
       {editBranch ? (
         <Card className="border-primary/40">
           <CardHeader>
@@ -145,16 +237,30 @@ export default async function VestigingenPage({
         </Card>
       ) : null}
 
-      {/* Branch list */}
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Overzicht vestigingen</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Vestigingen zijn optioneel. Geen vestigingen betekent niet dat de
+            organisatie fout staat; dan blijft de scope gewoon organisatiebreed.
+          </p>
         </CardHeader>
         {branches.length === 0 ? (
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Nog geen vestigingen. Maak hierboven een vestiging aan.
-            </p>
+            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+              <MapPin className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
+              <p className="mt-3 font-medium text-foreground">Nog geen vestigingen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Voeg pas vestigingen toe als je ze operationeel nodig hebt. Voor
+                een enkele instructeur of kleine school mag dit scherm rustig leeg blijven.
+              </p>
+              {hasMultiBranch ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Zodra je meerdere locaties wilt scheiden voor planning of
+                  medewerkers, kun je hierboven beginnen.
+                </p>
+              ) : null}
+            </div>
           </CardContent>
         ) : (
           <table className="w-full text-sm">
@@ -183,7 +289,7 @@ function BranchRow({ branch, isEditing }: { branch: Branch; isEditing: boolean }
   return (
     <tr className={isEditing ? "bg-primary/5" : "hover:bg-muted/40"}>
       <td className="px-4 py-3 font-medium text-foreground">{branch.name}</td>
-      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{branch.slug}</td>
+      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{branch.slug}</td>
       <td className="px-4 py-3 text-muted-foreground">{branch.city ?? "—"}</td>
       <td className="px-4 py-3">
         {branch.is_active ? (
