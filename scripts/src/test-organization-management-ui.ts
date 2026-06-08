@@ -28,6 +28,7 @@ const employeesPage = source("artifacts/nxtdrive/app/backoffice/medewerkers/page
 const inviteForm = source("artifacts/nxtdrive/app/backoffice/medewerkers/invite-form.tsx");
 const branchesPage = source("artifacts/nxtdrive/app/backoffice/instellingen/vestigingen/page.tsx");
 const profileModule = source("artifacts/nxtdrive/lib/organization/profile.ts");
+const profileAdminMigration = source("supabase/migrations/0110_organization_profile_tenant_admin_upsert.sql");
 const docs = source("docs/SPRINT_5_ORGANIZATION_MANAGEMENT.md");
 
 check(
@@ -42,6 +43,13 @@ check(
   organizationPage.includes("loadOrganizationProfile") &&
     organizationActions.includes("upsertOrganizationProfile") &&
     profileModule.includes("upsertOrganizationProfile"),
+);
+check(
+  "organization profile RPC allows own tenant admins only",
+  profileAdminMigration.includes("role in ('tenant_admin', 'franchise_admin')") &&
+    profileAdminMigration.includes("m.tenant_id = p_tenant_id") &&
+    profileAdminMigration.includes("organisatie-eigenaar moet een medewerker binnen deze organisatie zijn") &&
+    profileAdminMigration.includes("to service_role"),
 );
 check(
   "organization page exposes core management sections",
