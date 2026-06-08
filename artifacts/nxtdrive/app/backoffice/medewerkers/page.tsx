@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MapPin, ShieldCheck, Users, Workflow } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -8,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { changeRole } from "./actions";
 import { RemoveMemberButton } from "./remove-button";
 import { InviteForm } from "./invite-form";
@@ -146,6 +149,37 @@ function Feedback({
   return null;
 }
 
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {value}
+          </p>
+        </div>
+        <span className="rounded-full bg-primary-soft p-2 text-primary">
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function MedewerkersPage({
   searchParams,
 }: {
@@ -245,16 +279,49 @@ export default async function MedewerkersPage({
     };
   });
 
+  const invitedCount = members.filter((member) => !member.confirmed).length;
+  const branchScopedCount = members.filter(
+    (member) => member.branch_names.length > 0,
+  ).length;
+  const teamAssignedCount = members.filter(
+    (member) => member.team_names.length > 0,
+  ).length;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Team
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Beheer de medewerkers van {tenant.name}.
-          </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-2">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Medewerkers
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Beheer rollen, tijdelijke uitnodigingen, vestigingstoegang en
+              teamindeling voor {tenant.name}.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Link
+              href="/backoffice/organisatie"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Organisatiebeheer
+            </Link>
+            <span>·</span>
+            <Link
+              href="/backoffice/instellingen/vestigingen"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Vestigingen
+            </Link>
+            <span>·</span>
+            <Link
+              href="/backoffice/organisatie/teams"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Teams
+            </Link>
+          </div>
         </div>
         <InviteForm branches={branches} teams={teams} />
       </div>
@@ -266,6 +333,75 @@ export default async function MedewerkersPage({
         reason={reason}
       />
 
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Medewerkers"
+          value={String(members.length)}
+          description="Totaal aantal backoffice- en instructeursaccounts binnen deze organisatie."
+          icon={Users}
+        />
+        <StatCard
+          title="Uitnodigingen"
+          value={String(invitedCount)}
+          description="Accounts die nog niet zijn geactiveerd door de medewerker zelf."
+          icon={ShieldCheck}
+        />
+        <StatCard
+          title="Vestiging-scoped"
+          value={String(branchScopedCount)}
+          description="Medewerkers met expliciete vestigingstoegang in plaats van organisatiebrede toegang."
+          icon={MapPin}
+        />
+        <StatCard
+          title="In teams"
+          value={String(teamAssignedCount)}
+          description="Medewerkers die al operationeel aan minstens één team gekoppeld zijn."
+          icon={Workflow}
+        />
+      </div>
+
+      {branches.length === 0 || teams.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Beheercontext</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Deze pagina werkt het prettigst wanneer de organisatiestructuur al
+              een beetje staat.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-dashed border-border px-4 py-3">
+              <p className="font-medium text-foreground">Vestigingen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {branches.length === 0
+                  ? "Nog geen vestigingen aangemaakt. Zonder vestigingen blijft scope automatisch organisatiebreed."
+                  : "Vestigingen zijn beschikbaar om toegang voor planners, instructeurs en managers te beperken."}
+              </p>
+              <Link
+                href="/backoffice/instellingen/vestigingen"
+                className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3`}
+              >
+                Vestigingen beheren
+              </Link>
+            </div>
+            <div className="rounded-lg border border-dashed border-border px-4 py-3">
+              <p className="font-medium text-foreground">Teams</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {teams.length === 0
+                  ? "Nog geen teams aangemaakt. Teamindeling blijft optioneel, maar helpt operationeel zodra de organisatie groeit."
+                  : "Teams zijn beschikbaar om medewerkers operationeel te groeperen zonder permissies te veranderen."}
+              </p>
+              <Link
+                href="/backoffice/organisatie/teams"
+                className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3`}
+              >
+                Teams beheren
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Huidige medewerkers</CardTitle>
@@ -276,10 +412,14 @@ export default async function MedewerkersPage({
         </CardHeader>
         <CardContent>
           {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nog geen medewerkers. Gebruik de knop rechtsboven om iemand toe
-              te voegen en tijdelijke inloggegevens te versturen.
-            </p>
+            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+              <Users className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
+              <p className="mt-3 font-medium text-foreground">Nog geen medewerkers</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Gebruik de knop rechtsboven om iemand toe te voegen en meteen
+                tijdelijke inloggegevens te versturen.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
