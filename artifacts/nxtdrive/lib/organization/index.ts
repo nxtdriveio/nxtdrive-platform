@@ -28,6 +28,23 @@ export type {
 } from "./profile";
 
 export {
+  defaultPermissionState,
+  effectiveRolePermission,
+  effectiveRolesGrantPermission,
+  listOrganizationRolePermissionOverrides,
+  manageablePermissions,
+  manageableRoles,
+  permissionOverrideExplains,
+  permissionOverrideValue,
+  sanitizeOverrideEntries,
+} from "./role-permissions";
+export type {
+  ManageablePermissionRole,
+  OrganizationRolePermissionOverride,
+  RolePermissionEffect,
+} from "./role-permissions";
+
+export {
   listMembershipOrganizationTeamIds,
   listOrganizationTeamMembers,
   listOrganizationTeams,
