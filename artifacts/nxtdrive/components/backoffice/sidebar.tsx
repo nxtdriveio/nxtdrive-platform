@@ -92,6 +92,20 @@ const NAV_SECTIONS: NavSection[] = [
         requireFranchise: true,
       },
       {
+        href: "/backoffice/franchise/planning",
+        label: "Centrale planning",
+        icon: CalendarDays,
+        adminOnly: false,
+        requireFranchise: true,
+      },
+      {
+        href: "/backoffice/franchise/vergelijking",
+        label: "Vergelijking",
+        icon: BarChart3,
+        adminOnly: false,
+        requireFranchise: true,
+      },
+      {
         href: "/backoffice/franchise/templates",
         label: "Templates",
         icon: Package,
