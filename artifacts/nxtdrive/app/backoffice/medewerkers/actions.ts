@@ -46,7 +46,11 @@ function appendQuery(url: string, key: string, value: string | null | undefined)
   return `${url}${separator}${key}=${encodeURIComponent(value)}`;
 }
 
-function redirectToRoleTarget(formData: FormData, fallback: string, params?: Record<string, string>) {
+function redirectToRoleTarget(
+  formData: FormData,
+  fallback: string,
+  params?: Record<string, string>,
+): never {
   const raw = String(formData.get("return_to") ?? "").trim();
   let target = raw || fallback;
   if (params) {
