@@ -113,6 +113,19 @@ export function effectiveRolePermission(
   return roleGrantsPermission(role, permission);
 }
 
+export function effectiveRolePermissions(
+  role: MemberRole,
+  overrides: readonly OrganizationRolePermissionOverride[],
+): Permission[] {
+  const relevantOverrides = isManageablePermissionRole(role)
+    ? permissionOverridesForRole(overrides, role)
+    : [];
+
+  return manageablePermissions().filter((permission) =>
+    effectiveRolePermission(role, permission, relevantOverrides),
+  );
+}
+
 export function effectiveRolesGrantPermission(
   roles: readonly MemberRole[],
   permission: Permission,
