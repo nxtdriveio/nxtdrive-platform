@@ -30,11 +30,15 @@ export type {
 export {
   governanceRoles,
   isBranchScopedGovernanceRole,
+  isStaffGovernanceRole,
+  roleGovernanceAlerts,
   roleGovernanceDefinition,
   roleLabel,
   roleScopeLabel,
 } from "./roles";
 export type {
+  RoleGovernanceAlert,
+  RoleGovernanceAlertTone,
   RoleGovernanceDefinition,
   RoleScopePolicy,
   StaffGovernanceRole,
