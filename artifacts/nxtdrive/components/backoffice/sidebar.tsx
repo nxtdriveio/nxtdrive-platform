@@ -24,6 +24,7 @@ import {
   LogOut,
   MapPin,
   Network,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -101,6 +102,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Beheer",
     items: [
       { href: "/backoffice/organisatie", label: "Organisatie", icon: Building2, adminOnly: true },
+      { href: "/backoffice/organisatie/teams", label: "Teams", icon: Workflow, adminOnly: true },
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
       { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
       { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
