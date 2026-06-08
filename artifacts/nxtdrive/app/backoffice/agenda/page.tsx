@@ -12,6 +12,10 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  BranchFilterChips,
+  BranchScopeSummary,
+} from "@/components/backoffice/branch-scope-ui";
+import {
   LESSON_IN_PROGRESS_CARD,
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
@@ -67,6 +71,14 @@ function startOfWeek(d: Date): Date {
   return date;
 }
 
+function agendaHref(week: Date | null, branchId: string | null): string {
+  const params = new URLSearchParams();
+  if (week) params.set("week", week.toISOString());
+  if (branchId) params.set("branch", branchId);
+  const qs = params.toString();
+  return qs ? `/backoffice/agenda?${qs}` : "/backoffice/agenda";
+}
+
 export default async function AgendaPage({
   searchParams,
 }: {
@@ -108,6 +120,7 @@ export default async function AgendaPage({
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
       : allBranches;
+  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
 
   let lessons: Lesson[] = [];
   if (!branchFilterIds || branchFilterIds.length > 0) {
@@ -244,8 +257,7 @@ export default async function AgendaPage({
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
-  const branchParam = selectedBranchId ? `&branch=${selectedBranchId}` : "";
-  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
+  const currentWeekBranchHref = (branchId: string) => agendaHref(weekStart, branchId);
 
   return (
     <div className="space-y-6">
@@ -258,53 +270,23 @@ export default async function AgendaPage({
             Week van {dayFmt.format(weekStart)} - {dayFmt.format(
               new Date(weekEnd.getTime() - 1),
             )}
-            {selectedBranchName ? (
-              <span className="ml-2 text-primary font-medium">
-                · {selectedBranchName}
-              </span>
-            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch filter - limited to the caller's expanded branch scope. */}
-          {branches.length > 1 ? (
-            <form method="get" action="/backoffice/agenda" className="flex gap-2">
-              <input type="hidden" name="week" value={weekStart.toISOString()} />
-              <select
-                name="branch"
-                defaultValue={selectedBranchId ?? ""}
-                className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">Alle toegestane vestigingen</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                Filter
-              </button>
-            </form>
-          ) : null}
-
           <Link
-            href={`/backoffice/agenda?week=${prevWeek.toISOString()}${branchParam}`}
+            href={agendaHref(prevWeek, selectedBranchId)}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             ← Vorige
           </Link>
           <Link
-            href={`/backoffice/agenda${selectedBranchId ? `?branch=${selectedBranchId}` : ""}`}
+            href={agendaHref(null, selectedBranchId)}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Deze week
           </Link>
           <Link
-            href={`/backoffice/agenda?week=${nextWeek.toISOString()}${branchParam}`}
+            href={agendaHref(nextWeek, selectedBranchId)}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             Volgende →
@@ -326,6 +308,19 @@ export default async function AgendaPage({
         </div>
       </div>
 
+      <BranchScopeSummary
+        scope={branchScope}
+        selectedBranchName={selectedBranchName}
+        branchCount={branches.length}
+        sharedRowsLabel="Beschikbaarheid wordt berekend over zichtbare instructeurs."
+      />
+      <BranchFilterChips
+        branches={branches}
+        selectedBranchId={selectedBranchId}
+        allHref={agendaHref(weekStart, null)}
+        hrefForBranch={currentWeekBranchHref}
+      />
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
         {days.map((day) => (
           <Card key={day.date.toISOString()} className="p-3">
@@ -336,7 +331,9 @@ export default async function AgendaPage({
               intervals={freeSpace.get(dateKey(day.date)) ?? []}
             />
             {day.items.length === 0 ? (
-              <div className="text-xs text-muted-foreground">-</div>
+              <div className="rounded-md border border-dashed border-border px-2 py-4 text-center text-xs text-muted-foreground">
+                Geen planning binnen deze scope.
+              </div>
             ) : (
               <ul className="space-y-2">
                 {day.items.map((item) =>
