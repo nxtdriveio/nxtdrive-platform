@@ -86,9 +86,12 @@ export function RoleManagementForm({
         <Button type="submit" size="sm">
           Rol opslaan
         </Button>
-        <Button type="button" size="sm" variant="outline" asChild={false} onClick={() => window.history.back()}>
-          Terug
-        </Button>
+        <a
+          href={`/backoffice/medewerkers/${membershipId}/toegang`}
+          className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          Annuleren
+        </a>
       </div>
     </form>
   );
