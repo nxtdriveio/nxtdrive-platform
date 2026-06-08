@@ -2,12 +2,12 @@
 
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { generateTemporaryPassword } from "@/lib/auth/generate-password";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { loadEmailBranding } from "@/lib/notifications/branding";
 import { sendEmail } from "@/lib/notifications/provider";
 import { renderStaffWelcome } from "@/lib/notifications/staff-welcome";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
@@ -110,7 +110,7 @@ async function setMembershipTeamsOrThrow(
 }
 
 export async function inviteInstructor(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -186,7 +186,7 @@ export async function inviteInstructor(formData: FormData) {
     .from("memberships")
     .select("id")
     .eq("user_id", userId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .limit(1)
     .maybeSingle();
 
@@ -210,7 +210,7 @@ export async function inviteInstructor(formData: FormData) {
 
   if (profileError) {
     if (createdNewUser) {
-      await rollbackNewStaffUser(service, tenant.id, userId);
+      await rollbackNewStaffUser(service, organization.id, userId);
     }
     redirect(
       "/backoffice/medewerkers?error=invite_failed&reason=" +
@@ -220,13 +220,13 @@ export async function inviteInstructor(formData: FormData) {
 
   const { data: memberRow, error: memberError } = await service
     .from("memberships")
-    .insert({ user_id: userId, tenant_id: tenant.id, role })
+    .insert({ user_id: userId, tenant_id: organization.id, role })
     .select("id")
     .maybeSingle();
 
   if (memberError || !memberRow) {
     if (createdNewUser) {
-      await rollbackNewStaffUser(service, tenant.id, userId);
+      await rollbackNewStaffUser(service, organization.id, userId);
     }
     if (memberError?.code === "23505") {
       redirect(
@@ -245,10 +245,10 @@ export async function inviteInstructor(formData: FormData) {
     });
 
     if (branchError) {
-      await removeMembership(service, tenant.id, memberRow.id as string);
+      await removeMembership(service, organization.id, memberRow.id as string);
 
       if (createdNewUser) {
-        await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+        await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
       }
 
       redirect(
@@ -265,15 +265,15 @@ export async function inviteInstructor(formData: FormData) {
       await setMembershipTeamsOrThrow(
         service,
         memberRow.id as string,
-        tenant.id,
+        organization.id,
         user.id,
         teamIds,
       );
     } catch (err) {
       if (createdNewUser) {
-        await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+        await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
       } else {
-        await removeMembership(service, tenant.id, memberRow.id as string);
+        await removeMembership(service, organization.id, memberRow.id as string);
       }
 
       redirect(
@@ -289,7 +289,7 @@ export async function inviteInstructor(formData: FormData) {
     let emailError: string | null = null;
     try {
       const [branding, platformConfig] = await Promise.all([
-        loadEmailBranding(service, tenant.id),
+        loadEmailBranding(service, organization.id),
         getPlatformEmailConfig(service).catch(() => null),
       ]);
       const appUrl =
@@ -321,7 +321,7 @@ export async function inviteInstructor(formData: FormData) {
     }
 
     if (emailError) {
-      await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+      await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
       redirect(
         "/backoffice/medewerkers?error=invite_failed&reason=" +
           encodeURIComponent(emailError),
@@ -336,7 +336,7 @@ export async function inviteInstructor(formData: FormData) {
 }
 
 export async function removeMember(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
@@ -348,7 +348,7 @@ export async function removeMember(formData: FormData) {
     .from("memberships")
     .select("user_id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!row) redirect("/backoffice/medewerkers?error=not_found");
@@ -361,7 +361,7 @@ export async function removeMember(formData: FormData) {
     .from("memberships")
     .delete()
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id);
+    .eq("tenant_id", organization.id);
 
   if (error) redirect("/backoffice/medewerkers?error=remove_failed");
 
@@ -369,7 +369,7 @@ export async function removeMember(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
@@ -385,7 +385,7 @@ export async function changeRole(formData: FormData) {
     .from("memberships")
     .select("user_id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!row) redirect("/backoffice/medewerkers?error=not_found");
@@ -398,7 +398,7 @@ export async function changeRole(formData: FormData) {
     .from("memberships")
     .update({ role: newRole })
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id);
+    .eq("tenant_id", organization.id);
 
   if (error) {
     if (error.code === "23505") {
@@ -411,7 +411,7 @@ export async function changeRole(formData: FormData) {
 }
 
 export async function setMembershipTeams(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "").trim();
@@ -426,7 +426,7 @@ export async function setMembershipTeams(formData: FormData) {
     .from("memberships")
     .select("id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!membershipRow) {
@@ -434,7 +434,7 @@ export async function setMembershipTeams(formData: FormData) {
   }
 
   try {
-    await setMembershipTeamsOrThrow(service, membershipId, tenant.id, user.id, teamIds);
+    await setMembershipTeamsOrThrow(service, membershipId, organization.id, user.id, teamIds);
   } catch (err) {
     redirect(
       `/backoffice/medewerkers/${membershipId}/teams?error=save_failed&reason=` +
