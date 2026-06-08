@@ -4,7 +4,7 @@ import {
   loadOrganizationBranchScope,
   requireOrganizationPermission,
 } from "@/lib/organization";
-import { canAccessBranch } from "@/lib/permissions";
+import { canAccessBranch, rolesGrantPermission } from "@/lib/permissions";
 import type { MemberRole } from "@/lib/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   BranchFilterChips,
   BranchScopeSummary,
+  BranchScopedEmptyState,
+  ReadOnlyScopeNotice,
 } from "@/components/backoffice/branch-scope-ui";
 import {
   LESSON_IN_PROGRESS_CARD,
@@ -121,6 +123,9 @@ export default async function AgendaPage({
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
       : allBranches;
   const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
+  const canManagePlanning =
+    context.user.profile?.is_platform_admin ||
+    rolesGrantPermission(context.roles, "planning:manage");
 
   let lessons: Lesson[] = [];
   if (!branchFilterIds || branchFilterIds.length > 0) {
@@ -256,6 +261,7 @@ export default async function AgendaPage({
   for (const day of days) {
     day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
+  const hasAgendaItems = days.some((day) => day.items.length > 0);
 
   const currentWeekBranchHref = (branchId: string) => agendaHref(weekStart, branchId);
 
@@ -291,20 +297,24 @@ export default async function AgendaPage({
           >
             Volgende →
           </Link>
-          <Link
-            href="/backoffice/agenda/afspraak/nieuw"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-            Afspraak
-          </Link>
-          <Link
-            href="/backoffice/agenda/nieuw"
-            className={buttonVariants({ size: "sm" })}
-          >
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-            Les plannen
-          </Link>
+          {canManagePlanning ? (
+            <>
+              <Link
+                href="/backoffice/agenda/afspraak/nieuw"
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
+              >
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                Afspraak
+              </Link>
+              <Link
+                href="/backoffice/agenda/nieuw"
+                className={buttonVariants({ size: "sm" })}
+              >
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                Les plannen
+              </Link>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -320,6 +330,19 @@ export default async function AgendaPage({
         allHref={agendaHref(weekStart, null)}
         hrefForBranch={currentWeekBranchHref}
       />
+      {!canManagePlanning ? (
+        <ReadOnlyScopeNotice description="Je kunt de agenda bekijken binnen je vestigingsscope, maar lessen en afspraken plannen is voorbehouden aan planners en beheerders." />
+      ) : null}
+      {!hasAgendaItems ? (
+        <BranchScopedEmptyState
+          title="Geen agenda-items deze week"
+          description={
+            selectedBranchName
+              ? "Er zijn geen lessen, proeflessen of afspraken voor deze vestiging in de geselecteerde week."
+              : "Er zijn geen lessen, proeflessen of afspraken binnen je toegestane vestigingen in de geselecteerde week."
+          }
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
         {days.map((day) => (
