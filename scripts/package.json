@@ -65,6 +65,7 @@
     "test-planning-resource-branch-foundation": "tsx ./src/test-planning-resource-branch-foundation.ts",
     "test-branch-ux-foundation": "tsx ./src/test-branch-ux-foundation.ts",
     "test-manageable-role-permissions-foundation": "tsx ./src/test-manageable-role-permissions-foundation.ts",
+    "test-membership-access-management-foundation": "tsx ./src/test-membership-access-management-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
