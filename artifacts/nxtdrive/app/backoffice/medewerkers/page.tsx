@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MapPin, ShieldCheck, Users, Workflow } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   Card,
@@ -185,7 +185,7 @@ export default async function MedewerkersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
 
   if (user.profile?.is_platform_admin) redirect("/admin");
 
@@ -201,12 +201,12 @@ export default async function MedewerkersPage({
     service
       .from("memberships")
       .select("id, user_id, role, created_at")
-      .eq("tenant_id", tenant.id)
+      .eq("tenant_id", organization.id)
       .in("role", ALL_STAFF_ROLES)
       .order("created_at", { ascending: true }),
-    listBranches(service, tenant.id, { activeOnly: true }),
-    listOrganizationTeams(service, tenant.id, { activeOnly: true }),
-    listOrganizationTeamMembers(service, tenant.id),
+    listBranches(service, organization.id, { activeOnly: true }),
+    listOrganizationTeams(service, organization.id, { activeOnly: true }),
+    listOrganizationTeamMembers(service, organization.id),
   ]);
 
   const userIds = (membershipRows ?? []).map((m) => m.user_id as string);
@@ -297,7 +297,7 @@ export default async function MedewerkersPage({
             </h1>
             <p className="text-sm text-muted-foreground">
               Beheer rollen, tijdelijke uitnodigingen, vestigingstoegang en
-              teamindeling voor {tenant.name}.
+              teamindeling voor {organization.name}.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -306,6 +306,13 @@ export default async function MedewerkersPage({
               className="underline-offset-2 hover:text-foreground hover:underline"
             >
               Organisatiebeheer
+            </Link>
+            <span>·</span>
+            <Link
+              href="/backoffice/organisatie/permissies"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Permissies
             </Link>
             <span>·</span>
             <Link
@@ -542,6 +549,12 @@ export default async function MedewerkersPage({
                                 membershipId={member.id}
                                 displayName={displayName}
                               />
+                              <a
+                                href={`/backoffice/medewerkers/${member.id}/toegang`}
+                                className="text-xs text-primary underline-offset-2 hover:underline"
+                              >
+                                Toegangsoverzicht
+                              </a>
                               {canScopeBranches ? (
                                 <a
                                   href={`/backoffice/medewerkers/${member.id}/vestigingen`}
