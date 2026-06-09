@@ -2,10 +2,9 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   CalendarDays,
   CalendarRange,
   ClipboardList,
@@ -93,13 +92,18 @@ export function InstructorSidebar({
   theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
-  const router = useRouter();
-  const onDashboard = pathname === "/instructor";
 
   return (
     <>
       <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 border-r border-border/80 bg-card xl:flex xl:flex-col">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border/80 px-5">
+          <Link
+            href="/instructor"
+            aria-label="Naar startscherm"
+            className={ICON_BUTTON_CLASS}
+          >
+            <Home className="h-4 w-4" aria-hidden />
+          </Link>
           <NxtdriveLogo className="text-base font-semibold" logoUrl={logoUrl} brandName={tenantName} />
         </div>
 
@@ -160,30 +164,17 @@ export function InstructorSidebar({
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <NxtdriveLogo className="text-sm font-semibold" logoUrl={logoUrl} brandName={tenantName} />
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label={onDashboard ? "Naar startscherm" : "Ga terug"}
-              onClick={() => {
-                if (onDashboard) {
-                  router.push("/instructor");
-                  return;
-                }
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  router.back();
-                  return;
-                }
-                router.push("/instructor");
-              }}
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/instructor"
+              aria-label="Naar startscherm"
               className={ICON_BUTTON_CLASS}
             >
-              {onDashboard ? (
-                <Home className="h-4 w-4" aria-hidden />
-              ) : (
-                <ArrowLeft className="h-4 w-4" aria-hidden />
-              )}
-            </button>
+              <Home className="h-4 w-4" aria-hidden />
+            </Link>
+            <NxtdriveLogo className="min-w-0 text-sm font-semibold" logoUrl={logoUrl} brandName={tenantName} />
+          </div>
+          <div className="flex items-center gap-1">
             <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
             {notifications}
             <ThemeToggle

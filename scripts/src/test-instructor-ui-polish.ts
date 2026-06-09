@@ -39,8 +39,8 @@ assert(
   "desktop instructor topbar should surface the students list directly",
 );
 assert(
-  topbar.includes("ArrowLeft") && topbar.includes("Home"),
-  "desktop instructor topbar should expose back/home navigation",
+  !topbar.includes("ArrowLeft") && !topbar.includes("Home"),
+  "desktop instructor topbar should keep navigation actions out of the content rail",
 );
 
 const sidebar = read(
@@ -88,8 +88,8 @@ assert(
   "instructor shell should expose a theme toggle on desktop and mobile",
 );
 assert(
-  sidebar.includes("ArrowLeft") && sidebar.includes("Home"),
-  "mobile instructor header should expose back/home navigation",
+  sidebar.includes('href="/instructor"') && sidebar.includes("Home"),
+  "instructor shell should keep a persistent home action next to the logo",
 );
 
 const page = read("artifacts", "nxtdrive", "app", "instructor", "page.tsx");
@@ -102,6 +102,11 @@ assert(
     page.includes("Vandaag op je radar") &&
     page.includes("Snelle routes"),
   "instructor dashboard should expose richer overview cards",
+);
+assert(
+  page.includes('contentClassName="space-y-5 xl:space-y-6"') &&
+    page.includes("sm:grid-cols-2"),
+  "instructor dashboard should use the denser responsive home layout",
 );
 
 console.log("test-instructor-ui-polish: ok");

@@ -2,15 +2,13 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  ArrowLeft,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
   ClipboardList,
   FileText,
-  Home,
   ListTodo,
   MessageCircle,
   Settings,
@@ -87,36 +85,9 @@ export function InstructorTopbar({
   theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
-  const router = useRouter();
-  const onDashboard = pathname === "/instructor";
 
   return (
     <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 xl:flex">
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          aria-label={onDashboard ? "Naar startscherm" : "Ga terug"}
-          onClick={() => {
-            if (onDashboard) {
-              router.push("/instructor");
-              return;
-            }
-            if (typeof window !== "undefined" && window.history.length > 1) {
-              router.back();
-              return;
-            }
-            router.push("/instructor");
-          }}
-          className={ICON_BUTTON_CLASS}
-        >
-          {onDashboard ? (
-            <Home className="h-4 w-4" aria-hidden />
-          ) : (
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-          )}
-        </button>
-      </div>
-
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {NAV.map((item) => {
           const Icon = item.icon;
