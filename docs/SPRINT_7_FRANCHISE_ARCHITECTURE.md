@@ -42,8 +42,28 @@ read-only prestatieslaag over 90 dagen.
 - De gedeelde franchise-guard voorkomt dat losse pagina's hun eigen afwijkende
   toegangslogica gaan voeren.
 
+# Sprint 7C - Franchise Attention Center
+
+Sprint 7C voegt een centrale aandacht-cockpit toe boven op prestaties,
+vergelijking en planning, zodat franchisegevers expliciet kunnen prioriteren
+welke franchisees eerst coaching, lokale planning of marketing-opvolging nodig
+hebben.
+
+## Wat deze slice toevoegt
+
+- Nieuwe pagina `/backoffice/franchise/aandacht` als opvolgmatrix voor het hele netwerk.
+- Gedeelde aandacht-metadata in de performance-loader: prioriteit, follow-up route en volgende stap.
+- Koppeling tussen dashboard, prestaties, planning en vergelijking zodat alle franchise-cockpits dezelfde opvolgroute gebruiken.
+- Nieuwe high-priority watchlist voor franchisees die direct centrale aandacht nodig hebben.
+
+## Canon voor 7C
+
+- Prioriteren mag tenant-overstijgend zichtbaar zijn, uitvoeren blijft lokaal of via coaching.
+- Franchise-aandacht bepaalt geen automatische cross-tenant mutaties.
+- Planning, kwaliteit, marketing en coaching blijven aparte opvolgroutes binnen dezelfde franchise-governance.
+
 ## Volgende logische stappen binnen Sprint 7
 
 - Eventuele read-only drill-downs voor agenda, capaciteit en KPI-trends verder uitdiepen.
-- Strakkere franchise-scope guards voor eventuele toekomstige acties.
+- Franchise-coaching, leadverdeling en escalaties later verbinden aan expliciete workflows.
 - Franchise-specifieke dashboards later combineren met centrale leadverdeling en coachingflows.

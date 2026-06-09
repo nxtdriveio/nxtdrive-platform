@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, CalendarDays, Gauge, ShieldCheck, TrendingDown, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, Gauge, ShieldCheck, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,7 +100,7 @@ function WatchlistCard({
                   <p className="font-medium text-foreground">{item.tenant_name}</p>
                   <p className="text-xs text-muted-foreground">{item.attention_reason}</p>
                 </div>
-                <Badge variant={item.attention_label === "Gezond" ? "outline" : "warning"}>
+                <Badge variant={item.attention_priority === "hoog" ? "danger" : item.attention_priority === "middel" ? "warning" : "outline"}>
                   {renderValue(item)}
                 </Badge>
               </div>
@@ -141,6 +141,11 @@ export default async function FranchisePerformancePage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/aandacht">
+            <Button variant="outline" size="sm">
+              Aandacht
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/planning">
             <Button variant="outline" size="sm">
               Centrale planning
@@ -184,7 +189,8 @@ export default async function FranchisePerformancePage() {
           title="Aandachtssignalen"
           value={String(overview.network.attention_count)}
           description="Franchisees met een directe terugval, kwaliteits- of capaciteitswaarschuwing."
-          icon={ShieldCheck}
+          badge={`${overview.network.high_priority_count} hoog`} 
+          icon={AlertTriangle}
         />
       </div>
 
@@ -277,7 +283,7 @@ export default async function FranchisePerformancePage() {
                       {row.capacity_utilisation === null ? "—" : `${row.capacity_utilisation}%`}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={row.attention_label === "Gezond" ? "outline" : "warning"}>
+                      <Badge variant={row.attention_priority === "hoog" ? "danger" : row.attention_priority === "middel" ? "warning" : "outline"}>
                         {row.attention_label}
                       </Badge>
                     </td>
@@ -288,6 +294,15 @@ export default async function FranchisePerformancePage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span>
+          <strong>Governance</strong>: franchise-insight blijft read-only en vervangt geen lokale verantwoordelijkheid binnen franchisees.
+        </span>
+        <span>
+          Gebruik het aandachtsscherm om prioriteiten en follow-up routes sneller aan de juiste franchisebegeleiding te koppelen.
+        </span>
+      </div>
     </div>
   );
 }
