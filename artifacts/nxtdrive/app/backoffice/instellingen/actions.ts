@@ -107,7 +107,15 @@ export async function saveBranding(formData: FormData) {
     );
   }
 
+  revalidatePath("/", "layout");
+  revalidatePath("/login");
+  revalidatePath("/manifest.webmanifest");
   revalidatePath("/backoffice", "layout");
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student", "layout");
+  revalidatePath("/student/manifest.webmanifest");
+  revalidatePath("/instructor", "layout");
+  revalidatePath("/instructor/manifest.webmanifest");
   redirect("/backoffice/instellingen?branding=saved");
 }
 
@@ -209,11 +217,6 @@ function parseOptionalNumber(value: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Persist the tenant's lead scoring policy. The raw form values are passed
-// through mergeLeadScorePolicy so the stored JSON is always sanitised: unknown
-// codes dropped, weights clamped to 0–50, bands clamped to 0–100 and ordered
-// (warm <= hot). Service-role write — RLS bypassed intentionally, tenant_id is
-// always taken from the authenticated membership, never from the client.
 export async function saveLeadScorePolicy(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -246,10 +249,6 @@ export async function saveLeadScorePolicy(
   );
   if (error) return { ok: false, error: error.message };
 
-  // Recompute persisted lead scores under the new policy so the dashboard
-  // (scores + "Hot (≥N)" KPI) reflects the change immediately. Best-effort:
-  // the policy is already saved, so a recompute hiccup must not fail the save —
-  // the activity sweep reconciles any stragglers later.
   try {
     await recomputeLeadScoresForTenant(service, tenant.id, user.id);
   } catch (err) {
@@ -260,12 +259,6 @@ export async function saveLeadScorePolicy(
   revalidatePath("/backoffice/leads");
   return { ok: true };
 }
-
-// --- Annuleringsbeleid (Task #91) ------------------------------------------
-// The cancel_lesson RPC reads tenant_settings key `cancellation_policy`. We
-// validate the incoming tiers strictly (clear message on bad input) and store
-// the sanitised result via the service role so the JSON can never corrupt the
-// refund calculation. Tenant-configurable, never hardcoded.
 
 export async function saveCancellationPolicy(
   formData: FormData,
@@ -364,8 +357,6 @@ export async function resetCancellationPolicy(): Promise<PolicyActionResult> {
   return { ok: true };
 }
 
-// Reset to the platform defaults by writing the merged default policy
-// (mergeLeadScorePolicy with no override returns DEFAULT_LEAD_SCORE_POLICY).
 export async function resetLeadScorePolicy(): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
 
@@ -392,13 +383,6 @@ export async function resetLeadScorePolicy(): Promise<PolicyActionResult> {
   revalidatePath("/backoffice/leads");
   return { ok: true };
 }
-
-// --- Herbezet-uitnodigingen / wachtlijst (Task #93) ------------------------
-// Tenant-configurable rules for the refill invitation flow. The create RPC reads
-// these from tenant_settings key `lesson_refill_policy`. We pass the raw form
-// values through mergeRefillPolicy so the stored JSON is always sanitised:
-// enabled coerced to boolean, valid_minutes and max_candidates clamped to a sane
-// range. Service-role write — tenant_id always from the authenticated membership.
 
 export async function saveRefillPolicy(
   formData: FormData,
@@ -451,13 +435,6 @@ export async function resetRefillPolicy(): Promise<PolicyActionResult> {
   return { ok: true };
 }
 
-// --- Ouderportaal zichtbaarheid (Task #96) ---------------------------------
-// Which sections of the read-only parent portal (/ouder) a tenant exposes to
-// parents. Every section defaults to visible; an admin opts OUT. The raw form
-// values are passed through mergeParentPortalVisibility so the stored JSON is
-// always sanitised (unknown keys dropped, values coerced to strict booleans).
-// Service-role write — tenant_id always from the authenticated membership.
-
 export async function saveParentPortalVisibility(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -507,14 +484,6 @@ export async function resetParentPortalVisibility(): Promise<PolicyActionResult>
   revalidatePath("/ouder", "layout");
   return { ok: true };
 }
-
-// --- Betaalherinneringen (Module 6) ----------------------------------------
-// Tenant-configurable cadence for overdue-payment reminders. The cron job reads
-// these from tenant_settings key `payment_reminder`. Raw form values pass
-// through mergePaymentReminderPolicy so the stored JSON is always sanitised:
-// enabled coerced to boolean, days clamped to a sorted, de-duplicated list of
-// positive day offsets. Service-role write — tenant_id always from the
-// authenticated membership.
 
 export async function savePaymentReminderPolicy(
   formData: FormData,
@@ -571,14 +540,6 @@ export async function resetPaymentReminderPolicy(): Promise<PolicyActionResult> 
   return { ok: true };
 }
 
-// --- Termijn-tegoed vrijgavebeleid (Task #112) -----------------------------
-// How a package's tegoed is released across a termijn-schema. The policy is
-// snapshot onto each installment_plan at creation (create_installment_plan reads
-// tenant_settings key `installment_credit_release`), so changing it here only
-// affects NEW plans — existing plans keep their snapshot. Raw form value passes
-// through mergeInstallmentCreditPolicy so the stored JSON is always a valid mode.
-// Service-role write — tenant_id always from the authenticated membership.
-
 export async function saveInstallmentCreditPolicy(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -621,12 +582,6 @@ export async function resetInstallmentCreditPolicy(): Promise<PolicyActionResult
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Task #113 — reviewmomenten-beleid. Welke automatische reviewverzoek-momenten
-// actief zijn, de lesdrempel voor "na N lessen" en de optionele Google-review-
-// URL. Service-role write; tenant_id altijd uit de geauthenticeerde membership.
-// De opgeslagen JSON wordt door getReviewMomentsSettings opnieuw gesanitiseerd.
-// ---------------------------------------------------------------------------
 export async function saveReviewMomentsPolicy(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -684,11 +639,6 @@ export async function saveReviewMomentsPolicy(
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Task #113 — markeer (of ontmarkeer) de beloning van een referral als
-// afgehandeld. Handmatig — er is bewust géén automatische beloningsmotor. De
-// locked RPC (admin-only, geaudit) is de enige schrijfweg.
-// ---------------------------------------------------------------------------
 export async function setReferralRewardHandled(
   leadId: string,
   handled: boolean,
@@ -710,12 +660,6 @@ export async function setReferralRewardHandled(
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Task #115 — Berichten: het publieke contacttelefoonnummer van de school.
-// Tenant-configurable via tenant_settings (key `contact_phone`). De leerling-
-// app toont de "Bel"-actie alleen wanneer dit gezet is. Service-role write;
-// tenant_id altijd uit de geauthenticeerde membership. Nooit hardcoded.
-// ---------------------------------------------------------------------------
 export async function saveContactPhone(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -745,15 +689,6 @@ export async function saveContactPhone(
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Task #201 — Eigen domeinen (multi-tenant domains).
-//
-// Een school koppelt een wildcard-subdomein (<slug>.nxtdrive.io) of een eigen
-// domein (rijschoolxyz.nl). Alle schrijfacties lopen via service-role RPC's die
-// de actor her-valideren (RPC is service_role-only). Verificatie gebeurt hier in
-// de app-laag via een DNS TXT-lookup; pas bij succes zet de RPC de status op
-// 'active'. De tenant_id komt altijd uit de geauthenticeerde membership.
-// ---------------------------------------------------------------------------
 export async function addTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
@@ -806,8 +741,6 @@ export async function verifyTenantDomain(
     return { ok: false, error: "Domein niet gevonden." };
   }
 
-  // Subdomeinen van nxtdrive.io vereisen geen DNS-eigendomsbewijs (wij beheren
-  // de zone) — die mogen direct actief.
   let verified = domain.type === "subdomain";
   if (!verified) {
     verified = await checkOwnershipTxt(
@@ -846,7 +779,6 @@ export async function removeTenantDomain(
   }
 
   const service = createServiceRoleClient();
-  // Verify ownership before mutating (RPC also re-checks the actor).
   const { data: domain } = await service
     .from("tenant_domains")
     .select("id")
