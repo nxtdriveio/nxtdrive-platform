@@ -53,7 +53,7 @@ export function PWAHero({
       className={cn(
         "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-2xl",
         app === "student"
-          ? "px-4 py-5 sm:px-5 sm:py-6"
+          ? "px-4 py-5.5 sm:px-5 sm:py-6.5"
           : "px-5 py-5 sm:px-6 sm:py-6 lg:px-7",
         className,
       )}
@@ -73,11 +73,23 @@ export function PWAHero({
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="text-balance text-[clamp(1.75rem,4vw,3.5rem)] font-black leading-[1.02] tracking-tight text-white">
+          <h1
+            className={cn(
+              "text-balance font-black leading-[1.02] tracking-tight text-white",
+              app === "student"
+                ? "text-[clamp(1.85rem,8vw,2.85rem)]"
+                : "text-[clamp(1.75rem,4vw,3.5rem)]",
+            )}
+          >
             {title}
           </h1>
           {subtitle ? (
-            <p className="max-w-2xl text-sm leading-6 text-white/72 sm:text-[0.95rem]">
+            <p
+              className={cn(
+                "max-w-2xl text-sm text-white/72",
+                app === "student" ? "leading-6" : "leading-6 sm:text-[0.95rem]",
+              )}
+            >
               {subtitle}
             </p>
           ) : null}
@@ -268,7 +280,7 @@ export function PWAPageHeader({
             "flex min-w-0 items-center gap-2 tracking-tight text-foreground",
             align === "wide"
               ? "text-[clamp(1.7rem,3vw,2.4rem)] font-black"
-              : "text-xl font-black sm:text-2xl",
+              : "text-lg font-black sm:text-2xl",
           )}
         >
           {icon ? (

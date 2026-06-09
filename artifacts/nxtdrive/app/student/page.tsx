@@ -125,7 +125,7 @@ export default async function StudentHomePage() {
   const creditLabel = formatTegoed(Math.max(0, availableMinutes));
 
   return (
-    <PWAPage app="student">
+    <PWAPage app="student" contentClassName="space-y-5 sm:space-y-6">
       <PWAHero
         app="student"
         eyebrow={tenant.name}
@@ -173,7 +173,7 @@ export default async function StudentHomePage() {
       <RefillInvitations invitations={refillInvitations} />
       <ExamInvitations invitations={examInvitations} />
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         <ContactCard
           schoolName={tenant.name}
           contactPhone={contactPhone}

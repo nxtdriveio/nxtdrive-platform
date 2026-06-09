@@ -42,8 +42,8 @@ const ACTIES_INSTRUCTOR = [
 ];
 
 const ACTIES_BACKOFFICE = [
-  { href: "/backoffice/agenda/afspraak/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
-  { href: "/backoffice/leads", icon: FileText, label: "Intakeformulier" },
+  { href: "/instructor/afspraak/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
+  { href: "/instructor/intake", icon: FileText, label: "Intakeformulier" },
   { href: "/backoffice/instellingen", icon: Settings, label: "Instellingen" },
 ];
 

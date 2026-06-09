@@ -490,7 +490,11 @@ export function PlannedCard({
           <p className="text-sm text-muted-foreground">
             Geen geplande lessen of examens.{" "}
             <Link
-              href={`/backoffice/agenda/nieuw?student_id=${studentId}`}
+              href={
+                scope === "instructor"
+                  ? `/instructor/les/nieuw?student_id=${studentId}`
+                  : `/backoffice/agenda/nieuw?student_id=${studentId}`
+              }
               className="text-primary hover:underline"
             >
               Plan er één →

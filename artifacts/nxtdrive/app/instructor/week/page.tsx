@@ -239,7 +239,7 @@ export default async function InstructorWeekPage({
               Agenda-afspraak
             </Link>
             <Link
-              href="/backoffice/agenda/nieuw"
+              href="/instructor/les/nieuw"
               className={buttonVariants({ size: "sm" })}
             >
               <CalendarPlus className="h-4 w-4" aria-hidden />

@@ -163,12 +163,12 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={CalendarPlus}
             label="Lesuren plannen"
-            href={`/backoffice/agenda/nieuw?student_id=${studentId}`}
+            href={`/instructor/les/nieuw?student_id=${studentId}`}
           />
           <LinkTile
             icon={ClipboardCheck}
             label="Proefles beoordelen"
-            href="/backoffice/leads"
+            href="/instructor/intake"
           />
           <LinkTile
             icon={PackagePlus}
