@@ -72,7 +72,7 @@ export function InstructorStudentCard({
         {/* Action buttons */}
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
-            href={`/backoffice/leerlingen/${student.id}`}
+            href={`/instructor/leerlingen/${student.id}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
