@@ -74,6 +74,7 @@
     "test-franchise-attention-foundation": "tsx ./src/test-franchise-attention-foundation.ts",
     "test-franchise-governance-foundation": "tsx ./src/test-franchise-governance-foundation.ts",
     "test-white-label-foundation": "tsx ./src/test-white-label-foundation.ts",
+    "test-management-dashboard-foundation": "tsx ./src/test-management-dashboard-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
