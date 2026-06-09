@@ -15,7 +15,13 @@ import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { PWACard, PWASectionHeader, PWAEmptyState } from "@/components/pwa/primitives";
+import {
+  PWACard,
+  PWAEmptyState,
+  PWAPage,
+  PWAPageHeader,
+  PWASectionHeader,
+} from "@/components/pwa/primitives";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
@@ -217,7 +223,13 @@ export default async function InstructorLessonPage({
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
-    <div className="flex flex-col gap-4 p-3 sm:p-4">
+    <PWAPage contentClassName="flex flex-col gap-4">
+      <PWAPageHeader
+        eyebrow="Lescockpit"
+        title={student?.full_name ?? "Lesdetails"}
+        description="Werk deze les af vanuit een rustige cockpit: context, voortgang, acties, theorie en aandachtspunten op een plek."
+        align="left"
+      />
       {/* ── Mobile only: horizontal agenda chip strip ────────────────────── */}
       <div className="md:hidden">
         <PWACard>
@@ -406,6 +418,6 @@ export default async function InstructorLessonPage({
         studentName={student?.full_name ?? "Leerling"}
         leskaart={leskaart}
       />
-    </div>
+    </PWAPage>
   );
 }

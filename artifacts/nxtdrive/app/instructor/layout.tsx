@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { roleHomePath } from "@/lib/auth/role-home";
+import { homePathForRoles } from "@/lib/auth/role-routing";
 import {
   getTenantBranding,
   resolveBrandAppName,
@@ -80,6 +83,7 @@ function startOfDay(d: Date): Date {
   x.setHours(0, 0, 0, 0);
   return x;
 }
+
 function endOfDay(d: Date): Date {
   const x = startOfDay(d);
   x.setDate(x.getDate() + 1);
@@ -95,8 +99,12 @@ export default async function InstructorLayout({
     "instructor",
     "tenant_admin",
   ]);
+
+  if (homePathForRoles(roles) !== "/instructor") {
+    redirect(roleHomePath(user, tenant.id));
+  }
+
   const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
-  const isAdmin = roles.includes("tenant_admin");
 
   const branding = await getTenantBranding(tenant.id);
   const logoUrl = resolveLogoUrl(tenant, branding);
@@ -108,22 +116,21 @@ export default async function InstructorLayout({
 
   const supabase = await createServerSupabaseClient();
 
-  let lessonQuery = supabase
+  const { data: lessonsRaw } = await supabase
     .from("lessons")
     .select("*")
     .eq("tenant_id", tenant.id)
+    .eq("instructor_id", user.id)
     .gte("starts_at", dayStart.toISOString())
     .lt("starts_at", dayEnd.toISOString())
     .order("starts_at", { ascending: true });
-  if (!isAdmin) lessonQuery = lessonQuery.eq("instructor_id", user.id);
-  const { data: lessonsRaw } = await lessonQuery;
   const todayLessons = (lessonsRaw ?? []) as Lesson[];
 
   const todayTrials = await loadAgendaTrialLessons(supabase, {
     tenantId: tenant.id,
     from: dayStart,
     to: dayEnd,
-    instructorId: isAdmin ? undefined : user.id,
+    instructorId: user.id,
   });
 
   const studentIds = [...new Set(todayLessons.map((l) => l.student_id))];
@@ -148,6 +155,8 @@ export default async function InstructorLayout({
     <BrandProvider tenant={tenant} branding={branding}>
       <div
         data-instructor=""
+        data-instructor-shell=""
+        data-pwa-copy=""
         className="flex min-h-screen flex-col text-foreground md:flex-row"
       >
         <InstructorSidebar
@@ -163,12 +172,13 @@ export default async function InstructorLayout({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <InstructorTopbar notifications={notificationBell} />
-
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="flex-1 overflow-auto bg-background pb-16 md:pb-0">
-            <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-background px-3 pb-24 pt-4 sm:px-4 md:px-5 md:pb-8 lg:px-6">
+            <div className="mx-auto w-full max-w-[96rem]">
+              <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
+            </div>
           </main>
         </div>
       </div>

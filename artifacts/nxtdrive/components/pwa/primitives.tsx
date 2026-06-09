@@ -4,13 +4,141 @@ import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-/**
- * Shared PWA primitives — used by both the student and instructor PWAs.
- * Modelled after the backoffice DashboardCard / StatusBadge (task #227) but
- * tuned for the denser, app-like PWA context.
- */
+type PWAAppKind = "student" | "instructor";
 
-// ─── PWACard ─────────────────────────────────────────────────────────────────
+export function PWAPage({
+  children,
+  className,
+  contentClassName,
+  app = "student",
+}: {
+  children: ReactNode;
+  className?: string;
+  contentClassName?: string;
+  app?: PWAAppKind;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 space-y-4 sm:space-y-5",
+        app === "student"
+          ? "mx-auto max-w-[29rem]"
+          : "mx-auto max-w-6xl",
+        className,
+      )}
+    >
+      <div className={cn("min-w-0", contentClassName)}>{children}</div>
+    </div>
+  );
+}
+
+export function PWAHero({
+  eyebrow,
+  title,
+  subtitle,
+  aside,
+  className,
+  app = "student",
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  aside?: ReactNode;
+  className?: string;
+  app?: PWAAppKind;
+}) {
+  return (
+    <section
+      className={cn(
+        "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-2xl",
+        app === "student"
+          ? "px-4 py-5 sm:px-5 sm:py-6"
+          : "px-5 py-5 sm:px-6 sm:py-6 lg:px-7",
+        className,
+      )}
+      style={{
+        background:
+          app === "student"
+            ? "radial-gradient(circle at 16% 0%, rgba(255,255,255,0.24), transparent 28%), radial-gradient(circle at 100% 0%, rgba(255,255,255,0.14), transparent 30%), linear-gradient(145deg, color-mix(in oklab, var(--primary) 88%, #0f172a), color-mix(in oklab, var(--primary) 42%, #020617) 60%, #020617)"
+            : "radial-gradient(circle at 8% 0%, rgba(255,255,255,0.16), transparent 26%), radial-gradient(circle at 100% 20%, rgba(245,158,11,0.18), transparent 32%), linear-gradient(140deg, #131520, #0a0b12 62%, #05060b)",
+      }}
+    >
+      <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full border border-white/10" />
+      <div className="pointer-events-none absolute -bottom-24 left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+      <div className="relative flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 space-y-2">
+          {eyebrow ? (
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h1 className="text-balance text-[clamp(1.75rem,4vw,3.5rem)] font-black leading-[1.02] tracking-tight text-white">
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="max-w-2xl text-sm leading-6 text-white/72 sm:text-[0.95rem]">
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+        {aside ? <div className="min-w-0 shrink-0">{aside}</div> : null}
+      </div>
+    </section>
+  );
+}
+
+export function PWAKpiGrid({
+  children,
+  className,
+  compact = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 gap-3",
+        compact ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function PWAKpiTile({
+  label,
+  value,
+  hint,
+  className,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  hint?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-2xl border border-border/70 bg-card/88 px-3.5 py-3.5 shadow-sm backdrop-blur",
+        className,
+      )}
+    >
+      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
 
 export function PWACard({
   title,
@@ -19,6 +147,7 @@ export function PWACard({
   headerRight,
   children,
   className,
+  contentClassName,
 }: {
   title?: ReactNode;
   actionLabel?: string;
@@ -26,17 +155,18 @@ export function PWACard({
   headerRight?: ReactNode;
   children: ReactNode;
   className?: string;
+  contentClassName?: string;
 }) {
   return (
-    <div
+    <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-[1.45rem] border border-border/80 bg-card/85 shadow-sm backdrop-blur",
+        "min-w-0 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/88 shadow-sm backdrop-blur",
         className,
       )}
     >
       {title ? (
-        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3.5">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
             {title}
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -46,24 +176,17 @@ export function PWACard({
                 href={actionHref}
                 className="text-xs font-semibold text-primary hover:underline"
               >
-                {actionLabel} →
+                {actionLabel} {"->"}
               </Link>
             ) : null}
           </div>
         </div>
       ) : null}
-      <div className="min-w-0 px-4 py-4">{children}</div>
-    </div>
+      <div className={cn("min-w-0 px-4 py-4", contentClassName)}>{children}</div>
+    </section>
   );
 }
 
-// ─── PWASectionHeader ────────────────────────────────────────────────────────
-
-/**
- * Consistent section title treatment: icon badge + text.
- * Replaces the ad-hoc `text-xs uppercase tracking-wider text-muted-foreground`
- * pattern scattered across both PWAs.
- */
 export function PWASectionHeader({
   icon,
   children,
@@ -79,11 +202,13 @@ export function PWASectionHeader({
     <div className={cn("mb-3 flex min-w-0 items-center justify-between gap-2", className)}>
       <div className="flex min-w-0 items-center gap-2">
         {icon ? (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary shadow-sm">
             {icon}
           </span>
         ) : null}
-        <span className="min-w-0 truncate text-sm font-bold text-foreground">{children}</span>
+        <span className="min-w-0 truncate text-sm font-bold text-foreground sm:text-[0.95rem]">
+          {children}
+        </span>
       </div>
       {right ? (
         <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -94,41 +219,65 @@ export function PWASectionHeader({
   );
 }
 
-// ─── PWAPageHeader ───────────────────────────────────────────────────────────
-
-/**
- * Consistent page header: h1 + optional subtitle. Used at the top of every
- * student/instructor PWA page so they all share the same visual rhythm.
- */
 export function PWAPageHeader({
+  eyebrow,
   title,
   subtitle,
+  description,
   icon,
+  actions,
   className,
+  align = "default",
 }: {
+  eyebrow?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
+  description?: ReactNode;
   icon?: ReactNode;
+  actions?: ReactNode;
   className?: string;
+  align?: "default" | "wide" | "left";
 }) {
+  const supportingCopy = description ?? subtitle;
+
   return (
-    <div className={cn("mb-3", className)}>
-      <h1 className="flex min-w-0 items-center gap-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">
-        {icon ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-            {icon}
-          </span>
+    <div
+      className={cn(
+        "mb-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        {eyebrow ? (
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            {eyebrow}
+          </p>
         ) : null}
-        <span className="min-w-0 truncate">{title}</span>
-      </h1>
-      {subtitle ? (
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{subtitle}</p>
-      ) : null}
+        <h1
+          className={cn(
+            "flex min-w-0 items-center gap-2 tracking-tight text-foreground",
+            align === "wide"
+              ? "text-[clamp(1.7rem,3vw,2.4rem)] font-black"
+              : "text-xl font-black sm:text-2xl",
+          )}
+        >
+          {icon ? (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary shadow-sm">
+              {icon}
+            </span>
+          ) : null}
+          <span className="min-w-0 truncate">{title}</span>
+        </h1>
+        {supportingCopy ? (
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {supportingCopy}
+          </p>
+        ) : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
-
-// ─── PWAStatusBadge ──────────────────────────────────────────────────────────
 
 const LESSON_STATUS: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
   planned: { label: "Gepland", variant: "primary" },
@@ -154,10 +303,6 @@ const THEORY_STATUS: Record<string, { label: string; variant: BadgeProps["varian
 
 type StatusDomain = "lesson" | "cbr" | "theory";
 
-/**
- * Maps rijles/CBR/theorie statuses to consistently styled badges.
- * Both PWAs use this component so badge semantics stay in sync.
- */
 export function PWAStatusBadge({
   status,
   domain,
@@ -175,13 +320,6 @@ export function PWAStatusBadge({
   return <Badge variant={resolved.variant}>{resolved.label}</Badge>;
 }
 
-// ─── PWAEmptyState ───────────────────────────────────────────────────────────
-
-/**
- * Consistent empty-state treatment: icon + heading + message.
- * Replaces bare `<p className="text-sm text-muted-foreground">` throughout
- * both PWAs. Uses a dashed border container so the page never looks empty.
- */
 export function PWAEmptyState({
   icon,
   title,
@@ -200,13 +338,9 @@ export function PWAEmptyState({
         className,
       )}
     >
-      {icon ? (
-        <span className="text-muted-foreground/50">{icon}</span>
-      ) : null}
-      {title ? (
-        <p className="text-sm font-medium text-foreground">{title}</p>
-      ) : null}
-      <p className="text-sm leading-6 text-muted-foreground">{message}</p>
+      {icon ? <span className="text-muted-foreground/50">{icon}</span> : null}
+      {title ? <p className="text-sm font-medium text-foreground">{title}</p> : null}
+      <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{message}</p>
     </div>
   );
 }

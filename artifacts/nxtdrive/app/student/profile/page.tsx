@@ -5,28 +5,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { PWAPageHeader, PWACard, PWASectionHeader } from "@/components/pwa/primitives";
+import { PWAPage, PWAPageHeader, PWACard, PWASectionHeader } from "@/components/pwa/primitives";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
 import { ReviewForm } from "@/components/student/review-form";
 import { PushToggle } from "@/components/notifications/PushToggle";
 import { NotificationTypeToggles } from "@/components/notifications/NotificationTypeToggles";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
-import { getNotificationPreference, getNotificationTypePreferences } from "@/lib/notifications/push-actions";
+import {
+  getNotificationPreference,
+  getNotificationTypePreferences,
+} from "@/lib/notifications/push-actions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentProfilePage() {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "student",
-    "parent",
-  ]);
-  const { student, accessible } = await getActiveStudent(
-    user,
-    tenant.id,
-    roles,
-  );
+  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { student, accessible } = await getActiveStudent(user, tenant.id, roles);
   const [vapidPublicKey, serverPushEnabled, typePreferences] = await Promise.all([
     Promise.resolve(getVapidPublicKey()),
     getNotificationPreference(),
@@ -44,28 +40,23 @@ export default async function StudentProfilePage() {
       .maybeSingle();
     existingReview = (reviewRow as { rating: number; body: string | null } | null) ?? null;
   }
+
   const isParent = roles.includes("parent") && !roles.includes("student");
   const otherChildren = isParent
-    ? accessible.filter((s) => s.id !== student?.id && s.user_id !== user.id)
+    ? accessible.filter((accessibleStudent) => accessibleStudent.id !== student?.id && accessibleStudent.user_id !== user.id)
     : [];
-
   const displayName = student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";
 
   return (
-    <div className="space-y-4">
-      <PWAPageHeader
-        title="Mijn profiel"
-        icon={<User className="h-4 w-4" aria-hidden />}
-      />
+    <PWAPage app="student">
+      <PWAPageHeader title="Mijn profiel" icon={<User className="h-4 w-4" aria-hidden />} />
 
       <PWACard>
         <div className="flex items-start gap-4">
-          <Avatar name={displayName} className="h-14 w-14 text-base shrink-0" />
+          <Avatar name={displayName} className="h-14 w-14 shrink-0 text-base" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-lg font-semibold text-foreground">
-                {displayName}
-              </h2>
+              <h2 className="truncate text-lg font-semibold text-foreground">{displayName}</h2>
               {student ? (
                 <Badge variant={student.active ? "success" : "default"}>
                   {student.active ? "Actief" : "Inactief"}
@@ -80,9 +71,7 @@ export default async function StudentProfilePage() {
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             <dt className="sr-only">E-mail</dt>
-            <dd className="truncate text-foreground">
-              {student?.email ?? user.email}
-            </dd>
+            <dd className="truncate text-foreground">{student?.email ?? user.email}</dd>
           </div>
           {student?.phone ? (
             <div className="flex items-center gap-2">
@@ -101,25 +90,24 @@ export default async function StudentProfilePage() {
         </dl>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          Klopt er iets niet? Neem contact op met je rijschool — zij kunnen je
-          gegevens bijwerken.
+          Klopt er iets niet? Neem contact op met je rijschool. Zij kunnen je gegevens
+          veilig bijwerken.
         </p>
       </PWACard>
 
-      {/* Notification preferences */}
-      <div className="space-y-3">
+      <section className="space-y-3">
         <PWASectionHeader icon={<Bell className="h-3.5 w-3.5" aria-hidden />}>
           Meldingen
         </PWASectionHeader>
         <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
         <PWACard>
-          <p className="text-xs text-muted-foreground mb-4">
-            Kies welke meldingen je wilt ontvangen. Uitgeschakelde types worden
-            ook niet in de app getoond.
+          <p className="mb-4 text-xs text-muted-foreground">
+            Kies welke meldingen je wilt ontvangen. Uitgeschakelde types worden ook niet
+            in de app getoond.
           </p>
           <NotificationTypeToggles initialPreferences={typePreferences} />
         </PWACard>
-      </div>
+      </section>
 
       {student ? (
         <RefillOptInForm
@@ -140,20 +128,14 @@ export default async function StudentProfilePage() {
       {isParent && otherChildren.length > 0 ? (
         <PWACard>
           <PWASectionHeader>Wissel van leerling</PWASectionHeader>
-          <Link
-            href="/student/select-child"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
+          <Link href="/student/select-child" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Andere leerling kiezen ({otherChildren.length})
           </Link>
         </PWACard>
       ) : null}
 
       <form action="/auth/logout" method="post">
-        <button
-          type="submit"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
+        <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
           <LogOut className="h-4 w-4" aria-hidden />
           Uitloggen
         </button>
@@ -164,6 +146,6 @@ export default async function StudentProfilePage() {
           Terug naar start
         </Link>
       </div>
-    </div>
+    </PWAPage>
   );
 }

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  PWAPage,
   PWAPageHeader,
   PWACard,
   PWASectionHeader,
@@ -48,16 +49,10 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 export default async function StudentBetalingenPage() {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "student",
-    "parent",
-  ]);
-  const { student, needsChildPicker } = await getActiveStudent(
-    user,
-    tenant.id,
-    roles,
-  );
+  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
+
   if (!student) {
     return (
       <Card>
@@ -70,59 +65,39 @@ export default async function StudentBetalingenPage() {
 
   const supabase = await createServerSupabaseClient();
   const [balanceRes, breakdownRes, ledgerRes, invoicesRes] = await Promise.all([
-    supabase
-      .from("student_credit_balance")
-      .select("student_id, balance")
-      .eq("student_id", student.id)
-      .maybeSingle(),
-    supabase
-      .from("student_credit_breakdown")
-      .select("*")
-      .eq("student_id", student.id)
-      .maybeSingle(),
+    supabase.from("student_credit_balance").select("student_id, balance").eq("student_id", student.id).maybeSingle(),
+    supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     supabase
       .from("credit_ledger")
       .select("*")
       .eq("student_id", student.id)
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase
-      .from("invoices")
-      .select("*")
-      .eq("student_id", student.id)
-      .order("created_at", { ascending: false }),
+    supabase.from("invoices").select("*").eq("student_id", student.id).order("created_at", { ascending: false }),
   ]);
-  const balance = ((balanceRes.data as StudentBalance | null)?.balance ??
-    0) as number;
+
+  const balance = ((balanceRes.data as StudentBalance | null)?.balance ?? 0) as number;
   const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
   const rows = (ledgerRes.data ?? []) as CreditLedgerRow[];
   const invoices = (invoicesRes.data ?? []) as Invoice[];
+  const installmentCredits = await loadStudentInstallmentCredit(supabase, student.id);
 
-  const installmentCredits = await loadStudentInstallmentCredit(
-    supabase,
-    student.id,
-  );
-
-  const isPayable = (inv: Invoice) =>
-    inv.kind === "invoice" &&
-    inv.status === "open" &&
-    remainingCents(inv) > 0;
+  const isPayable = (invoice: Invoice) =>
+    invoice.kind === "invoice" && invoice.status === "open" && remainingCents(invoice) > 0;
   const hasPayable = invoices.some(isPayable);
   const mollieConfigured = hasPayable
-    ? (await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id))
-        .configured
+    ? (await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id)).configured
     : false;
 
   return (
-    <div className="space-y-4">
+    <PWAPage app="student">
       <PWAPageHeader
         title="Betalingen"
-        subtitle="Je tegoed, mutaties en facturen op één plek."
+        subtitle="Je tegoed, mutaties en facturen op een plek die ook op mobiel rustig en strak leesbaar blijft."
         icon={<Wallet className="h-4 w-4" aria-hidden />}
       />
 
       <StudentBalanceCard balance={balance} />
-
       {breakdown ? <CreditBreakdownCard breakdown={breakdown} /> : null}
 
       {installmentCredits.length > 0 ? (
@@ -133,22 +108,15 @@ export default async function StudentBetalingenPage() {
               <li key={plan.planId} className="py-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground">
-                      {plan.description}
-                    </div>
+                    <div className="truncate font-medium text-foreground">{plan.description}</div>
                     <div className="text-xs text-muted-foreground">
-                      {INSTALLMENT_CREDIT_MODE_LABEL[plan.policy]} ·{" "}
-                      {formatTegoed(plan.packageMinutes)} totaal
+                      {INSTALLMENT_CREDIT_MODE_LABEL[plan.policy]} - {formatTegoed(plan.packageMinutes)} totaal
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1.5">
-                    <Badge variant="success">
-                      {formatTegoed(plan.releasedMinutes)} vrij
-                    </Badge>
+                    <Badge variant="success">{formatTegoed(plan.releasedMinutes)} vrij</Badge>
                     {plan.pendingMinutes > 0 ? (
-                      <Badge variant="warning">
-                        {formatTegoed(plan.pendingMinutes)} later
-                      </Badge>
+                      <Badge variant="warning">{formatTegoed(plan.pendingMinutes)} later</Badge>
                     ) : null}
                   </div>
                 </div>
@@ -170,28 +138,29 @@ export default async function StudentBetalingenPage() {
           />
         ) : (
           <ol className="space-y-2">
-            {invoices.map((inv) => {
-              const display = displayStatus(inv);
-              const remaining = remainingCents(inv);
-              const canPayOnline = mollieConfigured && isPayable(inv);
+            {invoices.map((invoice) => {
+              const display = displayStatus(invoice);
+              const remaining = remainingCents(invoice);
+              const canPayOnline = mollieConfigured && isPayable(invoice);
+
               return (
                 <li
-                  key={inv.id}
+                  key={invoice.id}
                   className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
                 >
                   <Link
-                    href={`/student/facturen/${inv.id}`}
+                    href={`/student/facturen/${invoice.id}`}
                     className="block p-4 transition hover:bg-muted/50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-semibold text-foreground">
-                          Factuur #{String(inv.invoice_no).padStart(4, "0")}
+                          Factuur #{String(invoice.invoice_no).padStart(4, "0")}
                         </div>
                         <div className="mt-0.5 text-xs text-muted-foreground">
-                          {inv.due_date
-                            ? `Vervalt ${dateFmt.format(new Date(inv.due_date))}`
-                            : `Aangemaakt ${dateFmt.format(new Date(inv.created_at))}`}
+                          {invoice.due_date
+                            ? `Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
+                            : `Aangemaakt ${dateFmt.format(new Date(invoice.created_at))}`}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
@@ -199,23 +168,16 @@ export default async function StudentBetalingenPage() {
                           {DISPLAY_STATUS_LABEL[display]}
                         </Badge>
                         <div className="text-sm font-semibold text-foreground">
-                          {formatEuros(inv.total_cents)}
+                          {formatEuros(invoice.total_cents)}
                         </div>
                       </div>
-                      <ChevronRight
-                        className="h-4 w-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     </div>
                   </Link>
                   {canPayOnline ? (
                     <div className="border-t border-border p-3">
                       <form action={payStudentInvoice}>
-                        <input
-                          type="hidden"
-                          name="invoice_id"
-                          value={inv.id}
-                        />
+                        <input type="hidden" name="invoice_id" value={invoice.id} />
                         <Button type="submit" size="sm" className="w-full">
                           Betaal nu {formatEuros(remaining)}
                         </Button>
@@ -235,37 +197,34 @@ export default async function StudentBetalingenPage() {
           <PWAEmptyState message="Nog geen mutaties op je tegoed." />
         ) : (
           <ol className="divide-y divide-border">
-            {rows.map((r) => {
-              const positive = r.delta > 0;
+            {rows.map((row) => {
+              const positive = row.delta > 0;
               const lessonHref =
-                r.related_type === "lesson" && r.related_id
-                  ? `/student/lessons/${r.related_id}`
+                row.related_type === "lesson" && row.related_id
+                  ? `/student/lessons/${row.related_id}`
                   : null;
+
               const inner = (
                 <>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium text-foreground">
-                      {CREDIT_REASON_LABEL[r.reason]}
+                      {CREDIT_REASON_LABEL[row.reason]}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {dateFmt.format(new Date(r.created_at))}
-                      {r.note ? ` · ${r.note}` : ""}
-                      {lessonHref ? " · Bekijk les" : ""}
+                      {dateFmt.format(new Date(row.created_at))}
+                      {row.note ? ` - ${row.note}` : ""}
+                      {lessonHref ? " - Bekijk les" : ""}
                     </div>
                   </div>
-                  <Badge variant={positive ? "success" : "warning"}>
-                    {formatTegoedDelta(r.delta)}
-                  </Badge>
+                  <Badge variant={positive ? "success" : "warning"}>{formatTegoedDelta(row.delta)}</Badge>
                   {lessonHref ? (
-                    <ChevronRight
-                      className="h-4 w-4 shrink-0 text-muted-foreground"
-                      aria-hidden
-                    />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   ) : null}
                 </>
               );
+
               return (
-                <li key={r.id}>
+                <li key={row.id}>
                   {lessonHref ? (
                     <Link
                       href={lessonHref}
@@ -274,9 +233,7 @@ export default async function StudentBetalingenPage() {
                       {inner}
                     </Link>
                   ) : (
-                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      {inner}
-                    </div>
+                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">{inner}</div>
                   )}
                 </li>
               );
@@ -284,6 +241,6 @@ export default async function StudentBetalingenPage() {
           </ol>
         )}
       </PWACard>
-    </div>
+    </PWAPage>
   );
 }

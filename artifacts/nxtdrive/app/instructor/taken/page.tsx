@@ -14,6 +14,7 @@ import type {
 } from "@/lib/tasks/types";
 import { resolveTaskLinks } from "@/lib/tasks/links";
 import { Board } from "@/app/backoffice/taken/board";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +37,12 @@ export default async function InstructorTakenPage({
 
   if (boards.length === 0) {
     return (
-      <div className="space-y-6">
+      <PWAPage contentClassName="space-y-6">
         <Header />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Er zijn nog geen taakborden voor deze rijschool.
         </Card>
-      </div>
+      </PWAPage>
     );
   }
 
@@ -104,7 +105,7 @@ export default async function InstructorTakenPage({
   }
 
   return (
-    <div className="space-y-6">
+    <PWAPage contentClassName="space-y-6">
       <Header />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -132,20 +133,17 @@ export default async function InstructorTakenPage({
         links={linksByTask}
         canCreate={false}
       />
-    </div>
+    </PWAPage>
   );
 }
 
 function Header() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-        Mijn taken
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        Taken die aan jou zijn toegewezen. Versleep kaarten om ze te herordenen
-        of naar een andere kolom te verplaatsen.
-      </p>
-    </div>
+    <PWAPageHeader
+      eyebrow="Taken"
+      title="Mijn taken"
+      description="Taken die aan jou zijn toegewezen. Versleep kaarten om ze te herordenen of naar een andere kolom te verplaatsen."
+      align="left"
+    />
   );
 }

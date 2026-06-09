@@ -29,6 +29,14 @@ import {
   formatTegoed,
   type StudentCreditBreakdown,
 } from "@/lib/students/types";
+import {
+  PWAEmptyState,
+  PWAHero,
+  PWAKpiGrid,
+  PWAKpiTile,
+  PWAPage,
+  PWASectionHeader,
+} from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -41,27 +49,18 @@ const heroLessonFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 export default async function StudentHomePage() {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "student",
-    "parent",
-  ]);
-  const { student, needsChildPicker } = await getActiveStudent(
-    user,
-    tenant.id,
-    roles,
-  );
+  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
 
   if (!student) {
     return (
       <Card>
         <CardContent className="space-y-3 pt-6">
-          <h1 className="text-xl font-semibold text-foreground">
-            Welkom bij {tenant.name}
-          </h1>
+          <h1 className="text-xl font-semibold text-foreground">Welkom bij {tenant.name}</h1>
           <p className="text-sm text-muted-foreground">
-            Je account is nog niet gekoppeld aan een leerlingdossier. Neem
-            contact op met je rijschool om dit in orde te maken.
+            Je account is nog niet gekoppeld aan een leerlingdossier. Neem contact op met je
+            rijschool om dit in orde te maken.
           </p>
         </CardContent>
       </Card>
@@ -71,7 +70,6 @@ export default async function StudentHomePage() {
   const supabase = await createServerSupabaseClient();
   const nowIso = new Date().toISOString();
 
-  // Volgende les: eerste geplande les ≥ nu.
   const { data: nextRaw } = await supabase
     .from("lessons")
     .select("*")
@@ -84,49 +82,29 @@ export default async function StudentHomePage() {
   const nextLesson = (nextRaw as Lesson | null) ?? null;
 
   const [breakdownRes, homework, refillInvitations] = await Promise.all([
-    supabase
-      .from("student_credit_breakdown")
-      .select("*")
-      .eq("student_id", student.id)
-      .maybeSingle(),
+    supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     loadStudentTheoryHomework(supabase, tenant.id, student.id),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
   ]);
   const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
 
-  // Exam invitations: the exam appointment is not yet linked to the student, so
-  // it is not RLS-readable by the student until they confirm. Ownership is
-  // already established above (getActiveStudent → student.id), so resolve open
-  // invitations with a service-role client bounded to this tenant + student.
   const examInvitations = await listOpenExamInvitationsForStudent(
     createServiceRoleClient(),
     tenant.id,
     student.id,
   );
 
-  // Task #113 — persoonlijke referrallink (idempotent aangemaakt) + de ongelezen
-  // reviewbanner. De referralcode loopt via de service-role RPC (actor = ingelogde
-  // gebruiker; de RPC autoriseert leerling/voogd zelf). De notificatie wordt via de
-  // anon-client gelezen zodat RLS "eigen rijen" afdwingt.
   const service = createServiceRoleClient();
-  const [
-    origin,
-    referralCode,
-    reviewSettings,
-    referralSummary,
-    contactPhone,
-    chatUnread,
-  ] = await Promise.all([
-    getPublicOrigin(),
-    ensureStudentReferralCode(service, tenant.id, student.id, user.id),
-    getReviewMomentsSettings(service, tenant.id),
-    loadStudentReferralSummary(service, tenant.id, student.id),
-    loadContactPhone(service, tenant.id),
-    countStudentUnread({ tenantId: tenant.id, studentId: student.id }),
-  ]);
-  const referralUrl = referralCode
-    ? buildReferralUrl(origin, tenant.slug, referralCode)
-    : null;
+  const [origin, referralCode, reviewSettings, referralSummary, contactPhone, chatUnread] =
+    await Promise.all([
+      getPublicOrigin(),
+      ensureStudentReferralCode(service, tenant.id, student.id, user.id),
+      getReviewMomentsSettings(service, tenant.id),
+      loadStudentReferralSummary(service, tenant.id, student.id),
+      loadContactPhone(service, tenant.id),
+      countStudentUnread({ tenantId: tenant.id, studentId: student.id }),
+    ]);
+  const referralUrl = referralCode ? buildReferralUrl(origin, tenant.slug, referralCode) : null;
 
   const { data: reviewNotif } = await supabase
     .from("app_notifications")
@@ -142,62 +120,44 @@ export default async function StudentHomePage() {
   const firstName = student.full_name.split(" ")[0];
   const nextLessonLabel = nextLesson?.starts_at
     ? heroLessonFmt.format(new Date(nextLesson.starts_at))
-    : "Geen les gepland";
+    : "Nog geen les gepland";
   const availableMinutes = breakdown?.available_minutes ?? 0;
   const creditLabel = formatTegoed(Math.max(0, availableMinutes));
 
   return (
-    <div className="space-y-4 md:space-y-5">
-      <section
-        className="relative overflow-hidden rounded-[1.6rem] border border-white/10 px-4 py-5 text-white shadow-xl shadow-primary/15 sm:px-6 sm:py-6"
-        style={{
-          background:
-            "radial-gradient(circle at 15% 0%, rgba(255,255,255,0.28), transparent 25%), radial-gradient(circle at 95% 5%, rgba(255,255,255,0.16), transparent 26%), linear-gradient(135deg, color-mix(in oklab, var(--primary) 88%, #111827), color-mix(in oklab, var(--primary) 45%, #020617) 62%, #020617)",
-        }}
-      >
-        <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full border border-white/15" />
-        <div className="pointer-events-none absolute -bottom-20 left-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
-
-        <div className="relative space-y-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
-              {tenant.name}
-            </p>
-            <h1 className="mt-2 text-balance text-2xl font-black leading-[1.04] tracking-tight sm:text-4xl">
-              Hoi {firstName}, klaar voor je volgende stap?
-            </h1>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="min-w-0 rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-white/65">
-                <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-                Volgende les
-              </div>
-              <div className="mt-1.5 truncate text-sm font-bold capitalize text-white">
-                {nextLessonLabel}
-              </div>
-              {nextLesson?.location ? (
-                <div className="mt-0.5 truncate text-[11px] text-white/55">
-                  {nextLesson.location}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-white/65">
-                <WalletCards className="h-3.5 w-3.5" aria-hidden />
-                Tegoed
-              </div>
-              <div className="mt-1.5 truncate text-sm font-bold text-white">
-                {creditLabel}
-              </div>
-              <div className="mt-0.5 truncate text-[11px] text-white/55">
-                {availableMinutes <= 0 ? "Aanvullen nodig" : "Beschikbaar"}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <PWAPage app="student">
+      <PWAHero
+        app="student"
+        eyebrow={tenant.name}
+        title={`Welkom terug, ${firstName}`}
+        subtitle="Alles wat je nu moet regelen staat direct voor je klaar: je planning, voortgang, tegoed en contact met je rijschool."
+        aside={
+          <PWAKpiGrid compact className="w-full min-w-0 max-w-sm">
+            <PWAKpiTile
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                  Volgende les
+                </span>
+              }
+              value={nextLessonLabel}
+              hint={nextLesson?.location ?? "Plan je volgende les met je rijschool"}
+              className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
+            />
+            <PWAKpiTile
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <WalletCards className="h-3.5 w-3.5" aria-hidden />
+                  Tegoed
+                </span>
+              }
+              value={creditLabel}
+              hint={availableMinutes <= 0 ? "Aanvullen nodig" : "Direct inzetbaar"}
+              className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
+            />
+          </PWAKpiGrid>
+        }
+      />
 
       <QuickActions />
 
@@ -209,26 +169,27 @@ export default async function StudentHomePage() {
       ) : null}
 
       <RefillInvitations invitations={refillInvitations} />
-
       <ExamInvitations invitations={examInvitations} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <ContactCard
           schoolName={tenant.name}
           contactPhone={contactPhone}
           unreadCount={chatUnread}
         />
-
         <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
       </div>
 
       {referralUrl ? (
-        <ReferralInvite
-          url={referralUrl}
-          schoolName={tenant.name}
-          summary={referralSummary}
-        />
+        <ReferralInvite url={referralUrl} schoolName={tenant.name} summary={referralSummary} />
       ) : null}
-    </div>
+
+      {!nextLesson && availableMinutes <= 0 ? (
+        <section className="space-y-3">
+          <PWASectionHeader>Directe aandacht</PWASectionHeader>
+          <PWAEmptyState message="Er staat nog geen vervolgles gepland en je tegoed is op. Vul je pakket aan of neem contact op met je rijschool om ritme te houden." />
+        </section>
+      ) : null}
+    </PWAPage>
   );
 }
