@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireAgendaAppointmentAccess } from "@/lib/agenda/access";
+import { durationMinutes } from "@/lib/agenda/types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   notifyCbrAuthorizationNeeded,
@@ -11,6 +13,11 @@ import {
 import type { Lesson } from "@/lib/lessons/types";
 
 type ActionResult = { error?: string };
+
+function isValidColorOverride(color: string | null): boolean {
+  if (color === null) return true;
+  return /^#[0-9a-fA-F]{6}$/.test(color);
+}
 
 /**
  * Loads the lesson and asserts the actor either owns it (instructor_id matches)
@@ -41,6 +48,113 @@ async function loadOwnedLesson(
     return "Niet geautoriseerd voor deze les";
   }
   return { lesson, userId: user.id, tenantId: tenant.id };
+}
+
+export async function moveOwnedLessonAction(input: {
+  lessonId: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<ActionResult> {
+  const ctx = await loadOwnedLesson(input.lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const startsAt = new Date(input.startsAt);
+  const endsAt = new Date(input.endsAt);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return { error: "Ongeldige agenda-tijd." };
+  }
+  if (startsAt >= endsAt) {
+    return { error: "De eindtijd moet na de starttijd liggen." };
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("lessons")
+    .update({
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+    })
+    .eq("id", input.lessonId)
+    .eq("tenant_id", ctx.tenantId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/${input.lessonId}`);
+  return {};
+}
+
+export async function moveOwnedAppointmentAction(input: {
+  appointmentId: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<ActionResult> {
+  const service = createServiceRoleClient();
+  const access = await requireAgendaAppointmentAccess(
+    service,
+    input.appointmentId,
+    "manage",
+  );
+  if (!access.appointment) return { error: "Niet geautoriseerd voor deze afspraak." };
+
+  const startsAt = new Date(input.startsAt);
+  const endsAt = new Date(input.endsAt);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return { error: "Ongeldige agenda-tijd." };
+  }
+  if (startsAt >= endsAt) {
+    return { error: "De eindtijd moet na de starttijd liggen." };
+  }
+
+  const { error } = await service.rpc("update_agenda_appointment", {
+    p_appointment_id: input.appointmentId,
+    p_tenant_id: access.context.organization.id,
+    p_actor: access.context.user.id,
+    p_starts_at: startsAt.toISOString(),
+    p_duration_min: durationMinutes(startsAt.toISOString(), endsAt.toISOString()),
+    p_student_id: access.appointment.student_id,
+    p_branch_id: access.appointmentBranchId,
+    p_title: access.appointment.title,
+    p_location: access.appointment.location,
+    p_notes: access.appointment.notes,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  return {};
+}
+
+export async function setOwnedAppointmentColorAction(input: {
+  appointmentId: string;
+  color: string | null;
+}): Promise<ActionResult> {
+  if (!isValidColorOverride(input.color)) {
+    return { error: "Ongeldige kleur." };
+  }
+
+  const service = createServiceRoleClient();
+  const access = await requireAgendaAppointmentAccess(
+    service,
+    input.appointmentId,
+    "manage",
+  );
+  if (!access.appointment) return { error: "Niet geautoriseerd voor deze afspraak." };
+
+  const { error } = await service
+    .from("agenda_appointments")
+    .update({ color_override: input.color })
+    .eq("id", input.appointmentId)
+    .eq("tenant_id", access.context.organization.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  return {};
 }
 
 export async function startLessonAction(formData: FormData): Promise<void> {

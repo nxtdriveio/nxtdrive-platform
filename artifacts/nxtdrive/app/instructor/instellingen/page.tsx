@@ -14,6 +14,7 @@ import { getVapidPublicKey } from "@/lib/notifications/web-push";
 import { getNotificationPreference } from "@/lib/notifications/push-actions";
 import { buttonVariants } from "@/components/ui/button";
 import { ProfileForm } from "./ProfileForm";
+import { AgendaHoursForm } from "./AgendaHoursForm";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default async function InstructorInstellingenPage() {
     getNotificationPreference(),
   ]);
   const fullName = user.profile?.full_name ?? user.email ?? "Instructeur";
+  const calendarStartHour = user.profile?.calendar_start_hour ?? 6;
+  const calendarEndHour = user.profile?.calendar_end_hour ?? 22;
 
   return (
     <PWAPage app="instructor" contentClassName="space-y-5">
@@ -37,7 +40,7 @@ export default async function InstructorInstellingenPage() {
         align="left"
       />
 
-      <PWAKpiGrid compact className="lg:grid-cols-3">
+      <PWAKpiGrid compact className="lg:grid-cols-4">
         <PWAKpiTile
           label="Profiel"
           value={fullName}
@@ -52,6 +55,11 @@ export default async function InstructorInstellingenPage() {
           label="Pushstatus"
           value={serverPushEnabled ? "Aan" : "Uit"}
           hint="Per apparaat verder te beheren in meldingen."
+        />
+        <PWAKpiTile
+          label="Agenda-uren"
+          value={`${String(calendarStartHour).padStart(2, "0")}:00 - ${String(calendarEndHour).padStart(2, "0")}:00`}
+          hint="Standaard zichtbaar bereik in je instructeuragenda."
         />
       </PWAKpiGrid>
 
@@ -98,6 +106,13 @@ export default async function InstructorInstellingenPage() {
         </PWACard>
 
         <div className="space-y-5">
+          <PWACard title="Agenda">
+            <AgendaHoursForm
+              initialStartHour={calendarStartHour}
+              initialEndHour={calendarEndHour}
+            />
+          </PWACard>
+
           <div>
             <PWASectionHeader icon={<Bell className="h-3.5 w-3.5" aria-hidden />}>
               Meldingen

@@ -10,6 +10,7 @@ import {
   ClipboardList,
   FileText,
   ListTodo,
+  LogOut,
   MessageCircle,
   Settings,
   Users,
@@ -34,7 +35,7 @@ const ICON_BUTTON_CLASS =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
 
 const ACTIES_INSTRUCTOR = [
-  { href: "/instructor/week", icon: ClipboardList, label: "Weekplanning" },
+  { href: "/instructor/week", icon: ClipboardList, label: "Agenda" },
   { href: "/instructor/beschikbaarheid", icon: CalendarClock, label: "Beschikbaarheid" },
   { href: "/instructor/berichten", icon: MessageCircle, label: "Berichten" },
   { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
@@ -44,7 +45,7 @@ const ACTIES_INSTRUCTOR = [
 const ACTIES_BACKOFFICE = [
   { href: "/instructor/afspraak/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
   { href: "/instructor/intake", icon: FileText, label: "Intakeformulier" },
-  { href: "/backoffice/instellingen", icon: Settings, label: "Instellingen" },
+  { href: "/instructor/instellingen", icon: Settings, label: "Instellingen" },
 ];
 
 export function InstructorTopbar({
@@ -124,6 +125,18 @@ export function InstructorTopbar({
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <form method="post" action="/auth/logout" className="w-full">
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-2.5 text-left"
+                >
+                  <LogOut aria-hidden />
+                  Uitloggen
+                </button>
+              </form>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -260,7 +260,7 @@ export default async function InstructorIndexPage() {
   const focusHint = upcomingFocus?.meta ?? "Geen les of afspraak direct ingepland.";
   const focusDetail = upcomingFocus
     ? `${upcomingFocus.eyebrow} staat als eerstvolgende focus voor je klaar.`
-    : "Gebruik de weekplanning om vooruit te werken of rond open taken en berichten af.";
+    : "Gebruik de agenda om vooruit te werken of rond open taken en berichten af.";
 
   return (
     <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
@@ -312,7 +312,7 @@ export default async function InstructorIndexPage() {
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           <CalendarRange className="h-4 w-4" aria-hidden />
-          Weekplanning
+          Agenda
         </Link>
         <Link
           href="/instructor/berichten"
