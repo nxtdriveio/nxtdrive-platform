@@ -8,6 +8,14 @@ export type FranchisePerformanceWindow = {
   end_at: string;
 };
 
+export type FranchiseAttentionPriority = "hoog" | "middel" | "laag" | "stabiel";
+export type FranchiseFollowUpRoute =
+  | "franchise-coaching"
+  | "lokale-planning"
+  | "kwaliteit"
+  | "marketing"
+  | "bewaken";
+
 export type FranchisePerformanceRow = {
   tenant_id: string;
   tenant_name: string;
@@ -27,6 +35,9 @@ export type FranchisePerformanceRow = {
   capacity_utilisation: number | null;
   attention_label: string;
   attention_reason: string;
+  attention_priority: FranchiseAttentionPriority;
+  follow_up_route: FranchiseFollowUpRoute;
+  next_step: string;
 };
 
 export type FranchisePerformanceOverview = {
@@ -44,12 +55,14 @@ export type FranchisePerformanceOverview = {
     revenue_delta_pct: number | null;
     lesson_delta: number;
     attention_count: number;
+    high_priority_count: number;
   };
   franchisees: FranchisePerformanceRow[];
   watchlists: {
     revenue_softness: FranchisePerformanceRow[];
     lesson_softness: FranchisePerformanceRow[];
     attention: FranchisePerformanceRow[];
+    high_priority: FranchisePerformanceRow[];
   };
 };
 
@@ -95,6 +108,13 @@ function percentageDelta(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function priorityRank(priority: FranchiseAttentionPriority): number {
+  if (priority === "hoog") return 0;
+  if (priority === "middel") return 1;
+  if (priority === "laag") return 2;
+  return 3;
+}
+
 function describeAttention(row: {
   current_revenue_cents: number;
   current_lessons: number;
@@ -102,11 +122,20 @@ function describeAttention(row: {
   lead_conversion_rate: number | null;
   exam_pass_rate: number | null;
   capacity_utilisation: number | null;
-}): { label: string; reason: string } {
+}): {
+  label: string;
+  reason: string;
+  priority: FranchiseAttentionPriority;
+  follow_up_route: FranchiseFollowUpRoute;
+  next_step: string;
+} {
   if (row.current_revenue_cents === 0 || row.current_lessons === 0) {
     return {
       label: "Direct aandacht",
       reason: "Geen omzet of lesactiviteit in de laatste 30 dagen.",
+      priority: "hoog",
+      follow_up_route: "franchise-coaching",
+      next_step: "Plan direct een franchise-coachinggesprek en laat lokaal een herstelplan opstellen.",
     };
   }
 
@@ -114,6 +143,9 @@ function describeAttention(row: {
     return {
       label: "Terugval",
       reason: "Omzet is meer dan 25% lager dan in de vorige 30 dagen.",
+      priority: "hoog",
+      follow_up_route: "franchise-coaching",
+      next_step: "Bespreek met de franchisee waardoor omzet wegvalt en koppel dit aan planning en leadinstroom.",
     };
   }
 
@@ -121,6 +153,9 @@ function describeAttention(row: {
     return {
       label: "Kwaliteit",
       reason: "Slagingspercentage ligt onder de 50% en vraagt coaching.",
+      priority: "middel",
+      follow_up_route: "kwaliteit",
+      next_step: "Laat de franchisee examenvoorbereiding en instructeursbegeleiding lokaal aanscherpen.",
     };
   }
 
@@ -128,6 +163,9 @@ function describeAttention(row: {
     return {
       label: "Capaciteit",
       reason: "Bezetting is laag en wijst op vrije ruimte of vraaguitval.",
+      priority: "middel",
+      follow_up_route: "lokale-planning",
+      next_step: "Vraag lokale planners om vrije capaciteit en roosterdruk opnieuw te beoordelen.",
     };
   }
 
@@ -135,12 +173,18 @@ function describeAttention(row: {
     return {
       label: "Conversie",
       reason: "Leadconversie blijft achter ten opzichte van de rest van het netwerk.",
+      priority: "laag",
+      follow_up_route: "marketing",
+      next_step: "Bekijk lokaal intake-opvolging en marketingrouting om leadverlies te beperken.",
     };
   }
 
   return {
     label: "Gezond",
     reason: "Geen directe franchisebrede aandachtssignalen.",
+    priority: "stabiel",
+    follow_up_route: "bewaken",
+    next_step: "Blijf deze franchisee alleen monitoren via de reguliere cockpit.",
   };
 }
 
@@ -275,31 +319,39 @@ export async function loadFranchisePerformanceOverview(
       capacity_utilisation: current?.capacity_utilisation ?? null,
       attention_label: attention.label,
       attention_reason: attention.reason,
+      attention_priority: attention.priority,
+      follow_up_route: attention.follow_up_route,
+      next_step: attention.next_step,
     };
   });
 
   rows.sort((left, right) => {
+    const byPriority = priorityRank(left.attention_priority) - priorityRank(right.attention_priority);
+    if (byPriority !== 0) return byPriority;
     if (left.current_revenue_cents !== right.current_revenue_cents) {
       return right.current_revenue_cents - left.current_revenue_cents;
     }
     return right.current_lessons - left.current_lessons;
   });
 
+  const currentRevenue = rows.reduce((sum, row) => sum + row.current_revenue_cents, 0);
+  const previousRevenue = rows.reduce((sum, row) => sum + row.previous_revenue_cents, 0);
+  const currentLessons = rows.reduce((sum, row) => sum + row.current_lessons, 0);
+  const previousLessons = rows.reduce((sum, row) => sum + row.previous_lessons, 0);
+
   const network = {
     franchisees: rows.length,
     active_students: rows.reduce((sum, row) => sum + row.active_students, 0),
-    current_revenue_cents: rows.reduce((sum, row) => sum + row.current_revenue_cents, 0),
-    previous_revenue_cents: rows.reduce((sum, row) => sum + row.previous_revenue_cents, 0),
+    current_revenue_cents: currentRevenue,
+    previous_revenue_cents: previousRevenue,
     baseline_revenue_cents: rows.reduce((sum, row) => sum + row.baseline_revenue_cents, 0),
-    current_lessons: rows.reduce((sum, row) => sum + row.current_lessons, 0),
-    previous_lessons: rows.reduce((sum, row) => sum + row.previous_lessons, 0),
+    current_lessons: currentLessons,
+    previous_lessons: previousLessons,
     baseline_lessons: rows.reduce((sum, row) => sum + row.baseline_lessons, 0),
-    revenue_delta_pct: percentageDelta(
-      rows.reduce((sum, row) => sum + row.current_revenue_cents, 0),
-      rows.reduce((sum, row) => sum + row.previous_revenue_cents, 0),
-    ),
-    lesson_delta: rows.reduce((sum, row) => sum + row.current_lessons, 0) - rows.reduce((sum, row) => sum + row.previous_lessons, 0),
-    attention_count: rows.filter((row) => row.attention_label !== "Gezond").length,
+    revenue_delta_pct: percentageDelta(currentRevenue, previousRevenue),
+    lesson_delta: currentLessons - previousLessons,
+    attention_count: rows.filter((row) => row.attention_priority !== "stabiel").length,
+    high_priority_count: rows.filter((row) => row.attention_priority === "hoog").length,
   };
 
   return {
@@ -316,8 +368,12 @@ export async function loadFranchisePerformanceOverview(
         .sort((left, right) => left.lesson_delta - right.lesson_delta)
         .slice(0, 3),
       attention: [...rows]
-        .filter((row) => row.attention_label !== "Gezond")
-        .slice(0, 3),
+        .filter((row) => row.attention_priority !== "stabiel")
+        .sort((left, right) => priorityRank(left.attention_priority) - priorityRank(right.attention_priority))
+        .slice(0, 5),
+      high_priority: [...rows]
+        .filter((row) => row.attention_priority === "hoog")
+        .slice(0, 5),
     },
   };
 }
