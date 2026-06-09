@@ -2,6 +2,7 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { tenantHasFeature } from "@/lib/platform/features";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
+import type { TenantBranding } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -68,6 +69,17 @@ export default async function SettingsPage({
     .eq("tenant_id", tenant.id)
     .maybeSingle();
 
+  const branding: TenantBranding | null = brandingRow
+    ? {
+        tenant_id: tenant.id,
+        logo_url: brandingRow.logo_url ?? null,
+        primary_color: brandingRow.primary_color ?? null,
+        primary_foreground: brandingRow.primary_foreground ?? null,
+        custom_domain: brandingRow.custom_domain ?? null,
+        welcome_message: brandingRow.welcome_message ?? null,
+      }
+    : null;
+
   const [{ data: departmentRows }, { data: ruleRows }] = await Promise.all([
     service
       .from("task_departments")
@@ -117,11 +129,8 @@ export default async function SettingsPage({
   const primaryHost =
     domainViews.find((domain) => domain.is_primary && domain.status === "active")
       ?.hostname ?? `${tenant.slug}.nxtdrive.io`;
-  const logoUrl = resolveLogoUrl(tenant, (brandingRow ?? null) as never);
-  const themeColor = resolveThemeColor(
-    tenant,
-    (brandingRow ?? null) as never,
-  );
+  const logoUrl = resolveLogoUrl(tenant, branding);
+  const themeColor = resolveThemeColor(tenant, branding);
 
   return (
     <div className="space-y-6">
@@ -256,10 +265,10 @@ export default async function SettingsPage({
           ) : null}
 
           <BrandingForm
-            initialLogoUrl={brandingRow?.logo_url ?? ""}
-            initialPrimaryColor={brandingRow?.primary_color ?? ""}
-            initialPrimaryForeground={brandingRow?.primary_foreground ?? ""}
-            initialWelcomeMessage={brandingRow?.welcome_message ?? ""}
+            initialLogoUrl={branding?.logo_url ?? ""}
+            initialPrimaryColor={branding?.primary_color ?? ""}
+            initialPrimaryForeground={branding?.primary_foreground ?? ""}
+            initialWelcomeMessage={branding?.welcome_message ?? ""}
           />
         </CardContent>
       </Card>
