@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -12,9 +12,10 @@ import {
   GripVertical,
   Minus,
   Plus,
+  Users2,
   X,
 } from "lucide-react";
-import { type AgendaAppointmentType } from "@/lib/agenda/types";
+import { type AgendaAppointmentType, APPOINTMENT_VISIBILITY_LABEL, type AgendaVisibilityScope } from "@/lib/agenda/types";
 import {
   moveOwnedAppointmentAction,
   moveOwnedLessonAction,
@@ -27,6 +28,33 @@ import { cn } from "@/lib/utils";
 
 export type InstructorAgendaView = "day" | "week" | "month";
 
+type EventFilterKey = "lessons" | "exams" | "internal" | "trials";
+
+type DayLayoutEvent = {
+  event: InstructorAgendaEvent;
+  top: number;
+  height: number;
+  laneIndex: number;
+  laneCount: number;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+type ResizeState = {
+  id: string;
+  kind: "lesson" | "appointment";
+  edge: "start" | "end";
+  dayDate: Date;
+  startY: number;
+  originStart: string;
+  originEnd: string;
+} | null;
+
+type DraftWindow = {
+  startsAt: string;
+  endsAt: string;
+};
+
 export type InstructorAgendaEvent = {
   id: string;
   kind: "lesson" | "trial" | "appointment";
@@ -38,18 +66,25 @@ export type InstructorAgendaEvent = {
   location: string | null;
   notes: string | null;
   badge: string;
-  palette:
-    | "lesson"
-    | "trial"
-    | AgendaAppointmentType;
+  palette: "lesson" | "trial" | AgendaAppointmentType;
   colorOverride?: string | null;
   readOnly?: boolean;
+  visibilityScope?: AgendaVisibilityScope;
+  participantCount?: number;
+  teamName?: string | null;
 };
 
 const VIEW_LABELS: Record<InstructorAgendaView, string> = {
   day: "Dag",
   week: "Week",
   month: "Maand",
+};
+
+const FILTER_LABELS: Record<EventFilterKey, string> = {
+  lessons: "Lessen",
+  exams: "Examens",
+  internal: "Interne blokken",
+  trials: "Proeflessen",
 };
 
 const MONTH_LABEL = new Intl.DateTimeFormat("nl-NL", {
@@ -84,6 +119,9 @@ const COLOR_PRESETS = [
 ] as const;
 
 const ZOOM_LEVELS = [42, 56, 72] as const;
+const SLOT_MINUTES = 30;
+const NOW_LINE_WIDTH_REM = 1;
+const MIN_EVENT_MINUTES = 30;
 
 function startOfDay(date: Date) {
   const value = new Date(date);
@@ -135,7 +173,7 @@ function parseIsoDate(date: string) {
 
 function minutesBetween(start: string, end: string) {
   return Math.max(
-    30,
+    MIN_EVENT_MINUTES,
     Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
   );
 }
@@ -172,6 +210,141 @@ function eventClasses(event: InstructorAgendaEvent) {
   return { className: paletteMap[event.palette], style: undefined };
 }
 
+function filterMatches(filter: EventFilterKey, event: InstructorAgendaEvent) {
+  if (filter === "lessons") return event.kind === "lesson";
+  if (filter === "trials") return event.kind === "trial";
+  if (filter === "exams") {
+    return event.palette === "exam" || event.palette === "interim_test";
+  }
+  return event.kind === "appointment" &&
+    !["exam", "interim_test"].includes(event.palette);
+}
+
+function shouldShowEvent(event: InstructorAgendaEvent, filters: Record<EventFilterKey, boolean>) {
+  return (Object.keys(filters) as EventFilterKey[]).some((filter) =>
+    filters[filter] && filterMatches(filter, event)
+  );
+}
+
+function snapMinutes(value: number) {
+  return Math.round(value / SLOT_MINUTES) * SLOT_MINUTES;
+}
+
+function clampDraftWindow(
+  draft: DraftWindow,
+  dayDate: Date,
+  visibleStartHour: number,
+  visibleEndHour: number,
+) {
+  const dayStart = new Date(dayDate);
+  dayStart.setHours(visibleStartHour, 0, 0, 0);
+  const dayEnd = new Date(dayDate);
+  dayEnd.setHours(visibleEndHour, 0, 0, 0);
+  const start = new Date(Math.max(new Date(draft.startsAt).getTime(), dayStart.getTime()));
+  const end = new Date(Math.min(new Date(draft.endsAt).getTime(), dayEnd.getTime()));
+  if (end.getTime() - start.getTime() < MIN_EVENT_MINUTES * 60000) {
+    end.setTime(start.getTime() + MIN_EVENT_MINUTES * 60000);
+  }
+  return { startsAt: start.toISOString(), endsAt: end.toISOString() };
+}
+
+function layoutDayEvents(
+  events: InstructorAgendaEvent[],
+  dayDate: Date,
+  slotHeight: number,
+  visibleStartHour: number,
+  visibleEndHour: number,
+  draftWindows: Map<string, DraftWindow>,
+): DayLayoutEvent[] {
+  const visibleStart = new Date(dayDate);
+  visibleStart.setHours(visibleStartHour, 0, 0, 0);
+  const visibleEnd = new Date(dayDate);
+  visibleEnd.setHours(visibleEndHour, 0, 0, 0);
+
+  const normalized = events
+    .map((event) => {
+      const draft = draftWindows.get(`${event.kind}-${event.id}`);
+      const startsAt = new Date(draft?.startsAt ?? event.startsAt);
+      const endsAt = new Date(draft?.endsAt ?? event.endsAt);
+      if (endsAt <= visibleStart || startsAt >= visibleEnd) return null;
+
+      const clippedStart = new Date(Math.max(startsAt.getTime(), visibleStart.getTime()));
+      const clippedEnd = new Date(Math.min(endsAt.getTime(), visibleEnd.getTime()));
+      const minutesFromTop =
+        (clippedStart.getHours() - visibleStartHour) * 60 + clippedStart.getMinutes();
+      const duration = Math.max(
+        MIN_EVENT_MINUTES,
+        Math.round((clippedEnd.getTime() - clippedStart.getTime()) / 60000),
+      );
+
+      return {
+        event,
+        startsAt,
+        endsAt,
+        top: (minutesFromTop / SLOT_MINUTES) * slotHeight + 4,
+        height: Math.max((duration / SLOT_MINUTES) * slotHeight - 8, 42),
+      };
+    })
+    .filter((value): value is {
+      event: InstructorAgendaEvent;
+      startsAt: Date;
+      endsAt: Date;
+      top: number;
+      height: number;
+    } => value !== null)
+    .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
+
+  const laidOut: DayLayoutEvent[] = [];
+  let cluster: typeof normalized = [];
+
+  function flushCluster() {
+    if (cluster.length === 0) return;
+    const lanes: Array<{ end: number }> = [];
+    const items = cluster.map((item) => {
+      let laneIndex = lanes.findIndex((lane) => lane.end <= item.startsAt.getTime());
+      if (laneIndex === -1) {
+        laneIndex = lanes.length;
+        lanes.push({ end: item.endsAt.getTime() });
+      } else {
+        lanes[laneIndex] = { end: item.endsAt.getTime() };
+      }
+      return { ...item, laneIndex };
+    });
+    const laneCount = lanes.length;
+    for (const item of items) {
+      laidOut.push({
+        event: item.event,
+        top: item.top,
+        height: item.height,
+        laneIndex: item.laneIndex,
+        laneCount,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      });
+    }
+    cluster = [];
+  }
+
+  for (const item of normalized) {
+    if (cluster.length === 0) {
+      cluster.push(item);
+      continue;
+    }
+
+    const clusterEnd = Math.max(...cluster.map((entry) => entry.endsAt.getTime()));
+    if (item.startsAt.getTime() < clusterEnd) {
+      cluster.push(item);
+      continue;
+    }
+
+    flushCluster();
+    cluster.push(item);
+  }
+
+  flushCluster();
+  return laidOut;
+}
+
 type DragState = {
   id: string;
   kind: "lesson" | "appointment";
@@ -193,9 +366,101 @@ export function InstructorAgendaWorkspace({
   const router = useRouter();
   const [selectedEvent, setSelectedEvent] = useState<InstructorAgendaEvent | null>(null);
   const [dragging, setDragging] = useState<DragState>(null);
+  const [resizeState, setResizeState] = useState<ResizeState>(null);
+  const [draftWindows, setDraftWindows] = useState<Map<string, DraftWindow>>(new Map());
   const [localEvents, setLocalEvents] = useState(events);
   const [zoomIndex, setZoomIndex] = useState(1);
   const [pending, startTransition] = useTransition();
+  const [now, setNow] = useState(() => new Date());
+  const [filters, setFilters] = useState<Record<EventFilterKey, boolean>>({
+    lessons: true,
+    exams: true,
+    internal: true,
+    trials: true,
+  });
+
+  useEffect(() => {
+    setLocalEvents(events);
+  }, [events]);
+
+  useEffect(() => {
+    const handle = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(handle);
+  }, []);
+
+  useEffect(() => {
+    if (!resizeState) return;
+    const activeResize = resizeState;
+
+    function onPointerMove(event: PointerEvent) {
+      const draftKey = `${activeResize.kind}-${activeResize.id}`;
+      const deltaMinutes = snapMinutes(((event.clientY - activeResize.startY) / ZOOM_LEVELS[zoomIndex]) * SLOT_MINUTES);
+      const originStart = new Date(activeResize.originStart);
+      const originEnd = new Date(activeResize.originEnd);
+
+      const next = activeResize.edge === "start"
+        ? {
+            startsAt: new Date(originStart.getTime() + deltaMinutes * 60000).toISOString(),
+            endsAt: originEnd.toISOString(),
+          }
+        : {
+            startsAt: originStart.toISOString(),
+            endsAt: new Date(originEnd.getTime() + deltaMinutes * 60000).toISOString(),
+          };
+
+      setDraftWindows((previous) => {
+        const updated = new Map(previous);
+        updated.set(
+          draftKey,
+          clampDraftWindow(next, activeResize.dayDate, visibleStartHour, visibleEndHour),
+        );
+        return updated;
+      });
+    }
+
+    function onPointerUp() {
+      const draftKey = `${activeResize.kind}-${activeResize.id}`;
+      const draft = draftWindows.get(draftKey);
+      if (draft) {
+        startTransition(async () => {
+          const result = activeResize.kind === "lesson"
+            ? await moveOwnedLessonAction({
+                lessonId: activeResize.id,
+                startsAt: draft.startsAt,
+                endsAt: draft.endsAt,
+              })
+            : await moveOwnedAppointmentAction({
+                appointmentId: activeResize.id,
+                startsAt: draft.startsAt,
+                endsAt: draft.endsAt,
+              });
+
+          if (!result.error) {
+            setLocalEvents((previous) =>
+              previous.map((current) =>
+                current.id === activeResize.id && current.kind === activeResize.kind
+                  ? { ...current, startsAt: draft.startsAt, endsAt: draft.endsAt }
+                  : current,
+              ),
+            );
+          }
+          setDraftWindows((previous) => {
+            const updated = new Map(previous);
+            updated.delete(draftKey);
+            return updated;
+          });
+        });
+      }
+      setResizeState(null);
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [draftWindows, resizeState, startTransition, visibleEndHour, visibleStartHour, zoomIndex]);
 
   const view = initialView;
   const anchor = parseIsoDate(initialDate);
@@ -215,9 +480,14 @@ export function InstructorAgendaWorkspace({
   const totalSlots = (visibleEndHour - visibleStartHour) * 2;
   const timelineHeight = totalSlots * slotHeight;
 
+  const filteredEvents = useMemo(
+    () => localEvents.filter((event) => shouldShowEvent(event, filters)),
+    [filters, localEvents],
+  );
+
   const groupedByDay = useMemo(() => {
     const map = new Map<string, InstructorAgendaEvent[]>();
-    for (const event of localEvents) {
+    for (const event of filteredEvents) {
       const key = dayKey(new Date(event.startsAt));
       const bucket = map.get(key) ?? [];
       bucket.push(event);
@@ -227,7 +497,7 @@ export function InstructorAgendaWorkspace({
       bucket.sort((left, right) => left.startsAt.localeCompare(right.startsAt));
     }
     return map;
-  }, [localEvents]);
+  }, [filteredEvents]);
 
   const rangeLabel = useMemo(() => {
     if (view === "day") {
@@ -383,7 +653,7 @@ export function InstructorAgendaWorkspace({
             <div>
               <p className="text-sm font-semibold text-foreground">{rangeLabel}</p>
               <p className="text-xs text-muted-foreground">
-                Sleep lessen en agenda-items naar een nieuw tijdslot. Proeflessen blijven leesbaar zichtbaar.
+                Sleep agenda-items, resize begin- en eindtijd en filter snel tussen lessen, examens en interne blokken.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -401,6 +671,26 @@ export function InstructorAgendaWorkspace({
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            {(Object.keys(FILTER_LABELS) as EventFilterKey[]).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() =>
+                  setFilters((current) => ({ ...current, [filter]: !current[filter] }))
+                }
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                  filters[filter]
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border/70 bg-background text-muted-foreground",
+                )}
+              >
+                {FILTER_LABELS[filter]}
+              </button>
+            ))}
+          </div>
+
           {view === "month" ? (
             <MonthGrid
               anchor={anchor}
@@ -410,7 +700,7 @@ export function InstructorAgendaWorkspace({
             />
           ) : (
             <div className="overflow-x-auto">
-              <div className="min-w-[64rem]">
+              <div className="min-w-[72rem]">
                 <div
                   className="grid"
                   style={{
@@ -455,15 +745,20 @@ export function InstructorAgendaWorkspace({
 
                   {dayColumns.map((date) => {
                     const key = dayKey(date);
-                    const dayEvents = (groupedByDay.get(key) ?? []).filter((event) => {
-                      const start = new Date(event.startsAt);
-                      const end = new Date(event.endsAt);
-                      const visibleStart = new Date(date);
-                      visibleStart.setHours(visibleStartHour, 0, 0, 0);
-                      const visibleEnd = new Date(date);
-                      visibleEnd.setHours(visibleEndHour, 0, 0, 0);
-                      return end > visibleStart && start < visibleEnd;
-                    });
+                    const dayEvents = groupedByDay.get(key) ?? [];
+                    const laidOutEvents = layoutDayEvents(
+                      dayEvents,
+                      date,
+                      slotHeight,
+                      visibleStartHour,
+                      visibleEndHour,
+                      draftWindows,
+                    );
+                    const isToday = sameDay(date, now);
+                    const nowTop = isToday
+                      ? (((now.getHours() - visibleStartHour) * 60 + now.getMinutes()) / SLOT_MINUTES) * slotHeight
+                      : null;
+
                     return (
                       <div
                         key={key}
@@ -485,86 +780,119 @@ export function InstructorAgendaWorkspace({
                           />
                         ))}
 
-                        {dayEvents.map((event) => {
-                          const startsAt = new Date(event.startsAt);
-                          const endsAt = new Date(event.endsAt);
-                          const clippedStart = new Date(
-                            Math.max(
-                              startsAt.getTime(),
-                              new Date(
-                                date.getFullYear(),
-                                date.getMonth(),
-                                date.getDate(),
-                                visibleStartHour,
-                                0,
-                                0,
-                                0,
-                              ).getTime(),
-                            ),
-                          );
-                          const clippedEnd = new Date(
-                            Math.min(
-                              endsAt.getTime(),
-                              new Date(
-                                date.getFullYear(),
-                                date.getMonth(),
-                                date.getDate(),
-                                visibleEndHour,
-                                0,
-                                0,
-                                0,
-                              ).getTime(),
-                            ),
-                          );
-                          const minutesFromTop =
-                            (clippedStart.getHours() - visibleStartHour) * 60 +
-                            clippedStart.getMinutes();
-                          const duration = Math.max(
-                            30,
-                            Math.round(
-                              (clippedEnd.getTime() - clippedStart.getTime()) / 60000,
-                            ),
-                          );
-                          const { className, style } = eventClasses(event);
+                        {nowTop !== null && nowTop >= 0 && nowTop <= timelineHeight ? (
+                          <div
+                            className="pointer-events-none absolute left-0 right-0 z-20"
+                            style={{ top: nowTop }}
+                          >
+                            <div className="relative">
+                              <span
+                                className="absolute -left-1 top-[-0.32rem] h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_0_3px_rgba(124,92,255,0.18)]"
+                                aria-hidden
+                              />
+                              <div className="h-px bg-primary/90" />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {laidOutEvents.map((layout) => {
+                          const { className, style } = eventClasses(layout.event);
+                          const gap = 8;
+                          const laneWidth = `calc((100% - ${gap * 2}px) / ${layout.laneCount})`;
                           return (
                             <button
-                              key={`${event.kind}-${event.id}`}
+                              key={`${layout.event.kind}-${layout.event.id}`}
                               type="button"
-                              draggable={!event.readOnly}
+                              draggable={!layout.event.readOnly}
                               onDragStart={() => {
-                                if (event.kind === "lesson" || event.kind === "appointment") {
-                                  setDragging({ id: event.id, kind: event.kind });
+                                if (layout.event.kind === "lesson" || layout.event.kind === "appointment") {
+                                  setDragging({ id: layout.event.id, kind: layout.event.kind });
                                 }
                               }}
                               onDragEnd={() => setDragging(null)}
-                              onClick={() => setSelectedEvent(event)}
+                              onClick={() => setSelectedEvent(layout.event)}
                               className={cn(
-                                "absolute left-2 right-2 rounded-2xl border px-3 py-2 text-left shadow-sm transition hover:shadow-md",
+                                "absolute rounded-2xl border px-3 py-2 text-left shadow-sm transition hover:shadow-md",
                                 className,
                               )}
                               style={{
-                                top: (minutesFromTop / 30) * slotHeight + 4,
+                                top: layout.top,
                                 minHeight: 38,
-                                height: Math.max((duration / 30) * slotHeight - 8, 42),
+                                height: layout.height,
+                                width: laneWidth,
+                                left: `calc(${gap}px + (${layout.laneIndex} * ${laneWidth}))`,
                                 ...style,
                               }}
                             >
+                              {!layout.event.readOnly && (layout.event.kind === "lesson" || layout.event.kind === "appointment") ? (
+                                <>
+                                  <span
+                                    role="presentation"
+                                    onPointerDown={(event) => {
+                                      event.stopPropagation();
+                                      const resizeKind = layout.event.kind === "lesson" ? "lesson" : "appointment";
+                                      setResizeState({
+                                        id: layout.event.id,
+                                        kind: resizeKind,
+                                        edge: "start",
+                                        dayDate: date,
+                                        startY: event.clientY,
+                                        originStart: layout.event.startsAt,
+                                        originEnd: layout.event.endsAt,
+                                      });
+                                    }}
+                                    className="absolute inset-x-4 top-1 z-10 h-2 cursor-ns-resize rounded-full"
+                                  />
+                                  <span
+                                    role="presentation"
+                                    onPointerDown={(event) => {
+                                      event.stopPropagation();
+                                      const resizeKind = layout.event.kind === "lesson" ? "lesson" : "appointment";
+                                      setResizeState({
+                                        id: layout.event.id,
+                                        kind: resizeKind,
+                                        edge: "end",
+                                        dayDate: date,
+                                        startY: event.clientY,
+                                        originStart: layout.event.startsAt,
+                                        originEnd: layout.event.endsAt,
+                                      });
+                                    }}
+                                    className="absolute inset-x-4 bottom-1 z-10 h-2 cursor-ns-resize rounded-full"
+                                  />
+                                </>
+                              ) : null}
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-semibold text-foreground">
-                                    {event.title}
+                                    {layout.event.title}
                                   </p>
                                   <p className="mt-1 text-[11px] text-muted-foreground">
-                                    {TIME_LABEL.format(startsAt)} - {TIME_LABEL.format(new Date(event.endsAt))}
+                                    {TIME_LABEL.format(layout.startsAt)} - {TIME_LABEL.format(layout.endsAt)}
                                   </p>
                                 </div>
-                                {!event.readOnly ? (
+                                {!layout.event.readOnly ? (
                                   <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                                 ) : null}
                               </div>
                               <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                                {event.subtitle}
+                                {layout.event.subtitle}
                               </p>
+                              {(layout.event.teamName || layout.event.participantCount) ? (
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                                  {layout.event.teamName ? (
+                                    <span className="rounded-full bg-black/10 px-2 py-0.5">
+                                      {layout.event.teamName}
+                                    </span>
+                                  ) : null}
+                                  {layout.event.participantCount ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-black/10 px-2 py-0.5">
+                                      <Users2 className="h-3 w-3" aria-hidden />
+                                      +{layout.event.participantCount}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </button>
                           );
                         })}
@@ -579,7 +907,7 @@ export function InstructorAgendaWorkspace({
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="info">Lessen</Badge>
             <Badge variant="warning">Examen / TTT</Badge>
-            <Badge variant="outline">Blokken en privé-afspraken</Badge>
+            <Badge variant="outline">Interne blokken en privé</Badge>
             <Badge variant="success">Proeflessen</Badge>
             {pending ? <span>Agenda wordt bijgewerkt...</span> : null}
           </div>
@@ -713,6 +1041,9 @@ function EventOverlay({
                     ? "Proefles"
                     : "Afspraak"}
               </span>
+              {event.visibilityScope ? (
+                <Badge variant="default">{APPOINTMENT_VISIBILITY_LABEL[event.visibilityScope]}</Badge>
+              ) : null}
             </div>
             <div>
               <h3 className="text-xl font-semibold text-foreground">{event.title}</h3>
@@ -729,6 +1060,22 @@ function EventOverlay({
               value={`${minutesBetween(event.startsAt, event.endsAt)} minuten`}
             />
           </div>
+
+          {event.teamName || event.participantCount ? (
+            <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Samenwerking
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                {event.teamName ? `Team: ${event.teamName}` : "Geen team gekoppeld"}
+              </p>
+              {event.participantCount ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {event.participantCount} extra medewerker(s) gekoppeld.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {event.notes ? (
             <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
@@ -781,7 +1128,7 @@ function EventOverlay({
             <p className="text-xs text-muted-foreground">
               {event.readOnly
                 ? "Dit item is hier alleen leesbaar."
-                : "Je kunt dit item in dag- en weekweergave naar een nieuw tijdslot slepen."}
+                : "Je kunt dit item in dag- en weekweergave naar een nieuw tijdslot slepen of verticaal resizen."}
             </p>
             <Link
               href={event.href}

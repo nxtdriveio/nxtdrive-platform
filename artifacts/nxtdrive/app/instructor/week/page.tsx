@@ -14,6 +14,7 @@ import {
   type AgendaAppointmentView,
 } from "@/lib/agenda/appointments";
 import { APPOINTMENT_TYPE_LABEL } from "@/lib/agenda/types";
+import { listMembershipOrganizationTeamIds } from "@/lib/organization/teams";
 import { cn } from "@/lib/utils";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import {
@@ -113,24 +114,33 @@ function mapTrials(trials: AgendaTrialLesson[]): InstructorAgendaEvent[] {
 }
 
 function mapAppointments(appointments: AgendaAppointmentView[]): InstructorAgendaEvent[] {
-  return appointments.map((appointment) => ({
-    id: appointment.id,
-    kind: "appointment",
-    title:
-      appointment.student_name ?? appointment.title?.trim() ?? "Agenda-item",
-    subtitle: appointment.location ?? "Geen locatie",
-    startsAt: appointment.starts_at,
-    endsAt: appointment.ends_at,
-    href: `/instructor/afspraak/${appointment.id}`,
-    location: appointment.location,
-    notes: appointment.notes,
-    badge: appointment.student_name
+  return appointments.map((appointment) => {
+    const badge = appointment.student_name
       ? `Afspraak · ${appointment.student_name}`
-      : APPOINTMENT_TYPE_LABEL[appointment.type],
-    palette: appointment.type,
-    colorOverride: appointment.color_override,
-    readOnly: false,
-  }));
+      : appointment.team_name
+        ? `${APPOINTMENT_TYPE_LABEL[appointment.type]} · ${appointment.team_name}`
+        : APPOINTMENT_TYPE_LABEL[appointment.type];
+
+    return {
+      id: appointment.id,
+      kind: "appointment",
+      title:
+        appointment.student_name ?? appointment.title?.trim() ?? "Agenda-item",
+      subtitle: appointment.location ?? "Geen locatie",
+      startsAt: appointment.starts_at,
+      endsAt: appointment.ends_at,
+      href: `/instructor/afspraak/${appointment.id}`,
+      location: appointment.location,
+      notes: appointment.notes,
+      badge,
+      palette: appointment.type,
+      colorOverride: appointment.color_override,
+      readOnly: false,
+      visibilityScope: appointment.visibility_scope,
+      participantCount: appointment.participant_user_ids?.length ?? 0,
+      teamName: appointment.team_name,
+    };
+  });
 }
 
 export default async function InstructorWeekPage({
@@ -148,6 +158,11 @@ export default async function InstructorWeekPage({
   const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
 
   const supabase = await createServerSupabaseClient();
+  const activeMembership = user.memberships.find((membership) => membership.tenant_id === tenant.id) ?? null;
+  const viewerTeamIds = activeMembership
+    ? await listMembershipOrganizationTeamIds(supabase, tenant.id, activeMembership.id)
+    : [];
+
   const { data: lessonsRaw } = await supabase
     .from("lessons")
     .select("*")
@@ -169,7 +184,8 @@ export default async function InstructorWeekPage({
     tenantId: tenant.id,
     from,
     to,
-    instructorId: user.id,
+    viewerUserId: user.id,
+    viewerTeamIds,
   });
 
   const studentIds = Array.from(
@@ -196,7 +212,7 @@ export default async function InstructorWeekPage({
       <PWAPageHeader
         eyebrow="Planning"
         title="Agenda"
-        description="Schakel tussen dag, week en maand, sleep afspraken naar een nieuw tijdslot en open ieder item vanuit een eigen instructeurflow."
+        description="Schakel tussen dag, week en maand, sleep of resize afspraken naar een nieuw tijdslot en open ieder item vanuit een eigen instructeurflow."
         align="left"
         actions={
           <div className="flex flex-wrap items-center gap-2">

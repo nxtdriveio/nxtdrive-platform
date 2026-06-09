@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { listOrganizationTeams } from "@/lib/organization/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
@@ -61,6 +62,33 @@ export default async function EditInstructorAppointmentPage({
     .eq("active", true)
     .order("full_name", { ascending: true });
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
+  const teams = await listOrganizationTeams(supabase, tenant.id, { activeOnly: true });
+  const { data: staffMembershipsRaw } = await supabase
+    .from("memberships")
+    .select("user_id, role")
+    .eq("tenant_id", tenant.id)
+    .not("role", "in", '("student","parent")');
+  const staffMemberships = (staffMembershipsRaw ?? []) as Array<{
+    user_id: string;
+    role: string;
+  }>;
+  const { data: staffProfilesRaw } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", Array.from(new Set(staffMemberships.map((staff) => staff.user_id))));
+  const staffNames = new Map(
+    ((staffProfilesRaw ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [
+      profile.id,
+      profile.full_name,
+    ]),
+  );
+  const staffOptions = staffMemberships
+    .filter((staff) => staff.user_id !== user.id)
+    .map((staff) => ({
+      id: staff.user_id,
+      full_name: staffNames.get(staff.user_id) ?? "Medewerker",
+      roleLabel: staff.role,
+    }));
 
   const examSignals = await loadExamSignals(
     createServiceRoleClient(),
@@ -117,6 +145,8 @@ export default async function EditInstructorAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            teams={teams.map((team) => ({ id: team.id, name: team.name, branch_id: team.branch_id }))}
+            staffOptions={staffOptions}
             defaults={{
               type: appt!.type,
               instructorId: appt!.instructor_id,
@@ -127,6 +157,9 @@ export default async function EditInstructorAppointmentPage({
               title: appt!.title,
               location: appt!.location,
               notes: appt!.notes,
+              teamId: appt!.team_id,
+              visibilityScope: appt!.visibility_scope,
+              participantUserIds: appt!.participant_user_ids ?? [],
             }}
             submitLabel="Wijzigingen opslaan"
           />

@@ -17,10 +17,10 @@ export function StudentTopBar({
   return (
     <header
       className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 sm:px-5"
-      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.85rem)" }}
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.7rem)" }}
     >
-      <div className="mx-auto flex w-full max-w-[36rem] items-center justify-between gap-2.5 xl:max-w-[39rem]">
-        <div className="pointer-events-auto flex min-w-0 max-w-[62vw] items-center rounded-[1.2rem] border border-border/60 bg-card/72 px-3 py-2.5 shadow-xl shadow-black/10 backdrop-blur-2xl">
+      <div className="mx-auto flex w-full max-w-[36rem] items-center justify-between gap-2 xl:max-w-[39rem]">
+        <div className="pointer-events-auto flex min-w-0 max-w-[58vw] items-center rounded-[1.15rem] border border-border/60 bg-card/72 px-3 py-2.25 shadow-xl shadow-black/10 backdrop-blur-2xl">
           <NxtdriveLogo
             className="truncate text-sm font-semibold sm:text-[0.95rem]"
             logoUrl={logoUrl}
@@ -28,7 +28,7 @@ export function StudentTopBar({
           />
         </div>
 
-        <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+        <div className="pointer-events-auto flex shrink-0 items-center gap-1.25">
           {notifications}
           <RouteInfoBubble scope="student" />
           <Avatar

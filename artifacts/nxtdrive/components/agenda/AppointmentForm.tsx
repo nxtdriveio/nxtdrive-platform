@@ -8,15 +8,20 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AGENDA_APPOINTMENT_TYPES,
+  AGENDA_VISIBILITY_SCOPES,
+  APPOINTMENT_VISIBILITY_LABEL,
   APPOINTMENT_DURATIONS,
   APPOINTMENT_TYPE_LABEL,
   isStudentLinkedType,
   type AgendaAppointmentType,
+  type AgendaVisibilityScope,
 } from "@/lib/agenda/types";
 
 type BranchOption = { id: string; name: string };
 type InstructorOption = { id: string; full_name: string | null };
 type StudentOption = { id: string; full_name: string };
+type TeamOption = { id: string; name: string; branch_id?: string | null };
+type StaffOption = { id: string; full_name: string | null; roleLabel?: string | null };
 
 export type AppointmentFormDefaults = {
   type?: AgendaAppointmentType;
@@ -29,6 +34,9 @@ export type AppointmentFormDefaults = {
   title?: string | null;
   location?: string | null;
   notes?: string | null;
+  teamId?: string | null;
+  visibilityScope?: AgendaVisibilityScope;
+  participantUserIds?: string[];
 };
 
 // Shared create/edit form for agenda appointments. Used by both the backoffice
@@ -44,6 +52,8 @@ export function AppointmentForm({
   instructors,
   ownInstructor,
   students,
+  teams,
+  staffOptions,
   defaults,
   submitLabel,
 }: {
@@ -58,6 +68,8 @@ export function AppointmentForm({
   instructors?: InstructorOption[];
   ownInstructor?: InstructorOption;
   students: StudentOption[];
+  teams?: TeamOption[];
+  staffOptions?: StaffOption[];
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
 }) {
@@ -77,6 +89,7 @@ export function AppointmentForm({
   const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
   const showStudent = isStudentLinkedType(type);
   const defaultBranchId = defaults?.branchId ?? branches?.[0]?.id ?? "";
+  const defaultVisibilityScope = defaults?.visibilityScope ?? "personal";
 
   return (
     <form action={action} className="space-y-4">
@@ -227,6 +240,44 @@ export function AppointmentForm({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="visibility_scope">Zichtbaarheid</Label>
+          <Select
+            id="visibility_scope"
+            name="visibility_scope"
+            defaultValue={defaultVisibilityScope}
+          >
+            {AGENDA_VISIBILITY_SCOPES.map((scope) => (
+              <option key={scope} value={scope}>
+                {APPOINTMENT_VISIBILITY_LABEL[scope]}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Persoonlijk voor jezelf, gedeeld met geselecteerde collega's of als teamblok zichtbaar.
+          </p>
+        </div>
+
+        {teams && teams.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="team_id">Team (optioneel)</Label>
+            <Select
+              id="team_id"
+              name="team_id"
+              defaultValue={defaults?.teamId ?? ""}
+            >
+              <option value="">Geen team</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="location">Locatie</Label>
         <Input
@@ -249,6 +300,41 @@ export function AppointmentForm({
           defaultValue={defaults?.notes ?? ""}
         />
       </div>
+
+      {staffOptions && staffOptions.length > 0 ? (
+        <div className="space-y-2.5">
+          <Label>Extra collega's (optioneel)</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {staffOptions.map((staff) => {
+              const checked = defaults?.participantUserIds?.includes(staff.id) ?? false;
+              return (
+                <label
+                  key={staff.id}
+                  className="flex items-start gap-3 rounded-2xl border border-border/70 bg-background px-3 py-2.5 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    name="participant_user_ids"
+                    value={staff.id}
+                    defaultChecked={checked}
+                    className="mt-1 h-4 w-4 rounded border-border"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-foreground">
+                      {staff.full_name ?? "Medewerker"}
+                    </span>
+                    {staff.roleLabel ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {staff.roleLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex justify-end gap-2">
         <Link href={redirectTo} className={buttonVariants({ variant: "ghost" })}>

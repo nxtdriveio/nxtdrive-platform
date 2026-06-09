@@ -19,10 +19,12 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import {
   AGENDA_APPOINTMENT_TYPES,
+  AGENDA_VISIBILITY_SCOPES,
   AGENDA_APPOINTMENT_RESULTS,
   isStudentLinkedType,
   type AgendaAppointmentType,
   type AgendaAppointmentResult,
+  type AgendaVisibilityScope,
 } from "@/lib/agenda/types";
 
 // Shared agenda-appointment server actions, used by both the backoffice agenda
@@ -49,6 +51,26 @@ function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null
 function parseBranchId(raw: FormDataEntryValue | null): string | null {
   const v = String(raw ?? "").trim();
   return v || null;
+}
+
+function parseVisibilityScope(
+  raw: FormDataEntryValue | null,
+): AgendaVisibilityScope {
+  const value = String(raw ?? "personal");
+  return (AGENDA_VISIBILITY_SCOPES as readonly string[]).includes(value)
+    ? (value as AgendaVisibilityScope)
+    : "personal";
+}
+
+function parseParticipantUserIds(formData: FormData): string[] {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("participant_user_ids")
+        .map((value) => String(value).trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function safeRedirect(raw: FormDataEntryValue | null, fallback: string): string {
@@ -80,6 +102,29 @@ async function instructorCanServeBranch(
   return instructors.some((instructor) => instructor.id === instructorId);
 }
 
+async function persistAppointmentCollaboration(
+  service: ReturnType<typeof createServiceRoleClient>,
+  params: {
+    appointmentId: string;
+    tenantId: string;
+    teamId: string | null;
+    visibilityScope: AgendaVisibilityScope;
+    participantUserIds: string[];
+  },
+) : Promise<string | null> {
+  const { error } = await service
+    .from("agenda_appointments")
+    .update({
+      team_id: params.teamId,
+      visibility_scope: params.visibilityScope,
+      participant_user_ids: params.participantUserIds,
+    })
+    .eq("id", params.appointmentId)
+    .eq("tenant_id", params.tenantId);
+
+  return error?.message ?? null;
+}
+
 export async function createAppointment(formData: FormData) {
   const redirectTo = safeRedirect(
     formData.get("redirect_to"),
@@ -92,6 +137,9 @@ export async function createAppointment(formData: FormData) {
 
   const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
+  const requestedTeamId = parseBranchId(formData.get("team_id"));
+  const visibilityScope = parseVisibilityScope(formData.get("visibility_scope"));
+  const participantUserIds = parseParticipantUserIds(formData);
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
   const studentId = isStudentLinkedType(type) && studentIdRaw
     ? studentIdRaw
@@ -173,6 +221,19 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
 
+  if (newId) {
+    const collaborationError = await persistAppointmentCollaboration(service, {
+      appointmentId: String(newId),
+      tenantId: context.organization.id,
+      teamId: requestedTeamId,
+      visibilityScope,
+      participantUserIds,
+    });
+    if (collaborationError) {
+      redirect(`${errorTo}?error=${encodeURIComponent(collaborationError)}`);
+    }
+  }
+
   // White-label-aware "exam scheduled" mail to the student. Idempotent per
   // appointment and best-effort; mail failures must never block planning.
   if (studentId && (type === "exam" || type === "interim_test") && newId) {
@@ -234,6 +295,9 @@ export async function updateAppointment(formData: FormData) {
   if (!type) redirect(`${errorTo}?error=type`);
   const hasBranchField = formData.has("branch_id");
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
+  const requestedTeamId = parseBranchId(formData.get("team_id"));
+  const visibilityScope = parseVisibilityScope(formData.get("visibility_scope"));
+  const participantUserIds = parseParticipantUserIds(formData);
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
   const studentId = isStudentLinkedType(type) && studentIdRaw
     ? studentIdRaw
@@ -314,6 +378,17 @@ export async function updateAppointment(formData: FormData) {
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  const collaborationError = await persistAppointmentCollaboration(service, {
+    appointmentId,
+    tenantId: context.organization.id,
+    teamId: requestedTeamId,
+    visibilityScope,
+    participantUserIds,
+  });
+  if (collaborationError) {
+    redirect(`${errorTo}?error=${encodeURIComponent(collaborationError)}`);
   }
 
   // Idempotent per appointment: later edits never re-send with the same dedupe

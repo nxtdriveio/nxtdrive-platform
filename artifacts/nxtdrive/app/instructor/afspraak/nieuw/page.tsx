@@ -4,6 +4,7 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { listOrganizationTeams } from "@/lib/organization/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
@@ -41,6 +42,33 @@ export default async function NewInstructorAppointmentPage({
     .eq("active", true)
     .order("full_name", { ascending: true });
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
+  const teams = await listOrganizationTeams(supabase, tenant.id, { activeOnly: true });
+  const { data: staffMembershipsRaw } = await supabase
+    .from("memberships")
+    .select("user_id, role")
+    .eq("tenant_id", tenant.id)
+    .not("role", "in", '("student","parent")');
+  const staffMemberships = (staffMembershipsRaw ?? []) as Array<{
+    user_id: string;
+    role: string;
+  }>;
+  const { data: staffProfilesRaw } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", Array.from(new Set(staffMemberships.map((staff) => staff.user_id))));
+  const staffNames = new Map(
+    ((staffProfilesRaw ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [
+      profile.id,
+      profile.full_name,
+    ]),
+  );
+  const staffOptions = staffMemberships
+    .filter((staff) => staff.user_id !== user.id)
+    .map((staff) => ({
+      id: staff.user_id,
+      full_name: staffNames.get(staff.user_id) ?? "Medewerker",
+      roleLabel: staff.role,
+    }));
 
   const now = new Date();
   now.setMinutes(0, 0, 0);
@@ -115,6 +143,8 @@ export default async function NewInstructorAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            teams={teams.map((team) => ({ id: team.id, name: team.name, branch_id: team.branch_id }))}
+            staffOptions={staffOptions}
             defaults={{
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),

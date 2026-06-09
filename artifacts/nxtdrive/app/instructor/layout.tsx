@@ -24,6 +24,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadAgendaAppointments } from "@/lib/agenda/appointments";
 import type { Lesson } from "@/lib/lessons/types";
+import { listMembershipOrganizationTeamIds } from "@/lib/organization/teams";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,10 @@ export default async function InstructorLayout({
   const dayEnd = endOfDay(today);
 
   const supabase = await createServerSupabaseClient();
+  const activeMembership = user.memberships.find((membership) => membership.tenant_id === tenant.id) ?? null;
+  const viewerTeamIds = activeMembership
+    ? await listMembershipOrganizationTeamIds(supabase, tenant.id, activeMembership.id)
+    : [];
 
   const { data: lessonsRaw } = await supabase
     .from("lessons")
@@ -141,7 +146,8 @@ export default async function InstructorLayout({
     tenantId: tenant.id,
     from: dayStart,
     to: dayEnd,
-    instructorId: user.id,
+    viewerUserId: user.id,
+    viewerTeamIds,
   });
 
   const studentIds = [...new Set(todayLessons.map((l) => l.student_id))];

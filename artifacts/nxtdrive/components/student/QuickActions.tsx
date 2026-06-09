@@ -47,7 +47,7 @@ export function QuickActions() {
   return (
     <section className="space-y-4">
       <PWASectionHeader>Snel regelen</PWASectionHeader>
-      <div className="grid min-w-0 grid-cols-2 gap-3.5">
+      <div className="grid min-w-0 grid-cols-2 gap-4">
         {SHORTCUTS.map((shortcut) => {
           const Icon = shortcut.icon;
 
@@ -55,7 +55,7 @@ export function QuickActions() {
             <Link
               key={shortcut.href}
               href={shortcut.href}
-              className="group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-border/70 bg-card/88 px-3.5 py-4.5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-lg hover:shadow-primary/10"
+              className="group relative min-w-0 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/88 px-3.5 py-4.5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-lg hover:shadow-primary/10"
             >
               <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/8 transition group-hover:scale-110" />
               <div className="relative flex min-w-0 items-start justify-between gap-2">
@@ -65,8 +65,8 @@ export function QuickActions() {
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-primary" aria-hidden />
               </div>
               <div className="relative mt-3 min-w-0">
-                <div className="truncate text-[0.98rem] font-bold text-foreground">{shortcut.label}</div>
-                <div className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+                <div className="truncate text-[0.95rem] font-bold text-foreground sm:text-[0.98rem]">{shortcut.label}</div>
+                <div className="mt-1.5 text-[11px] leading-5 text-muted-foreground sm:text-[11.5px]">
                   {shortcut.description}
                 </div>
               </div>

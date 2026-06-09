@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, CalendarDays, ChevronLeft, Phone } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronLeft, Phone, Repeat2 } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { requireInstructorStudentAccess } from "@/lib/students/access";
@@ -254,6 +254,13 @@ export default async function InstructorStudentDetailPage({
                 <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
               </button>
             </form>
+            <Link
+              href={`/instructor/les/nieuw?student_id=${student.id}&reschedule=1`}
+              className="flex items-center justify-between rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:shadow-sm"
+            >
+              Les verplaatsen / herschikken
+              <Repeat2 className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
           </PWACard>
 
           <PWACard title="Planningcontext" className="bg-card" contentClassName="space-y-3">
@@ -279,6 +286,66 @@ export default async function InstructorStudentDetailPage({
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {latestLesson?.notes?.trim() || "Nog geen recente lesnotitie beschikbaar."}
                 </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background px-3.5 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Mini agenda
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    Komende contactmomenten
+                  </p>
+                </div>
+                <Link
+                  href={`/instructor/week?view=week&date=${(nextLessonAt ?? new Date().toISOString()).slice(0, 10)}`}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Volledige agenda
+                </Link>
+              </div>
+              <div className="mt-3 space-y-2">
+                {[
+                  ...upcomingLessons.slice(0, 2).map((item) => ({ kind: "lesson" as const, item })),
+                  ...dossier.appointments.slice(0, 2).map((item) => ({ kind: "appointment" as const, item })),
+                ].length === 0 ? (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Nog geen nieuwe contactmomenten. Plan direct een nieuwe les of afspraak om ritme vast te houden.
+                  </p>
+                ) : (
+                  [
+                    ...upcomingLessons.slice(0, 2).map((item) => ({ kind: "lesson" as const, item })),
+                    ...dossier.appointments.slice(0, 2).map((item) => ({ kind: "appointment" as const, item })),
+                  ]
+                    .sort((left, right) => left.item.starts_at.localeCompare(right.item.starts_at))
+                    .slice(0, 3)
+                    .map(({ kind, item }) => {
+                      const itemHref = kind === "lesson" ? `/instructor/${item.id}` : `/instructor/afspraak/${item.id}`;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border/70 px-3 py-2.5"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {kind === "lesson" ? "Lesmoment" : "Agenda-afspraak"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {dtFmt.format(new Date(item.starts_at))}
+                            </p>
+                          </div>
+                          <Link
+                            href={itemHref}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                          >
+                            Open
+                            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                          </Link>
+                        </div>
+                      );
+                    })
+                )}
               </div>
             </div>
           </PWACard>
