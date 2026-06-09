@@ -71,6 +71,7 @@
     "test-role-management-wrapup-foundation": "tsx ./src/test-role-management-wrapup-foundation.ts",
     "test-franchise-foundation": "tsx ./src/test-franchise-foundation.ts",
     "test-franchise-performance-foundation": "tsx ./src/test-franchise-performance-foundation.ts",
+    "test-franchise-attention-foundation": "tsx ./src/test-franchise-attention-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
