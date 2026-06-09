@@ -66,6 +66,8 @@ export type Profile = {
   email: string;
   full_name: string | null;
   is_platform_admin: boolean;
+  calendar_start_hour: number;
+  calendar_end_hour: number;
   created_at: string;
 };
 

@@ -258,10 +258,11 @@ const weekPage = read(
   "page.tsx",
 );
 assert(
-  weekPage.includes("Ochtendboard") &&
-    weekPage.includes("gridTemplateColumns: \"5.25rem repeat(7, minmax(0, 1fr))\"") &&
-    weekPage.includes("Later op"),
-  "week planning should render as a horizontal weekday board with timed morning slots",
+  weekPage.includes('title="Agenda"') &&
+    weekPage.includes("InstructorAgendaWorkspace") &&
+    weekPage.includes("visibleStartHour") &&
+    weekPage.includes("visibleEndHour"),
+  "instructor planning should now render as the new agenda workspace with persisted visible hour settings",
 );
 
 const appointmentPage = read(

@@ -6,11 +6,9 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
-  CalendarRange,
   ClipboardList,
   Home,
   ListTodo,
-  LogOut,
   MessageCircle,
   MoreHorizontal,
 } from "lucide-react";
@@ -24,6 +22,7 @@ import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/lessons/types";
 import type { AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
+import type { AgendaAppointmentView } from "@/lib/agenda/appointments";
 
 type NavItem = {
   href: string;
@@ -38,7 +37,7 @@ const ICON_BUTTON_CLASS =
 
 const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
-  { href: "/instructor/week", label: "Planning", icon: ClipboardList, match: "prefix" },
+  { href: "/instructor/week", label: "Agenda", icon: ClipboardList, match: "prefix" },
   { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
   { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
   {
@@ -80,6 +79,9 @@ export function InstructorSidebar({
   studentNames,
   todayDate,
   trialLessons,
+  appointments = [],
+  visibleStartHour,
+  visibleEndHour,
   theme,
 }: {
   tenantName: string;
@@ -90,6 +92,9 @@ export function InstructorSidebar({
   studentNames: Map<string, string>;
   todayDate: Date;
   trialLessons?: AgendaTrialLesson[];
+  appointments?: AgendaAppointmentView[];
+  visibleStartHour: number;
+  visibleEndHour: number;
   theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
@@ -110,21 +115,12 @@ export function InstructorSidebar({
 
         <div className="flex min-h-0 flex-1 flex-col px-4 py-4">
           <div className="mb-4 rounded-[1.45rem] border border-border/80 bg-background px-3 py-3 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <Avatar name={userLabel} className="h-12 w-12 shrink-0 text-sm" />
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Vandaag
-                </p>
-                <p className="mt-1 truncate text-sm font-semibold text-foreground">
-                  Dagritme en lesfocus
-                </p>
+                <p className="truncate text-sm font-semibold text-foreground">{userLabel}</p>
+                <p className="truncate text-xs text-muted-foreground">{tenantName}</p>
               </div>
-              <Link
-                href="/instructor/week"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary-soft text-primary shadow-sm transition hover:bg-primary-soft/80"
-              >
-                <CalendarRange className="h-4 w-4" aria-hidden />
-              </Link>
             </div>
           </div>
 
@@ -135,29 +131,15 @@ export function InstructorSidebar({
                 studentNames={studentNames}
                 date={todayDate}
                 trialLessons={trialLessons}
+                appointments={appointments}
+                visibleStartHour={visibleStartHour}
+                visibleEndHour={visibleEndHour}
               />
             </div>
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-border/80 px-4 py-4">
-          <div className="flex items-center gap-3 rounded-[1.2rem] border border-border/80 bg-background px-3 py-3">
-            <Avatar name={userLabel} className="h-10 w-10 shrink-0 text-xs" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">{userLabel}</p>
-              <p className="text-xs text-muted-foreground">{tenantName}</p>
-            </div>
-            <form method="post" action="/auth/logout">
-              <button
-                type="submit"
-                aria-label="Uitloggen"
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </button>
-            </form>
-          </div>
-        </div>
+        <div className="h-4 shrink-0 border-t border-border/80" />
       </aside>
 
       <header
@@ -183,15 +165,6 @@ export function InstructorSidebar({
               current={theme}
               className="h-10 w-10 rounded-xl border-border/80"
             />
-            <form method="post" action="/auth/logout">
-              <button
-                type="submit"
-                aria-label="Uitloggen"
-                className={ICON_BUTTON_CLASS}
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </button>
-            </form>
           </div>
         </div>
       </header>

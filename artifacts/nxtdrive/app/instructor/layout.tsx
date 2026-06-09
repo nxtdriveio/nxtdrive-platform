@@ -22,6 +22,7 @@ import { InstructorSplash } from "@/components/pwa/InstructorSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
+import { loadAgendaAppointments } from "@/lib/agenda/appointments";
 import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
@@ -107,6 +108,8 @@ export default async function InstructorLayout({
   }
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
+  const visibleStartHour = user.profile?.calendar_start_hour ?? 6;
+  const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
 
   const branding = await getTenantBranding(tenant.id);
   const logoUrl = resolveLogoUrl(tenant, branding);
@@ -129,6 +132,12 @@ export default async function InstructorLayout({
   const todayLessons = (lessonsRaw ?? []) as Lesson[];
 
   const todayTrials = await loadAgendaTrialLessons(supabase, {
+    tenantId: tenant.id,
+    from: dayStart,
+    to: dayEnd,
+    instructorId: user.id,
+  });
+  const todayAppointments = await loadAgendaAppointments(supabase, {
     tenantId: tenant.id,
     from: dayStart,
     to: dayEnd,
@@ -173,6 +182,9 @@ export default async function InstructorLayout({
           studentNames={studentNames}
           todayDate={today}
           trialLessons={todayTrials}
+          appointments={todayAppointments}
+          visibleStartHour={visibleStartHour}
+          visibleEndHour={visibleEndHour}
           theme={theme}
         />
 

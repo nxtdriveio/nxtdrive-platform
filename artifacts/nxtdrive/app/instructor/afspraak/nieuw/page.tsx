@@ -60,7 +60,7 @@ export default async function NewInstructorAppointmentPage({
               className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden />
-              Terug naar weekplanning
+              Terug naar agenda
             </Link>
             <Link
               href="/instructor/les/nieuw"

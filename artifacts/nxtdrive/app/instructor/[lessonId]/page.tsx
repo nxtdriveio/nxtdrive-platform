@@ -408,7 +408,7 @@ export default async function InstructorLessonPage({
             className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
             <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            Weekplanning
+            Agenda
           </Link>
         </div>
       </PWACard>

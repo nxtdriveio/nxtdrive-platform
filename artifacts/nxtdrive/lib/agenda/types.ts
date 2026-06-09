@@ -114,6 +114,7 @@ export type AgendaAppointment = {
   title: string | null;
   location: string | null;
   notes: string | null;
+  color_override: string | null;
   result: AgendaAppointmentResult | null;
   result_note: string | null;
   result_recorded_at: string | null;
