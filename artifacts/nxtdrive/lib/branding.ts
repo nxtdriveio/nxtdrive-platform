@@ -1,7 +1,23 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import type { TenantBranding, TenantPlan } from "@/lib/types";
+import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
+import type { Tenant, TenantBranding, TenantPlan } from "@/lib/types";
+
+const DEFAULT_PLATFORM_NAME = "NXTDRIVE";
+const DEFAULT_THEME_COLOR = "#6b4eff";
+
+type BrandableTenant = Pick<Tenant, "name" | "white_label_enabled" | "plan"> | null;
+export type BrandingSurface = "platform" | "backoffice" | "student" | "instructor";
+
+export type BrandingContext = {
+  tenant: Tenant | null;
+  branding: TenantBranding | null;
+  whiteLabelActive: boolean;
+  brandName: string;
+  logoUrl: string | null;
+  themeColor: string;
+};
 
 /**
  * Loads a tenant's white-label branding row. Reads under the caller's session
@@ -39,6 +55,13 @@ export async function getTenantBrandingPublic(
   return (data as TenantBranding | null) ?? null;
 }
 
+export function isWhiteLabelActive(
+  tenant: { white_label_enabled: boolean; plan: TenantPlan | string } | null,
+): boolean {
+  if (!tenant) return false;
+  return tenant.white_label_enabled === true && tenant.plan === "elite";
+}
+
 /**
  * The logo URL to display for a tenant: returns the uploaded logo URL only
  * when BOTH conditions are true:
@@ -54,8 +77,83 @@ export function resolveLogoUrl(
   tenant: { white_label_enabled: boolean; plan: TenantPlan | string } | null,
   branding: TenantBranding | null,
 ): string | null {
-  if (!tenant) return null;
-  if (!tenant.white_label_enabled) return null;
-  if (tenant.plan !== "elite") return null;
+  if (!isWhiteLabelActive(tenant)) return null;
   return branding?.logo_url ?? null;
+}
+
+export function resolveThemeColor(
+  tenant: BrandableTenant,
+  branding: TenantBranding | null,
+  fallback = DEFAULT_THEME_COLOR,
+): string {
+  if (!isWhiteLabelActive(tenant)) return fallback;
+  return branding?.primary_color ?? fallback;
+}
+
+export function resolveBrandName(tenant: BrandableTenant): string {
+  if (!isWhiteLabelActive(tenant)) return DEFAULT_PLATFORM_NAME;
+  return tenant?.name?.trim() || DEFAULT_PLATFORM_NAME;
+}
+
+export function resolveBrandAppName(
+  tenant: BrandableTenant,
+  surface: BrandingSurface,
+): string {
+  const brand = resolveBrandName(tenant);
+  switch (surface) {
+    case "backoffice":
+      return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Backoffice" : `${brand} Backoffice`;
+    case "student":
+      return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Leerling" : `${brand} Leerling`;
+    case "instructor":
+      return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Instructeur" : `${brand} Instructeur`;
+    default:
+      return brand;
+  }
+}
+
+export function resolveBrandDescription(
+  tenant: BrandableTenant,
+  surface: BrandingSurface,
+): string {
+  const brand = resolveBrandName(tenant);
+  switch (surface) {
+    case "backoffice":
+      return brand === DEFAULT_PLATFORM_NAME
+        ? "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen."
+        : `Het backoffice van ${brand} voor planning, leerlingen, voortgang en operatie.`;
+    case "student":
+      return brand === DEFAULT_PLATFORM_NAME
+        ? "Jouw rijopleiding in één overzicht — lessen, tegoed, voortgang en meer."
+        : `De leerlingomgeving van ${brand} met lessen, tegoed, voortgang en berichten.`;
+    case "instructor":
+      return brand === DEFAULT_PLATFORM_NAME
+        ? "Vandaag slim en overzichtelijk lesgeven — planning, leerlingen en lessen."
+        : `De instructeursomgeving van ${brand} voor planning, leerlingen en lesuitvoering.`;
+    default:
+      return brand === DEFAULT_PLATFORM_NAME
+        ? "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen."
+        : `De digitale rijschoolomgeving van ${brand}.`;
+  }
+}
+
+/**
+ * Resolves tenant + branding from the inbound host header for unauthenticated
+ * surfaces such as root metadata, login and public manifests.
+ */
+export async function getBrandingContextByHost(
+  hostHeader: string | null | undefined,
+): Promise<BrandingContext> {
+  const service = createServiceRoleClient();
+  const tenant = await resolveTenantByHost(service, hostHeader);
+  const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
+
+  return {
+    tenant,
+    branding,
+    whiteLabelActive: isWhiteLabelActive(tenant),
+    brandName: resolveBrandName(tenant),
+    logoUrl: resolveLogoUrl(tenant, branding),
+    themeColor: resolveThemeColor(tenant, branding),
+  };
 }
