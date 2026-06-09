@@ -19,8 +19,31 @@ maar maakt de franchisecockpit expliciet anders dan gewone multi-vestiging.
 - Multi-vestiging blijft branch-scoped binnen één tenant; franchise blijft een
   laag erboven met meerdere zelfstandige tenants.
 
+# Sprint 7B - Franchise Performance Cockpit
+
+Sprint 7B verdiept de franchisecockpit met een gedeelde access-guard en een
+read-only prestatieslaag over 90 dagen.
+
+## Wat deze slice toevoegt
+
+- Gedeelde `requireFranchiseOperator()` guard voor alle franchisegever-pagina's.
+- Nieuwe pagina `/backoffice/franchise/prestaties` met omzet-, lesvolume- en aandachtstrends.
+- Netwerkbreed overzicht van franchisees met omzetdelta, lesdelta, capaciteit,
+  conversie en slagingspercentage.
+- Sidebar- en dashboard-links zodat prestaties, planning en vergelijking één
+  samenhangende franchise-routing vormen.
+
+## Canon voor 7B
+
+- Franchiseprestatie is tenant-overstijgende sturing, geen operationele
+  mutatieruimte binnen franchisees.
+- Eerst netwerkbrede signalen, daarna lokale opvolging binnen franchisee of
+  vestiging.
+- De gedeelde franchise-guard voorkomt dat losse pagina's hun eigen afwijkende
+  toegangslogica gaan voeren.
+
 ## Volgende logische stappen binnen Sprint 7
 
-- Centrale franchise-rapportages verder uitdiepen.
-- Eventuele read-only drill-downs voor agenda, capaciteit en KPI-trends.
+- Eventuele read-only drill-downs voor agenda, capaciteit en KPI-trends verder uitdiepen.
 - Strakkere franchise-scope guards voor eventuele toekomstige acties.
+- Franchise-specifieke dashboards later combineren met centrale leadverdeling en coachingflows.

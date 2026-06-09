@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
@@ -13,9 +12,8 @@ import {
   Network,
   CalendarDays,
 } from "lucide-react";
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadFranchiseOverview } from "@/lib/franchise/overview";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
 import type { FranchiseeLocation } from "@/lib/franchise/overview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +72,6 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
 
   return (
     <>
-      {/* Tenant header row */}
       <tr className="bg-muted/30 border-t-2 border-border">
         <td className="px-4 py-2.5" colSpan={2}>
           <div className="flex items-center gap-2">
@@ -121,7 +118,6 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
         </td>
       </tr>
 
-      {/* Per-branch detail rows */}
       {activeBranches.length === 0 ? (
         <tr className="border-t border-dashed border-border/50">
           <td className="px-4 py-2 pl-10" colSpan={9}>
@@ -153,7 +149,6 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
             <td className="px-4 py-2 text-right tabular-nums text-xs text-muted-foreground">
               {branch.lessons_last_30d}
             </td>
-            {/* Revenue / exam / conversion / capacity are not branch-scoped yet */}
             <td className="px-4 py-2 text-right text-xs text-muted-foreground/40" colSpan={5}>
               —
             </td>
@@ -165,37 +160,12 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
 }
 
 export default async function FranchiseDashboardPage() {
-  const { user, tenant } = await requireActiveTenant([
-    "tenant_admin",
-    "franchise_admin",
-  ]);
-
-  const { tenantHasFeature } = await import("@/lib/platform/features");
-  if (!tenantHasFeature(tenant, "franchise_as_franchisegever")) {
-    notFound();
-  }
-
-  const service = createServiceRoleClient();
-
-  // Verify this tenant is a franchisegever: it must not itself be a franchisee
-  // (parent_tenant_id IS NULL). org_type is informational and not required here —
-  // the sidebar link (isFranchisegever) already gates navigation.
-  const { data: tenantRow } = await service
-    .from("tenants")
-    .select("id, parent_tenant_id")
-    .eq("id", tenant.id)
-    .single();
-
-  if (!tenantRow || tenantRow.parent_tenant_id !== null) {
-    notFound();
-  }
-
+  const { tenant } = await requireFranchiseOperator();
   const overview = await loadFranchiseOverview(tenant.id);
   const hasFranchisees = overview.locations.length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Franchise Dashboard</h1>
@@ -203,7 +173,12 @@ export default async function FranchiseDashboardPage() {
             Overzicht van alle locaties binnen uw franchisenetwerk
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/backoffice/franchise/prestaties">
+            <Button variant="outline" size="sm">
+              Prestaties
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/planning">
             <Button variant="outline" size="sm">
               Centrale planning
@@ -249,6 +224,16 @@ export default async function FranchiseDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <Link
+              href="/backoffice/franchise/prestaties"
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span>
+                <span className="block font-medium text-foreground">Franchiseprestaties</span>
+                <span className="block text-xs">Volg omzet, lesvolume en netwerkbrede aandachtssignalen over 90 dagen.</span>
+              </span>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
+            <Link
               href="/backoffice/franchise/planning"
               className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
             >
@@ -281,7 +266,6 @@ export default async function FranchiseDashboardPage() {
         </Card>
       </div>
 
-      {/* Totals strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           {
@@ -319,7 +303,6 @@ export default async function FranchiseDashboardPage() {
         ))}
       </div>
 
-      {/* Per-franchisee / per-branch table */}
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -373,7 +356,6 @@ export default async function FranchiseDashboardPage() {
         )}
       </Card>
 
-      {/* Legend / info */}
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span>
           <strong>Bezetting</strong>: gereden lesminuten / beschikbare

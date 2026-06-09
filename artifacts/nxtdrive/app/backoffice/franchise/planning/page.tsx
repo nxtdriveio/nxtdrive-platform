@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { AlertTriangle, CalendarDays, Clock3, Network, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Network, ShieldCheck, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseContext } from "@/lib/franchise/context";
 import { loadFranchisePlanningOverview } from "@/lib/franchise/planning";
-import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -51,15 +49,7 @@ function StatCard({
 }
 
 export default async function FranchisePlanningPage() {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
-
-  if (!tenantHasFeature(tenant, "franchise_as_franchisegever")) {
-    notFound();
-  }
-
-  if (tenant.parent_tenant_id) {
-    notFound();
-  }
+  const { tenant } = await requireFranchiseOperator();
 
   const [franchiseContext, planning] = await Promise.all([
     loadFranchiseContext(tenant.id),
@@ -91,6 +81,11 @@ export default async function FranchisePlanningPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/prestaties">
+            <Button variant="outline" size="sm">
+              Prestaties
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/vergelijking">
             <Button variant="outline" size="sm">
               Vergelijk franchisees
@@ -214,6 +209,15 @@ export default async function FranchisePlanningPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span>
+          <strong>Vervolgroute</strong>: combineer deze planningsradar met de prestatiescockpit om te zien of lage lesdruk ook doorwerkt in omzet of bezetting.
+        </span>
+        <span>
+          Gebruik lokale opvolging voor uitvoering; dit scherm blijft tenant-overstijgend read-only.
+        </span>
+      </div>
     </div>
   );
 }

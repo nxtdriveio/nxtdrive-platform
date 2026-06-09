@@ -1,16 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ArrowDownWideNarrow, ArrowUpWideNarrow, BarChart3, Gauge, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseContext } from "@/lib/franchise/context";
 import {
   loadFranchiseOverview,
   type FranchiseeLocation,
 } from "@/lib/franchise/overview";
-import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -91,15 +89,7 @@ function LeaderboardCard({
 }
 
 export default async function FranchiseComparisonPage() {
-  const { tenant } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
-
-  if (!tenantHasFeature(tenant, "franchise_as_franchisegever")) {
-    notFound();
-  }
-
-  if (tenant.parent_tenant_id) {
-    notFound();
-  }
+  const { tenant } = await requireFranchiseOperator();
 
   const [franchiseContext, overview] = await Promise.all([
     loadFranchiseContext(tenant.id),
@@ -150,6 +140,11 @@ export default async function FranchiseComparisonPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/prestaties">
+            <Button variant="outline" size="sm">
+              Prestaties
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/planning">
             <Button variant="outline" size="sm">
               Centrale planning
@@ -270,7 +265,7 @@ export default async function FranchiseComparisonPage() {
           <strong>Governance</strong>: franchise-insight blijft read-only en vervangt geen lokale verantwoordelijkheid binnen franchisees.
         </span>
         <span>
-          Gebruik deze pagina om verschillen zichtbaar te maken en daarna lokaal op te volgen via planners, vestigingsmanagers of franchisecoaching.
+          Combineer benchmarking met de prestatiescockpit als je wilt zien of een laag pass-rate signaal ook gepaard gaat met omzet- of lesterugval.
         </span>
       </div>
     </div>

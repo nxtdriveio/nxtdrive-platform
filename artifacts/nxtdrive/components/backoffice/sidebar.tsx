@@ -27,6 +27,7 @@ import {
   Network,
   ShieldCheck,
   Workflow,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -88,6 +89,13 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/backoffice/franchise",
         label: "Franchise Dashboard",
         icon: Network,
+        adminOnly: false,
+        requireFranchise: true,
+      },
+      {
+        href: "/backoffice/franchise/prestaties",
+        label: "Prestaties",
+        icon: TrendingUp,
         adminOnly: false,
         requireFranchise: true,
       },
