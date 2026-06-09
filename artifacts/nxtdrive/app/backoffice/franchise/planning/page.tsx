@@ -81,6 +81,11 @@ export default async function FranchisePlanningPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/aandacht">
+            <Button variant="outline" size="sm">
+              Aandacht
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/prestaties">
             <Button variant="outline" size="sm">
               Prestaties
@@ -212,7 +217,7 @@ export default async function FranchisePlanningPage() {
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span>
-          <strong>Vervolgroute</strong>: combineer deze planningsradar met de prestatiescockpit om te zien of lage lesdruk ook doorwerkt in omzet of bezetting.
+          <strong>Vervolgroute</strong>: combineer deze planningsradar met de aandacht-cockpit om prioriteit, coaching en lokale opvolging scherper te kiezen.
         </span>
         <span>
           Gebruik lokale opvolging voor uitvoering; dit scherm blijft tenant-overstijgend read-only.
