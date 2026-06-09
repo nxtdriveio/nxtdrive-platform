@@ -37,6 +37,25 @@ export type OrganizationRolePermissionOverride = {
 
 type RolePermissionClient = Pick<SupabaseClient, "from">;
 
+function isMissingPermissionOverridesTableError(error: {
+  message: string;
+  details?: string | null;
+  code?: string;
+}): boolean {
+  const combined = [error.code, error.message, error.details]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+
+  return (
+    combined.includes("organization_role_permission_overrides") &&
+    (combined.includes("does not exist") ||
+      combined.includes("schema cache") ||
+      combined.includes("Could not find the table") ||
+      combined.includes("PGRST205") ||
+      combined.includes("42P01"))
+  );
+}
+
 function isManageablePermissionRole(
   role: MemberRole,
 ): role is ManageablePermissionRole {
@@ -65,6 +84,12 @@ export async function listOrganizationRolePermissionOverrides(
     .order("permission", { ascending: true });
 
   if (error) {
+    // Production can briefly run code ahead of the organization-permissions
+    // migration. In that case we fall back to the hardcoded registry instead of
+    // crashing the whole backoffice on every permission-guarded page.
+    if (isMissingPermissionOverridesTableError(error)) {
+      return [];
+    }
     throw new Error(`listOrganizationRolePermissionOverrides: ${error.message}`);
   }
 
