@@ -79,14 +79,14 @@ function resolveUpcomingFocus(
       href: `/instructor/${lesson.id}`,
       title: studentNames.get(lesson.student_id) ?? "Leerling",
       eyebrow: "Volgende les",
-      meta: `${timeFmt.format(new Date(lesson.starts_at))} · ${lesson.location ?? "Locatie volgt"}`,
+      meta: `${timeFmt.format(new Date(lesson.starts_at))} - ${lesson.location ?? "Locatie volgt"}`,
     })),
     ...trials.map((trial) => ({
       startsAt: trial.starts_at,
       href: `/backoffice/leads/${trial.lead_id}`,
       title: trial.lead_name,
       eyebrow: "Proefles",
-      meta: `${timeFmt.format(new Date(trial.starts_at))} · ${trial.pickup_location ?? "Locatie volgt"}`,
+      meta: `${timeFmt.format(new Date(trial.starts_at))} - ${trial.pickup_location ?? "Locatie volgt"}`,
     })),
     ...appointments.map((appointment) => ({
       startsAt: appointment.starts_at,
@@ -96,7 +96,7 @@ function resolveUpcomingFocus(
         appointment.title?.trim() ??
         "Agenda-item",
       eyebrow: "Afspraak",
-      meta: `${timeFmt.format(new Date(appointment.starts_at))} · ${appointment.location ?? "Locatie volgt"}`,
+      meta: `${timeFmt.format(new Date(appointment.starts_at))} - ${appointment.location ?? "Locatie volgt"}`,
     })),
   ]
     .filter((item) => new Date(item.startsAt).getTime() >= nowMs)
