@@ -1,7 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBranding,
+  resolveBrandAppName,
+  resolveBrandDescription,
+  resolveLogoUrl,
+  resolveThemeColor,
+} from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { InstructorSidebar } from "@/components/instructor/Sidebar";
 import { InstructorTopbar } from "@/components/instructor/InstructorTopbar";
@@ -16,35 +22,58 @@ import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "NXTDRIVE Instructeur",
-  manifest: "/instructor/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Instructeur",
-    startupImage: [
-      {
-        url: "/splash/ios-splash-1170x2532.svg",
-        media:
-          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
-      },
-      {
-        url: "/splash/ios-splash-828x1792.svg",
-        media:
-          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
-      },
-    ],
-  },
-  icons: { apple: "/icons/instructor-apple-180.png" },
-};
+async function loadInstructorBrandingContext() {
+  const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const branding = await getTenantBranding(tenant.id);
 
-export const viewport: Viewport = {
-  themeColor: "#0c0c15",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
+  return {
+    tenant,
+    branding,
+    brandTitle: resolveBrandAppName(tenant, "instructor"),
+    brandDescription: resolveBrandDescription(tenant, "instructor"),
+    themeColor: resolveThemeColor(tenant, branding, "#0c0c15"),
+  };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brandingContext = await loadInstructorBrandingContext();
+
+  return {
+    title: brandingContext.brandTitle,
+    description: brandingContext.brandDescription,
+    manifest: "/instructor/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: brandingContext.brandTitle,
+      startupImage: [
+        {
+          url: "/splash/ios-splash-1170x2532.svg",
+          media:
+            "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+        },
+        {
+          url: "/splash/ios-splash-828x1792.svg",
+          media:
+            "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+        },
+      ],
+    },
+    icons: { apple: "/icons/instructor-apple-180.png" },
+    applicationName: brandingContext.brandTitle,
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const brandingContext = await loadInstructorBrandingContext();
+
+  return {
+    themeColor: brandingContext.themeColor,
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  };
+}
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -73,7 +102,6 @@ export default async function InstructorLayout({
   const logoUrl = resolveLogoUrl(tenant, branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
-  /* Load today's agenda for the sidebar agenda-rail */
   const today = new Date();
   const dayStart = startOfDay(today);
   const dayEnd = endOfDay(today);
@@ -106,9 +134,10 @@ export default async function InstructorLayout({
         .in("id", studentIds)
     : { data: [] };
   const studentNames = new Map(
-    (
-      (studentsRaw ?? []) as { id: string; full_name: string }[]
-    ).map((s) => [s.id, s.full_name]),
+    ((studentsRaw ?? []) as { id: string; full_name: string }[]).map((s) => [
+      s.id,
+      s.full_name,
+    ]),
   );
 
   const notificationBell = (
@@ -117,11 +146,6 @@ export default async function InstructorLayout({
 
   return (
     <BrandProvider tenant={tenant} branding={branding}>
-      {/*
-        data-instructor="" activates the dark+amber token block in globals.css
-        for the entire instructor PWA shell — independent of tenant branding and
-        the user's light/dark preference.
-      */}
       <div
         data-instructor=""
         className="flex min-h-screen flex-col text-foreground md:flex-row"
@@ -138,7 +162,6 @@ export default async function InstructorLayout({
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Desktop-only utility topbar: secondary nav + notifications + Taken + Acties */}
           <InstructorTopbar notifications={notificationBell} />
 
           <ServiceWorkerRegister />
