@@ -187,7 +187,7 @@ export default async function InstructorStudentsPage() {
                 </div>
 
                 <Link
-                  href={`/backoffice/leerlingen/${student.id}`}
+                  href={`/instructor/leerlingen/${student.id}`}
                   className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
                 >
                   Open leerlingdossier

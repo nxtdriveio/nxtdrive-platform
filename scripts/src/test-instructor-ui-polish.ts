@@ -116,6 +116,20 @@ assert(
   "instructor shell should expose a dedicated quick search component",
 );
 
+const searchActions = read(
+  "artifacts",
+  "nxtdrive",
+  "lib",
+  "search",
+  "actions.ts",
+);
+assert(
+  searchActions.includes("loadInstructorAccessibleStudentIds") &&
+    searchActions.includes('href: `/instructor/leerlingen/${student.id}`') &&
+    searchActions.includes('href: `/instructor/${lesson.id}`'),
+  "instructor quick search should stay permission-aware and route students and lessons inside the instructor app",
+);
+
 const page = read("artifacts", "nxtdrive", "app", "instructor", "page.tsx");
 assert(
   !page.includes("redirect(`/instructor/${target.id}`)"),
@@ -199,6 +213,23 @@ assert(
   studentsPage.includes("Open leerlingdossier") &&
     studentsPage.includes("2xl:grid-cols-3"),
   "students should use richer responsive cards instead of a bare table-only view",
+);
+
+const studentDetailPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "leerlingen",
+  "[id]",
+  "page.tsx",
+);
+assert(
+  studentDetailPage.includes("Leerlingcontext") &&
+    studentDetailPage.includes("loadStudentDossier") &&
+    studentDetailPage.includes("PlannedCard") &&
+    studentDetailPage.includes('scope="instructor"'),
+  "instructor app should provide its own student detail cockpit instead of bouncing into backoffice",
 );
 
 const messagesPage = read(
