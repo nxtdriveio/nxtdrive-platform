@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
+import { InfoBubble } from "@/components/ui/info-bubble";
 import { cn } from "@/lib/utils";
 
 type PWAAppKind = "student" | "instructor";
@@ -113,11 +114,13 @@ export function PWAKpiTile({
   label,
   value,
   hint,
+  info,
   className,
 }: {
   label: ReactNode;
   value: ReactNode;
   hint?: ReactNode;
+  info?: ReactNode;
   className?: string;
 }) {
   return (
@@ -127,9 +130,16 @@ export function PWAKpiTile({
         className,
       )}
     >
-      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
+      <div className="flex min-w-0 items-center gap-2">
+        <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
+        {info ? (
+          <InfoBubble className="h-4 w-4" contentClassName="w-64">
+            {info}
+          </InfoBubble>
+        ) : null}
+      </div>
       <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
         {value}
       </p>

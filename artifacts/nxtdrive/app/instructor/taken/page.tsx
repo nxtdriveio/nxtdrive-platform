@@ -122,16 +122,19 @@ export default async function InstructorTakenPage({
           label="Open taken"
           value={tasks.length}
           hint="Alles wat nog bij jou in beweging is."
+          info="Dit zijn alle taken die nog aan jou hangen en nog niet zijn gearchiveerd of afgerond."
         />
         <PWAKpiTile
           label="Actieve borden"
           value={boards.length}
           hint="Schakel per bord tussen je werkstromen."
+          info="Elke werkstroom of afdeling kan een eigen bord hebben. Hier zie je hoeveel borden voor jou relevant zijn."
         />
         <PWAKpiTile
           label="Binnen 3 dagen"
           value={dueSoonCount}
           hint="Taken met een due date die snel aandacht vragen."
+          info="Deze teller markeert taken waarvan de deadline binnen drie dagen valt, zodat je sneller kunt prioriteren."
         />
       </PWAKpiGrid>
 

@@ -102,16 +102,19 @@ export default async function InstructorStudentsPage() {
           label="Actieve leerlingen"
           value={students.length}
           hint="Leerlingen die al aan jouw lessen gekoppeld zijn."
+          info="Dit zijn alleen leerlingen die via lessen daadwerkelijk aan jou gekoppeld zijn."
         />
         <PWAKpiTile
           label="Laag tegoed"
           value={lowBalanceCount}
           hint="Leerlingen die qua saldo mogelijk aandacht nodig hebben."
+          info="Hier zie je hoeveel van jouw leerlingen een laag of leeg tegoed hebben en mogelijk opvolging nodig hebben."
         />
         <PWAKpiTile
           label="Geplande contacten"
           value={Array.from(upcomingLessonMap.values()).length}
           hint="Leerlingen met een volgende les vanaf nu."
+          info="Aantal leerlingen dat vanaf nu al een volgende les op de planning heeft staan."
         />
       </PWAKpiGrid>
 

@@ -275,21 +275,25 @@ export default async function InstructorIndexPage() {
               label="Reguliere lessen"
               value={lessons.length}
               hint="Vandaag gepland"
+              info="Alle gewone lessen die vandaag al op jouw agenda staan."
             />
             <PWAKpiTile
               label="Proeflessen"
               value={trials.length}
               hint="Nieuwe kandidaten"
+              info="Nieuwe proeflessen of intake-achtige ritten die vandaag al ingepland staan."
             />
             <PWAKpiTile
               label="Afspraken"
               value={appointments.length}
               hint="Examens, blokken en meer"
+              info="Alle niet-les agenda-items zoals examens, theoriebegeleiding, blokkades en andere afspraken."
             />
             <PWAKpiTile
               label="Open taken"
               value={openTaskCount}
               hint="Nog op te volgen"
+              info="Taken die nog bij jou openstaan en nog om actie vragen."
             />
           </PWAKpiGrid>
         }

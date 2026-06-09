@@ -18,6 +18,7 @@ import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
+import { MobileSearch } from "@/components/backoffice/global-search";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,7 @@ export function InstructorSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 border-r border-border/80 bg-card xl:flex xl:flex-col">
+      <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 bg-card xl:flex xl:flex-col">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border/80 px-5">
           <Link
             href="/instructor"
@@ -175,6 +176,7 @@ export function InstructorSidebar({
             <NxtdriveLogo className="min-w-0 text-sm font-semibold" logoUrl={logoUrl} brandName={tenantName} />
           </div>
           <div className="flex items-center gap-1">
+            <MobileSearch />
             <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
             {notifications}
             <ThemeToggle

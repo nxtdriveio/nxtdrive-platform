@@ -142,6 +142,7 @@ export default async function StudentHomePage() {
               }
               value={nextLessonLabel}
               hint={nextLesson?.location ?? "Plan je volgende les met je rijschool"}
+              info="Hier zie je direct wanneer je eerstvolgende rijles plaatsvindt en waar die start."
               className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
             />
             <PWAKpiTile
@@ -153,6 +154,7 @@ export default async function StudentHomePage() {
               }
               value={creditLabel}
               hint={availableMinutes <= 0 ? "Aanvullen nodig" : "Direct inzetbaar"}
+              info="Je resterende lestijd of leswaarde die nog beschikbaar is om nieuwe lessen in te plannen."
               className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
             />
           </PWAKpiGrid>
