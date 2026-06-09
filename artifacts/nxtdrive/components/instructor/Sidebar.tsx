@@ -87,14 +87,13 @@ export function InstructorSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 border-r border-border/80 bg-card/72 backdrop-blur xl:flex xl:flex-col">
-        <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/80 px-5">
+      <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 border-r border-border/80 bg-card xl:flex xl:flex-col">
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border/80 px-5">
           <NxtdriveLogo className="text-base font-semibold" logoUrl={logoUrl} brandName={tenantName} />
-          <div className="flex items-center gap-2">{notifications}</div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col px-4 py-4">
-          <div className="mb-3 rounded-[1.45rem] border border-border/70 bg-background/55 px-3 py-3 shadow-sm">
+          <div className="mb-4 rounded-[1.45rem] border border-border/80 bg-background px-3 py-3 shadow-sm">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -113,7 +112,7 @@ export function InstructorSidebar({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden rounded-[1.45rem] border border-border/70 bg-background/55 shadow-sm">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-[1.45rem] border border-border/80 bg-background shadow-sm">
             <div className="h-full overflow-auto px-3 py-3">
               <InstructorDayList
                 lessons={todayLessons}
@@ -126,7 +125,7 @@ export function InstructorSidebar({
         </div>
 
         <div className="shrink-0 border-t border-border/80 px-4 py-4">
-          <div className="flex items-center gap-3 rounded-[1.2rem] border border-border/70 bg-background/55 px-3 py-3">
+          <div className="flex items-center gap-3 rounded-[1.2rem] border border-border/80 bg-background px-3 py-3">
             <Avatar name={userLabel} className="h-10 w-10 shrink-0 text-xs" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground">{userLabel}</p>
@@ -146,7 +145,7 @@ export function InstructorSidebar({
       </aside>
 
       <header
-        className="sticky top-0 z-30 border-b border-border/80 bg-card/88 backdrop-blur xl:hidden"
+        className="sticky top-0 z-30 border-b border-border/80 bg-card/95 backdrop-blur xl:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex h-14 items-center justify-between gap-3 px-4">

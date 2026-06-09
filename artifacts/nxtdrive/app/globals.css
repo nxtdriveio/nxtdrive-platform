@@ -19,6 +19,8 @@
   --color-primary-soft: var(--primary-soft);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
@@ -60,6 +62,8 @@
 
   --accent: #f3eeff;
   --accent-foreground: #392693;
+  --popover: #ffffff;
+  --popover-foreground: #0b0b14;
 
   --success: #10a36c;
   --warning: #d97706;
@@ -89,6 +93,8 @@
 
   --accent: #1c1733;
   --accent-foreground: #b8a0ff;
+  --popover: #11111d;
+  --popover-foreground: #ececf2;
 
   --success: #34d399;
   --warning: #fbbf24;
@@ -124,31 +130,6 @@ body {
     );
 }
 
-/* Instructor PWA shell: forced dark + amber accent.
-   Applied via data-instructor="" on the layout wrapper so it does NOT
-   require a user dark-mode preference and overrides tenant branding. */
-[data-instructor] {
-  color-scheme: dark;
-  --background: #0c0c15;
-  --foreground: #ececf2;
-  --card: #13141f;
-  --card-foreground: #ececf2;
-  --muted: #1c1d2e;
-  --muted-foreground: #8888a0;
-  --border: #2a2a40;
-  --input: #1c1d2e;
-  --ring: #F59E0B;
-  --primary: #F59E0B;
-  --primary-foreground: #0c0c15;
-  --primary-soft: rgba(245, 158, 11, 0.12);
-  --accent: rgba(245, 158, 11, 0.08);
-  --accent-foreground: #F59E0B;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
-}
-
 [data-student-shell] {
   background:
     radial-gradient(
@@ -167,16 +148,20 @@ body {
 [data-instructor-shell] {
   background:
     radial-gradient(
-      circle at 85% 0%,
-      color-mix(in oklab, var(--primary) 16%, transparent),
-      transparent 32%
-    ),
-    radial-gradient(
-      circle at 15% 12%,
-      color-mix(in oklab, var(--primary) 10%, transparent),
+      circle at 100% 0%,
+      color-mix(in oklab, var(--primary) 12%, transparent),
       transparent 26%
     ),
-    linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, #05070d), var(--background));
+    radial-gradient(
+      circle at 0% 12%,
+      color-mix(in oklab, var(--primary) 8%, transparent),
+      transparent 24%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--background) 98%, #ffffff),
+      var(--background)
+    );
 }
 
 [data-management-shell] {

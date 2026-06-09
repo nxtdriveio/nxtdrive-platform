@@ -148,13 +148,16 @@ export default async function InstructorLayout({
   );
 
   const notificationBell = (
-    <NotificationBell items={items} unreadCount={unreadCount} />
+    <NotificationBell
+      items={items}
+      unreadCount={unreadCount}
+      viewAllHref="/instructor/meldingen"
+    />
   );
 
   return (
     <BrandProvider tenant={tenant} branding={branding}>
       <div
-        data-instructor=""
         data-instructor-shell=""
         data-pwa-copy=""
         className="flex min-h-screen flex-col text-foreground md:flex-row"
@@ -175,8 +178,8 @@ export default async function InstructorLayout({
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="min-w-0 flex-1 overflow-x-hidden bg-background px-3 pb-24 pt-4 sm:px-4 md:px-5 md:pb-8 lg:px-6">
-            <div className="mx-auto w-full max-w-[96rem]">
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-24 pt-6 sm:px-5 md:px-6 md:pb-10 lg:px-8">
+            <div className="mx-auto w-full max-w-[100rem]">
               <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
             </div>
           </main>

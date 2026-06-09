@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
@@ -45,16 +44,10 @@ const NAV: NavItem[] = [
     icon: MessageCircle,
     match: "prefix",
   },
-  {
-    href: "/instructor/meldingen",
-    label: "Meldingen",
-    icon: Bell,
-    match: "prefix",
-  },
+  { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
 ];
 
 const ACTIES_INSTRUCTOR = [
-  { href: "/instructor/taken", icon: ListTodo, label: "Mijn taken" },
   { href: "/instructor/week", icon: ClipboardList, label: "Weekplanning" },
   { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
 ];
@@ -78,7 +71,7 @@ export function InstructorTopbar({
   const pathname = usePathname() ?? "";
 
   return (
-    <header className="hidden h-14 shrink-0 items-center gap-2 border-b border-border/80 bg-card/58 px-4 backdrop-blur xl:flex">
+    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 xl:flex">
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {NAV.map((item) => {
           const Icon = item.icon;
@@ -103,20 +96,7 @@ export function InstructorTopbar({
         })}
       </nav>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        <Link
-          href="/instructor/taken"
-          className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-            pathname.startsWith("/instructor/taken")
-              ? "bg-primary-soft text-primary shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <ListTodo className="h-4 w-4 shrink-0" aria-hidden />
-          Taken
-        </Link>
-
+      <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
         <RouteInfoBubble scope="instructor" />
         {notifications}
 
