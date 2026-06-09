@@ -37,7 +37,7 @@ export default async function InstructorTakenPage({
 
   if (boards.length === 0) {
     return (
-      <PWAPage contentClassName="space-y-6">
+      <PWAPage app="instructor" contentClassName="space-y-5">
         <Header />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Er zijn nog geen taakborden voor deze rijschool.
@@ -105,7 +105,7 @@ export default async function InstructorTakenPage({
   }
 
   return (
-    <PWAPage contentClassName="space-y-6">
+    <PWAPage app="instructor" contentClassName="space-y-5">
       <Header />
 
       <div className="flex flex-wrap items-center gap-2">

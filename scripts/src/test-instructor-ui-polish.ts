@@ -109,4 +109,58 @@ assert(
   "instructor dashboard should use the denser responsive home layout",
 );
 
+const primitives = read(
+  "artifacts",
+  "nxtdrive",
+  "components",
+  "pwa",
+  "primitives.tsx",
+);
+assert(
+  primitives.includes("mx-auto w-full max-w-[100rem]"),
+  "instructor pages should be allowed to span the wider tablet shell",
+);
+
+const availabilityPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "beschikbaarheid",
+  "page.tsx",
+);
+assert(
+  availabilityPage.includes('<PWAPage app="instructor"') &&
+    availabilityPage.includes("xl:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)]"),
+  "availability should use the instructor-wide shell and split layout",
+);
+
+const notificationsPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "meldingen",
+  "page.tsx",
+);
+assert(
+  notificationsPage.includes('<PWAPage app="instructor"') &&
+    notificationsPage.includes("xl:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)]"),
+  "notifications should use the broader two-column instructor layout",
+);
+
+const settingsPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "instellingen",
+  "page.tsx",
+);
+assert(
+  settingsPage.includes('<PWAPage app="instructor"') &&
+    settingsPage.includes("Pushstatus"),
+  "settings should now use the instructor shell and summary tiles",
+);
+
 console.log("test-instructor-ui-polish: ok");

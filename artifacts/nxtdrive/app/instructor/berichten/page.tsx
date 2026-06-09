@@ -28,7 +28,7 @@ export default async function InstructorBerichtenPage() {
   });
 
   return (
-    <PWAPage contentClassName="space-y-4">
+    <PWAPage app="instructor" contentClassName="space-y-5">
       <PWAPageHeader
         eyebrow="Communicatie"
         title="Berichten"
@@ -38,7 +38,7 @@ export default async function InstructorBerichtenPage() {
 
       {conversations.length === 0 ? (
         <Card>
-          <CardContent className="space-y-2 pt-6 text-center">
+          <CardContent className="flex min-h-[15rem] flex-col items-center justify-center space-y-2 pt-6 text-center">
             <MessageCircle
               className="mx-auto h-8 w-8 text-muted-foreground"
               aria-hidden

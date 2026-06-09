@@ -69,7 +69,7 @@ export default async function EditInstructorAppointmentPage({
   );
 
   return (
-    <PWAPage contentClassName="space-y-6">
+    <PWAPage app="instructor" contentClassName="space-y-6">
       <PWAPageHeader
         eyebrow="Planning"
         title="Afspraak bewerken"

@@ -223,7 +223,7 @@ export default async function InstructorLessonPage({
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
 
   return (
-    <PWAPage contentClassName="flex flex-col gap-4">
+    <PWAPage app="instructor" contentClassName="flex flex-col gap-4">
       <PWAPageHeader
         eyebrow="Lescockpit"
         title={student?.full_name ?? "Lesdetails"}
