@@ -49,7 +49,7 @@ expectIncludes(
 );
 expectIncludes(
   repoPath("artifacts", "nxtdrive", "app", "instructor", "page.tsx"),
-  "tablet-first cockpit",
+  "Vandaag op je radar",
   "instructor product copy",
 );
 expectIncludes(

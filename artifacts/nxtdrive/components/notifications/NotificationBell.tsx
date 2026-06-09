@@ -40,10 +40,12 @@ export function NotificationBell({
   items: initialItems,
   unreadCount: initialUnread,
   variant = "default",
+  viewAllHref,
 }: {
   items: InAppNotification[];
   unreadCount: number;
   variant?: "default" | "floating";
+  viewAllHref?: string;
 }) {
   const router = useRouter();
   const floating = variant === "floating";
@@ -121,7 +123,7 @@ export function NotificationBell({
           "relative inline-flex items-center justify-center transition active:scale-95",
           floating
             ? "h-10 w-10 rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90"
-            : "h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+            : "h-10 w-10 rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground",
         )}
       >
         <Bell className={cn(floating ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
@@ -138,7 +140,7 @@ export function NotificationBell({
             "absolute right-0 z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden text-popover-foreground",
             floating
               ? "rounded-[1.75rem] border border-border/60 bg-popover/80 shadow-2xl shadow-black/20 backdrop-blur-2xl"
-              : "rounded-lg border border-border bg-popover shadow-lg",
+              : "rounded-[1.35rem] border border-border/80 bg-popover shadow-2xl shadow-black/10",
           )}
         >
           <div
@@ -146,20 +148,31 @@ export function NotificationBell({
               "flex items-center justify-between px-3 py-2",
               floating
                 ? "border-b border-border/50 bg-background/20"
-                : "border-b border-border",
+                : "border-b border-border/80 bg-card",
             )}
           >
             <span className="text-sm font-medium">Meldingen</span>
-            {unread > 0 && (
-              <button
-                type="button"
-                onClick={markAll}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <CheckCheck className="h-3.5 w-3.5" aria-hidden />
-                Alles gelezen
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {viewAllHref ? (
+                <Link
+                  href={viewAllHref}
+                  className="text-xs font-semibold text-primary hover:underline"
+                  onClick={() => setOpen(false)}
+                >
+                  Bekijk alles
+                </Link>
+              ) : null}
+              {unread > 0 && (
+                <button
+                  type="button"
+                  onClick={markAll}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" aria-hidden />
+                  Alles gelezen
+                </button>
+              )}
+            </div>
           </div>
 
           <ul

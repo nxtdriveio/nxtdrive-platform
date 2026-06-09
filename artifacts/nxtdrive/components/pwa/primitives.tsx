@@ -60,7 +60,7 @@ export function PWAHero({
         background:
           app === "student"
             ? "radial-gradient(circle at 16% 0%, rgba(255,255,255,0.24), transparent 28%), radial-gradient(circle at 100% 0%, rgba(255,255,255,0.14), transparent 30%), linear-gradient(145deg, color-mix(in oklab, var(--primary) 88%, #0f172a), color-mix(in oklab, var(--primary) 42%, #020617) 60%, #020617)"
-            : "radial-gradient(circle at 8% 0%, rgba(255,255,255,0.16), transparent 26%), radial-gradient(circle at 100% 20%, rgba(245,158,11,0.18), transparent 32%), linear-gradient(140deg, #131520, #0a0b12 62%, #05060b)",
+            : "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 28%), radial-gradient(circle at 100% 18%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 32%), linear-gradient(140deg, color-mix(in oklab, var(--primary) 22%, #10131d), #0f1220 58%, color-mix(in oklab, var(--primary) 18%, #0b0f18))",
       }}
     >
       <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full border border-white/10" />
