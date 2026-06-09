@@ -69,6 +69,7 @@
     "test-role-governance-foundation": "tsx ./src/test-role-governance-foundation.ts",
     "test-role-governance-polish-foundation": "tsx ./src/test-role-governance-polish-foundation.ts",
     "test-role-management-wrapup-foundation": "tsx ./src/test-role-management-wrapup-foundation.ts",
+    "test-franchise-foundation": "tsx ./src/test-franchise-foundation.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

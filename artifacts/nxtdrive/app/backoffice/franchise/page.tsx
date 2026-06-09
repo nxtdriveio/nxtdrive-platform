@@ -9,6 +9,9 @@ import {
   ExternalLink,
   MapPin,
   Gauge,
+  ShieldCheck,
+  Network,
+  CalendarDays,
 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -201,12 +204,81 @@ export default async function FranchiseDashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/backoffice/franchise/planning">
+            <Button variant="outline" size="sm">
+              Centrale planning
+            </Button>
+          </Link>
+          <Link href="/backoffice/franchise/vergelijking">
+            <Button variant="outline" size="sm">
+              Vergelijking
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/templates">
             <Button variant="outline" size="sm">
               Templates beheren
             </Button>
           </Link>
         </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Network className="h-4 w-4 text-muted-foreground" aria-hidden />
+              Franchise is geen multi-vestiging
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3 text-sm text-muted-foreground">
+            <div className="rounded-lg border border-border px-3 py-3">
+              Een franchisegever stuurt op meerdere zelfstandige tenants onder één formule, niet alleen op branches binnen één tenant.
+            </div>
+            <div className="rounded-lg border border-border px-3 py-3">
+              Deze cockpit geeft centraal inzicht, vergelijking en routing-signalen zonder franchisee-data direct te muteren.
+            </div>
+            <div className="rounded-lg border border-border px-3 py-3">
+              Lokale uitvoering blijft bij franchisee, vestigingsmanager of planner. Dat houdt de governance zuiver.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Besturingsroutes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <Link
+              href="/backoffice/franchise/planning"
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span>
+                <span className="block font-medium text-foreground">Centrale planning</span>
+                <span className="block text-xs">Lees over alle franchisees heen waar lesdruk of leegte ontstaat.</span>
+              </span>
+              <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
+            <Link
+              href="/backoffice/franchise/vergelijking"
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span>
+                <span className="block font-medium text-foreground">Vergelijking</span>
+                <span className="block text-xs">Benchmark franchisees op omzet, conversie, bezetting en kwaliteit.</span>
+              </span>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
+            <div className="rounded-lg border border-dashed border-border px-3 py-3">
+              <div className="flex items-center gap-2 text-foreground">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
+                Read-only governance
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sprint 7 houdt franchisesturing bewust leesgericht. Cross-tenant acties blijven expliciet en auditbaar.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Totals strip */}
