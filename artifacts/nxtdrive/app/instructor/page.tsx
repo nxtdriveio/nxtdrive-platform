@@ -90,9 +90,7 @@ function resolveUpcomingFocus(
       startsAt: appointment.starts_at,
       href: `/instructor/afspraak/${appointment.id}`,
       title:
-        appointment.student_name ??
-        appointment.title?.trim() ??
-        "Agenda-item",
+        appointment.student_name ?? appointment.title?.trim() ?? "Agenda-item",
       eyebrow: "Afspraak",
       meta: `${timeFmt.format(new Date(appointment.starts_at))} - ${appointment.location ?? "Locatie volgt"}`,
     })),
@@ -107,20 +105,27 @@ function SurfaceStat({
   label,
   value,
   hint,
+  detail,
 }: {
   label: string;
   value: string;
   hint: string;
+  detail?: string;
 }) {
   return (
-    <div className="rounded-[1.15rem] border border-border/80 bg-background px-3.5 py-3 shadow-sm">
+    <div className="rounded-[1.2rem] border border-border/80 bg-gradient-to-b from-background to-background/90 px-4 py-3.5 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1.5 text-[clamp(1.55rem,2vw,2.2rem)] font-black leading-[1.05] tracking-tight text-foreground">
+      <p className="mt-2 text-[clamp(1.1rem,1.45vw,1.55rem)] font-bold leading-[1.15] tracking-tight text-foreground">
         {value}
       </p>
-      <p className="mt-1 text-sm leading-5 text-muted-foreground">{hint}</p>
+      <p className="mt-1.5 text-sm leading-5 text-muted-foreground">{hint}</p>
+      {detail ? (
+        <p className="mt-2 border-t border-border/70 pt-2 text-xs leading-5 text-muted-foreground/90">
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -223,12 +228,11 @@ export default async function InstructorIndexPage() {
     }),
   ]);
 
-  const studentIds = Array.from(new Set(lessons.map((lesson) => lesson.student_id)));
+  const studentIds = Array.from(
+    new Set(lessons.map((lesson) => lesson.student_id)),
+  );
   const { data: studentsRaw } = studentIds.length
-    ? await supabase
-        .from("students")
-        .select("id, full_name")
-        .in("id", studentIds)
+    ? await supabase.from("students").select("id, full_name").in("id", studentIds)
     : { data: [] };
   const studentNames = new Map(
     ((studentsRaw ?? []) as Pick<Student, "id" | "full_name">[]).map(
@@ -238,8 +242,9 @@ export default async function InstructorIndexPage() {
 
   const unreadCount = unreadNotificationsResult.count ?? 0;
   const openTaskCount = openTasksResult.count ?? 0;
-  const weekStudentCount = new Set(weekLessons.map((lesson) => lesson.student_id))
-    .size;
+  const weekStudentCount = new Set(
+    weekLessons.map((lesson) => lesson.student_id),
+  ).size;
   const upcomingFocus = resolveUpcomingFocus(
     now,
     lessons,
@@ -251,6 +256,11 @@ export default async function InstructorIndexPage() {
   const heroSubtitle = upcomingFocus
     ? `${upcomingFocus.eyebrow} om ${upcomingFocus.meta}. Je houdt hier je dagritme, berichten en opvolging overzichtelijk bij elkaar.`
     : "Een rustige maar complete cockpit voor je dagritme, planning, opvolging en lesfocus. Ook zonder geplande les zie je hier direct wat aandacht vraagt.";
+  const focusValue = upcomingFocus?.title ?? "Rustige agenda";
+  const focusHint = upcomingFocus?.meta ?? "Geen les of afspraak direct ingepland.";
+  const focusDetail = upcomingFocus
+    ? `${upcomingFocus.eyebrow} staat als eerstvolgende focus voor je klaar.`
+    : "Gebruik de weekplanning om vooruit te werken of rond open taken en berichten af.";
 
   return (
     <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
@@ -321,11 +331,9 @@ export default async function InstructorIndexPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <SurfaceStat
               label="Volgende focus"
-              value={upcomingFocus?.title ?? "Geen directe afspraak"}
-              hint={
-                upcomingFocus?.meta ??
-                "Je agenda is leeg. Kijk vooruit of werk taken en berichten weg."
-              }
+              value={focusValue}
+              hint={focusHint}
+              detail={focusDetail}
             />
             <SurfaceStat
               label="Ongelezen meldingen"
@@ -335,11 +343,17 @@ export default async function InstructorIndexPage() {
                   ? "Er staan nog updates voor je klaar in je notificaties."
                   : "Je inbox is bijgewerkt en vraagt nu niets van je."
               }
+              detail={
+                unreadCount > 0
+                  ? "Loop ze even na zodat je cockpit weer helemaal schoon is."
+                  : "Je communicatie is op dit moment rustig en bijgewerkt."
+              }
             />
             <SurfaceStat
               label="Komende 7 dagen"
               value={String(weekLessons.length)}
               hint={`${weekStudentCount} leerlingen ingepland in je komende week.`}
+              detail="Handig om je beschikbaarheid en lesfocus voor de rest van de week bij te sturen."
             />
           </div>
         </PWACard>
