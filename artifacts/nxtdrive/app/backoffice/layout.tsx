@@ -1,6 +1,12 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getTheme } from "@/lib/theme";
-import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBranding,
+  resolveBrandAppName,
+  resolveBrandDescription,
+  resolveLogoUrl,
+  resolveThemeColor,
+} from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { BackofficeSidebar } from "@/components/backoffice/sidebar";
 import { BackofficeTopbar } from "@/components/backoffice/topbar";
@@ -8,13 +14,12 @@ import { DashboardShell } from "@/components/backoffice/dashboard-shell";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import type { Metadata, Viewport } from "next";
 import type { MemberRole } from "@/lib/types";
 import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
-// All roles that may enter the backoffice. tenant_admin has full access;
-// other roles have scoped access enforced at the individual page level.
 const BACKOFFICE_ROLES: MemberRole[] = [
   "tenant_admin",
   "instructor",
@@ -35,6 +40,42 @@ const ROLE_LABELS: Record<string, string> = {
   franchise_admin: "Franchise Admin",
 };
 
+async function loadBackofficeBrandingContext() {
+  const { tenant } = await requireActiveTenant(BACKOFFICE_ROLES);
+  const branding = await getTenantBranding(tenant.id);
+
+  return {
+    tenant,
+    branding,
+    logoUrl: resolveLogoUrl(tenant, branding),
+    brandTitle: resolveBrandAppName(tenant, "backoffice"),
+    brandDescription: resolveBrandDescription(tenant, "backoffice"),
+    themeColor: resolveThemeColor(tenant, branding),
+  };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brandingContext = await loadBackofficeBrandingContext();
+
+  return {
+    title: brandingContext.brandTitle,
+    description: brandingContext.brandDescription,
+    manifest: "/manifest.webmanifest",
+    applicationName: brandingContext.brandTitle,
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const brandingContext = await loadBackofficeBrandingContext();
+
+  return {
+    themeColor: brandingContext.themeColor,
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  };
+}
+
 export default async function BackofficeLayout({
   children,
 }: {
@@ -51,8 +92,6 @@ export default async function BackofficeLayout({
     .join(" + ");
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
-  // Determine if this tenant is a franchisegever (Elite plan + has franchisees).
-  // We do a lightweight count check with service role.
   let hasFranchise = false;
   if (
     tenantHasFeature(tenant, "franchise_as_franchisegever") &&

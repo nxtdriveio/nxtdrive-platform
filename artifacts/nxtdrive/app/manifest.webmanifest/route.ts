@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import {
   getBrandingContextByHost,
-  resolveBrandAppName,
   resolveBrandDescription,
 } from "@/lib/branding";
 
@@ -10,24 +9,18 @@ export async function GET() {
   const headerStore = await headers();
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
   const brandingContext = await getBrandingContextByHost(host);
-  const appName = resolveBrandAppName(brandingContext.tenant, "student");
 
   const manifest = {
-    id: "/student",
-    name: appName,
-    short_name: brandingContext.whiteLabelActive
-      ? brandingContext.brandName
-      : "Leerling",
-    description: resolveBrandDescription(brandingContext.tenant, "student"),
+    id: "/",
+    name: brandingContext.brandName,
+    short_name: brandingContext.brandName,
+    description: resolveBrandDescription(brandingContext.tenant, "platform"),
     lang: "nl",
-    dir: "ltr",
-    start_url: "/student",
-    scope: "/student",
+    start_url: "/",
+    scope: "/",
     display: "standalone",
-    orientation: "portrait",
-    background_color: "#0F172A",
+    background_color: "#08080f",
     theme_color: brandingContext.themeColor,
-    categories: ["education", "productivity"],
     icons: [
       {
         src: "/icons/student-192.png",
@@ -52,22 +45,6 @@ export async function GET() {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
-      },
-    ],
-    screenshots: [
-      {
-        src: "/screenshots/student-1.png",
-        sizes: "1080x1920",
-        type: "image/png",
-        form_factor: "narrow",
-        label: "Home — volgende les, tegoed en voortgang",
-      },
-      {
-        src: "/screenshots/student-2.png",
-        sizes: "1080x1920",
-        type: "image/png",
-        form_factor: "narrow",
-        label: "Voortgang en lessen",
       },
     ],
   };

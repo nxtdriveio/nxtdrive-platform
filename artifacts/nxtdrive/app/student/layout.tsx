@@ -3,7 +3,13 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
-import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBranding,
+  resolveBrandAppName,
+  resolveBrandDescription,
+  resolveLogoUrl,
+  resolveThemeColor,
+} from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
@@ -16,69 +22,71 @@ import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
 
-// Per-app PWA metadata (Task #177): the Leerling app links its OWN manifest
-// (not the generic /manifest.webmanifest) and apple-touch-icon, so installs on
-// iOS/Android use the student branding + portrait orientation. Overrides the
-// root layout's manifest/themeColor for everything under /student.
-export const metadata: Metadata = {
-  title: "NXTDRIVE Leerling",
-  manifest: "/student/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Leerling",
-    // iOS ignores the manifest for the launch splash and shows a blank white
-    // screen on "Add to Home Screen" unless apple-touch-startup-image link tags
-    // exist per device size. We ship solid navy (#0F172A) SVG splashes so the
-    // brand experience holds without generating per-device PNG artwork. Covers
-    // the highest-traffic modern iPhones; other devices fall back to the manifest
-    // background_color, which is also #0F172A.
-    startupImage: [
-      {
-        url: "/splash/ios-splash-1170x2532.svg",
-        media:
-          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
-      },
-      {
-        url: "/splash/ios-splash-828x1792.svg",
-        media:
-          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
-      },
-    ],
-  },
-  icons: { apple: "/icons/student-apple-180.png" },
-};
+async function loadStudentBrandingContext() {
+  const { tenant } = await requireActiveTenant(["student", "parent"]);
+  const branding = await getTenantBranding(tenant.id);
 
-export const viewport: Viewport = {
-  themeColor: "#0F172A",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
+  return {
+    tenant,
+    branding,
+    brandTitle: resolveBrandAppName(tenant, "student"),
+    brandDescription: resolveBrandDescription(tenant, "student"),
+    themeColor: resolveThemeColor(tenant, branding, "#0F172A"),
+  };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brandingContext = await loadStudentBrandingContext();
+
+  return {
+    title: brandingContext.brandTitle,
+    description: brandingContext.brandDescription,
+    manifest: "/student/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: brandingContext.brandTitle,
+      startupImage: [
+        {
+          url: "/splash/ios-splash-1170x2532.svg",
+          media:
+            "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+        },
+        {
+          url: "/splash/ios-splash-828x1792.svg",
+          media:
+            "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+        },
+      ],
+    },
+    icons: { apple: "/icons/student-apple-180.png" },
+    applicationName: brandingContext.brandTitle,
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const brandingContext = await loadStudentBrandingContext();
+
+  return {
+    themeColor: brandingContext.themeColor,
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  };
+}
 
 export default async function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Parents are admitted alongside students so a student+parent dual-role user
-  // keeps using the student PWA for their OWN student data. RLS on students /
-  // lessons / credit_ledger restricts a parent to rows linked via
-  // `student_guardians`, so they cannot see other tenant data here.
   const { user, tenant, roles } = await requireActiveTenant([
     "student",
     "parent",
   ]);
 
-  // The student PWA is NOT governed by the tenant's per-section parent-portal
-  // visibility toggles, so a non-student must never render it directly — that
-  // would let a parent bypass a section the tenant disabled in /ouder. Anyone
-  // admitted here without the student role (a pure parent, or a parent who also
-  // holds a staff role) is redirected to their proper role home (a pure parent
-  // → /ouder). A student or student+parent dual-role user stays.
   if (!roles.includes("student")) redirect(roleHomePath(user, tenant.id));
 
-  // Only students (incl. student+parent) reach here.
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
 
   const branding = await getTenantBranding(tenant.id);
