@@ -71,6 +71,7 @@ export function Board({
   branches = [],
   canUseSharedBranch = true,
   defaultBranchId = null,
+  layout = "scroll",
 }: {
   boardId: string;
   columns: TaskColumn[];
@@ -82,6 +83,7 @@ export function Board({
   branches?: BranchOption[];
   canUseSharedBranch?: boolean;
   defaultBranchId?: string | null;
+  layout?: "scroll" | "grid";
 }) {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>(() =>
@@ -93,10 +95,6 @@ export function Board({
   const boardSnapshot = useRef<BoardState | null>(null);
   const [, startTransition] = useTransition();
 
-  // Reconcile local state with server data after board switches and after
-  // server actions revalidate the route (create/edit/archive/move). Client
-  // state survives App Router navigations, so without this the board would
-  // show stale columns/cards.
   const serverSignature = useMemo(
     () =>
       JSON.stringify({
@@ -123,7 +121,6 @@ export function Board({
     }
   }, [serverSignature, columns, initialTasks]);
 
-  // Dialog state: create (with columnId) or edit (with task).
   const [dialog, setDialog] = useState<
     | { mode: "create"; columnId: string }
     | { mode: "edit"; task: Task }
@@ -152,7 +149,6 @@ export function Board({
   }
 
   function resolveColumn(overId: string): string | undefined {
-    // `overId` is either a column id (droppable) or a task id.
     if (board[overId]) return overId;
     return columnOf(overId);
   }
@@ -214,14 +210,9 @@ export function Board({
     const items = board[overColId]!;
     const isColumnDrop = Boolean(board[overIdStr]);
 
-    // `move_task`'s p_position is the index among the OTHER cards in the
-    // destination column. Since the active card is the only one excluded, that
-    // index equals the active card's final index within its column.
     let finalIndex: number;
 
     if (origin === overColId) {
-      // Same-column reorder: handleDragOver leaves these untouched, so apply
-      // the move here.
       const oldIndex = items.findIndex((t) => t.id === activeIdStr);
       let target = isColumnDrop
         ? items.length - 1
@@ -236,8 +227,6 @@ export function Board({
         }));
       }
     } else {
-      // Cross-column: handleDragOver already inserted the card at its visual
-      // position; persist that index.
       const currentIndex = items.findIndex((t) => t.id === activeIdStr);
       finalIndex = currentIndex >= 0 ? currentIndex : Math.max(0, items.length - 1);
     }
@@ -251,7 +240,6 @@ export function Board({
       });
       if (!result.ok) {
         setMoveError(result.error ?? "Verplaatsen mislukt.");
-        // Restore the pre-drag order, then reconcile with server truth.
         if (boardSnapshot.current) setBoard(boardSnapshot.current);
         router.refresh();
       }
@@ -261,9 +249,7 @@ export function Board({
 
   return (
     <>
-      {!canManage ? (
-        <ReadOnlyScopeNotice className="mb-3" />
-      ) : null}
+      {!canManage ? <ReadOnlyScopeNotice className="mb-3" /> : null}
       {moveError ? (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-md bg-danger/10 px-3 py-2 text-xs text-danger">
           <span>{moveError}</span>
@@ -283,7 +269,13 @@ export function Board({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div
+          className={cn(
+            layout === "grid"
+              ? "grid gap-4 pb-2 md:grid-cols-2 2xl:grid-cols-4"
+              : "flex gap-4 overflow-x-auto pb-4",
+          )}
+        >
           {columns.map((column) => (
             <Column
               key={column.id}
@@ -292,6 +284,7 @@ export function Board({
               memberMap={memberMap}
               canCreate={canCreate && canManage}
               canManage={canManage}
+              layout={layout}
               onAddCard={() => setDialog({ mode: "create", columnId: column.id })}
               onCardClick={(task) => {
                 if (canManage) setDialog({ mode: "edit", task });
@@ -301,9 +294,7 @@ export function Board({
         </div>
 
         <DragOverlay>
-          {activeTask ? (
-            <TaskCard task={activeTask} memberMap={memberMap} overlay />
-          ) : null}
+          {activeTask ? <TaskCard task={activeTask} memberMap={memberMap} overlay /> : null}
         </DragOverlay>
       </DndContext>
 
@@ -314,9 +305,7 @@ export function Board({
           mode={dialog.mode}
           columnId={dialog.mode === "create" ? dialog.columnId : undefined}
           task={dialog.mode === "edit" ? dialog.task : undefined}
-          links={
-            dialog.mode === "edit" ? (links?.[dialog.task.id] ?? []) : undefined
-          }
+          links={dialog.mode === "edit" ? (links?.[dialog.task.id] ?? []) : undefined}
           branches={branches}
           canUseSharedBranch={canUseSharedBranch}
           defaultBranchId={defaultBranchId}
@@ -333,6 +322,7 @@ function Column({
   memberMap,
   canCreate,
   canManage,
+  layout,
   onAddCard,
   onCardClick,
 }: {
@@ -341,26 +331,27 @@ function Column({
   memberMap: Map<string, string>;
   canCreate: boolean;
   canManage: boolean;
+  layout: "scroll" | "grid";
   onAddCard: () => void;
   onCardClick: (task: Task) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
-  const overLimit =
-    column.wip_limit != null && tasks.length > column.wip_limit;
+  const overLimit = column.wip_limit != null && tasks.length > column.wip_limit;
 
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-lg border border-border bg-muted/30">
+    <div
+      className={cn(
+        "flex flex-col rounded-lg border border-border bg-muted/30",
+        layout === "grid" ? "min-w-0" : "w-72 shrink-0",
+      )}
+    >
       <div className="flex items-center justify-between gap-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {column.name}
-          </span>
+          <span className="text-sm font-medium text-foreground">{column.name}</span>
           <span
             className={cn(
               "rounded-full px-1.5 text-xs",
-              overLimit
-                ? "bg-danger/15 text-danger"
-                : "bg-muted text-muted-foreground",
+              overLimit ? "bg-danger/15 text-danger" : "bg-muted text-muted-foreground",
             )}
           >
             {tasks.length}
@@ -475,18 +466,14 @@ function TaskCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium leading-snug text-foreground">
-          {task.title}
-        </p>
+        <p className="text-sm font-medium leading-snug text-foreground">{task.title}</p>
         <Badge variant={TASK_PRIORITY_VARIANT[task.priority]}>
           {TASK_PRIORITY_LABEL[task.priority]}
         </Badge>
       </div>
 
       {task.description ? (
-        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-          {task.description}
-        </p>
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
       ) : null}
 
       {(task.due_date || assigneeName) && (
