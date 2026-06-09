@@ -4,6 +4,7 @@ import {
   Building2,
   Users,
   BookOpen,
+  BookOpenCheck,
   TrendingUp,
   ExternalLink,
   MapPin,
@@ -175,6 +176,11 @@ export default async function FranchiseDashboardPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link href="/backoffice/franchise/playbook">
+            <Button variant="outline" size="sm">
+              Playbook
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/aandacht">
             <Button variant="outline" size="sm">
               Aandacht
@@ -229,6 +235,16 @@ export default async function FranchiseDashboardPage() {
             <CardTitle className="text-base">Besturingsroutes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <Link
+              href="/backoffice/franchise/playbook"
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span>
+                <span className="block font-medium text-foreground">Franchise playbook</span>
+                <span className="block text-xs">Gebruik één bestuurlijke ingang voor governance, template-uitrol en netwerk-readiness.</span>
+              </span>
+              <BookOpenCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
             <Link
               href="/backoffice/franchise/aandacht"
               className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"

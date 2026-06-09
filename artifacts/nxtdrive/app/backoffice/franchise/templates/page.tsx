@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { BookOpenCheck, Network, Package, ShieldCheck } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadFranchiseTemplates } from "@/lib/franchise/templates";
@@ -8,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
 import { formatTegoed } from "@/lib/students/types";
 import {
   createFranchiseTemplate,
@@ -45,7 +45,6 @@ export default async function FranchiseTemplatesPage({
 
   const service = createServiceRoleClient();
 
-  // Only franchisegevers (no parent_tenant_id) can manage templates.
   const { data: tenantRow } = await service
     .from("tenants")
     .select("id, parent_tenant_id")
@@ -56,7 +55,6 @@ export default async function FranchiseTemplatesPage({
     notFound();
   }
 
-  // Load franchisee tenants for the "push" action.
   const { data: franchisees } = await service
     .from("tenants")
     .select("id, name, slug")
@@ -65,27 +63,43 @@ export default async function FranchiseTemplatesPage({
 
   const templates = await loadFranchiseTemplates(tenant.id);
 
+  const activeTemplates = templates.filter((template) => template.is_active);
+  const activatedFranchiseeIds = new Set(
+    activeTemplates.flatMap((template) =>
+      template.activations.map((activation) => activation.franchisee_tenant_id),
+    ),
+  );
+
   const hasError = !!sp.error;
   const errorMsg = hasError ? decodeURIComponent(sp.error ?? "") : null;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Franchise Templates</h1>
           <p className="text-sm text-muted-foreground">
             Beheer pakketsjablonen en stuur ze door naar franchisees
           </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="primary">{activeTemplates.length} actief</Badge>
+            <Badge variant="outline">{activatedFranchiseeIds.size} franchisees geactiveerd</Badge>
+            <Badge variant="outline">Read-only distributie, lokale activatie</Badge>
+          </div>
         </div>
-        <Link href="/backoffice/franchise">
-          <Button variant="outline" size="sm">
-            ← Dashboard
-          </Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/playbook">
+            <Button variant="outline" size="sm">Playbook</Button>
+          </Link>
+          <Link href="/backoffice/franchise/aandacht">
+            <Button variant="outline" size="sm">Aandacht</Button>
+          </Link>
+          <Link href="/backoffice/franchise">
+            <Button variant="outline" size="sm">← Dashboard</Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Feedback */}
       {sp.created && (
         <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
           Template aangemaakt.
@@ -107,8 +121,66 @@ export default async function FranchiseTemplatesPage({
         </div>
       )}
 
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div>
+              <CardTitle>Actieve templates</CardTitle>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{activeTemplates.length}</p>
+            </div>
+            <span className="rounded-full bg-primary-soft p-2 text-primary">
+              <Package className="h-5 w-5" aria-hidden />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Standaardpakketten die nu franchisebreed uit te rollen zijn.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div>
+              <CardTitle>Adoptie</CardTitle>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{activatedFranchiseeIds.size}/{franchisees?.length ?? 0}</p>
+            </div>
+            <span className="rounded-full bg-primary-soft p-2 text-primary">
+              <Network className="h-5 w-5" aria-hidden />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Hoeveel franchisees al minimaal één template ontvangen hebben.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div>
+              <CardTitle>Playbook route</CardTitle>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Governance</p>
+            </div>
+            <span className="rounded-full bg-primary-soft p-2 text-primary">
+              <BookOpenCheck className="h-5 w-5" aria-hidden />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Gebruik de playbook-pagina om template-adoptie te combineren met aandacht en planning.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div>
+              <CardTitle>Governance</CardTitle>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Read-only</p>
+            </div>
+            <span className="rounded-full bg-primary-soft p-2 text-primary">
+              <ShieldCheck className="h-5 w-5" aria-hidden />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Doorsturen maakt zichtbaar voor franchisees; lokale activatie blijft hun eigen actie.</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Template list */}
         <div className="space-y-4">
           <h2 className="text-sm font-semibold text-foreground">
             Bestaande templates ({templates.length})
@@ -120,8 +192,8 @@ export default async function FranchiseTemplatesPage({
           ) : (
             <div className="space-y-3">
               {templates.map((t) => {
-                const credits = (t.config.credits_total ?? 0);
-                const priceCents = (t.config.price_cents ?? 0);
+                const credits = t.config.credits_total ?? 0;
+                const priceCents = t.config.price_cents ?? 0;
                 const validDays = t.config.valid_days;
                 const activationCount = t.activations.length;
 
@@ -146,7 +218,6 @@ export default async function FranchiseTemplatesPage({
                         </div>
 
                         <div className="flex shrink-0 flex-col gap-1.5">
-                          {/* Toggle active */}
                           <form action={updateFranchiseTemplate}>
                             <input type="hidden" name="template_id" value={t.id} />
                             <input type="hidden" name="is_active" value={t.is_active ? "false" : "true"} />
@@ -157,7 +228,6 @@ export default async function FranchiseTemplatesPage({
                         </div>
                       </div>
 
-                      {/* Push to franchisee */}
                       {t.is_active && (franchisees?.length ?? 0) > 0 && (
                         <form action={pushTemplateToFranchisee} className="mt-3 flex gap-2">
                           <input type="hidden" name="template_id" value={t.id} />
@@ -198,7 +268,6 @@ export default async function FranchiseTemplatesPage({
           )}
         </div>
 
-        {/* Create template form */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Nieuw pakket-sjabloon</CardTitle>
