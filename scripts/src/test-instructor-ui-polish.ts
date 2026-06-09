@@ -34,6 +34,14 @@ assert(
   !topbar.includes('label: "Meldingen"'),
   "desktop instructor topbar should not duplicate notifications as a nav item",
 );
+assert(
+  topbar.includes('label: "Leerlingenlijst"'),
+  "desktop instructor topbar should surface the students list directly",
+);
+assert(
+  topbar.includes("ArrowLeft") && topbar.includes("Home"),
+  "desktop instructor topbar should expose back/home navigation",
+);
 
 const sidebar = read(
   "artifacts",
@@ -73,9 +81,15 @@ assert(
 );
 
 assert(
-  topbar.includes("<ThemeToggle current={theme}") &&
-    sidebar.includes("<ThemeToggle current={theme}"),
+  topbar.includes("ThemeToggle") &&
+    topbar.includes("current={theme}") &&
+    sidebar.includes("ThemeToggle") &&
+    sidebar.includes("current={theme}"),
   "instructor shell should expose a theme toggle on desktop and mobile",
+);
+assert(
+  sidebar.includes("ArrowLeft") && sidebar.includes("Home"),
+  "mobile instructor header should expose back/home navigation",
 );
 
 const page = read("artifacts", "nxtdrive", "app", "instructor", "page.tsx");
