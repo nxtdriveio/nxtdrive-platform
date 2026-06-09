@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Network,
   CalendarDays,
+  AlertTriangle,
 } from "lucide-react";
 import { loadFranchiseOverview } from "@/lib/franchise/overview";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
@@ -174,6 +175,11 @@ export default async function FranchiseDashboardPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link href="/backoffice/franchise/aandacht">
+            <Button variant="outline" size="sm">
+              Aandacht
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/prestaties">
             <Button variant="outline" size="sm">
               Prestaties
@@ -224,6 +230,16 @@ export default async function FranchiseDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <Link
+              href="/backoffice/franchise/aandacht"
+              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span>
+                <span className="block font-medium text-foreground">Franchise aandacht</span>
+                <span className="block text-xs">Prioriteer opvolging, coachingsroutes en lokale vervolgstappen per franchisee.</span>
+              </span>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
+            <Link
               href="/backoffice/franchise/prestaties"
               className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
             >
@@ -242,16 +258,6 @@ export default async function FranchiseDashboardPage() {
                 <span className="block text-xs">Lees over alle franchisees heen waar lesdruk of leegte ontstaat.</span>
               </span>
               <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
-            <Link
-              href="/backoffice/franchise/vergelijking"
-              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
-            >
-              <span>
-                <span className="block font-medium text-foreground">Vergelijking</span>
-                <span className="block text-xs">Benchmark franchisees op omzet, conversie, bezetting en kwaliteit.</span>
-              </span>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" aria-hidden />
             </Link>
             <div className="rounded-lg border border-dashed border-border px-3 py-3">
               <div className="flex items-center gap-2 text-foreground">
