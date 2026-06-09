@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
+import { StudentsBranchFilter } from "@/components/students/StudentsBranchFilter";
 import { listBranches } from "@/lib/branches/service";
 import { STUDENT_BACKOFFICE_READ_ROLES } from "@/lib/students/access";
 
@@ -118,21 +119,10 @@ export default async function StudentsPage({
         </div>
         <div className="flex items-center gap-2">
           {branchOptions.length > 0 ? (
-            <form method="get" action="/backoffice/leerlingen">
-              <select
-                name="branch"
-                defaultValue={selectedBranchId ?? ""}
-                onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
-                className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">Alle toegestane vestigingen</option>
-                {branchOptions.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </form>
+            <StudentsBranchFilter
+              branchOptions={branchOptions}
+              selectedBranchId={selectedBranchId}
+            />
           ) : null}
           {canCreateStudents ? <AddStudentDialog /> : null}
         </div>
