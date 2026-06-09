@@ -13,6 +13,7 @@ import {
   MessageCircle,
   MoreHorizontal,
 } from "lucide-react";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Avatar } from "@/components/ui/avatar";
 import { InstructorDayList } from "@/components/instructor/DayList";
@@ -151,6 +152,7 @@ export function InstructorSidebar({
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <NxtdriveLogo className="text-sm font-semibold" logoUrl={logoUrl} brandName={tenantName} />
           <div className="flex items-center gap-1">
+            <RouteInfoBubble scope="instructor" />
             {notifications}
             <form method="post" action="/auth/logout">
               <button

@@ -15,6 +15,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -116,6 +117,7 @@ export function InstructorTopbar({
           Taken
         </Link>
 
+        <RouteInfoBubble scope="instructor" />
         {notifications}
 
         <DropdownMenu>
