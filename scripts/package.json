@@ -76,6 +76,7 @@
     "test-white-label-foundation": "tsx ./src/test-white-label-foundation.ts",
     "test-management-dashboard-foundation": "tsx ./src/test-management-dashboard-foundation.ts",
     "test-app-polish-foundation": "tsx ./src/test-app-polish-foundation.ts",
+    "test-route-info-bubbles": "tsx ./src/test-route-info-bubbles.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

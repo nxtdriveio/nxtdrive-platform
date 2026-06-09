@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -29,6 +30,7 @@ export function StudentTopBar({
 
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
           {notifications}
+          <RouteInfoBubble scope="student" />
           <Avatar
             name={userLabel}
             className="h-9 w-9 border border-border/60 bg-card/72 text-[11px] shadow-xl shadow-black/10 backdrop-blur-2xl"
