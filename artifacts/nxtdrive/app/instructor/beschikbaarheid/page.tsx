@@ -5,7 +5,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeeklyEditor } from "@/components/availability/WeeklyEditor";
 import { ExceptionsManager } from "@/components/availability/ExceptionsManager";
-import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import {
+  PWACard,
+  PWAKpiGrid,
+  PWAKpiTile,
+  PWAPage,
+  PWAPageHeader,
+} from "@/components/pwa/primitives";
 import {
   loadExceptions,
   loadWeeklyAvailability,
@@ -36,9 +42,10 @@ export default async function InstructorAvailabilityPage({
     loadWeeklyAvailability(supabase, tenant.id, user.id),
     loadExceptions(supabase, tenant.id, user.id),
   ]);
+  const activeWeekdays = new Set(weekly.map((block) => block.weekday)).size;
 
   return (
-    <PWAPage contentClassName="mx-auto max-w-3xl space-y-6">
+    <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
       <PWAPageHeader
         eyebrow="Planning"
         title="Mijn beschikbaarheid"
@@ -55,40 +62,74 @@ export default async function InstructorAvailabilityPage({
         }
       />
 
+      <PWAKpiGrid compact className="lg:grid-cols-3">
+        <PWAKpiTile
+          label="Actieve blokken"
+          value={weekly.length}
+          hint="Terugkerende tijdvakken in je basisweek."
+        />
+        <PWAKpiTile
+          label="Beschikbare dagen"
+          value={activeWeekdays}
+          hint="Dagen waarop je momenteel lesruimte openzet."
+        />
+        <PWAKpiTile
+          label="Uitzonderingen"
+          value={exceptions.length}
+          hint="Vakantie, examenmomenten of extra openingen."
+        />
+      </PWAKpiGrid>
+
       {sp.error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Opslaan mislukt: {sp.error}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Wekelijks schema</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WeeklyEditor
-            initial={weekly}
-            instructorId={user.id}
-            redirectTo={REDIRECT}
-            action={saveWeeklyAvailability}
-          />
-        </CardContent>
-      </Card>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)]">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Wekelijks schema</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WeeklyEditor
+              initial={weekly}
+              instructorId={user.id}
+              redirectTo={REDIRECT}
+              action={saveWeeklyAvailability}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Uitzonderingen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ExceptionsManager
-            exceptions={exceptions}
-            instructorId={user.id}
-            redirectTo={REDIRECT}
-            addAction={addAvailabilityException}
-            deleteAction={deleteAvailabilityException}
-          />
-        </CardContent>
-      </Card>
+        <div className="space-y-5">
+          <PWACard
+            title="Ritme en uitzonderingen"
+            className="bg-card"
+            contentClassName="space-y-2"
+          >
+            <p className="text-sm leading-6 text-muted-foreground">
+              Houd je basisweek links compact en gebruik uitzonderingen alleen
+              voor dagen die afwijken. Zo blijft je planning overzichtelijk en
+              past deze pagina beter in een tabletviewport.
+            </p>
+          </PWACard>
+
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Uitzonderingen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ExceptionsManager
+                exceptions={exceptions}
+                instructorId={user.id}
+                redirectTo={REDIRECT}
+                addAction={addAvailabilityException}
+                deleteAction={deleteAvailabilityException}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </PWAPage>
   );
 }

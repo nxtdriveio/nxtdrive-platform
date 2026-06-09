@@ -23,7 +23,7 @@ export function PWAPage({
         "min-w-0 space-y-4 sm:space-y-5",
         app === "student"
           ? "mx-auto max-w-[29rem]"
-          : "mx-auto max-w-6xl",
+          : "mx-auto w-full max-w-[100rem]",
         className,
       )}
     >

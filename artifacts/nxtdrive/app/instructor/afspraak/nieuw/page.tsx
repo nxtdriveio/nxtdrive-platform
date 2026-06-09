@@ -45,7 +45,7 @@ export default async function NewInstructorAppointmentPage({
   now.setHours(now.getHours() + 1);
 
   return (
-    <PWAPage contentClassName="space-y-6">
+    <PWAPage app="instructor" contentClassName="space-y-6">
       <PWAPageHeader
         eyebrow="Planning"
         title="Nieuwe afspraak"

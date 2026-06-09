@@ -29,7 +29,7 @@ export default async function InstructorThreadPage({
   if (!thread) notFound();
 
   return (
-    <PWAPage contentClassName="space-y-4">
+    <PWAPage app="instructor" contentClassName="space-y-5">
       <PWAPageHeader
         eyebrow="Communicatie"
         title={thread.counterpartName}

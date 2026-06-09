@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarClock, ListTodo, PanelsTopLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -14,7 +15,12 @@ import type {
 } from "@/lib/tasks/types";
 import { resolveTaskLinks } from "@/lib/tasks/links";
 import { Board } from "@/app/backoffice/taken/board";
-import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import {
+  PWAKpiGrid,
+  PWAKpiTile,
+  PWAPage,
+  PWAPageHeader,
+} from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +43,7 @@ export default async function InstructorTakenPage({
 
   if (boards.length === 0) {
     return (
-      <PWAPage contentClassName="space-y-6">
+      <PWAPage app="instructor" contentClassName="space-y-5">
         <Header />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Er zijn nog geen taakborden voor deze rijschool.
@@ -46,8 +52,7 @@ export default async function InstructorTakenPage({
     );
   }
 
-  const selectedBoard =
-    boards.find((b) => b.id === boardParam) ?? boards[0]!;
+  const selectedBoard = boards.find((b) => b.id === boardParam) ?? boards[0]!;
 
   const { data: columnsRaw } = await supabase
     .from("task_columns")
@@ -57,7 +62,6 @@ export default async function InstructorTakenPage({
     .order("sort_order", { ascending: true });
   const columns = (columnsRaw ?? []) as TaskColumn[];
 
-  // Only show tasks assigned to the logged-in instructor.
   const { data: tasksRaw } = await supabase
     .from("tasks")
     .select(
@@ -69,8 +73,14 @@ export default async function InstructorTakenPage({
     .is("archived_at", null)
     .order("position", { ascending: true });
   const tasks = (tasksRaw ?? []) as Task[];
+  const dueSoonCount = tasks.filter((task) => {
+    if (!task.due_date) return false;
+    const due = new Date(task.due_date).getTime();
+    const now = Date.now();
+    const threeDays = 1000 * 60 * 60 * 24 * 3;
+    return due >= now && due <= now + threeDays;
+  }).length;
 
-  // Members list — needed so the Board card dialog can show the assignee name.
   const service = createServiceRoleClient();
   const { data: membershipsRaw } = await service
     .from("memberships")
@@ -88,7 +98,6 @@ export default async function InstructorTakenPage({
     (a.full_name ?? "").localeCompare(b.full_name ?? "", "nl"),
   );
 
-  // Linked entities for the board's cards.
   const taskIds = tasks.map((t) => t.id);
   const { data: linkRowsRaw } = taskIds.length
     ? await service
@@ -105,8 +114,26 @@ export default async function InstructorTakenPage({
   }
 
   return (
-    <PWAPage contentClassName="space-y-6">
+    <PWAPage app="instructor" contentClassName="space-y-5">
       <Header />
+
+      <PWAKpiGrid compact className="lg:grid-cols-3">
+        <PWAKpiTile
+          label="Open taken"
+          value={tasks.length}
+          hint="Alles wat nog bij jou in beweging is."
+        />
+        <PWAKpiTile
+          label="Actieve borden"
+          value={boards.length}
+          hint="Schakel per bord tussen je werkstromen."
+        />
+        <PWAKpiTile
+          label="Binnen 3 dagen"
+          value={dueSoonCount}
+          hint="Taken met een due date die snel aandacht vragen."
+        />
+      </PWAKpiGrid>
 
       <div className="flex flex-wrap items-center gap-2">
         {boards.map((b) => (
@@ -132,6 +159,7 @@ export default async function InstructorTakenPage({
         members={members}
         links={linksByTask}
         canCreate={false}
+        layout="grid"
       />
     </PWAPage>
   );
@@ -144,6 +172,22 @@ function Header() {
       title="Mijn taken"
       description="Taken die aan jou zijn toegewezen. Versleep kaarten om ze te herordenen of naar een andere kolom te verplaatsen."
       align="left"
+      actions={
+        <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+            <PanelsTopLeft className="h-3.5 w-3.5" aria-hidden />
+            Tabletboard
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+            <ListTodo className="h-3.5 w-3.5" aria-hidden />
+            Compacte kolommen
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
+            <CalendarClock className="h-3.5 w-3.5" aria-hidden />
+            Sneller overzicht
+          </span>
+        </div>
+      }
     />
   );
 }
