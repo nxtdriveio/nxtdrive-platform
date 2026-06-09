@@ -173,12 +173,12 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={PackagePlus}
             label="Pakketadvies"
-            href={`/backoffice/leerlingen/${studentId}`}
+            href={`/instructor/leerlingen/${studentId}`}
           />
           <LinkTile
             icon={Wallet}
             label="Tegoed & saldo"
-            href={`/backoffice/leerlingen/${studentId}`}
+            href={`/instructor/leerlingen/${studentId}`}
           />
           <ActionTile
             icon={UserX}
@@ -197,7 +197,7 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={GraduationCap}
             label="Examenstatus"
-            href={`/backoffice/leerlingen/${studentId}`}
+            href={`/instructor/leerlingen/${studentId}`}
           />
           <LinkTile
             icon={ListTodo}
