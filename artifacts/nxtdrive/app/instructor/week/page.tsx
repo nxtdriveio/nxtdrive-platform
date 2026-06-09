@@ -1,17 +1,10 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarPlus, ChevronLeft, Clock3 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  LESSON_IN_PROGRESS_CARD,
-  LESSON_STATUS_LABEL,
-  LESSON_STATUS_VARIANT,
-  type Lesson,
-} from "@/lib/lessons/types";
-import { cn } from "@/lib/utils";
+import type { Lesson } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
 import {
   loadAgendaTrialLessons,
@@ -21,12 +14,8 @@ import {
   loadAgendaAppointments,
   type AgendaAppointmentView,
 } from "@/lib/agenda/appointments";
-import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
-import { AppointmentCard } from "@/components/agenda/appointment-card";
-import { AvailabilityBanner } from "@/components/agenda/availability-banner";
-import { loadFreeSpaceForRange } from "@/lib/availability/service";
-import { dateKey } from "@/lib/availability/compute";
-import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import { cn } from "@/lib/utils";
+import { PWACard, PWAEmptyState, PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +24,19 @@ const dayFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
   month: "short",
 });
+
+const dayLongFmt = new Intl.DateTimeFormat("nl-NL", {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+});
+
 const timeFmt = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const TIME_SLOTS = [6, 7, 8, 9, 10, 11, 12] as const;
 
 function startOfWeek(date: Date): Date {
   const value = new Date(date);
@@ -46,6 +44,51 @@ function startOfWeek(date: Date): Date {
   const day = (value.getDay() + 6) % 7;
   value.setDate(value.getDate() - day);
   return value;
+}
+
+type AgendaItem =
+  | {
+      kind: "lesson";
+      id: string;
+      startsAt: string;
+      href: string;
+      title: string;
+      subtitle: string;
+      badge: string;
+      badgeVariant: "primary" | "info";
+    }
+  | {
+      kind: "trial";
+      id: string;
+      startsAt: string;
+      href: string;
+      title: string;
+      subtitle: string;
+      badge: string;
+      badgeVariant: "warning";
+    }
+  | {
+      kind: "appointment";
+      id: string;
+      startsAt: string;
+      href: string;
+      title: string;
+      subtitle: string;
+      badge: string;
+      badgeVariant: "outline";
+    };
+
+function itemHour(item: AgendaItem): number {
+  return new Date(item.startsAt).getHours();
+}
+
+function withinMorningWindow(item: AgendaItem): boolean {
+  const hour = itemHour(item);
+  return hour >= TIME_SLOTS[0] && hour <= TIME_SLOTS[TIME_SLOTS.length - 1];
+}
+
+function slotLabel(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
 export default async function InstructorWeekPage({
@@ -91,13 +134,6 @@ export default async function InstructorWeekPage({
     instructorId: user.id,
   });
 
-  const freeSpace = await loadFreeSpaceForRange(supabase, {
-    tenantId: tenant.id,
-    from: weekStart,
-    to: weekEnd,
-    instructorId: user.id,
-  });
-
   const studentIds = Array.from(new Set(lessons.map((lesson) => lesson.student_id)));
   const { data: studentsRaw } = studentIds.length
     ? await supabase.from("students").select("id, full_name").in("id", studentIds)
@@ -109,17 +145,11 @@ export default async function InstructorWeekPage({
     ]),
   );
 
-  type AgendaItem =
-    | { kind: "lesson"; starts_at: string; lesson: Lesson }
-    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
-    | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
-
-  const days: { date: Date; items: AgendaItem[] }[] = [];
-  for (let index = 0; index < 7; index += 1) {
+  const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
     date.setDate(weekStart.getDate() + index);
-    days.push({ date, items: [] });
-  }
+    return { date, items: [] as AgendaItem[] };
+  });
 
   const dayIndex = (startsAt: string) =>
     Math.floor((new Date(startsAt).getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -127,124 +157,245 @@ export default async function InstructorWeekPage({
   for (const lesson of lessons) {
     const index = dayIndex(lesson.starts_at);
     if (index >= 0 && index < 7) {
-      days[index]?.items.push({ kind: "lesson", starts_at: lesson.starts_at, lesson });
+      days[index]?.items.push({
+        kind: "lesson",
+        id: lesson.id,
+        startsAt: lesson.starts_at,
+        href: `/instructor/${lesson.id}`,
+        title: studentNames.get(lesson.student_id) ?? "Leerling",
+        subtitle: lesson.location ?? "Leslocatie volgt",
+        badge: "Les",
+        badgeVariant: lesson.status === "in_progress" ? "info" : "primary",
+      });
     }
   }
+
   for (const trial of trials) {
     const index = dayIndex(trial.starts_at);
     if (index >= 0 && index < 7) {
-      days[index]?.items.push({ kind: "trial", starts_at: trial.starts_at, trial });
+      days[index]?.items.push({
+        kind: "trial",
+        id: trial.id,
+        startsAt: trial.starts_at,
+        href: `/backoffice/leads/${trial.lead_id}`,
+        title: trial.lead_name,
+        subtitle: trial.pickup_location ?? "Proefleslocatie volgt",
+        badge: "Proefles",
+        badgeVariant: "warning",
+      });
     }
   }
+
   for (const appointment of appointments) {
     const index = dayIndex(appointment.starts_at);
     if (index >= 0 && index < 7) {
-      days[index]?.items.push({ kind: "appointment", starts_at: appointment.starts_at, appointment });
+      days[index]?.items.push({
+        kind: "appointment",
+        id: appointment.id,
+        startsAt: appointment.starts_at,
+        href: `/instructor/afspraak/${appointment.id}`,
+        title: appointment.student_name ?? appointment.title?.trim() ?? "Agenda-item",
+        subtitle: appointment.location ?? "Blok zonder locatie",
+        badge: "Afspraak",
+        badgeVariant: "outline",
+      });
     }
   }
+
   for (const day of days) {
-    day.items.sort((left, right) => left.starts_at.localeCompare(right.starts_at));
+    day.items.sort((left, right) => left.startsAt.localeCompare(right.startsAt));
   }
 
-  return (
-    <PWAPage app="instructor">
-      <Link
-        href="/instructor"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar vandaag
-      </Link>
+  const totalMorningItems = days.reduce(
+    (sum, day) => sum + day.items.filter(withinMorningWindow).length,
+    0,
+  );
+  const totalLaterItems = days.reduce(
+    (sum, day) => sum + day.items.filter((item) => !withinMorningWindow(item)).length,
+    0,
+  );
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PWAPageHeader
-          title="Weekplanning"
-          subtitle={`${dayFmt.format(weekStart)} - ${dayFmt.format(new Date(weekEnd.getTime() - 1))}`}
-          className="mb-0"
-          align="wide"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/instructor/week?week=${prevWeek.toISOString()}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Vorige
-          </Link>
-          <Link href="/instructor/week" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Deze week
-          </Link>
-          <Link href={`/instructor/week?week=${nextWeek.toISOString()}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Volgende
-          </Link>
-          <Link href="/instructor/afspraak/nieuw" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            + Afspraak
-          </Link>
-        </div>
+  return (
+    <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Weekplanning"
+        description="Een horizontale weekcockpit met ochtendblokken van 06:00 tot 12:00. Alles later op de dag blijft hieronder zichtbaar als vervolg."
+        align="left"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/instructor"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Terug naar vandaag
+            </Link>
+            <Link
+              href="/instructor/afspraak/nieuw"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              Agenda-afspraak
+            </Link>
+            <Link
+              href="/backoffice/agenda/nieuw"
+              className={buttonVariants({ size: "sm" })}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              Les plannen
+            </Link>
+          </div>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/instructor/week?week=${prevWeek.toISOString()}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          Vorige week
+        </Link>
+        <Link href="/instructor/week" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          Deze week
+        </Link>
+        <Link href={`/instructor/week?week=${nextWeek.toISOString()}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          Volgende week
+        </Link>
+        <span className="inline-flex items-center rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground">
+          {dayFmt.format(weekStart)} - {dayFmt.format(new Date(weekEnd.getTime() - 1))}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-7">
-        {days.map((day) => (
-          <Card key={day.date.toISOString()} className="overflow-hidden">
-            <CardContent className="space-y-2 pt-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {dayFmt.format(day.date)}
+      <PWACard
+        title="Ochtendboard"
+        className="bg-card"
+        headerRight={
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{totalMorningItems} blokken tussen 06:00 en 12:00</span>
+            {totalLaterItems > 0 ? <span>{totalLaterItems} later op de dag</span> : null}
+          </div>
+        }
+        contentClassName="space-y-4 px-0 py-0"
+      >
+        <div className="overflow-x-auto">
+          <div className="min-w-[72rem]">
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: "5.25rem repeat(7, minmax(0, 1fr))" }}
+            >
+              <div className="border-b border-border/70 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Tijd
               </div>
-              <AvailabilityBanner intervals={freeSpace.get(dateKey(day.date)) ?? []} />
-              {day.items.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Geen afspraken</div>
+              {days.map((day) => {
+                const morningCount = day.items.filter(withinMorningWindow).length;
+                return (
+                  <div
+                    key={day.date.toISOString()}
+                    className="border-b border-l border-border/70 px-3 py-3"
+                  >
+                    <p className="text-sm font-semibold text-foreground">
+                      {dayFmt.format(day.date)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {dayLongFmt.format(day.date)}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {morningCount === 0 ? "Rustige ochtend" : `${morningCount} items in ochtend`}
+                    </p>
+                  </div>
+                );
+              })}
+
+              {TIME_SLOTS.map((hour) => (
+                <div key={hour} className="contents">
+                  <div className="flex min-h-28 items-start border-b border-border/70 px-3 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Clock3 className="h-3.5 w-3.5" aria-hidden />
+                      {slotLabel(hour)}
+                    </span>
+                  </div>
+                  {days.map((day) => {
+                    const slotItems = day.items.filter((item) => itemHour(item) === hour);
+                    return (
+                      <div
+                        key={`${day.date.toISOString()}-${hour}`}
+                        className="min-h-28 border-b border-l border-border/70 px-2 py-2"
+                      >
+                        {slotItems.length === 0 ? (
+                          <div className="h-full rounded-xl border border-dashed border-border/70 bg-background/35" />
+                        ) : (
+                          <div className="space-y-2">
+                            {slotItems.map((item) => (
+                              <Link
+                                key={item.id}
+                                href={item.href}
+                                className="block rounded-2xl border border-border/80 bg-background px-3 py-2.5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {item.title}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      {timeFmt.format(new Date(item.startsAt))}
+                                    </p>
+                                  </div>
+                                  <Badge variant={item.badgeVariant}>{item.badge}</Badge>
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                                  {item.subtitle}
+                                </p>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </PWACard>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        {days.map((day) => {
+          const laterItems = day.items.filter((item) => !withinMorningWindow(item));
+          return (
+            <PWACard
+              key={`later-${day.date.toISOString()}`}
+              title={`Later op ${dayFmt.format(day.date)}`}
+              className="bg-card"
+              contentClassName="space-y-3"
+            >
+              {laterItems.length === 0 ? (
+                <PWAEmptyState
+                  message="Na 12:00 staat hier voor deze dag nog niets extra's ingepland."
+                  className="min-h-[7rem] p-4"
+                />
               ) : (
-                <ul className="space-y-1.5">
-                  {day.items.map((item) =>
-                    item.kind === "lesson" ? (
-                      <li key={`lesson-${item.lesson.id}`}>
-                        <Link
-                          href={`/instructor/${item.lesson.id}`}
-                          className={cn(
-                            "block rounded-md border px-2 py-1.5 text-xs transition-colors",
-                            item.lesson.status === "in_progress"
-                              ? LESSON_IN_PROGRESS_CARD
-                              : "border-border bg-card hover:border-primary",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-medium text-foreground">
-                              {timeFmt.format(new Date(item.lesson.starts_at))}
-                            </span>
-                            <Badge variant={LESSON_STATUS_VARIANT[item.lesson.status]}>
-                              {LESSON_STATUS_LABEL[item.lesson.status]}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 truncate text-muted-foreground">
-                            {studentNames.get(item.lesson.student_id) ?? "Leerling"}
-                          </div>
-                        </Link>
-                      </li>
-                    ) : item.kind === "trial" ? (
-                      <li key={`trial-${item.trial.id}`}>
-                        <TrialLessonCard
-                          leadId={item.trial.lead_id}
-                          leadName={item.trial.lead_name}
-                          startsAt={item.trial.starts_at}
-                          status={item.trial.status}
-                        />
-                      </li>
-                    ) : (
-                      <li key={`appointment-${item.appointment.id}`}>
-                        <AppointmentCard
-                          id={item.appointment.id}
-                          type={item.appointment.type}
-                          startsAt={item.appointment.starts_at}
-                          endsAt={item.appointment.ends_at}
-                          title={item.appointment.title}
-                          location={item.appointment.location}
-                          studentName={item.appointment.student_name}
-                          href={`/instructor/afspraak/${item.appointment.id}`}
-                        />
-                      </li>
-                    ),
-                  )}
-                </ul>
+                <div className="space-y-2">
+                  {laterItems.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className={cn(
+                        "flex items-start justify-between gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3 transition hover:border-primary/40 hover:shadow-sm",
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {timeFmt.format(new Date(item.startsAt))} · {item.subtitle}
+                        </p>
+                      </div>
+                      <Badge variant={item.badgeVariant}>{item.badge}</Badge>
+                    </Link>
+                  ))}
+                </div>
               )}
-            </CardContent>
-          </Card>
-        ))}
+            </PWACard>
+          );
+        })}
       </div>
     </PWAPage>
   );

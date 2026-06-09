@@ -67,16 +67,19 @@ export default async function InstructorAvailabilityPage({
           label="Actieve blokken"
           value={weekly.length}
           hint="Terugkerende tijdvakken in je basisweek."
+          info="Alle wekelijkse beschikbaarheidsblokken die standaard terugkomen in jouw agenda."
         />
         <PWAKpiTile
           label="Beschikbare dagen"
           value={activeWeekdays}
           hint="Dagen waarop je momenteel lesruimte openzet."
+          info="Aantal weekdagen waarop je nu één of meer lesvensters beschikbaar hebt gemaakt."
         />
         <PWAKpiTile
           label="Uitzonderingen"
           value={exceptions.length}
           hint="Vakantie, examenmomenten of extra openingen."
+          info="Eenmalige afwijkingen op je basisweek, zoals vakantie, losse openingen of geblokkeerde momenten."
         />
       </PWAKpiGrid>
 

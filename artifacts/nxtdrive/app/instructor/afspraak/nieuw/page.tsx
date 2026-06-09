@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarPlus2, ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { buttonVariants } from "@/components/ui/button";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { createAppointment } from "@/lib/agenda/actions";
 import type { Student } from "@/lib/students/types";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -48,19 +50,47 @@ export default async function NewInstructorAppointmentPage({
     <PWAPage app="instructor" contentClassName="space-y-6">
       <PWAPageHeader
         eyebrow="Planning"
-        title="Nieuwe afspraak"
-        description="Plan een examen, tussentijdse toets, theoriebegeleiding of een ander blok dat tijd bezet."
+        title="Nieuwe agenda-afspraak"
+        description="Gebruik dit scherm voor examens, tussentijdse toetsen, theoriebegeleiding en andere agenda-items of blokkades. Reguliere lessen plan je via de lesplanner."
         align="left"
         actions={
-          <Link
-            href="/instructor/week"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-            Terug naar weekplanning
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/instructor/week"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Terug naar weekplanning
+            </Link>
+            <Link
+              href="/backoffice/agenda/nieuw"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <CalendarPlus2 className="h-4 w-4" aria-hidden />
+              Les plannen
+            </Link>
+          </div>
         }
       />
+
+      <Card className="border-primary/20 bg-primary-soft/35">
+        <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              Reguliere les nodig?
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Een gewone rijles kies je niet in deze lijst, omdat dit scherm alleen agenda-afspraken en tijdsblokken beheert. Open daarvoor direct de lesplanner.
+            </p>
+          </div>
+          <Link
+            href="/backoffice/agenda/nieuw"
+            className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
+          >
+            Open lesplanner
+          </Link>
+        </CardContent>
+      </Card>
 
       {sp.error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
