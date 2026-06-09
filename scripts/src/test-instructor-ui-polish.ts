@@ -163,4 +163,45 @@ assert(
   "settings should now use the instructor shell and summary tiles",
 );
 
+const studentsPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "leerlingen",
+  "page.tsx",
+);
+assert(
+  studentsPage.includes("Open leerlingdossier") &&
+    studentsPage.includes("2xl:grid-cols-3"),
+  "students should use richer responsive cards instead of a bare table-only view",
+);
+
+const messagesPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "berichten",
+  "page.tsx",
+);
+assert(
+  messagesPage.includes("Preview") &&
+    messagesPage.includes("xl:grid-cols-[minmax(19rem,0.88fr)_minmax(0,1.12fr)]"),
+  "messages should provide a list and preview split view on wide screens",
+);
+
+const tasksPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "taken",
+  "page.tsx",
+);
+assert(
+  tasksPage.includes('layout="grid"') && tasksPage.includes("Binnen 3 dagen"),
+  "tasks should use the denser tablet-first board layout and summary tiles",
+);
+
 console.log("test-instructor-ui-polish: ok");
