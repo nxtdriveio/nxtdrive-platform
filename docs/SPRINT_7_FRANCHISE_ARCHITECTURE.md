@@ -62,8 +62,36 @@ hebben.
 - Franchise-aandacht bepaalt geen automatische cross-tenant mutaties.
 - Planning, kwaliteit, marketing en coaching blijven aparte opvolgroutes binnen dezelfde franchise-governance.
 
-## Volgende logische stappen binnen Sprint 7
+# Sprint 7D - Franchise Governance Wrap-up
 
-- Eventuele read-only drill-downs voor agenda, capaciteit en KPI-trends verder uitdiepen.
-- Franchise-coaching, leadverdeling en escalaties later verbinden aan expliciete workflows.
-- Franchise-specifieke dashboards later combineren met centrale leadverdeling en coachingflows.
+Sprint 7D rondt de franchise-architectuur af met één bestuurlijke ingang boven
+op aandacht, prestaties, planning en templates.
+
+## Wat deze slice toevoegt
+
+- Nieuwe pagina `/backoffice/franchise/playbook` als governance- en rolloutcockpit.
+- Gedeelde governance-loader die template-adoptie, high-priority signalen,
+  planningsgaten en vestigingsbasis samenvoegt.
+- Dashboard, sidebar en templatebeheer verwijzen nu consistent naar één
+  franchise-playbook in plaats van losse cockpit-eindpunten.
+- Templatebeheer toont nu ook adoptie- en governance-context zodat commerciële
+  standaardisatie binnen dezelfde franchisecanon blijft vallen.
+
+## Canon voor 7D
+
+- Franchise-playbook is een read-only stuurlaag; het activeert geen automatische cross-tenant workflows.
+- Governance betekent: netwerkbreed prioriteren, lokaal uitvoeren, en centrale standaarden via templates uitrollen.
+- Templates, aandacht, prestaties en planning zijn nu geen losse features meer maar één franchise-operating model.
+
+## Sprint 7 status
+
+Sprint 7 levert nu het volledige franchise-fundament op:
+- franchise dashboard
+- centrale planning
+- vergelijking
+- prestaties
+- aandacht
+- templates
+- governance playbook
+
+Hiermee is de franchise-architectuur klaar voor latere uitbreidingen zoals leadverdeling, coachingflows en franchise-dashboards in Sprint 9.
