@@ -71,6 +71,7 @@ export function Board({
   branches = [],
   canUseSharedBranch = true,
   defaultBranchId = null,
+  layout = "scroll",
 }: {
   boardId: string;
   columns: TaskColumn[];
@@ -82,6 +83,7 @@ export function Board({
   branches?: BranchOption[];
   canUseSharedBranch?: boolean;
   defaultBranchId?: string | null;
+  layout?: "scroll" | "grid";
 }) {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>(() =>
@@ -283,7 +285,13 @@ export function Board({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div
+          className={cn(
+            layout === "grid"
+              ? "grid gap-4 pb-2 md:grid-cols-2 2xl:grid-cols-4"
+              : "flex gap-4 overflow-x-auto pb-4",
+          )}
+        >
           {columns.map((column) => (
             <Column
               key={column.id}
@@ -292,6 +300,7 @@ export function Board({
               memberMap={memberMap}
               canCreate={canCreate && canManage}
               canManage={canManage}
+              layout={layout}
               onAddCard={() => setDialog({ mode: "create", columnId: column.id })}
               onCardClick={(task) => {
                 if (canManage) setDialog({ mode: "edit", task });
@@ -333,6 +342,7 @@ function Column({
   memberMap,
   canCreate,
   canManage,
+  layout,
   onAddCard,
   onCardClick,
 }: {
@@ -341,6 +351,7 @@ function Column({
   memberMap: Map<string, string>;
   canCreate: boolean;
   canManage: boolean;
+  layout: "scroll" | "grid";
   onAddCard: () => void;
   onCardClick: (task: Task) => void;
 }) {
@@ -349,7 +360,12 @@ function Column({
     column.wip_limit != null && tasks.length > column.wip_limit;
 
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-lg border border-border bg-muted/30">
+    <div
+      className={cn(
+        "flex flex-col rounded-lg border border-border bg-muted/30",
+        layout === "grid" ? "min-w-0" : "w-72 shrink-0",
+      )}
+    >
       <div className="flex items-center justify-between gap-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">
