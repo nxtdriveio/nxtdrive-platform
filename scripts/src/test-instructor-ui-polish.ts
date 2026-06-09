@@ -60,13 +60,33 @@ assert(
   "notification bell should expose a dedicated view-all link",
 );
 
+const layout = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "layout.tsx",
+);
+assert(
+  layout.includes("const theme = await getTheme();"),
+  "instructor layout should load the persisted theme",
+);
+
+assert(
+  topbar.includes("<ThemeToggle current={theme}") &&
+    sidebar.includes("<ThemeToggle current={theme}"),
+  "instructor shell should expose a theme toggle on desktop and mobile",
+);
+
 const page = read("artifacts", "nxtdrive", "app", "instructor", "page.tsx");
 assert(
   !page.includes("redirect(`/instructor/${target.id}`)"),
   "instructor dashboard should stay visible instead of auto-redirecting into a lesson",
 );
 assert(
-  page.includes("Vandaag op je radar") && page.includes("Snelle routes"),
+  !page.includes("Dagoverzicht") &&
+    page.includes("Vandaag op je radar") &&
+    page.includes("Snelle routes"),
   "instructor dashboard should expose richer overview cards",
 );
 

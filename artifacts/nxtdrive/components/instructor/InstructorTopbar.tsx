@@ -15,6 +15,8 @@ import {
   Users,
 } from "lucide-react";
 import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -65,8 +67,10 @@ function isActive(pathname: string, item: NavItem): boolean {
 
 export function InstructorTopbar({
   notifications,
+  theme,
 }: {
   notifications?: ReactNode;
+  theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -99,6 +103,7 @@ export function InstructorTopbar({
       <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
         <RouteInfoBubble scope="instructor" />
         {notifications}
+        <ThemeToggle current={theme} className="rounded-xl border-border/80" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

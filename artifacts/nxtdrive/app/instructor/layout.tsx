@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
 import { homePathForRoles } from "@/lib/auth/role-routing";
+import { getTheme } from "@/lib/theme";
 import {
   getTenantBranding,
   resolveBrandAppName,
@@ -99,6 +100,7 @@ export default async function InstructorLayout({
     "instructor",
     "tenant_admin",
   ]);
+  const theme = await getTheme();
 
   if (homePathForRoles(roles) !== "/instructor") {
     redirect(roleHomePath(user, tenant.id));
@@ -171,10 +173,11 @@ export default async function InstructorLayout({
           studentNames={studentNames}
           todayDate={today}
           trialLessons={todayTrials}
+          theme={theme}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <InstructorTopbar notifications={notificationBell} />
+          <InstructorTopbar notifications={notificationBell} theme={theme} />
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
