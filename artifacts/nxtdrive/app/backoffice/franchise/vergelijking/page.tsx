@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownWideNarrow, ArrowUpWideNarrow, BarChart3, Gauge, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowDownWideNarrow, ArrowUpWideNarrow, BarChart3, Gauge, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,6 +140,11 @@ export default async function FranchiseComparisonPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise/aandacht">
+            <Button variant="outline" size="sm">
+              Aandacht
+            </Button>
+          </Link>
           <Link href="/backoffice/franchise/prestaties">
             <Button variant="outline" size="sm">
               Prestaties
@@ -265,7 +270,7 @@ export default async function FranchiseComparisonPage() {
           <strong>Governance</strong>: franchise-insight blijft read-only en vervangt geen lokale verantwoordelijkheid binnen franchisees.
         </span>
         <span>
-          Combineer benchmarking met de prestatiescockpit als je wilt zien of een laag pass-rate signaal ook gepaard gaat met omzet- of lesterugval.
+          Combineer benchmarking met de aandacht-cockpit als je prioriteit, routing en coaching per franchisee wilt aanscherpen.
         </span>
       </div>
     </div>
