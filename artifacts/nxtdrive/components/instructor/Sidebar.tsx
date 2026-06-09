@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+  ArrowLeft,
   CalendarDays,
   CalendarRange,
   ClipboardList,
+  Home,
   ListTodo,
   LogOut,
   MessageCircle,
@@ -30,6 +32,9 @@ type NavItem = {
   match: "exact" | "prefix";
   extraPrefixes?: string[];
 };
+
+const ICON_BUTTON_CLASS =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
@@ -88,6 +93,8 @@ export function InstructorSidebar({
   theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const onDashboard = pathname === "/instructor";
 
   return (
     <>
@@ -109,7 +116,7 @@ export function InstructorSidebar({
               </div>
               <Link
                 href="/instructor/week"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary transition hover:bg-primary-soft/80"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary-soft text-primary shadow-sm transition hover:bg-primary-soft/80"
               >
                 <CalendarRange className="h-4 w-4" aria-hidden />
               </Link>
@@ -155,14 +162,39 @@ export function InstructorSidebar({
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <NxtdriveLogo className="text-sm font-semibold" logoUrl={logoUrl} brandName={tenantName} />
           <div className="flex items-center gap-1">
-            <RouteInfoBubble scope="instructor" />
+            <button
+              type="button"
+              aria-label={onDashboard ? "Naar startscherm" : "Ga terug"}
+              onClick={() => {
+                if (onDashboard) {
+                  router.push("/instructor");
+                  return;
+                }
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  router.back();
+                  return;
+                }
+                router.push("/instructor");
+              }}
+              className={ICON_BUTTON_CLASS}
+            >
+              {onDashboard ? (
+                <Home className="h-4 w-4" aria-hidden />
+              ) : (
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+              )}
+            </button>
+            <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
             {notifications}
-            <ThemeToggle current={theme} className="rounded-xl border-border/80" />
+            <ThemeToggle
+              current={theme}
+              className="h-10 w-10 rounded-xl border-border/80"
+            />
             <form method="post" action="/auth/logout">
               <button
                 type="submit"
                 aria-label="Uitloggen"
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={ICON_BUTTON_CLASS}
               >
                 <LogOut className="h-4 w-4" aria-hidden />
               </button>

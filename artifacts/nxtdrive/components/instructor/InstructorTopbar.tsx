@@ -2,13 +2,15 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
   ClipboardList,
   FileText,
+  Home,
   ListTodo,
   MessageCircle,
   Settings,
@@ -33,6 +35,12 @@ type NavItem = {
   match: "exact" | "prefix";
 };
 
+const BUTTON_CLASS =
+  "inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
+
+const ICON_BUTTON_CLASS =
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
+
 const NAV: NavItem[] = [
   {
     href: "/instructor/beschikbaarheid",
@@ -44,6 +52,12 @@ const NAV: NavItem[] = [
     href: "/instructor/berichten",
     label: "Berichten",
     icon: MessageCircle,
+    match: "prefix",
+  },
+  {
+    href: "/instructor/leerlingen",
+    label: "Leerlingenlijst",
+    icon: Users,
     match: "prefix",
   },
   { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
@@ -73,9 +87,36 @@ export function InstructorTopbar({
   theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const onDashboard = pathname === "/instructor";
 
   return (
     <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 xl:flex">
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          aria-label={onDashboard ? "Naar startscherm" : "Ga terug"}
+          onClick={() => {
+            if (onDashboard) {
+              router.push("/instructor");
+              return;
+            }
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+              return;
+            }
+            router.push("/instructor");
+          }}
+          className={ICON_BUTTON_CLASS}
+        >
+          {onDashboard ? (
+            <Home className="h-4 w-4" aria-hidden />
+          ) : (
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+          )}
+        </button>
+      </div>
+
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {NAV.map((item) => {
           const Icon = item.icon;
@@ -87,10 +128,10 @@ export function InstructorTopbar({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                BUTTON_CLASS,
                 active
-                  ? "bg-primary-soft text-primary shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "border-primary/20 bg-primary-soft text-primary"
+                  : "",
               )}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -101,15 +142,21 @@ export function InstructorTopbar({
       </nav>
 
       <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
-        <RouteInfoBubble scope="instructor" />
+        <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
         {notifications}
-        <ThemeToggle current={theme} className="rounded-xl border-border/80" />
+        <ThemeToggle
+          current={theme}
+          className="h-10 w-10 rounded-xl border-border/80"
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+              className={cn(
+                BUTTON_CLASS,
+                "font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground",
+              )}
             >
               Acties
               <ChevronDown
