@@ -54,12 +54,15 @@ export async function scheduleLesson(formData: FormData) {
   const locationPlaceId = hasCoords
     ? String(formData.get("location_place_id") ?? "").trim().slice(0, 300) || null
     : null;
+  const redirectTo = String(formData.get("redirect_to") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
+  const errorTo = String(formData.get("error_to") ?? "/backoffice/agenda/nieuw").trim() || "/backoffice/agenda/nieuw";
+  const detailBase = String(formData.get("detail_base") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
 
   if (!studentId || !date || !time) {
-    redirect("/backoffice/agenda/nieuw?error=missing");
+    redirect(`${errorTo}?error=missing`);
   }
   if (!Number.isFinite(duration) || duration < 15) {
-    redirect("/backoffice/agenda/nieuw?error=duration");
+    redirect(`${errorTo}?error=duration`);
   }
 
   // Combine local datetime as ISO string. Browser submits date as YYYY-MM-DD
@@ -67,7 +70,7 @@ export async function scheduleLesson(formData: FormData) {
   // purposes this is acceptable; later we'll attach a tenant TZ.
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) {
-    redirect("/backoffice/agenda/nieuw?error=date");
+    redirect(`${errorTo}?error=date`);
   }
 
   const service = createServiceRoleClient();
@@ -78,7 +81,7 @@ export async function scheduleLesson(formData: FormData) {
     { allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES] },
   );
   if (!studentAccess.student) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
   }
 
   const { context } = studentAccess;
@@ -86,9 +89,21 @@ export async function scheduleLesson(formData: FormData) {
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "planning:manage");
   const instructorId = canAssignInstructor ? requestedInstructorId : context.user.id;
-  if (!instructorId) redirect("/backoffice/agenda/nieuw?error=missing");
+  if (!instructorId) redirect(`${errorTo}?error=missing`);
   if (!canManageAgendaForInstructor(context, instructorId)) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
+  }
+  if (!canAssignInstructor) {
+    const taughtStudentIds = await import("@/lib/students/access").then((module) =>
+      module.loadInstructorAccessibleStudentIds(
+        service,
+        context.organization.id,
+        context.user.id,
+      ),
+    );
+    if (!taughtStudentIds.includes(studentId)) {
+      redirect(`${errorTo}?error=forbidden`);
+    }
   }
   if (
     !(await instructorCanServeBranch(
@@ -97,7 +112,7 @@ export async function scheduleLesson(formData: FormData) {
       studentAccess.student.branch_id,
     ))
   ) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
   }
 
   const { data: lessonId, error } = await service.rpc("schedule_lesson", {
@@ -115,7 +130,7 @@ export async function scheduleLesson(formData: FormData) {
   });
   if (error || !lessonId) {
     const code = encodeURIComponent(error?.message ?? "unknown");
-    redirect(`/backoffice/agenda/nieuw?error=${code}`);
+    redirect(`${errorTo}?error=${code}`);
   }
 
   // Task #131 - notify linked guardians that a driving lesson was scheduled.
@@ -131,8 +146,11 @@ export async function scheduleLesson(formData: FormData) {
   }
 
   revalidatePath("/backoffice/agenda");
+  revalidatePath("/instructor/les/nieuw");
   revalidatePath(`/backoffice/leerlingen/${studentId}`);
-  redirect(`/backoffice/agenda/${lessonId as string}`);
+  revalidatePath(`/instructor/leerlingen/${studentId}`);
+  revalidatePath("/instructor/week");
+  redirect(`${detailBase}/${lessonId as string}`);
 }
 
 export async function completeLesson(formData: FormData) {

@@ -45,8 +45,8 @@ assert(
 assert(
   topbar.includes("InstructorQuickSearch") &&
     topbar.includes('href="/instructor/berichten"') &&
-    topbar.includes('href: "/backoffice/agenda/afspraak/nieuw"') &&
-    topbar.includes('href: "/backoffice/leads"'),
+    topbar.includes('href: "/instructor/afspraak/nieuw"') &&
+    topbar.includes('href: "/instructor/intake"'),
   "desktop instructor topbar should use the centered quick search and corrected action links",
 );
 
@@ -228,7 +228,9 @@ assert(
   studentDetailPage.includes("Leerlingcontext") &&
     studentDetailPage.includes("loadStudentDossier") &&
     studentDetailPage.includes("PlannedCard") &&
-    studentDetailPage.includes('scope="instructor"'),
+    studentDetailPage.includes('scope="instructor"') &&
+    studentDetailPage.includes("Planningcontext") &&
+    studentDetailPage.includes("openInstructorConversationAction"),
   "instructor app should provide its own student detail cockpit instead of bouncing into backoffice",
 );
 
@@ -241,9 +243,10 @@ const messagesPage = read(
   "page.tsx",
 );
 assert(
-  messagesPage.includes("Preview") &&
-    messagesPage.includes("xl:grid-cols-[minmax(19rem,0.88fr)_minmax(0,1.12fr)]"),
-  "messages should provide a list and preview split view on wide screens",
+  messagesPage.includes("Nieuw gesprek") &&
+    messagesPage.includes("ChatThread") &&
+    messagesPage.includes("xl:grid-cols-[minmax(22rem,0.82fr)_minmax(0,1.18fr)]"),
+  "messages should provide a real inbox workspace with thread preview on wide screens",
 );
 
 const weekPage = read(
@@ -272,9 +275,40 @@ const appointmentPage = read(
 );
 assert(
   appointmentPage.includes("Nieuwe agenda-afspraak") &&
-    appointmentPage.includes('href="/backoffice/agenda/nieuw"') &&
+    appointmentPage.includes('href="/instructor/les/nieuw"') &&
     appointmentPage.includes("Reguliere les nodig?"),
   "appointment flow should clearly route regular lessons back to the lesson planner",
+);
+
+const lessonPlannerPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "les",
+  "nieuw",
+  "page.tsx",
+);
+assert(
+  lessonPlannerPage.includes("Nieuwe les") &&
+    lessonPlannerPage.includes('name="detail_base" value="/instructor"') &&
+    lessonPlannerPage.includes("loadInstructorAccessibleStudentIds"),
+  "lesson planning should stay inside the instructor shell and respect instructor student scope",
+);
+
+const intakePage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "intake",
+  "page.tsx",
+);
+assert(
+  intakePage.includes("Intakeoverzicht") &&
+    intakePage.includes("lead_intake_details") &&
+    intakePage.includes("Open leerlingcontext"),
+  "instructor app should expose an internal intake overview instead of linking back to backoffice",
 );
 
 const tasksPage = read(

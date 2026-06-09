@@ -63,7 +63,7 @@ export default async function NewInstructorAppointmentPage({
               Terug naar weekplanning
             </Link>
             <Link
-              href="/backoffice/agenda/nieuw"
+              href="/instructor/les/nieuw"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               <CalendarPlus2 className="h-4 w-4" aria-hidden />
@@ -84,7 +84,7 @@ export default async function NewInstructorAppointmentPage({
             </p>
           </div>
           <Link
-            href="/backoffice/agenda/nieuw"
+            href="/instructor/les/nieuw"
             className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
           >
             Open lesplanner

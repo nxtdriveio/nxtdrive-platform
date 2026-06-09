@@ -136,6 +136,20 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Stel je vaste beschikbaarheid en uitzonderingen in zodat planning en capaciteit kloppen.",
     },
     {
+      href: "/instructor/intake",
+      match: "prefix",
+      title: "Intakeoverzicht",
+      description:
+        "Bekijk intakegegevens per leerling zonder de instructeurapp te verlaten.",
+    },
+    {
+      href: "/instructor/les/nieuw",
+      match: "prefix",
+      title: "Nieuwe les",
+      description:
+        "Plan direct een reguliere les vanuit je instructeurcockpit en open daarna meteen de lesdetailpagina.",
+    },
+    {
       href: "/instructor/leerlingen",
       match: "prefix",
       title: "Leerlingen",

@@ -34,6 +34,7 @@ import {
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
 import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
+import { openInstructorConversationAction } from "@/app/instructor/berichten/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,33 @@ export default async function InstructorStudentDetailPage({
         />
       </PWAKpiGrid>
 
+      <PWAKpiGrid compact className="lg:grid-cols-4">
+        <PWAKpiTile
+          label="Komende lessen"
+          value={upcomingLessons.length}
+          hint={upcomingLessons.length > 0 ? "Actieve ritten in de agenda" : "Nog geen nieuwe ritten"}
+          info="Alle toekomstige lessen voor deze leerling die nu al gepland staan."
+        />
+        <PWAKpiTile
+          label="Agenda-items"
+          value={dossier.appointments.length}
+          hint={dossier.appointments.length > 0 ? "Examens of blokken gekoppeld" : "Nog geen extra afspraken"}
+          info="Niet-les agenda-items zoals examens, toetsen of andere geplande blokken."
+        />
+        <PWAKpiTile
+          label="Laatste les"
+          value={latestLesson ? dtFmt.format(new Date(latestLesson.starts_at)) : "Nog geen historie"}
+          hint={latestLesson?.location ?? "Nog geen recente lescontext beschikbaar"}
+          info="De meest recente les waarop je direct kunt terugvallen voor context of opvolging."
+        />
+        <PWAKpiTile
+          label="Open facturen"
+          value={dossier.invoices.filter((invoice) => invoice.status === "open").length}
+          hint={dossier.outstandingCents > 0 ? "Financiele opvolging nodig" : "Geen openstaand bedrag"}
+          info="Facturen die nog openstaan en mogelijk invloed hebben op vervolgplanning of pakketadvies."
+        />
+      </PWAKpiGrid>
+
       <StudentStatusBar
         studentId={student.id}
         nextLessonAt={nextLessonAt}
@@ -201,7 +229,7 @@ export default async function InstructorStudentDetailPage({
               </Link>
             ) : null}
             <Link
-              href={`/backoffice/agenda/nieuw?student_id=${student.id}`}
+              href={`/instructor/les/nieuw?student_id=${student.id}`}
               className="flex items-center justify-between rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:shadow-sm"
             >
               Nieuwe les plannen
@@ -216,13 +244,43 @@ export default async function InstructorStudentDetailPage({
                 <Phone className="h-4 w-4 text-muted-foreground" aria-hidden />
               </a>
             ) : null}
-            <Link
-              href="/instructor/berichten"
-              className="flex items-center justify-between rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:shadow-sm"
-            >
-              Berichten openen
-              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
+            <form action={openInstructorConversationAction}>
+              <input type="hidden" name="student_id" value={student.id} />
+              <button
+                type="submit"
+                className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:shadow-sm"
+              >
+                Bericht sturen
+                <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+              </button>
+            </form>
+          </PWACard>
+
+          <PWACard title="Planningcontext" className="bg-card" contentClassName="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-border/70 bg-background px-3.5 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Eerstvolgende rit
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {nextLessonAt ? dtFmt.format(new Date(nextLessonAt)) : "Nog niet gepland"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {upcomingLessons[0]?.location ?? "Plan een nieuwe les om meteen ritme vast te leggen."}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background px-3.5 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Laatste lescontext
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {latestLesson ? dtFmt.format(new Date(latestLesson.starts_at)) : "Nog geen leshistorie"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {latestLesson?.notes?.trim() || "Nog geen recente lesnotitie beschikbaar."}
+                </p>
+              </div>
+            </div>
           </PWACard>
 
           <ReadinessCard readiness={dossier.readiness} />
