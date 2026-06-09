@@ -288,7 +288,7 @@ export function Board({
         <div
           className={cn(
             layout === "grid"
-              ? "grid gap-4 pb-2 md:grid-cols-2 2xl:grid-cols-4"
+              ? "grid gap-4 pb-2 md:grid-cols-2 xl:grid-cols-3"
               : "flex gap-4 overflow-x-auto pb-4",
           )}
         >

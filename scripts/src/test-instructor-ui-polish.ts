@@ -36,11 +36,18 @@ assert(
 );
 assert(
   topbar.includes('label: "Leerlingenlijst"'),
-  "desktop instructor topbar should surface the students list directly",
+  "desktop instructor topbar should keep the students list available in actions",
 );
 assert(
   !topbar.includes("ArrowLeft") && !topbar.includes("Home"),
   "desktop instructor topbar should keep navigation actions out of the content rail",
+);
+assert(
+  topbar.includes("InstructorQuickSearch") &&
+    topbar.includes('href="/instructor/berichten"') &&
+    topbar.includes('href: "/backoffice/agenda/afspraak/nieuw"') &&
+    topbar.includes('href: "/backoffice/leads"'),
+  "desktop instructor topbar should use the centered quick search and corrected action links",
 );
 
 const sidebar = read(
@@ -90,6 +97,23 @@ assert(
 assert(
   sidebar.includes('href="/instructor"') && sidebar.includes("Home"),
   "instructor shell should keep a persistent home action next to the logo",
+);
+assert(
+  sidebar.includes("MobileSearch"),
+  "mobile instructor shell should expose quick search too",
+);
+
+const quickSearch = read(
+  "artifacts",
+  "nxtdrive",
+  "components",
+  "instructor",
+  "InstructorQuickSearch.tsx",
+);
+assert(
+  quickSearch.includes("globalSearch") &&
+    quickSearch.includes("Zoek in leerlingen, leads en lessen"),
+  "instructor shell should expose a dedicated quick search component",
 );
 
 const page = read("artifacts", "nxtdrive", "app", "instructor", "page.tsx");
@@ -191,6 +215,37 @@ assert(
   "messages should provide a list and preview split view on wide screens",
 );
 
+const weekPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "week",
+  "page.tsx",
+);
+assert(
+  weekPage.includes("Ochtendboard") &&
+    weekPage.includes("gridTemplateColumns: \"5.25rem repeat(7, minmax(0, 1fr))\"") &&
+    weekPage.includes("Later op"),
+  "week planning should render as a horizontal weekday board with timed morning slots",
+);
+
+const appointmentPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "afspraak",
+  "nieuw",
+  "page.tsx",
+);
+assert(
+  appointmentPage.includes("Nieuwe agenda-afspraak") &&
+    appointmentPage.includes('href="/backoffice/agenda/nieuw"') &&
+    appointmentPage.includes("Reguliere les nodig?"),
+  "appointment flow should clearly route regular lessons back to the lesson planner",
+);
+
 const tasksPage = read(
   "artifacts",
   "nxtdrive",
@@ -201,8 +256,27 @@ const tasksPage = read(
 );
 assert(
   tasksPage.includes('layout="grid"') &&
-    tasksPage.includes("Binnen 3 dagen"),
+    tasksPage.includes("Binnen 3 dagen") &&
+    tasksPage.includes("info="),
   "tasks should use the denser tablet-first board layout and summary tiles",
+);
+
+const board = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "backoffice",
+  "taken",
+  "board.tsx",
+);
+assert(
+  board.includes('xl:grid-cols-3'),
+  "task board grid layout should settle into three columns on wide instructor screens",
+);
+
+assert(
+  primitives.includes("InfoBubble") && primitives.includes("info?: ReactNode"),
+  "shared KPI tiles should support inline info bubbles",
 );
 
 console.log("test-instructor-ui-polish: ok");

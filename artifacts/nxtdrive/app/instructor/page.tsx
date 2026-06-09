@@ -107,20 +107,27 @@ function SurfaceStat({
   label,
   value,
   hint,
+  detail,
 }: {
   label: string;
   value: string;
   hint: string;
+  detail?: string;
 }) {
   return (
-    <div className="rounded-[1.15rem] border border-border/80 bg-background px-3.5 py-3 shadow-sm">
+    <div className="rounded-[1.2rem] border border-border/80 bg-gradient-to-b from-background to-background/90 px-4 py-3.5 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1.5 text-[clamp(1.55rem,2vw,2.2rem)] font-black leading-[1.05] tracking-tight text-foreground">
+      <p className="mt-2 text-[clamp(1.1rem,1.45vw,1.55rem)] font-bold leading-[1.15] tracking-tight text-foreground">
         {value}
       </p>
-      <p className="mt-1 text-sm leading-5 text-muted-foreground">{hint}</p>
+      <p className="mt-1.5 text-sm leading-5 text-muted-foreground">{hint}</p>
+      {detail ? (
+        <p className="mt-2 border-t border-border/70 pt-2 text-xs leading-5 text-muted-foreground/90">
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -251,6 +258,11 @@ export default async function InstructorIndexPage() {
   const heroSubtitle = upcomingFocus
     ? `${upcomingFocus.eyebrow} om ${upcomingFocus.meta}. Je houdt hier je dagritme, berichten en opvolging overzichtelijk bij elkaar.`
     : "Een rustige maar complete cockpit voor je dagritme, planning, opvolging en lesfocus. Ook zonder geplande les zie je hier direct wat aandacht vraagt.";
+  const focusValue = upcomingFocus?.title ?? "Rustige agenda";
+  const focusHint = upcomingFocus?.meta ?? "Geen les of afspraak direct ingepland.";
+  const focusDetail = upcomingFocus
+    ? `${upcomingFocus.eyebrow} staat als eerstvolgende focus voor je klaar.`
+    : "Gebruik de weekplanning om vooruit te werken of rond open taken en berichten af.";
 
   return (
     <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
@@ -265,21 +277,25 @@ export default async function InstructorIndexPage() {
               label="Reguliere lessen"
               value={lessons.length}
               hint="Vandaag gepland"
+              info="Alle gewone lessen die vandaag al op jouw agenda staan."
             />
             <PWAKpiTile
               label="Proeflessen"
               value={trials.length}
               hint="Nieuwe kandidaten"
+              info="Nieuwe proeflessen of intake-achtige ritten die vandaag al ingepland staan."
             />
             <PWAKpiTile
               label="Afspraken"
               value={appointments.length}
               hint="Examens, blokken en meer"
+              info="Alle niet-les agenda-items zoals examens, theoriebegeleiding, blokkades en andere afspraken."
             />
             <PWAKpiTile
               label="Open taken"
               value={openTaskCount}
               hint="Nog op te volgen"
+              info="Taken die nog bij jou openstaan en nog om actie vragen."
             />
           </PWAKpiGrid>
         }
@@ -321,11 +337,9 @@ export default async function InstructorIndexPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <SurfaceStat
               label="Volgende focus"
-              value={upcomingFocus?.title ?? "Geen directe afspraak"}
-              hint={
-                upcomingFocus?.meta ??
-                "Je agenda is leeg. Kijk vooruit of werk taken en berichten weg."
-              }
+              value={focusValue}
+              hint={focusHint}
+              detail={focusDetail}
             />
             <SurfaceStat
               label="Ongelezen meldingen"
@@ -335,11 +349,17 @@ export default async function InstructorIndexPage() {
                   ? "Er staan nog updates voor je klaar in je notificaties."
                   : "Je inbox is bijgewerkt en vraagt nu niets van je."
               }
+              detail={
+                unreadCount > 0
+                  ? "Loop ze even na zodat je cockpit weer helemaal schoon is."
+                  : "Je communicatie is op dit moment rustig en bijgewerkt."
+              }
             />
             <SurfaceStat
               label="Komende 7 dagen"
               value={String(weekLessons.length)}
               hint={`${weekStudentCount} leerlingen ingepland in je komende week.`}
+              detail="Handig om je beschikbaarheid en lesfocus voor de rest van de week bij te sturen."
             />
           </div>
         </PWACard>

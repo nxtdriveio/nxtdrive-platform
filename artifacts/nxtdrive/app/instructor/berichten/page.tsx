@@ -49,11 +49,13 @@ export default async function InstructorBerichtenPage() {
           label="Gesprekken"
           value={conversations.length}
           hint="Actieve leerlingconversaties in jouw inbox."
+          info="Alle actieve chatthreads tussen jou en je leerlingen binnen deze rijschool."
         />
         <PWAKpiTile
           label="Ongelezen"
           value={unreadCount}
           hint="Berichten die nog directe aandacht vragen."
+          info="Nieuwe leerlingberichten die jij nog niet hebt geopend of afgehandeld."
         />
         <PWAKpiTile
           label="Laatste update"
@@ -63,6 +65,7 @@ export default async function InstructorBerichtenPage() {
               ? dateFmt.format(new Date(latestConversation.lastMessageAt))
               : "Nog geen recente leerlingactiviteit."
           }
+          info="Laatste leerling of thread waarin nog recente activiteit zichtbaar was."
         />
       </PWAKpiGrid>
 
