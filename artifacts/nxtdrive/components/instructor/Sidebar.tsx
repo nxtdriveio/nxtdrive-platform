@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { InstructorDayList } from "@/components/instructor/DayList";
+import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/lessons/types";
 import type { AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
@@ -73,6 +75,7 @@ export function InstructorSidebar({
   studentNames,
   todayDate,
   trialLessons,
+  theme,
 }: {
   tenantName: string;
   userLabel: string;
@@ -82,6 +85,7 @@ export function InstructorSidebar({
   studentNames: Map<string, string>;
   todayDate: Date;
   trialLessons?: AgendaTrialLesson[];
+  theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -153,6 +157,7 @@ export function InstructorSidebar({
           <div className="flex items-center gap-1">
             <RouteInfoBubble scope="instructor" />
             {notifications}
+            <ThemeToggle current={theme} className="rounded-xl border-border/80" />
             <form method="post" action="/auth/logout">
               <button
                 type="submit"

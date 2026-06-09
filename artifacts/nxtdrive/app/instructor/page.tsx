@@ -14,7 +14,6 @@ import {
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
-import { InstructorDayList } from "@/components/instructor/DayList";
 import type { Lesson } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
@@ -23,7 +22,6 @@ import { loadAgendaAppointments } from "@/lib/agenda/appointments";
 import type { AgendaAppointmentView } from "@/lib/agenda/appointments";
 import {
   PWACard,
-  PWAEmptyState,
   PWAHero,
   PWAKpiGrid,
   PWAKpiTile,
@@ -238,7 +236,6 @@ export default async function InstructorIndexPage() {
     ),
   );
 
-  const agendaCount = lessons.length + trials.length + appointments.length;
   const unreadCount = unreadNotificationsResult.count ?? 0;
   const openTaskCount = openTasksResult.count ?? 0;
   const weekStudentCount = new Set(weekLessons.map((lesson) => lesson.student_id))
@@ -319,88 +316,62 @@ export default async function InstructorIndexPage() {
         </Link>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(22rem,1fr)]">
-        <PWACard
-          title="Dagoverzicht"
-          actionLabel="Week bekijken"
-          actionHref="/instructor/week"
-          className="bg-card"
-          contentClassName="space-y-0"
-        >
-          {agendaCount > 0 ? (
-            <InstructorDayList
-              lessons={lessons}
-              studentNames={studentNames}
-              trialLessons={trials}
-              appointments={appointments}
-              date={now}
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <PWACard title="Vandaag op je radar" className="bg-card">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <SurfaceStat
+              label="Volgende focus"
+              value={upcomingFocus?.title ?? "Geen directe afspraak"}
+              hint={
+                upcomingFocus?.meta ??
+                "Je agenda is leeg. Kijk vooruit of werk taken en berichten weg."
+              }
             />
-          ) : (
-            <PWAEmptyState
-              icon={<CalendarDays className="h-8 w-8" aria-hidden />}
-              title="Rustige dag"
-              message="Er staan vandaag geen lessen of andere afspraken voor je klaar. Gebruik je dashboard om vooruit te plannen en opvolging niet te laten liggen."
+            <SurfaceStat
+              label="Ongelezen meldingen"
+              value={String(unreadCount)}
+              hint={
+                unreadCount > 0
+                  ? "Er staan nog updates voor je klaar in je notificaties."
+                  : "Je inbox is bijgewerkt en vraagt nu niets van je."
+              }
             />
-          )}
+            <SurfaceStat
+              label="Komende 7 dagen"
+              value={String(weekLessons.length)}
+              hint={`${weekStudentCount} leerlingen ingepland in je komende week.`}
+            />
+          </div>
         </PWACard>
 
-        <div className="space-y-6">
-          <PWACard title="Vandaag op je radar" className="bg-card">
-            <div className="grid gap-3">
-              <SurfaceStat
-                label="Volgende focus"
-                value={upcomingFocus?.title ?? "Geen directe afspraak"}
-                hint={
-                  upcomingFocus?.meta ??
-                  "Je agenda is leeg. Kijk vooruit of werk taken en berichten weg."
-                }
-              />
-              <SurfaceStat
-                label="Ongelezen meldingen"
-                value={String(unreadCount)}
-                hint={
-                  unreadCount > 0
-                    ? "Er staan nog updates voor je klaar in je notificaties."
-                    : "Je inbox is bijgewerkt en vraagt nu niets van je."
-                }
-              />
-              <SurfaceStat
-                label="Komende 7 dagen"
-                value={String(weekLessons.length)}
-                hint={`${weekStudentCount} leerlingen ingepland in je komende week.`}
-              />
-            </div>
-          </PWACard>
-
-          <PWACard title="Snelle routes" className="bg-card">
-            <div className="grid gap-3">
-              <ActionCard
-                href="/instructor/leerlingen"
-                title="Leerlingen openen"
-                description="Ga direct naar je actieve leerlingen en open hun dossier of lescontext."
-                icon={<Users className="h-5 w-5" aria-hidden />}
-              />
-              <ActionCard
-                href="/instructor/beschikbaarheid"
-                title="Beschikbaarheid bijwerken"
-                description="Pas je beschikbaarheid aan zodat planning en capaciteit blijven kloppen."
-                icon={<CalendarClock className="h-5 w-5" aria-hidden />}
-              />
-              <ActionCard
-                href="/instructor/meldingen"
-                title="Meldingen nalopen"
-                description="Bekijk recente updates, zet pushmeldingen aan en houd je inbox schoon."
-                icon={<Bell className="h-5 w-5" aria-hidden />}
-              />
-              <ActionCard
-                href="/instructor/taken"
-                title="Taken afronden"
-                description="Werk open acties weg en houd je bord in beweging."
-                icon={<ClipboardList className="h-5 w-5" aria-hidden />}
-              />
-            </div>
-          </PWACard>
-        </div>
+        <PWACard title="Snelle routes" className="bg-card">
+          <div className="grid gap-3">
+            <ActionCard
+              href="/instructor/leerlingen"
+              title="Leerlingen openen"
+              description="Ga direct naar je actieve leerlingen en open hun dossier of lescontext."
+              icon={<Users className="h-5 w-5" aria-hidden />}
+            />
+            <ActionCard
+              href="/instructor/beschikbaarheid"
+              title="Beschikbaarheid bijwerken"
+              description="Pas je beschikbaarheid aan zodat planning en capaciteit blijven kloppen."
+              icon={<CalendarClock className="h-5 w-5" aria-hidden />}
+            />
+            <ActionCard
+              href="/instructor/meldingen"
+              title="Meldingen nalopen"
+              description="Bekijk recente updates, zet pushmeldingen aan en houd je inbox schoon."
+              icon={<Bell className="h-5 w-5" aria-hidden />}
+            />
+            <ActionCard
+              href="/instructor/taken"
+              title="Taken afronden"
+              description="Werk open acties weg en houd je bord in beweging."
+              icon={<ClipboardList className="h-5 w-5" aria-hidden />}
+            />
+          </div>
+        </PWACard>
       </div>
     </PWAPage>
   );
