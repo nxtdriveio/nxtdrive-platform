@@ -113,14 +113,14 @@ function SurfaceStat({
   hint: string;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-border/80 bg-background px-4 py-3 shadow-sm">
+    <div className="rounded-[1.15rem] border border-border/80 bg-background px-3.5 py-3 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-black tracking-tight text-foreground">
+      <p className="mt-1.5 text-[clamp(1.55rem,2vw,2.2rem)] font-black leading-[1.05] tracking-tight text-foreground">
         {value}
       </p>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">{hint}</p>
+      <p className="mt-1 text-sm leading-5 text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -139,16 +139,16 @@ function ActionCard({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-3 rounded-[1.25rem] border border-border/80 bg-background px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+      className="group flex h-full items-start gap-3 rounded-[1.15rem] border border-border/80 bg-background px-3.5 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
-      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[1rem] bg-primary-soft text-primary">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-foreground">
           {title}
         </span>
-        <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+        <span className="mt-1 block text-sm leading-5 text-muted-foreground">
           {description}
         </span>
       </span>
@@ -253,7 +253,7 @@ export default async function InstructorIndexPage() {
     : "Een rustige maar complete cockpit voor je dagritme, planning, opvolging en lesfocus. Ook zonder geplande les zie je hier direct wat aandacht vraagt.";
 
   return (
-    <PWAPage app="instructor" contentClassName="space-y-8">
+    <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
       <PWAHero
         app="instructor"
         eyebrow={tenant.name}
@@ -316,9 +316,9 @@ export default async function InstructorIndexPage() {
         </Link>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
         <PWACard title="Vandaag op je radar" className="bg-card">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <SurfaceStat
               label="Volgende focus"
               value={upcomingFocus?.title ?? "Geen directe afspraak"}
@@ -345,7 +345,7 @@ export default async function InstructorIndexPage() {
         </PWACard>
 
         <PWACard title="Snelle routes" className="bg-card">
-          <div className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <ActionCard
               href="/instructor/leerlingen"
               title="Leerlingen openen"
