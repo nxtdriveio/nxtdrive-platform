@@ -12,6 +12,12 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandingForm } from "@/components/backoffice/branding-form";
+import { WhiteLabelFoundationCard } from "@/components/backoffice/white-label-foundation-card";
+import {
+  resolveBrandAppName,
+  resolveLogoUrl,
+  resolveThemeColor,
+} from "@/lib/branding";
 import { saveMollieApiKey } from "./actions";
 import {
   AssignmentRulesManager,
@@ -58,7 +64,7 @@ export default async function SettingsPage({
   const status = await getMollieApiKeyStatus(service, tenant.id);
   const { data: brandingRow } = await service
     .from("tenant_branding")
-    .select("logo_url, primary_color, primary_foreground, welcome_message")
+    .select("logo_url, primary_color, primary_foreground, custom_domain, welcome_message")
     .eq("tenant_id", tenant.id)
     .maybeSingle();
 
@@ -105,6 +111,17 @@ export default async function SettingsPage({
     verifyRecord: verificationRecord(d),
     trafficRecords: trafficRecords(d.hostname),
   }));
+
+  const whiteLabelAvailable = tenantHasFeature(tenant, "white_label");
+  const whiteLabelActive = whiteLabelAvailable && tenant.white_label_enabled;
+  const primaryHost =
+    domainViews.find((domain) => domain.is_primary && domain.status === "active")
+      ?.hostname ?? `${tenant.slug}.nxtdrive.io`;
+  const logoUrl = resolveLogoUrl(tenant, (brandingRow ?? null) as never);
+  const themeColor = resolveThemeColor(
+    tenant,
+    (brandingRow ?? null) as never,
+  );
 
   return (
     <div className="space-y-6">
@@ -183,13 +200,24 @@ export default async function SettingsPage({
         </CardContent>
       </Card>
 
+      <WhiteLabelFoundationCard
+        tenantName={tenant.name}
+        logoUrl={logoUrl}
+        primaryHost={primaryHost}
+        themeColor={themeColor}
+        backofficeName={resolveBrandAppName(tenant, "backoffice")}
+        studentName={resolveBrandAppName(tenant, "student")}
+        instructorName={resolveBrandAppName(tenant, "instructor")}
+        whiteLabelActive={whiteLabelActive}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Huisstijl
-            {tenantHasFeature(tenant, "white_label") && tenant.white_label_enabled ? (
+            {whiteLabelActive ? (
               <Badge variant="success">Witlabel actief</Badge>
-            ) : tenantHasFeature(tenant, "white_label") ? (
+            ) : whiteLabelAvailable ? (
               <Badge variant="warning">Witlabel niet actief</Badge>
             ) : (
               <Badge variant="outline">Elite-functie</Badge>
@@ -197,7 +225,7 @@ export default async function SettingsPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!tenantHasFeature(tenant, "white_label") ? (
+          {!whiteLabelAvailable ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
               <p className="font-medium">White-label huisstijl vereist het Elite-abonnement.</p>
               <p className="mt-1 text-xs opacity-80">
@@ -211,7 +239,7 @@ export default async function SettingsPage({
               Stel je eigen logo en kleuren in voor het backoffice, de
               instructeur- en de leerlingomgeving.
               {tenant.white_label_enabled
-                ? " Je huisstijl is zichtbaar voor je team en leerlingen."
+                ? " Je huisstijl loopt nu ook door naar metadata, manifests en domeingebonden app-shells."
                 : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
             </p>
           )}
