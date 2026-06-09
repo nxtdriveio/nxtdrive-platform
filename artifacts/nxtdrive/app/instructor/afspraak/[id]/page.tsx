@@ -7,6 +7,7 @@ import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { ExamSignalsPanel } from "@/components/exam/exam-signals-panel";
 import { loadExamSignals } from "@/lib/exam/data";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -68,23 +69,22 @@ export default async function EditInstructorAppointmentPage({
   );
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/instructor/week"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar weekplanning
-      </Link>
-
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          Afspraak bewerken
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {APPOINTMENT_TYPE_LABEL[appt!.type]}
-        </p>
-      </div>
+    <PWAPage contentClassName="space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Afspraak bewerken"
+        description={APPOINTMENT_TYPE_LABEL[appt!.type]}
+        align="left"
+        actions={
+          <Link
+            href="/instructor/week"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Terug naar weekplanning
+          </Link>
+        }
+      />
 
       {sp.error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
@@ -148,6 +148,6 @@ export default async function EditInstructorAppointmentPage({
           </form>
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

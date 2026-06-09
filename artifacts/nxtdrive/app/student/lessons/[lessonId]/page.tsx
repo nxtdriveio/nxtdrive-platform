@@ -22,6 +22,7 @@ import {
 import { loadLessonTheoryHomework } from "@/lib/theory/data";
 import { CancelLessonButton } from "@/components/student/CancelLessonButton";
 import { RescheduleLessonButton } from "@/components/student/RescheduleLessonButton";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import {
   VEHICLE_TRANSMISSION_LABEL,
@@ -153,7 +154,7 @@ export default async function StudentLessonDetailPage({
     ? [
         veh.label,
         veh.license_plate ? `(${veh.license_plate})` : null,
-        veh.transmission ? `· ${VEHICLE_TRANSMISSION_LABEL[veh.transmission]}` : null,
+        veh.transmission ? `- ${VEHICLE_TRANSMISSION_LABEL[veh.transmission]}` : null,
       ]
         .filter(Boolean)
         .join(" ")
@@ -180,14 +181,22 @@ export default async function StudentLessonDetailPage({
   );
 
   return (
-    <div className="space-y-4">
-      <Link
-        href="/student/lessons"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Terug naar lessen
-      </Link>
+    <PWAPage contentClassName="space-y-4">
+      <PWAPageHeader
+        eyebrow="Lesoverzicht"
+        title="Lesdetails"
+        description="Alles van deze les staat hier compact bij elkaar: feedback, geoefende onderdelen, context en vervolg."
+        align="left"
+        actions={
+          <Link
+            href="/student/lessons"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Terug naar lessen
+          </Link>
+        }
+      />
 
       <LessonHeaderCard lesson={lesson} instructorName={instructorName} />
 
@@ -257,6 +266,6 @@ export default async function StudentLessonDetailPage({
         nextLessonId={nextLessonId}
         contactHref="/student/profile"
       />
-    </div>
+    </PWAPage>
   );
 }

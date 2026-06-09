@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
+import { PWAPage, PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 export default async function InstructorStudentsPage() {
-  const { user, tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const { user, tenant } = await requireActiveTenant(["instructor"]);
   const supabase = await createServerSupabaseClient();
 
   const { data: lessonRows } = await supabase
@@ -24,14 +25,13 @@ export default async function InstructorStudentsPage() {
     .eq("instructor_id", user.id)
     .order("starts_at", { ascending: true });
 
-  const studentIdSet = new Set((lessonRows ?? []).map((r) => r.student_id as string));
-  const studentIds = [...studentIdSet];
+  const studentIds = Array.from(new Set((lessonRows ?? []).map((row) => row.student_id as string)));
 
   const firstLessonMap = new Map<string, string>();
   for (const row of lessonRows ?? []) {
-    const sid = row.student_id as string;
-    if (!firstLessonMap.has(sid)) {
-      firstLessonMap.set(sid, row.starts_at as string);
+    const studentId = row.student_id as string;
+    if (!firstLessonMap.has(studentId)) {
+      firstLessonMap.set(studentId, row.starts_at as string);
     }
   }
 
@@ -55,81 +55,73 @@ export default async function InstructorStudentsPage() {
       .select("student_id, tenant_id, balance")
       .eq("tenant_id", tenant.id)
       .in("student_id", studentIds);
-    for (const b of (balancesRaw ?? []) as StudentBalance[]) {
-      balanceMap.set(b.student_id, b.balance);
+
+    for (const balance of (balancesRaw ?? []) as StudentBalance[]) {
+      balanceMap.set(balance.student_id, balance.balance);
     }
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Mijn leerlingen
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Leerlingen die aan jouw lessen zijn gekoppeld.
-        </p>
-      </div>
+    <PWAPage app="instructor">
+      <PWAPageHeader
+        title="Mijn leerlingen"
+        subtitle="Leerlingen die aan jouw lessen zijn gekoppeld, geoptimaliseerd voor een brede tabletweergave."
+        align="wide"
+      />
 
-      <Card className="overflow-hidden">
-        {students.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
-            Nog geen leerlingen gekoppeld aan jouw lessen.
+      {students.length === 0 ? (
+        <PWAEmptyState message="Nog geen leerlingen gekoppeld aan jouw lessen." />
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Naam</th>
+                  <th className="px-4 py-3 font-medium">Saldo</th>
+                  <th className="px-4 py-3 font-medium">Contact</th>
+                  <th className="px-4 py-3 font-medium">Postcode</th>
+                  <th className="px-4 py-3 font-medium">Eerste les</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {students.map((student) => {
+                  const balance = balanceMap.get(student.id) ?? 0;
+                  const firstLesson = firstLessonMap.get(student.id);
+
+                  return (
+                    <tr key={student.id} className="hover:bg-muted/40">
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        <Link href={`/backoffice/leerlingen/${student.id}`} className="hover:underline">
+                          {student.full_name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            balance > 300 ? "success" : balance > 0 ? "warning" : "danger"
+                          }
+                        >
+                          {formatTegoed(balance)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {student.email ?? student.phone ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {student.postcode ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {firstLesson ? dateFmt.format(new Date(firstLesson)) : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Naam</th>
-                <th className="px-4 py-3 font-medium">Saldo</th>
-                <th className="px-4 py-3 font-medium">Contact</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">Postcode</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">Eerste les</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {students.map((s) => {
-                const balance = balanceMap.get(s.id) ?? 0;
-                const firstLesson = firstLessonMap.get(s.id);
-                return (
-                  <tr key={s.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      <Link
-                        href={`/backoffice/leerlingen/${s.id}`}
-                        className="hover:underline"
-                      >
-                        {s.full_name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          balance > 300
-                            ? "success"
-                            : balance > 0
-                              ? "warning"
-                              : "danger"
-                        }
-                      >
-                        {formatTegoed(balance)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {s.email ?? s.phone ?? "—"}
-                    </td>
-                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                      {s.postcode ?? "—"}
-                    </td>
-                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                      {firstLesson ? dateFmt.format(new Date(firstLesson)) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
-    </div>
+        </Card>
+      )}
+    </PWAPage>
   );
 }

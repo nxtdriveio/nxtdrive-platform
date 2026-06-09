@@ -4,6 +4,7 @@ import { PushToggle } from "@/components/notifications/PushToggle";
 import { getVapidPublicKey } from "@/lib/notifications/web-push";
 import { getNotificationPreference } from "@/lib/notifications/push-actions";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +34,13 @@ export default async function InstructorNotificationsPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold text-foreground">Meldingen</h1>
+    <PWAPage contentClassName="mx-auto max-w-2xl space-y-4">
+      <PWAPageHeader
+        eyebrow="Meldingen"
+        title="Notificaties"
+        description="Beheer pushmeldingen en bekijk recente updates zonder je flow te onderbreken."
+        align="left"
+      />
 
       <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
 
@@ -78,6 +84,6 @@ export default async function InstructorNotificationsPage() {
           </ul>
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

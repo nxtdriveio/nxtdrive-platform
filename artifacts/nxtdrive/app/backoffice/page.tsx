@@ -1,8 +1,5 @@
 import Link from "next/link";
-import {
-  Inbox,
-  ArrowUpRight,
-} from "lucide-react";
+import { ArrowUpRight, Inbox, Layers3 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -22,7 +19,10 @@ import {
   DashboardSection,
   type DashboardLiveData,
 } from "@/components/backoffice/dashboard-section";
-import { DashboardCard, DashboardEmptyState } from "@/components/backoffice/dashboard-card";
+import {
+  DashboardCard,
+  DashboardEmptyState,
+} from "@/components/backoffice/dashboard-card";
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +73,10 @@ export default async function BackofficePage() {
   const firstName =
     user.profile?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? "";
 
-  const funnelTotal = FUNNEL_STAGES.reduce((s, st) => s + (pipeline[st.key] ?? 0), 0);
+  const funnelTotal = FUNNEL_STAGES.reduce(
+    (sum, stage) => sum + (pipeline[stage.key] ?? 0),
+    0,
+  );
 
   const initialLive: DashboardLiveData = {
     todayLessons,
@@ -85,32 +88,40 @@ export default async function BackofficePage() {
 
   return (
     <div className="mx-auto max-w-screen-2xl space-y-6">
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {today.charAt(0).toUpperCase() + today.slice(1)}
-            {firstName ? ` — welkom terug, ${firstName}` : ""}.
-          </p>
+      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,color-mix(in_srgb,var(--card)_90%,transparent),color-mix(in_srgb,var(--primary)_10%,transparent))] p-5 shadow-[0_24px_80px_rgba(6,12,24,0.22)] sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+              <Layers3 className="h-3.5 w-3.5" aria-hidden />
+              Operationeel overzicht
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                Dashboard
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                {today.charAt(0).toUpperCase() + today.slice(1)}
+                {firstName ? ` - welkom terug, ${firstName}` : ""}. Alles wat vandaag
+                aandacht vraagt staat hier direct in context: planning, leads,
+                omzet en opvolging in een samenhangend overzicht.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="primary">
+              <ArrowUpRight className="h-3 w-3" aria-hidden />
+              {tenant.name}
+            </Badge>
+            <Link
+              href="/backoffice/leads/nieuw"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              + Nieuwe aanvraag
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="primary">
-            <ArrowUpRight className="h-3 w-3" aria-hidden />
-            {tenant.name}
-          </Badge>
-          <Link
-            href="/backoffice/leads/nieuw"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            + Nieuwe aanvraag
-          </Link>
-        </div>
-      </div>
+      </section>
 
-      {/* ── 7 KPI cards (auto-refresh every 60 s) ── */}
       <KpiSection
         tenantId={tenant.id}
         initial={{
@@ -125,9 +136,12 @@ export default async function BackofficePage() {
         }}
       />
 
-      {/* ── Lead funnel ── */}
       <DashboardCard
-        title={<><Inbox className="h-4 w-4 text-muted-foreground" /> Leadfunnel</>}
+        title={
+          <>
+            <Inbox className="h-4 w-4 text-muted-foreground" /> Leadfunnel
+          </>
+        }
         actionLabel="Alle leads"
         actionHref="/backoffice/leads"
       >
@@ -135,36 +149,38 @@ export default async function BackofficePage() {
           <DashboardEmptyState message="Nog geen leads in de funnel." />
         ) : (
           <div className="flex items-stretch gap-0 overflow-hidden rounded-xl border border-border">
-            {FUNNEL_STAGES.map((stage, i) => {
+            {FUNNEL_STAGES.map((stage, index) => {
               const count = pipeline[stage.key] ?? 0;
-              const pct = funnelTotal > 0 ? Math.round((count / funnelTotal) * 100) : 0;
-              const isLast = i === FUNNEL_STAGES.length - 1;
+              const percentage =
+                funnelTotal > 0 ? Math.round((count / funnelTotal) * 100) : 0;
+              const isLast = index === FUNNEL_STAGES.length - 1;
+
               return (
                 <div
                   key={stage.key}
                   className="relative flex flex-1 flex-col gap-1 px-4 py-3"
                   style={{
                     background:
-                      i === 0
+                      index === 0
                         ? "color-mix(in oklab, var(--primary) 10%, transparent)"
-                        : i === 1
+                        : index === 1
                           ? "color-mix(in oklab, var(--primary) 6%, transparent)"
-                          : i === 2
+                          : index === 2
                             ? "color-mix(in oklab, var(--primary) 3%, transparent)"
                             : "color-mix(in oklab, var(--success) 8%, transparent)",
                   }}
                 >
-                  {!isLast && (
+                  {!isLast ? (
                     <div
                       className="absolute inset-y-0 right-0 w-px bg-border"
                       aria-hidden
                     />
-                  )}
+                  ) : null}
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     {stage.label}
                   </p>
                   <p className="text-xl font-bold text-foreground">{count}</p>
-                  <p className="text-xs text-muted-foreground">{pct}%</p>
+                  <p className="text-xs text-muted-foreground">{percentage}%</p>
                 </div>
               );
             })}
@@ -172,7 +188,6 @@ export default async function BackofficePage() {
         )}
       </DashboardCard>
 
-      {/* ── Live dashboard sections (auto-refresh every 60 s) ── */}
       <DashboardSection
         tenantId={tenant.id}
         initial={initialLive}

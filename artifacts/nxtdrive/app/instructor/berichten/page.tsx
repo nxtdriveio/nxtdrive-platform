@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { loadInstructorConversations } from "@/lib/chat/service";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,13 @@ export default async function InstructorBerichtenPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Berichten</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gesprekken met je leerlingen.
-        </p>
-      </div>
+    <PWAPage contentClassName="space-y-4">
+      <PWAPageHeader
+        eyebrow="Communicatie"
+        title="Berichten"
+        description="Gesprekken met je leerlingen, direct vanuit je instructeurapp."
+        align="left"
+      />
 
       {conversations.length === 0 ? (
         <Card>
@@ -85,6 +86,6 @@ export default async function InstructorBerichtenPage() {
           ))}
         </div>
       )}
-    </div>
+    </PWAPage>
   );
 }

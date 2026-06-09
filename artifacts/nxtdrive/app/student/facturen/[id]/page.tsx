@@ -24,6 +24,7 @@ import {
   paymentRecordDate,
   type PaymentRecord,
 } from "@/lib/invoices/payments";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { payStudentInvoice } from "../payment-actions";
 import { PaymentStatusBanner } from "./payment-status-banner";
 import { derivePaymentReturnStatus } from "@/lib/invoices/payment-return";
@@ -142,33 +143,36 @@ export default async function StudentInvoiceDetailPage({
     : null;
 
   return (
-    <div className="space-y-4">
-      <Link
-        href="/student/betalingen"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar betalingen
-      </Link>
-
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Factuur #{String(invoice.invoice_no).padStart(4, "0")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {invoice.issued_at
+    <PWAPage contentClassName="space-y-4">
+      <PWAPageHeader
+        eyebrow="Betalingen"
+        title={`Factuur #${String(invoice.invoice_no).padStart(4, "0")}`}
+        description={[
+          invoice.issued_at
             ? `Verstuurd ${dateFmt.format(new Date(invoice.issued_at))}`
-            : "Nog niet verstuurd"}
-          {invoice.due_date
-            ? ` · Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
-            : ""}
-        </p>
-        <div className="mt-2">
-          <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
-            {DISPLAY_STATUS_LABEL[display]}
-          </Badge>
-        </div>
-      </div>
+            : "Nog niet verstuurd",
+          invoice.due_date
+            ? `Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" - ")}
+        align="left"
+        actions={
+          <div className="flex items-center gap-3">
+            <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
+              {DISPLAY_STATUS_LABEL[display]}
+            </Badge>
+            <Link
+              href="/student/betalingen"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Terug naar betalingen
+            </Link>
+          </div>
+        }
+      />
 
       {paymentReturnStatus ? (
         <PaymentStatusBanner status={paymentReturnStatus} />
@@ -232,7 +236,7 @@ export default async function StudentInvoiceDetailPage({
                       {formatEuros(p.amount_cents)}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {dtFmt.format(new Date(paymentRecordDate(p)))} ·{" "}
+                      {dtFmt.format(new Date(paymentRecordDate(p)))} -{" "}
                       {paymentMethodLabel(p, { plain: true })}
                     </span>
                   </span>
@@ -323,6 +327,6 @@ export default async function StudentInvoiceDetailPage({
           )}
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

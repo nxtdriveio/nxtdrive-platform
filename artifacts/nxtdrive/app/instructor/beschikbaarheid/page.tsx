@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeeklyEditor } from "@/components/availability/WeeklyEditor";
 import { ExceptionsManager } from "@/components/availability/ExceptionsManager";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import {
   loadExceptions,
   loadWeeklyAvailability,
@@ -37,22 +38,22 @@ export default async function InstructorAvailabilityPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Link
-          href="/instructor/week"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" /> Terug naar weekplanning
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          Mijn beschikbaarheid
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Stel je wekelijkse beschikbaarheid in en zet uitzonderingen voor
-          specifieke datums. Tijden zijn in UTC.
-        </p>
-      </div>
+    <PWAPage contentClassName="mx-auto max-w-3xl space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Mijn beschikbaarheid"
+        description="Stel je wekelijkse beschikbaarheid in en beheer uitzonderingen voor specifieke datums. Tijden zijn in UTC."
+        align="left"
+        actions={
+          <Link
+            href="/instructor/week"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Terug naar weekplanning
+          </Link>
+        }
+      />
 
       {sp.error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -88,6 +89,6 @@ export default async function InstructorAvailabilityPage({
           />
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

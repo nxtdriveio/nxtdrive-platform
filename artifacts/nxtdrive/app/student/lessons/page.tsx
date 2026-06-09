@@ -3,7 +3,7 @@ import { CalendarDays } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
+import { PWAPage, PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
 import { PlanningTabs } from "@/components/student/PlanningTabs";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
@@ -12,16 +12,10 @@ import type { Lesson } from "@/lib/lessons/types";
 export const dynamic = "force-dynamic";
 
 export default async function StudentLessonsPage() {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "student",
-    "parent",
-  ]);
-  const { student, needsChildPicker } = await getActiveStudent(
-    user,
-    tenant.id,
-    roles,
-  );
+  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
+
   if (!student) {
     return (
       <Card>
@@ -49,26 +43,23 @@ export default async function StudentLessonsPage() {
       .lt("starts_at", nowIso)
       .order("starts_at", { ascending: false }),
   ]);
+
   const upcoming = (upcomingRes.data ?? []) as Lesson[];
   const past = (pastRes.data ?? []) as Lesson[];
   const namesMap = await getInstructorNames([
-    ...upcoming.map((l) => l.instructor_id),
-    ...past.map((l) => l.instructor_id),
+    ...upcoming.map((lesson) => lesson.instructor_id),
+    ...past.map((lesson) => lesson.instructor_id),
   ]);
   const instructorNames = Object.fromEntries(namesMap);
 
   return (
-    <div className="space-y-5">
+    <PWAPage app="student">
       <PWAPageHeader
         title="Mijn planning"
-        subtitle="Aankomende en afgeronde lessen in één overzicht."
+        subtitle="Aankomende en afgeronde lessen in een overzicht dat compact blijft op telefoonformaat."
         icon={<CalendarDays className="h-4 w-4" aria-hidden />}
       />
-      <PlanningTabs
-        upcoming={upcoming}
-        past={past}
-        instructorNames={instructorNames}
-      />
-    </div>
+      <PlanningTabs upcoming={upcoming} past={past} instructorNames={instructorNames} />
+    </PWAPage>
   );
 }

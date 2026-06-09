@@ -113,30 +113,32 @@ export default async function BackofficeLayout({
       branding={branding}
       className="h-screen overflow-hidden"
     >
-      <DashboardShell
-        sidebar={
-          <BackofficeSidebar
-            tenantName={tenant.name}
-            logoUrl={logoUrl}
-            isAdmin={roles.includes("tenant_admin")}
-            hasFranchise={hasFranchise}
-            hasMultiBranch={hasMultiBranch}
-          />
-        }
-        topbar={
-          <BackofficeTopbar
-            userLabel={userLabel}
-            roleLabel={roleLabel}
-            tenantName={tenant.name}
-            theme={theme}
-            notifications={
-              <NotificationBell items={items} unreadCount={unreadCount} />
-            }
-          />
-        }
-      >
-        {children}
-      </DashboardShell>
+      <div data-management-shell="" className="h-screen overflow-hidden">
+        <DashboardShell
+          sidebar={
+            <BackofficeSidebar
+              tenantName={tenant.name}
+              logoUrl={logoUrl}
+              isAdmin={roles.includes("tenant_admin")}
+              hasFranchise={hasFranchise}
+              hasMultiBranch={hasMultiBranch}
+            />
+          }
+          topbar={
+            <BackofficeTopbar
+              userLabel={userLabel}
+              roleLabel={roleLabel}
+              tenantName={tenant.name}
+              theme={theme}
+              notifications={
+                <NotificationBell items={items} unreadCount={unreadCount} />
+              }
+            />
+          }
+        >
+          {children}
+        </DashboardShell>
+      </div>
     </BrandProvider>
   );
 }

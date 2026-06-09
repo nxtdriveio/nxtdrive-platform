@@ -3,7 +3,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -106,6 +106,7 @@ body {
   color: var(--foreground);
   background-color: var(--background);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Subtle ambient backdrop for hero / auth pages */
@@ -146,4 +147,57 @@ body {
   --warning: #fbbf24;
   --danger: #f87171;
   --info: #60a5fa;
+}
+
+[data-student-shell] {
+  background:
+    radial-gradient(
+      circle at 12% 0%,
+      color-mix(in oklab, var(--primary) 14%, transparent),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      color-mix(in oklab, var(--primary) 10%, transparent),
+      transparent 26%
+    ),
+    linear-gradient(180deg, color-mix(in oklab, var(--background) 92%, #ffffff), var(--background));
+}
+
+[data-instructor-shell] {
+  background:
+    radial-gradient(
+      circle at 85% 0%,
+      color-mix(in oklab, var(--primary) 16%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 15% 12%,
+      color-mix(in oklab, var(--primary) 10%, transparent),
+      transparent 26%
+    ),
+    linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, #05070d), var(--background));
+}
+
+[data-management-shell] {
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      color-mix(in oklab, var(--primary) 10%, transparent),
+      transparent 24%
+    ),
+    linear-gradient(180deg, color-mix(in oklab, var(--background) 97%, #05070d), var(--background));
+}
+
+[data-pwa-copy] {
+  min-width: 0;
+}
+
+[data-pwa-copy] :where(h1, h2, h3, p, span, a, li, dd, dt, td, th, button) {
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+[data-pwa-copy] :where(table, ul, ol, div, section, article) {
+  min-width: 0;
 }

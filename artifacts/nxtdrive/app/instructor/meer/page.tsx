@@ -1,6 +1,7 @@
 import Link from "next/link";
+import type { ElementType } from "react";
 import { ChevronRight, CalendarRange, Bell, Users, Settings } from "lucide-react";
-import { PWAPageHeader, PWACard } from "@/components/pwa/primitives";
+import { PWAPage, PWAPageHeader, PWACard } from "@/components/pwa/primitives";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ type MeerItem = {
   href: string;
   label: string;
   description: string;
-  icon: React.ElementType;
+  icon: ElementType;
 };
 
 const MEER_ITEMS: MeerItem[] = [
@@ -22,13 +23,13 @@ const MEER_ITEMS: MeerItem[] = [
   {
     href: "/instructor/meldingen",
     label: "Meldingen",
-    description: "Bekijk al je meldingen en notificatie-instellingen",
+    description: "Bekijk meldingen en notificatie-instellingen",
     icon: Bell,
   },
   {
     href: "/instructor/leerlingen",
     label: "Leerlingen",
-    description: "Overzicht van al je leerlingen",
+    description: "Overzicht van alle gekoppelde leerlingen",
     icon: Users,
   },
   {
@@ -40,14 +41,18 @@ const MEER_ITEMS: MeerItem[] = [
 ];
 
 export default async function InstructorMeerPage() {
-  await requireActiveTenant(["instructor", "tenant_admin"]);
+  await requireActiveTenant(["instructor"]);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      <PWAPageHeader title="Meer" subtitle="Alle overige onderdelen van de instructeur-app" />
+    <PWAPage app="instructor">
+      <PWAPageHeader
+        title="Meer"
+        subtitle="Alle overige onderdelen van de instructeur-app, gegroepeerd in een rustige tablet-first hub."
+        align="wide"
+      />
 
-      <PWACard>
-        <div className="-mx-4 -my-4 divide-y divide-border overflow-hidden rounded-2xl">
+      <PWACard contentClassName="px-0 py-0">
+        <div className="divide-y divide-border overflow-hidden rounded-[1.45rem]">
           {MEER_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
@@ -56,7 +61,7 @@ export default async function InstructorMeerPage() {
                 href={item.href}
                 className="flex items-center gap-4 px-4 py-4 transition-colors hover:bg-muted/50 active:bg-muted"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                   <Icon className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -69,6 +74,6 @@ export default async function InstructorMeerPage() {
           })}
         </div>
       </PWACard>
-    </div>
+    </PWAPage>
   );
 }

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
+import { homePathForRoles } from "@/lib/auth/role-routing";
 import {
   getTenantBranding,
   resolveBrandAppName,
@@ -72,6 +73,7 @@ export async function generateViewport(): Promise<Viewport> {
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
+    maximumScale: 1,
   };
 }
 
@@ -84,6 +86,10 @@ export default async function StudentLayout({
     "student",
     "parent",
   ]);
+
+  if (homePathForRoles(roles) !== "/student") {
+    redirect(roleHomePath(user, tenant.id));
+  }
 
   if (!roles.includes("student")) redirect(roleHomePath(user, tenant.id));
 
@@ -113,10 +119,13 @@ export default async function StudentLayout({
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
-      <div className="flex min-w-0 flex-1">
+      <div data-student-shell="" className="flex min-w-0 flex-1">
         <StudentSidebarNav />
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 lg:pb-8">
-          <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
+        <main
+          data-pwa-copy=""
+          className="min-w-0 flex-1 overflow-x-hidden px-3 pb-28 pt-24 sm:px-5 sm:pb-28 sm:pt-28 xl:pb-10"
+        >
+          <div className="mx-auto w-full max-w-[31rem] xl:max-w-[34rem] 2xl:max-w-[36rem]">
             <Suspense fallback={<StudentSplash />}>{children}</Suspense>
           </div>
         </main>

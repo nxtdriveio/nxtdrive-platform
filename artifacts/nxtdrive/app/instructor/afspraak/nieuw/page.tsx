@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { createAppointment } from "@/lib/agenda/actions";
 import type { Student } from "@/lib/students/types";
 
@@ -44,24 +45,22 @@ export default async function NewInstructorAppointmentPage({
   now.setHours(now.getHours() + 1);
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/instructor/week"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar weekplanning
-      </Link>
-
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          Nieuwe afspraak
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Examen, tussentijdse toets, theoriebegeleiding of een blok dat tijd
-          bezet.
-        </p>
-      </div>
+    <PWAPage contentClassName="space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Nieuwe afspraak"
+        description="Plan een examen, tussentijdse toets, theoriebegeleiding of een ander blok dat tijd bezet."
+        align="left"
+        actions={
+          <Link
+            href="/instructor/week"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Terug naar weekplanning
+          </Link>
+        }
+      />
 
       {sp.error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
@@ -94,6 +93,6 @@ export default async function NewInstructorAppointmentPage({
           />
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

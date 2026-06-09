@@ -1,17 +1,12 @@
 "use client";
 
-import { WifiOff, RefreshCw } from "lucide-react";
+import { RefreshCw, WifiOff } from "lucide-react";
 import { BrandLogo } from "@/components/pwa/BrandLogo";
+import { PWAPage } from "@/components/pwa/primitives";
 
-/**
- * Offline fallback for the Leerling PWA (Task #177). The service worker
- * precaches this route at install time and serves it when a navigation fails
- * because the device is offline. Branded, no data fetching, so the cached
- * snapshot always renders. "use client" only for the reload button.
- */
 export default function StudentOfflinePage() {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
+    <PWAPage contentClassName="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
       <div className="flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-950 px-8 py-10 text-white shadow-xl">
         <BrandLogo className="h-12 w-12" />
         <div className="flex items-center gap-2 text-white/80">
@@ -21,7 +16,7 @@ export default function StudentOfflinePage() {
         <h1 className="text-xl font-semibold">NXTDRIVE Leerling</h1>
         <p className="max-w-xs text-sm text-white/70">
           We kunnen je gegevens nu niet laden. Zodra je weer internet hebt, ben
-          je gelijk weer up-to-date.
+          je direct weer up-to-date.
         </p>
         <button
           type="button"
@@ -33,9 +28,8 @@ export default function StudentOfflinePage() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Tip: je laatst geladen planning kan al zichtbaar zijn op de vorige
-        pagina.
+        Tip: je laatst geladen planning kan al zichtbaar zijn op de vorige pagina.
       </p>
-    </div>
+    </PWAPage>
   );
 }
