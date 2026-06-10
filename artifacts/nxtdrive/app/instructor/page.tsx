@@ -303,7 +303,7 @@ function HeroMetricCard({ icon, value, label, sublabel }: KpiCardProps) {
         <p className="text-[1.55rem] font-black leading-none tracking-tight text-white">
           {value}
         </p>
-        <p className="mt-1 text-sm font-semibold text-white">{label}</p>
+        <p className="mt-1 truncate text-sm font-semibold text-white">{label}</p>
         <p className="text-xs text-white/64">{sublabel}</p>
       </div>
     </div>
@@ -552,7 +552,7 @@ export default async function InstructorIndexPage() {
   return (
     <PWAPage
       app="instructor"
-      contentClassName="space-y-4 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:space-y-0"
+      contentClassName="space-y-5 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-5 lg:space-y-0"
     >
       <section
         className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-5"
@@ -575,25 +575,25 @@ export default async function InstructorIndexPage() {
             <HeroMetricCard
               icon={<Users className="h-5 w-5" aria-hidden />}
               value={todayLessons.length}
-              label="Aantal lessen"
+              label="Lessen"
               sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<GraduationCap className="h-5 w-5" aria-hidden />}
               value={todayTrials.length}
-              label="Aantal proeflessen"
+              label="Proeflessen"
               sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<FileText className="h-5 w-5" aria-hidden />}
               value={examTodayCount}
-              label="Aantal examens"
+              label="Examens"
               sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<ListTodo className="h-5 w-5" aria-hidden />}
               value={openTaskCount}
-              label="Aantal taken"
+              label="Taken"
               sublabel="Vandaag"
             />
           </div>
