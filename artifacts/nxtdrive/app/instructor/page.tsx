@@ -78,7 +78,6 @@ type KpiCardProps = {
   icon: ReactNode;
   value: string | number;
   label: string;
-  sublabel: string;
 };
 
 function startOfDay(date: Date): Date {
@@ -293,18 +292,19 @@ function buildRadarItems(params: {
   return items.slice(0, 4);
 }
 
-function HeroMetricCard({ icon, value, label, sublabel }: KpiCardProps) {
+function HeroMetricCard({ icon, value, label }: KpiCardProps) {
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-[1.35rem] border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-xl">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/10 text-white shadow-inner shadow-white/5">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[1.55rem] font-black leading-none tracking-tight text-white">
-          {value}
+        <p className="flex flex-wrap items-baseline gap-2 text-white">
+          <span className="text-[1.55rem] font-black leading-none tracking-tight">
+            {value}
+          </span>
+          <span className="truncate text-sm font-semibold">{label}</span>
         </p>
-        <p className="mt-1 truncate text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs text-white/64">{sublabel}</p>
       </div>
     </div>
   );
@@ -576,25 +576,21 @@ export default async function InstructorIndexPage() {
               icon={<Users className="h-5 w-5" aria-hidden />}
               value={todayLessons.length}
               label="Lessen"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<GraduationCap className="h-5 w-5" aria-hidden />}
               value={todayTrials.length}
               label="Proeflessen"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<FileText className="h-5 w-5" aria-hidden />}
               value={examTodayCount}
               label="Examens"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<ListTodo className="h-5 w-5" aria-hidden />}
               value={openTaskCount}
               label="Taken"
-              sublabel="Vandaag"
             />
           </div>
         </div>
