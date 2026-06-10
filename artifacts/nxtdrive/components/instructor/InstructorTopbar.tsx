@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CarFront,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
@@ -40,6 +41,8 @@ const ACTIES_INSTRUCTOR = [
   { href: "/instructor/berichten", icon: MessageCircle, label: "Berichten" },
   { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
   { href: "/instructor/taken", icon: ListTodo, label: "Taken" },
+  { href: "/instructor/les-evaluaties", icon: FileText, label: "Les evaluaties" },
+  { href: "/instructor/voertuigen", icon: CarFront, label: "Voertuigen" },
 ];
 
 const ACTIES_BACKOFFICE = [
@@ -60,7 +63,7 @@ export function InstructorTopbar({
     pathname === "/instructor/berichten" || pathname.startsWith("/instructor/berichten/");
 
   return (
-    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 xl:flex">
+    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 lg:flex">
       <div className="flex flex-1 items-center justify-center">
         <div className="w-full max-w-2xl">
           <InstructorQuickSearch />

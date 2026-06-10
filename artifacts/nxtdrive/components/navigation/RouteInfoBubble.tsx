@@ -157,6 +157,13 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Hier vind je je actieve leerlingenlijst met snelle toegang tot dossiers en lessen.",
     },
     {
+      href: "/instructor/les-evaluaties",
+      match: "prefix",
+      title: "Les evaluaties",
+      description:
+        "Bekijk recente lesuitkomsten, voortgangssamenvattingen en snelle feedback zonder je cockpit te verlaten.",
+    },
+    {
       href: "/instructor/meldingen",
       match: "prefix",
       title: "Meldingen",
@@ -171,11 +178,18 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Werk jouw toegewezen taken af en verplaats ze door je workflow.",
     },
     {
+      href: "/instructor/voertuigen",
+      match: "prefix",
+      title: "Voertuigen",
+      description:
+        "Bekijk je beschikbare lesauto's en locaties die je direct vanuit de instructeurapp kunt raadplegen.",
+    },
+    {
       href: "/instructor/week",
       match: "prefix",
-      title: "Weekplanning",
+      title: "Agenda",
       description:
-        "Je overzicht van alle lessen, afspraken en gaten in je komende week.",
+        "Je agenda toont dag, week en maand met lessen, afspraken en andere tijdsblokken in een overzicht.",
     },
     {
       href: "/instructor/meer",
