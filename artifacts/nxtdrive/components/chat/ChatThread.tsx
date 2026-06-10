@@ -8,14 +8,15 @@ import {
   fetchChatMessagesAction,
 } from "@/lib/chat/actions";
 import type { ChatMessage, ChatSide } from "@/lib/chat/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
 const POLL_MS = 5000;
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
-const dayFmt = new Intl.DateTimeFormat("nl-NL", {
+const dayFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",
   month: "long",

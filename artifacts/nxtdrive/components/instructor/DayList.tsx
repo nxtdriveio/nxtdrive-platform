@@ -14,13 +14,14 @@ import {
   isStudentLinkedType,
   type AgendaAppointmentType,
 } from "@/lib/agenda/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
 
-const dayFmt = new Intl.DateTimeFormat("nl-NL", {
+const dayFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",
   month: "long",

@@ -25,6 +25,7 @@ import {
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
 import type { Lesson } from "@/lib/lessons/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import {
   formatTegoed,
   type StudentCreditBreakdown,
@@ -40,7 +41,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const heroLessonFmt = new Intl.DateTimeFormat("nl-NL", {
+const heroLessonFmt = createNlDateTimeFormatter({
   weekday: "short",
   day: "numeric",
   month: "short",
