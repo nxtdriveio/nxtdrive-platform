@@ -12,12 +12,13 @@ import {
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",
   month: "long",

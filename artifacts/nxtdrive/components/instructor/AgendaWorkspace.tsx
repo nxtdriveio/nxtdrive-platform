@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PWACard } from "@/components/pwa/primitives";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
 export type InstructorAgendaView = "day" | "week" | "month";
@@ -52,24 +53,32 @@ const VIEW_LABELS: Record<InstructorAgendaView, string> = {
   month: "Maand",
 };
 
-const MONTH_LABEL = new Intl.DateTimeFormat("nl-NL", {
+const MONTH_LABEL = createNlDateTimeFormatter({
   month: "long",
   year: "numeric",
 });
 
-const DAY_LABEL = new Intl.DateTimeFormat("nl-NL", {
+const DAY_LABEL = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
   month: "short",
 });
 
-const LONG_DAY_LABEL = new Intl.DateTimeFormat("nl-NL", {
+const LONG_DAY_LABEL = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",
   month: "long",
 });
 
-const TIME_LABEL = new Intl.DateTimeFormat("nl-NL", {
+const TIME_LABEL = createNlDateTimeFormatter({
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const DETAIL_DATE_TIME_LABEL = createNlDateTimeFormatter({
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
@@ -721,8 +730,8 @@ function EventOverlay({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <InfoRow label="Start" value={new Date(event.startsAt).toLocaleString("nl-NL")} />
-            <InfoRow label="Einde" value={new Date(event.endsAt).toLocaleString("nl-NL")} />
+            <InfoRow label="Start" value={DETAIL_DATE_TIME_LABEL.format(new Date(event.startsAt))} />
+            <InfoRow label="Einde" value={DETAIL_DATE_TIME_LABEL.format(new Date(event.endsAt))} />
             <InfoRow label="Locatie" value={event.location ?? "Geen locatie"} />
             <InfoRow
               label="Duur"

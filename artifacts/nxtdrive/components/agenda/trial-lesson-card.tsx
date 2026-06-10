@@ -5,8 +5,9 @@ import {
   TRIAL_LESSON_STATUS_VARIANT,
   type TrialLessonStatus,
 } from "@/lib/trial-lessons/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
