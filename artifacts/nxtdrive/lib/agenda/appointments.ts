@@ -18,6 +18,7 @@ type ServerSupabase = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 // the type links to one (examen/TTT/theoriebegeleiding).
 export type AgendaAppointmentView = AgendaAppointment & {
   student_name: string | null;
+  team_name: string | null;
 };
 
 export async function loadAgendaAppointments(
@@ -28,6 +29,8 @@ export async function loadAgendaAppointments(
     to: Date;
     // When set, restrict to a single instructor (instructor PWA, non-admin).
     instructorId?: string;
+    viewerUserId?: string;
+    viewerTeamIds?: readonly string[];
     // When set, restrict to rows assigned to the expanded branch scope.
     branchIds?: readonly string[];
     // Kept for narrow legacy callers that already pre-filter visible students.
@@ -58,9 +61,22 @@ export async function loadAgendaAppointments(
   const rows = (rowsRaw ?? []) as AgendaAppointment[];
   if (rows.length === 0) return [];
 
+  const viewerTeamIds = new Set(opts.viewerTeamIds ?? []);
+  const viewerUserId = opts.viewerUserId;
+  const scopedRows = !viewerUserId
+    ? rows
+    : rows.filter((row) => {
+        if (row.instructor_id === viewerUserId) return true;
+        if ((row.participant_user_ids ?? []).includes(viewerUserId)) return true;
+        return row.visibility_scope === "team" &&
+          typeof row.team_id === "string" &&
+          viewerTeamIds.has(row.team_id);
+      });
+  if (scopedRows.length === 0) return [];
+
   // Resolve student names (RLS-scoped) for the student-linked types.
   const studentIds = Array.from(
-    new Set(rows.map((r) => r.student_id).filter((id): id is string => !!id)),
+    new Set(scopedRows.map((r) => r.student_id).filter((id): id is string => !!id)),
   );
   const studentNames = new Map<string, string>();
   if (studentIds.length > 0) {
@@ -76,10 +92,25 @@ export async function loadAgendaAppointments(
     }
   }
 
-  return rows.map((r) => ({
+  const teamIds = Array.from(
+    new Set(scopedRows.map((row) => row.team_id).filter((id): id is string => !!id)),
+  );
+  const teamNames = new Map<string, string>();
+  if (teamIds.length > 0) {
+    const { data: teamsRaw } = await supabase
+      .from("organization_teams")
+      .select("id, name")
+      .in("id", teamIds);
+    for (const team of (teamsRaw ?? []) as { id: string; name: string | null }[]) {
+      teamNames.set(team.id, team.name ?? "Team");
+    }
+  }
+
+  return scopedRows.map((r) => ({
     ...r,
     student_name: r.student_id
       ? (studentNames.get(r.student_id) ?? "Leerling")
       : null,
+    team_name: r.team_id ? (teamNames.get(r.team_id) ?? "Team") : null,
   }));
 }

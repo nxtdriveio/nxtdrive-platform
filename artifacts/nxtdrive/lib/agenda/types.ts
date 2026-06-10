@@ -35,6 +35,14 @@ export const AGENDA_APPOINTMENT_RESULTS = [
 export type AgendaAppointmentResult =
   (typeof AGENDA_APPOINTMENT_RESULTS)[number];
 
+export const AGENDA_VISIBILITY_SCOPES = [
+  "personal",
+  "shared_staff",
+  "team",
+] as const;
+export type AgendaVisibilityScope =
+  (typeof AGENDA_VISIBILITY_SCOPES)[number];
+
 export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> = {
   passed: "Geslaagd",
   failed: "Gezakt",
@@ -69,6 +77,12 @@ export const APPOINTMENT_TYPE_SHORT: Record<AgendaAppointmentType, string> = {
   maintenance: "Onderhoud",
   admin: "Admin",
   vacation: "Vakantie",
+};
+
+export const APPOINTMENT_VISIBILITY_LABEL: Record<AgendaVisibilityScope, string> = {
+  personal: "Persoonlijk",
+  shared_staff: "Met collega's",
+  team: "Teamblok",
 };
 
 // Types that may be linked to a student (examen/TTT/theoriebegeleiding). The
@@ -106,6 +120,9 @@ export type AgendaAppointment = {
   tenant_id: string;
   branch_id: string | null;
   instructor_id: string;
+  team_id: string | null;
+  visibility_scope: AgendaVisibilityScope;
+  participant_user_ids: string[];
   student_id: string | null;
   type: AgendaAppointmentType;
   status: AgendaAppointmentStatus;

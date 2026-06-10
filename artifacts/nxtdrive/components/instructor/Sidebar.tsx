@@ -101,7 +101,7 @@ export function InstructorSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[21.5rem] shrink-0 bg-card xl:flex xl:flex-col">
+      <aside className="sticky top-0 hidden h-screen w-[18.25rem] shrink-0 bg-card lg:flex lg:flex-col xl:w-[18.75rem]">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border/80 px-5">
           <Link
             href="/instructor"
@@ -143,7 +143,7 @@ export function InstructorSidebar({
       </aside>
 
       <header
-        className="sticky top-0 z-30 border-b border-border/80 bg-card/95 backdrop-blur xl:hidden"
+        className="sticky top-0 z-30 border-b border-border/80 bg-card/95 backdrop-blur lg:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex h-14 items-center justify-between gap-3 px-4">
@@ -171,7 +171,7 @@ export function InstructorSidebar({
 
       <nav
         aria-label="Instructeur navigatie"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 xl:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 lg:hidden"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.7rem)" }}
       >
         <ul className="pointer-events-auto mx-auto grid max-w-3xl grid-cols-5 rounded-[1.8rem] border border-border/70 bg-card/78 p-1.5 shadow-2xl shadow-black/25 backdrop-blur-2xl">

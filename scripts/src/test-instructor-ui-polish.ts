@@ -136,14 +136,16 @@ assert(
   "instructor dashboard should stay visible instead of auto-redirecting into a lesson",
 );
 assert(
-  !page.includes("Dagoverzicht") &&
-    page.includes("Vandaag op je radar") &&
-    page.includes("Snelle routes"),
+  !page.includes("redirect(`/instructor/${target.id}`)") &&
+    page.includes("Goedemorgen") &&
+    page.includes("Volgende les") &&
+    page.includes("Op de radar") &&
+    page.includes("Quick links"),
   "instructor dashboard should expose richer overview cards",
 );
 assert(
-  page.includes('contentClassName="space-y-5 xl:space-y-6"') &&
-    page.includes("sm:grid-cols-2"),
+  page.includes('contentClassName="space-y-4 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:space-y-0"') &&
+    page.includes("lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)]"),
   "instructor dashboard should use the denser responsive home layout",
 );
 
@@ -295,6 +297,35 @@ assert(
     lessonPlannerPage.includes('name="detail_base" value="/instructor"') &&
     lessonPlannerPage.includes("loadInstructorAccessibleStudentIds"),
   "lesson planning should stay inside the instructor shell and respect instructor student scope",
+);
+
+const evaluationsPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "les-evaluaties",
+  "page.tsx",
+);
+assert(
+  evaluationsPage.includes("Les evaluaties") &&
+    evaluationsPage.includes("Recente lesfeedback"),
+  "instructor app should expose an internal lesson evaluations overview",
+);
+
+const vehiclesPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructor",
+  "voertuigen",
+  "page.tsx",
+);
+assert(
+  vehiclesPage.includes("Voertuigen") &&
+    vehiclesPage.includes("Lesauto's") &&
+    vehiclesPage.includes("Locaties"),
+  "instructor app should expose an internal vehicles overview",
 );
 
 const intakePage = read(
