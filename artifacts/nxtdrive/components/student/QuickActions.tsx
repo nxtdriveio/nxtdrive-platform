@@ -1,9 +1,7 @@
 import Link from "next/link";
 import {
   BadgeCheck,
-  BookOpen,
   CalendarDays,
-  MessageCircle,
   TrendingUp,
   Wallet,
   type LucideIcon,
@@ -22,8 +20,6 @@ const BASE_SHORTCUTS: Shortcut[] = [
   { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
   { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
   { href: "/student/cbr", label: "Examens", icon: BadgeCheck },
-  { href: "/student/theorie", label: "Theorie", icon: BookOpen },
-  { href: "/student/berichten", label: "Berichten", icon: MessageCircle },
 ];
 
 export function QuickActions({
@@ -40,9 +36,9 @@ export function QuickActions({
   return (
     <section className="space-y-3">
       <div className="px-1">
-        <h2 className="text-[1.55rem] font-bold tracking-tight text-white">Snel regelen</h2>
+        <h2 className="text-[1.28rem] font-bold tracking-tight text-white">Snel regelen</h2>
       </div>
-      <div className="grid min-w-0 grid-cols-3 gap-3">
+      <div className="grid min-w-0 grid-cols-2 gap-3">
         {shortcuts.map((shortcut) => {
           const Icon = shortcut.icon;
 
@@ -60,11 +56,22 @@ export function QuickActions({
                   {shortcut.badge > 99 ? "99+" : shortcut.badge}
                 </span>
               ) : null}
-              <div className="relative flex h-full flex-col items-center justify-center gap-3 text-center">
+              <div className="relative flex h-full min-h-[8.85rem] flex-col items-start justify-between gap-4 text-left">
                 <span className="flex h-12 w-12 items-center justify-center rounded-[1.1rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <Icon className="h-6 w-6" aria-hidden />
                 </span>
-                <span className="text-[1rem] font-medium text-white">{shortcut.label}</span>
+                <div className="space-y-1">
+                  <span className="block text-[1.08rem] font-semibold text-white">{shortcut.label}</span>
+                  <span className="block text-xs leading-5 text-white/46">
+                    {shortcut.label === "Planning"
+                      ? "Lessen en verschuivingen"
+                      : shortcut.label === "Voortgang"
+                        ? "Rijbewijsroute en trends"
+                        : shortcut.label === "Betalingen"
+                          ? "Tegoed en facturen"
+                          : "CBR en examenklaar"}
+                  </span>
+                </div>
               </div>
             </Link>
           );

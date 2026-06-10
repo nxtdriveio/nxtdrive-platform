@@ -13,12 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QuickActions } from "@/components/student/QuickActions";
-
-export type StudentJourneyStep = {
-  label: string;
-  status: "complete" | "active" | "upcoming";
-  value?: string;
-};
+import type { StudentJourneyStep } from "@/lib/students/app-summary";
 
 export type StudentNextLessonSummary = {
   href: string;
@@ -253,7 +248,7 @@ function HomeInfoCard({
               key={`${title}-${index}`}
               className={cn(
                 index === 0
-                  ? "text-[2.15rem] font-black leading-none tracking-tight text-white"
+                  ? "text-[2rem] font-black leading-none tracking-tight text-white"
                   : "text-sm leading-6 text-white/76",
               )}
             >
@@ -320,7 +315,7 @@ export function StudentHomeDashboard({
         <h1 className="text-[clamp(2.1rem,8vw,2.75rem)] font-black leading-[1.02] tracking-tight text-white">
           {greeting}, {firstName}! <span aria-hidden>👋</span>
         </h1>
-        <p className="mt-2 text-[1.02rem] leading-7 text-white/72">
+        <p className="mt-2 text-[0.98rem] leading-7 text-white/72">
           Klaar om weer een stap dichter bij je rijbewijs te komen?
         </p>
       </section>
@@ -328,7 +323,7 @@ export function StudentHomeDashboard({
       <DashboardSection className="border-primary/30 bg-[radial-gradient(circle_at_12%_0%,rgba(152,115,255,0.18),transparent_28%),linear-gradient(140deg,rgba(34,26,68,0.98),rgba(14,13,28,0.98)_62%,rgba(18,13,39,0.98))]">
         <div className="space-y-4 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[1.65rem] font-bold tracking-tight text-white">
+            <h2 className="text-[1.48rem] font-bold tracking-tight text-white">
               Mijn rijbewijsreis
             </h2>
             <Badge variant="primary" className="bg-primary/18 text-primary shadow-none">
@@ -399,7 +394,7 @@ export function StudentHomeDashboard({
 
       <DashboardSection className="border-white/8">
         <div className="flex items-center justify-between border-b border-white/6 px-4 pb-3 pt-4">
-          <h2 className="text-[1.4rem] font-bold tracking-tight text-white">AI Coach</h2>
+          <h2 className="text-[1.22rem] font-bold tracking-tight text-white">AI Coach</h2>
           <Badge variant="primary" className="gap-1 bg-primary/16 text-primary shadow-none">
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             Nieuw

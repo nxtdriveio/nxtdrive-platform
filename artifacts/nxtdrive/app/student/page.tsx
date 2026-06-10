@@ -28,10 +28,14 @@ import {
 } from "@/lib/lessons/types";
 import type { StudentCreditBreakdown } from "@/lib/students/types";
 import { getInstructorNames } from "@/lib/students/instructor-names";
+import {
+  buildStudentJourneySteps,
+  roundedJourneyPct,
+} from "@/lib/students/app-summary";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
-import { StudentHomeDashboard, type StudentJourneyStep } from "@/components/student/HomeDashboard";
+import { StudentHomeDashboard } from "@/components/student/HomeDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -55,66 +59,6 @@ function greetingFor(date: Date) {
   if (hour < 12) return "Goedemorgen";
   if (hour < 18) return "Goedemiddag";
   return "Goedenavond";
-}
-
-function avg(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function roundedJourneyPct(progressValues: number[]) {
-  if (progressValues.length === 0) return 0;
-  return Math.max(0, Math.min(100, Math.round(avg(progressValues))));
-}
-
-function buildJourneySteps(params: {
-  theoryDone: boolean;
-  completedLessonsCount: number;
-  drivingTarget: number;
-  hasCompletedTtt: boolean;
-  hasPlannedTtt: boolean;
-  hasCompletedExam: boolean;
-  hasPlannedExam: boolean;
-  passedExam: boolean;
-}): StudentJourneyStep[] {
-  return [
-    { label: "Intake", status: "complete" },
-    {
-      label: "Theorie",
-      status: params.theoryDone ? "complete" : "active",
-      value: params.theoryDone ? "Gehaald" : undefined,
-    },
-    {
-      label: "Rijlessen",
-      status:
-        params.passedExam || params.completedLessonsCount >= params.drivingTarget
-          ? "complete"
-          : params.completedLessonsCount > 0
-            ? "active"
-            : "upcoming",
-      value: `${params.completedLessonsCount} / ${params.drivingTarget}`,
-    },
-    {
-      label: "TTT",
-      status: params.hasCompletedTtt
-        ? "complete"
-        : params.hasPlannedTtt
-          ? "active"
-          : "upcoming",
-    },
-    {
-      label: "Praktijkexamen",
-      status: params.hasCompletedExam
-        ? "complete"
-        : params.hasPlannedExam
-          ? "active"
-          : "upcoming",
-    },
-    {
-      label: "Rijbewijs",
-      status: params.passedExam ? "complete" : "upcoming",
-    },
-  ];
 }
 
 export default async function StudentHomePage() {
@@ -237,7 +181,7 @@ export default async function StudentHomePage() {
       appointment.result === "passed",
   );
 
-  const journeySteps = buildJourneySteps({
+  const journeySteps = buildStudentJourneySteps({
     theoryDone: cbrSummary.preconditions.theorieBehaald,
     completedLessonsCount,
     drivingTarget,

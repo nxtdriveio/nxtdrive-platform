@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Wallet, Receipt } from "lucide-react";
+import { ChevronRight, CreditCard, Receipt, Wallet } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -10,18 +10,14 @@ import { Button } from "@/components/ui/button";
 import {
   PWAPage,
   PWAPageHeader,
-  PWACard,
-  PWASectionHeader,
   PWAEmptyState,
 } from "@/components/pwa/primitives";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
 import { payStudentInvoice } from "../facturen/payment-actions";
-import { StudentBalanceCard } from "@/components/student/BalanceCard";
-import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { getActiveStudent } from "@/lib/students/access";
 import {
   CREDIT_REASON_LABEL,
-  formatTegoed,
+  formatHours,
   formatTegoedDelta,
   type CreditLedgerRow,
   type StudentBalance,
@@ -39,10 +35,18 @@ import {
   remainingCents,
   type Invoice,
 } from "@/lib/invoices/types";
+import {
+  StudentInitialBadge,
+  StudentListRow,
+  StudentProgressBar,
+  StudentRing,
+  StudentShowcaseCard,
+} from "@/components/student/Showcase";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   day: "2-digit",
   month: "short",
   year: "numeric",
@@ -65,16 +69,41 @@ export default async function StudentBetalingenPage() {
 
   const supabase = await createServerSupabaseClient();
   const [balanceRes, breakdownRes, ledgerRes, invoicesRes] = await Promise.all([
-    supabase.from("student_credit_balance").select("student_id, balance").eq("student_id", student.id).maybeSingle(),
-    supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
+    supabase
+      .from("student_credit_balance")
+      .select("student_id, balance")
+      .eq("student_id", student.id)
+      .maybeSingle(),
+    supabase
+      .from("student_credit_breakdown")
+      .select("*")
+      .eq("student_id", student.id)
+      .maybeSingle(),
     supabase
       .from("credit_ledger")
       .select("*")
       .eq("student_id", student.id)
       .order("created_at", { ascending: false })
-      .limit(20),
-    supabase.from("invoices").select("*").eq("student_id", student.id).order("created_at", { ascending: false }),
+      .limit(12),
+    supabase
+      .from("invoices")
+      .select("*")
+      .eq("student_id", student.id)
+      .order("created_at", { ascending: false }),
   ]);
+
+  if (balanceRes.error) {
+    throw new Error(`Tegoed laden mislukt: ${balanceRes.error.message}`);
+  }
+  if (breakdownRes.error) {
+    throw new Error(`Tegoedopbouw laden mislukt: ${breakdownRes.error.message}`);
+  }
+  if (ledgerRes.error) {
+    throw new Error(`Mutaties laden mislukt: ${ledgerRes.error.message}`);
+  }
+  if (invoicesRes.error) {
+    throw new Error(`Facturen laden mislukt: ${invoicesRes.error.message}`);
+  }
 
   const balance = ((balanceRes.data as StudentBalance | null)?.balance ?? 0) as number;
   const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
@@ -89,158 +118,211 @@ export default async function StudentBetalingenPage() {
     ? (await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id)).configured
     : false;
 
+  const availablePct = breakdown
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            (breakdown.available_minutes /
+              Math.max(breakdown.purchased_minutes + breakdown.adjustment_minutes, 1)) *
+              100,
+          ),
+        ),
+      )
+    : balance > 0
+      ? 100
+      : 0;
+
   return (
-    <PWAPage app="student">
+    <PWAPage app="student" contentClassName="space-y-4">
       <PWAPageHeader
+        eyebrow="Betalingen"
         title="Betalingen"
-        subtitle="Je tegoed, mutaties en facturen op een plek die ook op mobiel rustig en strak leesbaar blijft."
+        subtitle="Je tegoed, facturen en mutaties in één rustige studentweergave."
         icon={<Wallet className="h-4 w-4" aria-hidden />}
       />
 
-      <StudentBalanceCard balance={balance} />
-      {breakdown ? <CreditBreakdownCard breakdown={breakdown} /> : null}
+      <StudentShowcaseCard
+        title="Pakket overzicht"
+        eyebrow="Tegoed"
+        info="Tegoed wordt intern in minuten bijgehouden en hier voor jou omgerekend naar overzichtelijke uren."
+      >
+        <div className="grid grid-cols-[6.8rem_minmax(0,1fr)] gap-4">
+          <StudentRing value={availablePct} label="Over" caption={`${formatHours(balance)} uur`} />
+          <div className="space-y-3">
+            <div className="text-lg font-semibold text-white">
+              {balance > 0 ? `${formatHours(balance)} uur beschikbaar` : "Geen beschikbaar tegoed"}
+            </div>
+            {breakdown ? (
+              <>
+                <StudentProgressBar
+                  label="Aangekocht"
+                  value={100}
+                  rightLabel={`${formatHours(breakdown.purchased_minutes)} uur`}
+                />
+                <StudentProgressBar
+                  label="Ingepland"
+                  value={
+                    breakdown.purchased_minutes > 0
+                      ? (breakdown.planned_minutes / breakdown.purchased_minutes) * 100
+                      : 0
+                  }
+                  rightLabel={`${formatHours(breakdown.planned_minutes)} uur`}
+                />
+                <StudentProgressBar
+                  label="Verreden"
+                  value={
+                    breakdown.purchased_minutes > 0
+                      ? (breakdown.driven_minutes / breakdown.purchased_minutes) * 100
+                      : 0
+                  }
+                  rightLabel={`${formatHours(breakdown.driven_minutes)} uur`}
+                />
+              </>
+            ) : (
+              <div className="text-sm leading-6 text-white/58">
+                Je tegoed wordt zichtbaar zodra je eerste pakket of ritmutatie is verwerkt.
+              </div>
+            )}
+          </div>
+        </div>
+      </StudentShowcaseCard>
 
       {installmentCredits.length > 0 ? (
-        <PWACard>
-          <PWASectionHeader>Tegoed in termijnen</PWASectionHeader>
-          <ol className="divide-y divide-border">
+        <StudentShowcaseCard
+          title="Termijntegoed"
+          eyebrow="Deel vrijgeven"
+          info="Bij termijnpakketten zie je welk deel al vrij is en welk deel later beschikbaar wordt."
+        >
+          <div className="space-y-2">
             {installmentCredits.map((plan) => (
-              <li key={plan.planId} className="py-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground">{plan.description}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {INSTALLMENT_CREDIT_MODE_LABEL[plan.policy]} - {formatTegoed(plan.packageMinutes)} totaal
+              <div
+                key={plan.planId}
+                className="rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-white">{plan.description}</div>
+                    <div className="mt-1 text-xs text-white/46">
+                      {INSTALLMENT_CREDIT_MODE_LABEL[plan.policy]}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1.5">
-                    <Badge variant="success">{formatTegoed(plan.releasedMinutes)} vrij</Badge>
+                    <Badge variant="success">{formatHours(plan.releasedMinutes)} uur vrij</Badge>
                     {plan.pendingMinutes > 0 ? (
-                      <Badge variant="warning">{formatTegoed(plan.pendingMinutes)} later</Badge>
+                      <Badge variant="warning">{formatHours(plan.pendingMinutes)} uur later</Badge>
                     ) : null}
                   </div>
                 </div>
-              </li>
+              </div>
             ))}
-          </ol>
-        </PWACard>
+          </div>
+        </StudentShowcaseCard>
       ) : null}
 
-      <section className="space-y-2">
-        <PWASectionHeader icon={<Receipt className="h-3.5 w-3.5" aria-hidden />}>
-          Facturen
-        </PWASectionHeader>
+      <StudentShowcaseCard
+        title="Facturen"
+        eyebrow="Open en voldaan"
+        info="Open facturen kun je direct vanuit je studentomgeving betalen wanneer online betalen voor jouw rijschool actief is."
+      >
         {invoices.length === 0 ? (
-          <PWAEmptyState
-            icon={<Receipt className="h-8 w-8" aria-hidden />}
-            title="Geen facturen"
-            message="Er zijn nog geen facturen voor jou aangemaakt."
-          />
+          <PWAEmptyState message="Er zijn nog geen facturen voor jou aangemaakt." />
         ) : (
-          <ol className="space-y-2">
+          <div className="space-y-2">
             {invoices.map((invoice) => {
               const display = displayStatus(invoice);
               const remaining = remainingCents(invoice);
               const canPayOnline = mollieConfigured && isPayable(invoice);
-
               return (
-                <li
+                <div
                   key={invoice.id}
-                  className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+                  className="overflow-hidden rounded-[1.15rem] border border-white/10 bg-white/[0.02]"
                 >
                   <Link
                     href={`/student/facturen/${invoice.id}`}
-                    className="block p-4 transition hover:bg-muted/50"
+                    className="flex items-center gap-3 px-3 py-3 transition hover:bg-white/[0.03]"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-foreground">
-                          Factuur #{String(invoice.invoice_no).padStart(4, "0")}
-                        </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          {invoice.due_date
-                            ? `Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
-                            : `Aangemaakt ${dateFmt.format(new Date(invoice.created_at))}`}
-                        </div>
+                    <StudentInitialBadge label="€" tone="orange" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-white">
+                        Factuur #{String(invoice.invoice_no).padStart(4, "0")}
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
-                          {DISPLAY_STATUS_LABEL[display]}
-                        </Badge>
-                        <div className="text-sm font-semibold text-foreground">
-                          {formatEuros(invoice.total_cents)}
-                        </div>
+                      <div className="mt-1 text-xs text-white/46">
+                        {invoice.due_date
+                          ? `Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
+                          : `Aangemaakt ${dateFmt.format(new Date(invoice.created_at))}`}
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     </div>
+                    <div className="shrink-0 text-right">
+                      <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
+                        {DISPLAY_STATUS_LABEL[display]}
+                      </Badge>
+                      <div className="mt-1 text-sm font-semibold text-white">
+                        {formatEuros(invoice.total_cents)}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/24" aria-hidden />
                   </Link>
                   {canPayOnline ? (
-                    <div className="border-t border-border p-3">
+                    <div className="border-t border-white/8 px-3 py-3">
                       <form action={payStudentInvoice}>
                         <input type="hidden" name="invoice_id" value={invoice.id} />
-                        <Button type="submit" size="sm" className="w-full">
+                        <Button type="submit" size="sm" className="h-11 w-full">
                           Betaal nu {formatEuros(remaining)}
                         </Button>
                       </form>
                     </div>
                   ) : null}
-                </li>
+                </div>
               );
             })}
-          </ol>
+          </div>
         )}
-      </section>
+      </StudentShowcaseCard>
 
-      <PWACard>
-        <PWASectionHeader>Recente mutaties</PWASectionHeader>
+      <StudentShowcaseCard
+        title="Recente mutaties"
+        eyebrow="Pakketbewegingen"
+        info="Zo zie je precies welke les, correctie of aankoop je tegoed heeft beïnvloed."
+      >
         {rows.length === 0 ? (
           <PWAEmptyState message="Nog geen mutaties op je tegoed." />
         ) : (
-          <ol className="divide-y divide-border">
+          <div className="space-y-2">
             {rows.map((row) => {
               const positive = row.delta > 0;
               const lessonHref =
                 row.related_type === "lesson" && row.related_id
                   ? `/student/lessons/${row.related_id}`
-                  : null;
-
-              const inner = (
-                <>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground">
-                      {CREDIT_REASON_LABEL[row.reason]}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {dateFmt.format(new Date(row.created_at))}
-                      {row.note ? ` - ${row.note}` : ""}
-                      {lessonHref ? " - Bekijk les" : ""}
-                    </div>
-                  </div>
-                  <Badge variant={positive ? "success" : "warning"}>{formatTegoedDelta(row.delta)}</Badge>
-                  {lessonHref ? (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  ) : null}
-                </>
-              );
-
+                  : undefined;
               return (
-                <li key={row.id}>
-                  {lessonHref ? (
-                    <Link
-                      href={lessonHref}
-                      className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm transition hover:bg-muted/60"
-                    >
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">{inner}</div>
-                  )}
-                </li>
+                <StudentListRow
+                  key={row.id}
+                  href={lessonHref}
+                  title={CREDIT_REASON_LABEL[row.reason]}
+                  subtitle={row.note ?? "Automatisch verwerkt in je dossier"}
+                  meta={dateFmt.format(new Date(row.created_at))}
+                  badge={formatTegoedDelta(row.delta)}
+                  badgeVariant={positive ? "success" : "warning"}
+                  leading={
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/14 text-primary">
+                      <CreditCard className="h-5 w-5" aria-hidden />
+                    </span>
+                  }
+                />
               );
             })}
-          </ol>
+          </div>
         )}
-      </PWACard>
+      </StudentShowcaseCard>
+
+      <div className="px-1 text-xs text-white/42">
+        <span className="inline-flex items-center gap-1">
+          <Receipt className="h-3.5 w-3.5" aria-hidden />
+          Factuurbetalingen blijven tenant-safe en lopen alleen via jouw eigen dossier.
+        </span>
+      </div>
     </PWAPage>
   );
 }
