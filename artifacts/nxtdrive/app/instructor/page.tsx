@@ -544,10 +544,11 @@ export default async function InstructorIndexPage() {
   return (
     <PWAPage
       app="instructor"
-      contentClassName="space-y-5 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-5 lg:space-y-0"
+      className="lg:flex lg:h-full lg:flex-col"
+      contentClassName="space-y-4 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-4 lg:space-y-0 lg:overflow-hidden"
     >
       <section
-        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-5"
+        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-4"
       >
         <div className="pointer-events-none absolute inset-y-0 right-0 w-56 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
         <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
@@ -592,7 +593,7 @@ export default async function InstructorIndexPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)] lg:overflow-hidden">
         <PWACard
           title={
             <CardHeading
@@ -600,8 +601,8 @@ export default async function InstructorIndexPage() {
               info="Je eerstvolgende reguliere rijles met alle context die je direct nodig hebt om te vertrekken."
             />
           }
-          className="flex h-full flex-col bg-card"
-          contentClassName="flex h-full min-h-0 flex-col gap-4"
+          className="flex h-full min-h-0 flex-col bg-card"
+          contentClassName="flex h-full min-h-0 flex-col gap-3 overflow-hidden"
           headerRight={
             nextLesson ? (
               <Badge variant="primary">{formatCountdown(now, nextLesson.starts_at)}</Badge>
@@ -610,7 +611,7 @@ export default async function InstructorIndexPage() {
         >
           {nextLesson && nextLessonContext ? (
             <>
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <Avatar name={nextStudent?.full_name ?? "Leerling"} className="h-14 w-14 text-base" />
@@ -624,7 +625,7 @@ export default async function InstructorIndexPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 space-y-4">
+                  <div className="mt-4 space-y-3">
                     <div className="flex gap-3">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                       <div>
