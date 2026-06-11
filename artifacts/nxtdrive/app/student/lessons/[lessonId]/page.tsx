@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { LessonHeaderCard } from "@/components/student/LessonHeaderCard";
 import { LessonPracticedChips } from "@/components/student/LessonPracticedChips";
 import { LessonNotesCard } from "@/components/student/LessonNotesCard";
@@ -22,6 +21,10 @@ import {
 import { loadLessonTheoryHomework } from "@/lib/theory/data";
 import { CancelLessonButton } from "@/components/student/CancelLessonButton";
 import { RescheduleLessonButton } from "@/components/student/RescheduleLessonButton";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseEmptyState,
+} from "@/components/student/Showcase";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import {
@@ -224,22 +227,21 @@ export default async function StudentLessonDetailPage({
       ) : null}
 
       {lesson.progress_summary ? (
-        <Card>
-          <CardContent className="space-y-1 pt-5">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Toelichting van je instructeur
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {lesson.progress_summary}
-            </p>
-          </CardContent>
-        </Card>
+        <StudentShowcaseCard
+          title="Toelichting van je instructeur"
+          eyebrow="Lesreflectie"
+        >
+          <p className="whitespace-pre-wrap text-sm leading-6 text-white/70">
+            {lesson.progress_summary}
+          </p>
+        </StudentShowcaseCard>
       ) : lesson.status === "completed" ? (
-        <Card>
-          <CardContent className="pt-5 text-sm text-muted-foreground">
-            Je instructeur heeft nog geen toelichting gedeeld voor deze les.
-          </CardContent>
-        </Card>
+        <StudentShowcaseCard title="Toelichting van je instructeur" eyebrow="Lesreflectie">
+          <StudentShowcaseEmptyState
+            title="Nog geen toelichting gedeeld"
+            description="Je instructeur heeft voor deze les nog geen extra samenvatting toegevoegd."
+          />
+        </StudentShowcaseCard>
       ) : null}
 
       {isCancellable ? (

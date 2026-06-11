@@ -1,20 +1,13 @@
 import { redirect } from "next/navigation";
-import { CalendarDays, WalletCards } from "lucide-react";
+import { ADVICE_LABELS, PHASE_LABELS } from "@workspace/leskaart";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { QuickActions } from "@/components/student/QuickActions";
-import { ContactCard } from "@/components/student/ContactCard";
-import { loadContactPhone } from "@/lib/tenant/contact-phone";
-import { countStudentUnread } from "@/lib/chat/service";
-import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
 import { ExamInvitations } from "@/components/student/exam-invitations";
 import { listOpenInvitationsForStudent } from "@/lib/lesson-refill/invitations";
 import { listOpenExamInvitationsForStudent } from "@/lib/exam-invitations/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { loadStudentTheoryHomework } from "@/lib/theory/data";
 import { ReferralInvite } from "@/components/student/referral-invite";
 import { ReviewRequestBanner } from "@/components/student/review-request-banner";
 import {
@@ -24,30 +17,52 @@ import {
 } from "@/lib/referrals/data";
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
+import { countStudentUnread } from "@/lib/chat/service";
+import { PWAEmptyState, PWAPage } from "@/components/pwa/primitives";
+import { createNlDateTimeFormatter, amsterdamHour, isSameAmsterdamDay } from "@/lib/datetime";
 import type { Lesson } from "@/lib/lessons/types";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
 import {
-  formatTegoed,
-  type StudentCreditBreakdown,
-} from "@/lib/students/types";
+  VEHICLE_TRANSMISSION_LABEL,
+  type VehicleTransmission,
+} from "@/lib/lessons/types";
+import type { StudentCreditBreakdown } from "@/lib/students/types";
+import { getInstructorNames } from "@/lib/students/instructor-names";
 import {
-  PWAEmptyState,
-  PWAHero,
-  PWAKpiGrid,
-  PWAKpiTile,
-  PWAPage,
-  PWASectionHeader,
-} from "@/components/pwa/primitives";
+  buildStudentJourneySteps,
+  roundedJourneyPct,
+} from "@/lib/students/app-summary";
+import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
+import { loadStudentCbrSummary } from "@/lib/cbr/data";
+import { StudentHomeDashboard } from "@/components/student/HomeDashboard";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseEmptyState,
+} from "@/components/student/Showcase";
 
 export const dynamic = "force-dynamic";
 
-const heroLessonFmt = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "numeric",
-  month: "short",
+const lessonTimeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const shortDateFmt = createNlDateTimeFormatter({
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+function capitalize(text: string) {
+  return text.length > 0 ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text;
+}
+
+function greetingFor(date: Date) {
+  const hour = amsterdamHour(date);
+  if (hour < 12) return "Goedemorgen";
+  if (hour < 18) return "Goedemiddag";
+  return "Goedenavond";
+}
 
 export default async function StudentHomePage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
@@ -56,20 +71,19 @@ export default async function StudentHomePage() {
 
   if (!student) {
     return (
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          <h1 className="text-xl font-semibold text-foreground">Welkom bij {tenant.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Je account is nog niet gekoppeld aan een leerlingdossier. Neem contact op met je
-            rijschool om dit in orde te maken.
-          </p>
-        </CardContent>
-      </Card>
+      <StudentShowcaseCard title={`Welkom bij ${tenant.name}`} eyebrow="Leerlingapp">
+        <StudentShowcaseEmptyState
+          title="Je account is nog niet gekoppeld"
+          description="Neem contact op met je rijschool om je leerlingdossier te laten koppelen."
+        />
+      </StudentShowcaseCard>
     );
   }
 
   const supabase = await createServerSupabaseClient();
-  const nowIso = new Date().toISOString();
+  const service = createServiceRoleClient();
+  const now = new Date();
+  const nowIso = now.toISOString();
 
   const { data: nextRaw } = await supabase
     .from("lessons")
@@ -82,87 +96,240 @@ export default async function StudentHomePage() {
     .maybeSingle();
   const nextLesson = (nextRaw as Lesson | null) ?? null;
 
-  const [breakdownRes, homework, refillInvitations] = await Promise.all([
+  const [
+    breakdownRes,
+    refillInvitations,
+    examInvitations,
+    origin,
+    referralCode,
+    reviewSettings,
+    referralSummary,
+    chatUnread,
+    readiness,
+    leskaart,
+    cbrSummary,
+    completedLessonCountRes,
+    milestoneAppointmentsRes,
+    reviewNotif,
+  ] = await Promise.all([
     supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
-    loadStudentTheoryHomework(supabase, tenant.id, student.id),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
+    listOpenExamInvitationsForStudent(service, tenant.id, student.id),
+    getPublicOrigin(),
+    ensureStudentReferralCode(service, tenant.id, student.id, user.id),
+    getReviewMomentsSettings(service, tenant.id),
+    loadStudentReferralSummary(service, tenant.id, student.id),
+    countStudentUnread({ tenantId: tenant.id, studentId: student.id }),
+    loadStudentReadiness(supabase, tenant.id, student.id),
+    loadStudentLeskaart(supabase, tenant.id, student.id),
+    loadStudentCbrSummary(supabase, tenant.id, student.id),
+    supabase
+      .from("lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", student.id)
+      .eq("status", "completed"),
+    supabase
+      .from("agenda_appointments")
+      .select("type, status, starts_at, result")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", student.id)
+      .in("type", ["interim_test", "exam"])
+      .order("starts_at", { ascending: true }),
+    supabase
+      .from("app_notifications")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("type", "review_request")
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
-  const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
 
-  const examInvitations = await listOpenExamInvitationsForStudent(
-    createServiceRoleClient(),
-    tenant.id,
-    student.id,
+  const referralUrl = referralCode ? buildReferralUrl(origin, tenant.slug, referralCode) : null;
+  const reviewNotificationId =
+    ((reviewNotif.data as { id: string } | null)?.id as string | undefined) ?? null;
+  const breakdown = breakdownRes.data as StudentCreditBreakdown | null;
+  const completedLessonsCount =
+    completedLessonCountRes.count ?? leskaart.history.filter((point) => point.status === "completed").length;
+  const drivingTarget = Math.max(40, Math.ceil(Math.max(completedLessonsCount, 1) / 10) * 10);
+  const journeyPct = roundedJourneyPct(leskaart.categories.map((category) => category.progressPct));
+  const firstName = student.full_name.split(" ")[0] ?? "leerling";
+
+  const milestoneAppointments = (milestoneAppointmentsRes.data ?? []) as Array<{
+    type: string;
+    status: string;
+    starts_at: string;
+    result: string | null;
+  }>;
+  const hasCompletedTtt = milestoneAppointments.some(
+    (appointment) => appointment.type === "interim_test" && appointment.status === "completed",
+  );
+  const hasPlannedTtt = milestoneAppointments.some(
+    (appointment) => appointment.type === "interim_test" && appointment.status === "planned",
+  );
+  const hasCompletedExam = milestoneAppointments.some(
+    (appointment) => appointment.type === "exam" && appointment.status === "completed",
+  );
+  const hasPlannedExam = milestoneAppointments.some(
+    (appointment) => appointment.type === "exam" && appointment.status === "planned",
+  );
+  const passedExam = milestoneAppointments.some(
+    (appointment) =>
+      appointment.type === "exam" &&
+      appointment.status === "completed" &&
+      appointment.result === "passed",
   );
 
-  const service = createServiceRoleClient();
-  const [origin, referralCode, reviewSettings, referralSummary, contactPhone, chatUnread] =
-    await Promise.all([
-      getPublicOrigin(),
-      ensureStudentReferralCode(service, tenant.id, student.id, user.id),
-      getReviewMomentsSettings(service, tenant.id),
-      loadStudentReferralSummary(service, tenant.id, student.id),
-      loadContactPhone(service, tenant.id),
-      countStudentUnread({ tenantId: tenant.id, studentId: student.id }),
-    ]);
-  const referralUrl = referralCode ? buildReferralUrl(origin, tenant.slug, referralCode) : null;
+  const journeySteps = buildStudentJourneySteps({
+    theoryDone: cbrSummary.preconditions.theorieBehaald,
+    completedLessonsCount,
+    drivingTarget,
+    hasCompletedTtt,
+    hasPlannedTtt,
+    hasCompletedExam,
+    hasPlannedExam,
+    passedExam,
+  });
 
-  const { data: reviewNotif } = await supabase
-    .from("app_notifications")
-    .select("id")
-    .eq("tenant_id", tenant.id)
-    .eq("type", "review_request")
-    .is("read_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const reviewNotificationId = (reviewNotif?.id as string | undefined) ?? null;
+  const sparklineValues = leskaart.history
+    .slice(-6)
+    .map((point) => point.progressScore ?? point.averageScore * 10)
+    .filter((value): value is number => Number.isFinite(value));
 
-  const firstName = student.full_name.split(" ")[0];
-  const nextLessonLabel = nextLesson?.starts_at
-    ? heroLessonFmt.format(new Date(nextLesson.starts_at))
-    : "Nog geen les gepland";
-  const availableMinutes = breakdown?.available_minutes ?? 0;
-  const creditLabel = formatTegoed(Math.max(0, availableMinutes));
+  const nextInstructorNames = nextLesson
+    ? await getInstructorNames([nextLesson.instructor_id])
+    : new Map<string, string>();
+
+  const nextLessonVehicleRes = nextLesson?.vehicle_id
+    ? await supabase
+        .from("vehicles")
+        .select("label, transmission")
+        .eq("id", nextLesson.vehicle_id)
+        .eq("tenant_id", tenant.id)
+        .maybeSingle()
+    : { data: null, error: null };
+
+  if ("error" in nextLessonVehicleRes && nextLessonVehicleRes.error) {
+    throw new Error(`Voertuig laden mislukt: ${nextLessonVehicleRes.error.message}`);
+  }
+
+  const vehicle = nextLessonVehicleRes.data as
+    | {
+        label: string;
+        transmission: VehicleTransmission | null;
+      }
+    | null;
+
+  const nextLessonVehicleLabel = vehicle
+    ? [vehicle.label, vehicle.transmission ? VEHICLE_TRANSMISSION_LABEL[vehicle.transmission] : null]
+        .filter(Boolean)
+        .join(" - ")
+    : null;
+
+  const nextLessonSummary = nextLesson
+    ? {
+        href: `/student/lessons/${nextLesson.id}`,
+        dayLabel: isSameAmsterdamDay(new Date(nextLesson.starts_at), now)
+          ? "Vandaag"
+          : capitalize(shortDateFmt.format(new Date(nextLesson.starts_at))),
+        timeLabel: lessonTimeFmt.format(new Date(nextLesson.starts_at)),
+        primary: nextInstructorNames.get(nextLesson.instructor_id) ?? tenant.name,
+        secondary: nextLesson.location ?? "Locatie volgt",
+        vehicle: nextLessonVehicleLabel,
+      }
+    : null;
+
+  const estimatedLessonsUntilReady =
+    readiness.readinessPct >= 90 ? 0 : Math.max(1, Math.ceil((90 - readiness.readinessPct) / 7));
+
+  const examBadgeLabel =
+    readiness.advice === "examenwaardig"
+      ? "Examenklaar"
+      : readiness.advice === "bijna_examenrijp"
+        ? "Goed op weg"
+        : "In opbouw";
+
+  const examBadgeVariant =
+    readiness.advice === "examenwaardig"
+      ? "success"
+      : readiness.advice === "bijna_examenrijp"
+        ? "warning"
+        : "default";
+
+  const examEta =
+    cbrSummary.derived.nextAppointmentAt && cbrSummary.derived.nextAppointmentType
+      ? `${cbrSummary.derived.nextAppointmentType === "exam" ? "Examen" : "TTT"} ${capitalize(shortDateFmt.format(new Date(cbrSummary.derived.nextAppointmentAt)))}`
+      : estimatedLessonsUntilReady === 0
+        ? "Klaar voor je volgende examenstap"
+        : `Over ~${estimatedLessonsUntilReady} ${estimatedLessonsUntilReady === 1 ? "les" : "lessen"}`;
+
+  const weakestCategory =
+    [...leskaart.categories].sort(
+      (left, right) =>
+        right.criticalBelow - left.criticalBelow || left.progressPct - right.progressPct,
+    )[0] ?? null;
+  const historyPoints = leskaart.history.slice(-2);
+  const recentDeltaPct =
+    historyPoints.length === 2
+      ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 10) * 100)
+      : null;
+
+  const coachTitle =
+    recentDeltaPct && recentDeltaPct > 0
+      ? "Sterke vooruitgang deze week! 🚀"
+      : readiness.advice === "bijna_examenrijp"
+        ? "Je zit dicht op examenniveau"
+        : readiness.advice === "examenwaardig"
+          ? "Je bent klaar voor de laatste stap"
+          : "Je volgende slimme focus";
+
+  const coachBody =
+    recentDeltaPct && recentDeltaPct > 0
+      ? `Je gemiddelde lesniveau steeg ${recentDeltaPct}% in je laatste twee beoordeelde lessen.`
+      : readiness.blockers[0]
+        ? readiness.blockers[0]
+        : weakestCategory
+          ? `Focus de komende lessen extra op ${weakestCategory.label.toLowerCase()} om versneld door te groeien.`
+          : `Je opbouw richting ${PHASE_LABELS[readiness.phase].toLowerCase()} ziet er stabiel uit.`;
+
+  const journeyStatus =
+    passedExam
+      ? "Je bent geslaagd!"
+      : journeyPct >= 70
+        ? "Je ligt op schema!"
+        : journeyPct >= 40
+          ? "Goede opbouw, ga zo door."
+          : "Je rijbewijsreis is goed gestart.";
 
   return (
     <PWAPage app="student" contentClassName="space-y-5 sm:space-y-6">
-      <PWAHero
-        app="student"
-        eyebrow={tenant.name}
-        title={`Welkom terug, ${firstName}`}
-        subtitle="Alles wat je nu moet regelen staat direct voor je klaar: je planning, voortgang, tegoed en contact met je rijschool."
-        aside={
-          <PWAKpiGrid compact className="w-full min-w-0 max-w-sm">
-            <PWAKpiTile
-              label={
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-                  Volgende les
-                </span>
-              }
-              value={nextLessonLabel}
-              hint={nextLesson?.location ?? "Plan je volgende les met je rijschool"}
-              info="Hier zie je direct wanneer je eerstvolgende rijles plaatsvindt en waar die start."
-              className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
-            />
-            <PWAKpiTile
-              label={
-                <span className="inline-flex items-center gap-1.5">
-                  <WalletCards className="h-3.5 w-3.5" aria-hidden />
-                  Tegoed
-                </span>
-              }
-              value={creditLabel}
-              hint={availableMinutes <= 0 ? "Aanvullen nodig" : "Direct inzetbaar"}
-              info="Je resterende lestijd of leswaarde die nog beschikbaar is om nieuwe lessen in te plannen."
-              className="border-white/10 bg-white/10 text-white [&_p:first-child]:text-white/70 [&_p:last-child]:text-white/60"
-            />
-          </PWAKpiGrid>
-        }
+      <StudentHomeDashboard
+        greeting={greetingFor(now)}
+        firstName={firstName}
+        journeyPct={journeyPct}
+        journeyStatus={journeyStatus}
+        journeySteps={journeySteps}
+        sparklineValues={sparklineValues}
+        nextLesson={nextLessonSummary}
+        examStatus={{
+          href: "/student/cbr",
+          readinessPct: readiness.readinessPct,
+          badgeLabel: examBadgeLabel,
+          badgeVariant: examBadgeVariant,
+          title: "Examengereedheid",
+          detail:
+            readiness.blockers[0] ??
+            `${ADVICE_LABELS[readiness.advice]} · ${PHASE_LABELS[readiness.phase]}`,
+          eta: examEta,
+        }}
+        coach={{
+          title: coachTitle,
+          body: coachBody,
+          ctaHref: "/student/voortgang",
+        }}
+        messageUnreadCount={chatUnread}
       />
-
-      <QuickActions />
 
       {reviewNotificationId ? (
         <ReviewRequestBanner
@@ -174,22 +341,12 @@ export default async function StudentHomePage() {
       <RefillInvitations invitations={refillInvitations} />
       <ExamInvitations invitations={examInvitations} />
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <ContactCard
-          schoolName={tenant.name}
-          contactPhone={contactPhone}
-          unreadCount={chatUnread}
-        />
-        <StudentTheoryHomeworkCard homework={homework} emptyHint={false} />
-      </div>
-
       {referralUrl ? (
         <ReferralInvite url={referralUrl} schoolName={tenant.name} summary={referralSummary} />
       ) : null}
 
-      {!nextLesson && availableMinutes <= 0 ? (
+      {!nextLesson && (breakdown?.available_minutes ?? 0) <= 0 ? (
         <section className="space-y-3">
-          <PWASectionHeader>Directe aandacht</PWASectionHeader>
           <PWAEmptyState message="Er staat nog geen vervolgles gepland en je tegoed is op. Vul je pakket aan of neem contact op met je rijschool om ritme te houden." />
         </section>
       ) : null}

@@ -1,18 +1,20 @@
 import {
   CalendarDays,
+  CheckCircle2,
   Clock,
   User,
   Car,
-  CheckCircle2,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  StudentShowcaseCard,
+} from "@/components/student/Showcase";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import {
   LESSON_STATUS_LABEL,
   LESSON_STATUS_VARIANT,
   type Lesson,
 } from "@/lib/lessons/types";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
 
 const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
@@ -25,11 +27,6 @@ const dateFmt = createNlDateTimeFormatter({
   year: "numeric",
 });
 
-/**
- * Leskaart lesson-detail header (student view): date, time + driven duration,
- * instructor and lesson type, with the lesson status badge. Mirrors the
- * "Digitale leskaart" mockup; completed lessons read "Afgerond".
- */
 export function LessonHeaderCard({
   lesson,
   instructorName,
@@ -39,34 +36,26 @@ export function LessonHeaderCard({
 }) {
   const start = new Date(lesson.starts_at);
   const end = new Date(lesson.ends_at);
-  const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
+  const durationMin = Math.round((end.getTime() - start.getTime()) / 60000);
   const isCompleted = lesson.status === "completed";
 
   return (
-    <Card>
-      <CardContent className="pt-5">
+    <StudentShowcaseCard
+      title="Lesdetails"
+      eyebrow="Overzicht"
+      actionLabel="Alle lessen"
+      actionHref="/student/lessons"
+    >
+      <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <dl className="space-y-2.5 text-sm">
-            <Row icon={CalendarDays}>
-              <span className="font-medium capitalize text-foreground">
-                {dateFmt.format(start)}
-              </span>
-            </Row>
-            <Row icon={Clock}>
-              <span className="text-foreground">
-                {timeFmt.format(start)} – {timeFmt.format(end)}
-              </span>
-            </Row>
-            {instructorName ? (
-              <Row icon={User}>
-                <span className="text-foreground">{instructorName}</span>
-              </Row>
-            ) : null}
-            <Row icon={Car}>
-              <span className="text-foreground">Rijles · {durMin} min</span>
-            </Row>
-          </dl>
-
+          <div>
+            <div className="text-lg font-semibold capitalize text-white">
+              {dateFmt.format(start)}
+            </div>
+            <div className="mt-1 text-sm text-white/54">
+              {timeFmt.format(start)} - {timeFmt.format(end)}
+            </div>
+          </div>
           {isCompleted ? (
             <Badge variant="success" className="gap-1">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
@@ -78,22 +67,41 @@ export function LessonHeaderCard({
             </Badge>
           )}
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="grid grid-cols-2 gap-2">
+          <InfoTile
+            icon={Clock}
+            label="Tijdslot"
+            value={`${timeFmt.format(start)} - ${timeFmt.format(end)}`}
+          />
+          <InfoTile icon={Car} label="Duur" value={`${durationMin} min`} />
+          {instructorName ? (
+            <InfoTile icon={User} label="Instructeur" value={instructorName} />
+          ) : null}
+          <InfoTile icon={CalendarDays} label="Type" value="Rijles" />
+        </div>
+
+      </div>
+    </StudentShowcaseCard>
   );
 }
 
-function Row({
+function InfoTile({
   icon: Icon,
-  children,
+  label,
+  value,
 }: {
-  icon: typeof CalendarDays;
-  children: React.ReactNode;
+  icon: typeof Clock;
+  label: string;
+  value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-      {children}
+    <div className="rounded-[1.1rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+        <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+        {label}
+      </div>
+      <div className="mt-2 text-sm font-semibold text-white">{value}</div>
     </div>
   );
 }

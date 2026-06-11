@@ -14,7 +14,6 @@ import {
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
-import { StudentSidebarNav } from "@/components/student/SidebarNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { InstallPromptBanner } from "@/components/pwa/InstallPromptBanner";
@@ -119,17 +118,15 @@ export default async function StudentLayout({
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
-      <div data-student-shell="" className="flex min-w-0 flex-1">
-        <StudentSidebarNav />
-        <main
-          data-pwa-copy=""
-          className="min-w-0 flex-1 overflow-x-hidden px-3 pb-28 pt-[7.6rem] sm:px-5 sm:pb-28 sm:pt-[8.2rem] xl:pb-10"
-        >
-          <div className="mx-auto w-full max-w-[31rem] xl:max-w-[34rem] 2xl:max-w-[36rem]">
-            <Suspense fallback={<StudentSplash />}>{children}</Suspense>
-          </div>
-        </main>
-      </div>
+      <main
+        data-student-shell=""
+        data-pwa-copy=""
+        className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-[7rem] sm:px-5 sm:pb-28 sm:pt-[7.45rem]"
+      >
+        <div className="mx-auto w-full max-w-[29rem]">
+          <Suspense fallback={<StudentSplash />}>{children}</Suspense>
+        </div>
+      </main>
       <StudentBottomNav />
     </BrandProvider>
   );

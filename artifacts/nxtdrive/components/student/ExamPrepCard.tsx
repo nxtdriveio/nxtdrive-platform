@@ -1,21 +1,25 @@
 import {
-  GraduationCap,
   CalendarClock,
-  MapPin,
   Car,
   CheckCircle2,
   Circle,
-  ListChecks,
-  Lightbulb,
   Clock3,
+  GraduationCap,
   History,
+  Lightbulb,
+  ListChecks,
+  MapPin,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  StudentChecklist,
+  StudentShowcaseCard,
+} from "@/components/student/Showcase";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import type { StudentExamPrep } from "@/lib/exam/data";
 import type { CbrPreconditions } from "@/lib/cbr/data";
 
-const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateTimeFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "2-digit",
   month: "long",
@@ -24,12 +28,12 @@ const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   minute: "2-digit",
 });
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   day: "2-digit",
   month: "long",
   year: "numeric",
@@ -55,12 +59,6 @@ function countdownLabel(days: number): string {
   return `over ${days} dagen`;
 }
 
-/**
- * Leerling-zicht op de examenvoorbereiding (read-only). Toont datum/tijd/locatie,
- * ophaalmoment, de afvinkbare documentenlijst, de voorwaarden (theorie/CBR/
- * tegoed), tips voor de examendag, aandachtspunten, de laatst gereden lessen en
- * een aftelindicator. Alleen renderen wanneer er een examen gepland staat.
- */
 export function ExamPrepCard({
   prep,
   preconditions,
@@ -84,187 +82,159 @@ export function ExamPrepCard({
   const examDayNotes = prep.details?.examDayNotes ?? null;
 
   return (
-    <Card className="border-primary/40 bg-primary-soft/40">
-      <CardContent className="space-y-4 pt-5">
+    <StudentShowcaseCard
+      title={`${noun} voorbereiding`}
+      eyebrow="Dossier"
+      info="Alle belangrijke informatie voor je toets of praktijkexamen staat hier overzichtelijk bij elkaar."
+      className="border-primary/20 bg-[linear-gradient(180deg,rgba(35,26,68,0.94),rgba(10,10,22,0.98))]"
+    >
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
             <GraduationCap className="h-4 w-4" aria-hidden />
             {noun} gepland
           </div>
-          {countdown ? (
-            <Badge variant={tone}>{countdown}</Badge>
+          {countdown ? <Badge variant={tone}>{countdown}</Badge> : null}
+        </div>
+
+        <div className="space-y-2 rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+          <Row icon={CalendarClock} value={dateTimeFmt.format(new Date(prep.startsAt))} />
+          {prep.location ? <Row icon={MapPin} value={prep.location} /> : null}
+          {pickupAt || pickupLocation ? (
+            <Row
+              icon={Car}
+              value={[
+                pickupAt ? `Ophalen ${timeFmt.format(new Date(pickupAt))}` : null,
+                pickupLocation,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
           ) : null}
         </div>
 
-        {/* Datum / tijd / locatie */}
-        <div className="space-y-1.5">
-          <div className="flex items-start gap-2 text-sm text-foreground">
-            <CalendarClock
-              className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <span className="font-medium capitalize">
-              {dateTimeFmt.format(new Date(prep.startsAt))}
-            </span>
-          </div>
-          {prep.location ? (
-            <div className="flex items-start gap-2 text-sm text-foreground">
-              <MapPin
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <span>{prep.location}</span>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Ophaalmoment */}
-        {pickupAt || pickupLocation ? (
-          <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-            <Car
-              className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <div>
-              <div className="font-medium text-foreground">Ophalen</div>
-              <div className="text-muted-foreground">
-                {pickupAt ? timeFmt.format(new Date(pickupAt)) : null}
-                {pickupAt && pickupLocation ? " — " : null}
-                {pickupLocation}
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Documentenchecklist */}
         {prep.documents.length > 0 ? (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <ListChecks className="h-4 w-4" aria-hidden />
-              Wat neem je mee?
+          <StudentShowcaseCard title="Wat neem je mee?" eyebrow="Checklist" bodyClassName="px-0 py-0">
+            <div className="px-4 py-4">
+              <StudentChecklist
+                items={prep.documents.map((document) => ({
+                  label: document.label,
+                  checked: document.checked,
+                }))}
+              />
             </div>
-            <ul className="space-y-1.5">
-              {prep.documents.map((doc) => (
-                <li
-                  key={doc.code}
-                  className="flex items-start gap-2 text-sm text-foreground"
-                >
-                  {doc.checked ? (
-                    <CheckCircle2
-                      className="mt-0.5 h-4 w-4 shrink-0 text-success"
-                      aria-hidden
-                    />
-                  ) : (
-                    <Circle
-                      className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                      aria-hidden
-                    />
-                  )}
-                  <span>{doc.label}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          </StudentShowcaseCard>
         ) : null}
 
-        {/* Voorwaarden: theorie / CBR / tegoed */}
-        <section className="space-y-1.5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+          <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+            <ListChecks className="h-3.5 w-3.5 text-primary" aria-hidden />
             Controles
           </div>
-          {isExam ? (
-            <CheckRow label="Theorie behaald" done={preconditions.theorieBehaald} />
-          ) : null}
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Machtiging (CBR)</span>
-            <Badge
-              variant={
-                preconditions.machtigingStatus === "ontvangen"
-                  ? "success"
-                  : preconditions.machtigingStatus === "aangevraagd"
-                    ? "warning"
-                    : "default"
-              }
-            >
-              {preconditions.machtigingStatus === "ontvangen"
-                ? "Geregeld"
-                : preconditions.machtigingStatus === "aangevraagd"
-                  ? "Aangevraagd"
-                  : "Nog nodig"}
-            </Badge>
-          </div>
-          {preconditions.gezondheidsverklaringVereist ? (
+          <div className="space-y-2">
+            {isExam ? (
+              <CheckRow label="Theorie behaald" done={preconditions.theorieBehaald} />
+            ) : null}
             <CheckRow
-              label="Gezondheidsverklaring"
-              done={preconditions.gezondheidsverklaringGeregeld}
+              label="Machtiging (CBR)"
+              done={preconditions.machtigingStatus === "ontvangen"}
+              pending={preconditions.machtigingStatus === "aangevraagd"}
             />
-          ) : null}
-          <CheckRow label="Voldoende lestegoed" done={balance > 0} />
-        </section>
+            {preconditions.gezondheidsverklaringVereist ? (
+              <CheckRow
+                label="Gezondheidsverklaring"
+                done={preconditions.gezondheidsverklaringGeregeld}
+              />
+            ) : null}
+            <CheckRow label="Voldoende lestegoed" done={balance > 0} />
+          </div>
+        </div>
 
-        {/* Aandachtspunten van de rijschool */}
         {examDayNotes ? (
-          <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm text-foreground">
-            <div className="font-medium">Aandachtspunten</div>
-            <p className="mt-1 whitespace-pre-line text-muted-foreground">
+          <div className="rounded-[1.15rem] border border-amber-400/20 bg-amber-500/[0.08] px-3 py-3">
+            <div className="text-sm font-semibold text-white">Aandachtspunten</div>
+            <p className="mt-1 whitespace-pre-line text-sm leading-6 text-white/62">
               {examDayNotes}
             </p>
           </div>
         ) : null}
 
-        {/* Tips voor de examendag */}
         {prep.policy.exam_day_tips.length > 0 ? (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <Lightbulb className="h-4 w-4" aria-hidden />
+          <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+              <Lightbulb className="h-3.5 w-3.5 text-primary" aria-hidden />
               Tips voor de examendag
             </div>
-            <ul className="space-y-1">
-              {prep.policy.exam_day_tips.map((tip, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 text-sm text-muted-foreground"
-                >
-                  <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <ul className="space-y-2">
+              {prep.policy.exam_day_tips.map((tip, index) => (
+                <li key={index} className="flex items-start gap-2 text-sm text-white/62">
+                  <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                   <span>{tip}</span>
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         ) : null}
 
-        {/* Laatst gereden lessen */}
         {prep.recentLessons.length > 0 ? (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <History className="h-4 w-4" aria-hidden />
+          <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+              <History className="h-3.5 w-3.5 text-primary" aria-hidden />
               Laatste lessen
             </div>
-            <ul className="space-y-1">
-              {prep.recentLessons.map((l) => (
-                <li key={l.id} className="text-sm text-muted-foreground">
-                  {dateFmt.format(new Date(l.startsAt))}
+            <ul className="space-y-1.5">
+              {prep.recentLessons.map((lesson) => (
+                <li key={lesson.id} className="text-sm text-white/62">
+                  {dateFmt.format(new Date(lesson.startsAt))}
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }
 
-function CheckRow({ label, done }: { label: string; done: boolean }) {
+function Row({
+  icon: Icon,
+  value,
+}: {
+  icon: typeof CalendarClock;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm text-white/76">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function CheckRow({
+  label,
+  done,
+  pending = false,
+}: {
+  label: string;
+  done: boolean;
+  pending?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-white/64">{label}</span>
       {done ? (
-        <span className="inline-flex items-center gap-1 text-success">
+        <span className="inline-flex items-center gap-1 text-emerald-300">
           <CheckCircle2 className="h-4 w-4" aria-hidden />
           In orde
         </span>
+      ) : pending ? (
+        <span className="inline-flex items-center gap-1 text-amber-300">
+          <Circle className="h-4 w-4" aria-hidden />
+          Aangevraagd
+        </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-warning">
+        <span className="inline-flex items-center gap-1 text-amber-300">
           <Circle className="h-4 w-4" aria-hidden />
           Open
         </span>

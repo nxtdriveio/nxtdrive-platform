@@ -27,7 +27,7 @@ export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
   { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
   { href: "/student/theorie", label: "Theorie", icon: BookOpen },
-  { href: "/student/profile", label: "Account", icon: User },
+  { href: "/student/profile", label: "Meer", icon: User },
 ];
 
 /** Whether a nav item matches the current pathname. */
