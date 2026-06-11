@@ -1,5 +1,5 @@
-import { Car, MapPin, ListChecks } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Car, ListChecks, MapPin } from "lucide-react";
+import { StudentShowcaseCard } from "@/components/student/Showcase";
 
 export function StudentLessonContextCard({
   vehicleLabel,
@@ -14,47 +14,54 @@ export function StudentLessonContextCard({
   if (!hasAny) return null;
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-5">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Lescontext
-        </div>
-
+    <StudentShowcaseCard
+      title="Lescontext"
+      eyebrow="Omgeving"
+      info="Hier zie je met welk voertuig, op welke locatie en met welke onderdelen deze les was opgebouwd."
+    >
+      <div className="space-y-3">
         {vehicleLabel || locationName ? (
-          <div className="flex flex-wrap gap-4 text-sm">
+          <div className="grid gap-2 sm:grid-cols-2">
             {vehicleLabel ? (
-              <span className="inline-flex items-center gap-1.5 text-foreground">
-                <Car className="h-4 w-4 text-muted-foreground" aria-hidden />
-                {vehicleLabel}
-              </span>
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+                  <Car className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  Voertuig
+                </div>
+                <div className="mt-2 text-sm text-white">{vehicleLabel}</div>
+              </div>
             ) : null}
             {locationName ? (
-              <span className="inline-flex items-center gap-1.5 text-foreground">
-                <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
-                {locationName}
-              </span>
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+                  <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  Locatie
+                </div>
+                <div className="mt-2 text-sm text-white">{locationName}</div>
+              </div>
             ) : null}
           </div>
         ) : null}
 
         {topics.length > 0 ? (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <ListChecks className="h-4 w-4" aria-hidden /> Behandelde onderdelen
+          <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+              <ListChecks className="h-3.5 w-3.5 text-primary" aria-hidden />
+              Behandelde onderdelen
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {topics.map((t) => (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {topics.map((topic) => (
                 <span
-                  key={t}
-                  className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground"
+                  key={topic}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/74"
                 >
-                  {t}
+                  {topic}
                 </span>
               ))}
             </div>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }

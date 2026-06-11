@@ -4,7 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getActiveStudent } from "@/lib/students/access";
 import { ChatThread } from "@/components/chat/ChatThread";
-import { PWAEmptyState, PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import {
   ensureConversation,
   listStudentInstructors,
@@ -15,6 +15,7 @@ import {
   StudentInitialBadge,
   StudentListRow,
   StudentShowcaseCard,
+  StudentShowcaseEmptyState,
 } from "@/components/student/Showcase";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,12 @@ export default async function StudentBerichtenPage({
           subtitle="Chat met je instructeur en rijschool."
           icon={<MessageCircle className="h-4 w-4" aria-hidden />}
         />
-        <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
+        <StudentShowcaseCard title="Berichten" eyebrow="Studentdossier">
+          <StudentShowcaseEmptyState
+            title="Nog geen leerling gekoppeld"
+            description="Zodra je dossier gekoppeld is, kun je hier veilig chatten met je instructeur en rijschool."
+          />
+        </StudentShowcaseCard>
       </PWAPage>
     );
   }
@@ -56,11 +62,13 @@ export default async function StudentBerichtenPage({
           subtitle="Je chat verschijnt zodra er een instructeur aan jou gekoppeld is."
           icon={<MessageCircle className="h-4 w-4" aria-hidden />}
         />
-        <PWAEmptyState
-          icon={<MessageCircle className="h-8 w-8" aria-hidden />}
-          title="Nog geen chat"
-          message="Je hebt nog geen instructeur waarmee je kunt chatten. Zodra je een les hebt gehad, verschijnt je instructeur hier."
-        />
+        <StudentShowcaseCard title="Nog geen chat" eyebrow="Rijschoolcontact">
+          <StudentShowcaseEmptyState
+            icon={<MessageCircle className="h-5 w-5" aria-hidden />}
+            title="Nog geen instructeur gekoppeld"
+            description="Zodra je een les hebt gehad of een instructeur aan jouw dossier hangt, verschijnt je chat hier automatisch."
+          />
+        </StudentShowcaseCard>
       </PWAPage>
     );
   }

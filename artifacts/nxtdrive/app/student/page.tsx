@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { ADVICE_LABELS, PHASE_LABELS } from "@workspace/leskaart";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
 import { ExamInvitations } from "@/components/student/exam-invitations";
@@ -36,6 +35,10 @@ import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { StudentHomeDashboard } from "@/components/student/HomeDashboard";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseEmptyState,
+} from "@/components/student/Showcase";
 
 export const dynamic = "force-dynamic";
 
@@ -68,15 +71,12 @@ export default async function StudentHomePage() {
 
   if (!student) {
     return (
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          <h1 className="text-xl font-semibold text-foreground">Welkom bij {tenant.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Je account is nog niet gekoppeld aan een leerlingdossier. Neem contact op met je
-            rijschool om dit in orde te maken.
-          </p>
-        </CardContent>
-      </Card>
+      <StudentShowcaseCard title={`Welkom bij ${tenant.name}`} eyebrow="Leerlingapp">
+        <StudentShowcaseEmptyState
+          title="Je account is nog niet gekoppeld"
+          description="Neem contact op met je rijschool om je leerlingdossier te laten koppelen."
+        />
+      </StudentShowcaseCard>
     );
   }
 

@@ -1,10 +1,9 @@
-import { CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AlertTriangle, CheckCircle2, MessageSquare } from "lucide-react";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 
-/**
- * "Leerlingnotitie" block (student view): the instructor's lesson note and any
- * attention points, shown as icon bullets. Read-only.
- */
 export function LessonNotesCard({
   studentNote,
   attentionPoints,
@@ -13,38 +12,38 @@ export function LessonNotesCard({
   attentionPoints: string | null;
 }) {
   if (!studentNote && !attentionPoints) return null;
+
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-5">
-        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          <MessageSquare className="h-4 w-4" aria-hidden />
-          Leerlingnotitie
-        </div>
-
+    <StudentShowcaseCard
+      title="Notities uit je les"
+      eyebrow="Feedback"
+      info="Hier lees je de lesnotitie en eventuele aandachtspunten die je instructeur voor jou heeft vastgelegd."
+    >
+      <div className="space-y-3">
         {studentNote ? (
-          <div className="flex gap-2.5">
-            <CheckCircle2
-              className="mt-0.5 h-4 w-4 shrink-0 text-success"
-              aria-hidden
-            />
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {studentNote}
-            </p>
-          </div>
+          <StudentShowcaseNotice
+            tone="success"
+            title="Wat goed ging"
+            description={studentNote}
+            icon={<CheckCircle2 className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
-
         {attentionPoints ? (
-          <div className="flex gap-2.5">
-            <AlertTriangle
-              className="mt-0.5 h-4 w-4 shrink-0 text-warning"
-              aria-hidden
-            />
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {attentionPoints}
-            </p>
-          </div>
+          <StudentShowcaseNotice
+            tone="warning"
+            title="Aandachtspunten"
+            description={attentionPoints}
+            icon={<AlertTriangle className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
-      </CardContent>
-    </Card>
+        {!studentNote && !attentionPoints ? (
+          <StudentShowcaseNotice
+            title="Nog geen notities"
+            description="Er zijn nog geen extra lesnotities gedeeld voor deze rit."
+            icon={<MessageSquare className="h-5 w-5" aria-hidden />}
+          />
+        ) : null}
+      </div>
+    </StudentShowcaseCard>
   );
 }

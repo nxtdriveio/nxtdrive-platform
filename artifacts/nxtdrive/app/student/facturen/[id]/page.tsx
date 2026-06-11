@@ -4,7 +4,6 @@ import { ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getActiveStudent } from "@/lib/students/access";
@@ -24,6 +23,13 @@ import {
   paymentRecordDate,
   type PaymentRecord,
 } from "@/lib/invoices/payments";
+import {
+  StudentInitialBadge,
+  StudentListRow,
+  StudentShowcaseCard,
+  StudentShowcaseEmptyState,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { payStudentInvoice } from "../payment-actions";
 import { PaymentStatusBanner } from "./payment-status-banner";
@@ -179,24 +185,42 @@ export default async function StudentInvoiceDetailPage({
       ) : null}
 
       {payErrorMsg ? (
-        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-          {payErrorMsg}
-        </p>
+        <StudentShowcaseNotice
+          tone="danger"
+          title="Betalen lukt nu niet"
+          description={payErrorMsg}
+        />
       ) : null}
 
+      <StudentShowcaseCard
+        title="Factuuroverzicht"
+        eyebrow="Bedragen"
+        info="Hier zie je de belangrijkste bedragen van deze factuur in een oogopslag."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <AmountTile label="Subtotaal" value={formatEuros(invoice.subtotal_cents)} />
+          <AmountTile label="BTW" value={formatEuros(invoice.tax_cents)} />
+          <AmountTile label="Totaal" value={formatEuros(invoice.total_cents)} />
+          <AmountTile
+            label={remaining > 0 ? "Nog open" : "Openstaand"}
+            value={formatEuros(remaining)}
+          />
+        </div>
+      </StudentShowcaseCard>
+
       {isPayable && invoice.amount_paid_cents > 0 ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
+        <StudentShowcaseCard title="Betaalstatus" eyebrow="Voortgang">
+          <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Al betaald</span>
-              <span className="font-medium text-foreground">
+              <span className="text-white/50">Al betaald</span>
+              <span className="font-medium text-white">
                 {formatEuros(invoice.amount_paid_cents)} van{" "}
                 {formatEuros(invoice.total_cents)}
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-[linear-gradient(90deg,#7d55ff,#5d2aff)]"
                 style={{
                   width: `${Math.min(
                     100,
@@ -210,48 +234,40 @@ export default async function StudentInvoiceDetailPage({
               />
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Nog te betalen</span>
-              <span className="font-semibold text-foreground">
+              <span className="text-white/50">Nog te betalen</span>
+              <span className="font-semibold text-white">
                 {formatEuros(remaining)}
               </span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </StudentShowcaseCard>
       ) : null}
 
       {payments.length > 0 ? (
-        <Card>
-          <CardContent className="space-y-3 pt-5">
-            <h2 className="text-sm font-semibold text-foreground">
-              Jouw betalingen
-            </h2>
-            <ul className="divide-y divide-border">
-              {payments.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 py-2 text-sm"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-medium text-foreground">
-                      {formatEuros(p.amount_cents)}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {dtFmt.format(new Date(paymentRecordDate(p)))} -{" "}
-                      {paymentMethodLabel(p, { plain: true })}
-                    </span>
-                  </span>
-                  <Badge variant="success">Voldaan</Badge>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <StudentShowcaseCard title="Jouw betalingen" eyebrow="Historie">
+          <div className="space-y-2">
+            {payments.map((payment) => (
+              <StudentListRow
+                key={payment.id}
+                title={formatEuros(payment.amount_cents)}
+                subtitle={`${dtFmt.format(new Date(paymentRecordDate(payment)))} · ${paymentMethodLabel(payment, { plain: true })}`}
+                badge="Voldaan"
+                badgeVariant="success"
+                leading={<StudentInitialBadge label="€" tone="green" />}
+              />
+            ))}
+          </div>
+        </StudentShowcaseCard>
       ) : null}
 
       {canPayOnline ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5">
-            <p className="text-sm text-foreground">
+        <StudentShowcaseCard
+          title="Online betalen"
+          eyebrow="Mollie"
+          info="Je wordt doorgestuurd naar Mollie en daarna teruggebracht naar deze factuur."
+        >
+          <div className="space-y-2">
+            <p className="text-sm text-white/64">
               Je kunt deze factuur direct online betalen via Mollie.
             </p>
             <form action={payStudentInvoice}>
@@ -260,21 +276,20 @@ export default async function StudentInvoiceDetailPage({
                 Betaal online {formatEuros(remaining)}
               </Button>
             </form>
-            <p className="text-xs text-muted-foreground">
-              Je wordt doorgestuurd naar Mollie en daarna teruggebracht naar
-              deze pagina.
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </StudentShowcaseCard>
       ) : null}
 
-      <Card>
-        <CardContent className="pt-5">
+      <StudentShowcaseCard title="Factuurregels" eyebrow="Specificatie">
+        <div>
           {lines.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Geen regels.</p>
+            <StudentShowcaseEmptyState
+              title="Geen regels"
+              description="Deze factuur bevat nog geen losse regels."
+            />
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-muted-foreground">
+            <table className="w-full text-sm text-white/72">
+              <thead className="text-left text-white/42">
                 <tr>
                   <th className="py-2 font-medium">Omschrijving</th>
                   <th className="py-2 font-medium text-right">Aantal</th>
@@ -284,49 +299,66 @@ export default async function StudentInvoiceDetailPage({
               <tbody className="divide-y divide-border">
                 {lines.map((l) => (
                   <tr key={l.id}>
-                    <td className="py-2 text-foreground">{l.description}</td>
-                    <td className="py-2 text-right text-muted-foreground">
+                    <td className="py-2 text-white">{l.description}</td>
+                    <td className="py-2 text-right text-white/48">
                       {Number(l.quantity)}
                     </td>
-                    <td className="py-2 text-right font-medium text-foreground">
+                    <td className="py-2 text-right font-medium text-white">
                       {formatEuros(l.amount_cents)}
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t border-border">
+              <tfoot className="border-t border-white/10">
                 <tr>
-                  <td colSpan={2} className="py-2 text-right text-muted-foreground">
+                  <td colSpan={2} className="py-2 text-right text-white/46">
                     Subtotaal
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right text-white">
                     {formatEuros(invoice.subtotal_cents)}
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={2} className="py-2 text-right text-muted-foreground">
+                  <td colSpan={2} className="py-2 text-right text-white/46">
                     BTW
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right text-white">
                     {formatEuros(invoice.tax_cents)}
                   </td>
                 </tr>
                 <tr>
                   <td
                     colSpan={2}
-                    className="py-2 text-right font-semibold text-foreground"
+                    className="py-2 text-right font-semibold text-white"
                   >
                     Totaal
                   </td>
-                  <td className="py-2 text-right font-semibold text-foreground">
+                  <td className="py-2 text-right font-semibold text-white">
                     {formatEuros(invoice.total_cents)}
                   </td>
                 </tr>
               </tfoot>
             </table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </StudentShowcaseCard>
     </PWAPage>
+  );
+}
+
+function AmountTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[1.1rem] border border-white/10 bg-white/[0.03] px-3 py-3">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">
+        {label}
+      </div>
+      <div className="mt-2 text-base font-semibold text-white">{value}</div>
+    </div>
   );
 }

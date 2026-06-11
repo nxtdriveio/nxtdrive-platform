@@ -364,3 +364,97 @@ export function StudentInitialBadge({
     </span>
   );
 }
+
+export function StudentShowcaseEmptyState({
+  title,
+  description,
+  icon,
+  className,
+}: {
+  title: React.ReactNode;
+  description: React.ReactNode;
+  icon?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center",
+        className,
+      )}
+    >
+      {icon ? (
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.04] text-primary">
+          {icon}
+        </div>
+      ) : null}
+      <div className="text-sm font-semibold text-white">{title}</div>
+      <div className="mt-1 text-sm leading-6 text-white/54">{description}</div>
+    </div>
+  );
+}
+
+export function StudentShowcaseNotice({
+  title,
+  description,
+  icon,
+  tone = "default",
+  className,
+  children,
+}: {
+  title: React.ReactNode;
+  description: React.ReactNode;
+  icon?: React.ReactNode;
+  tone?: "default" | "success" | "warning" | "info" | "danger";
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-400/20 bg-emerald-500/[0.08]"
+      : tone === "warning"
+        ? "border-amber-400/22 bg-amber-500/[0.08]"
+        : tone === "info"
+          ? "border-sky-400/18 bg-sky-500/[0.08]"
+          : tone === "danger"
+            ? "border-rose-400/22 bg-rose-500/[0.08]"
+            : "border-white/10 bg-white/[0.03]";
+  const iconClass =
+    tone === "success"
+      ? "text-emerald-300"
+      : tone === "warning"
+        ? "text-amber-300"
+        : tone === "info"
+          ? "text-sky-300"
+          : tone === "danger"
+            ? "text-rose-300"
+            : "text-primary";
+
+  return (
+    <div
+      className={cn(
+        "rounded-[1.2rem] border px-4 py-3.5 shadow-[0_16px_40px_rgba(2,3,10,0.18)]",
+        toneClass,
+        className,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {icon ? (
+          <div
+            className={cn(
+              "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/10",
+              iconClass,
+            )}
+          >
+            {icon}
+          </div>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-white">{title}</div>
+          <div className="mt-1 text-sm leading-6 text-white/58">{description}</div>
+          {children ? <div className="mt-3">{children}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}

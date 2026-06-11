@@ -2,8 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { BellRing, Check } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 import { toggleRefillAvailability } from "@/app/student/actions";
 import {
   INTAKE_DAYPARTS,
@@ -28,29 +31,29 @@ export function RefillOptInForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function toggleDaypart(d: IntakeDaypart) {
+  function toggleDaypart(daypart: IntakeDaypart) {
     setSaved(false);
     setDayparts((prev) => {
       const next = new Set(prev);
-      if (next.has(d)) next.delete(d);
-      else next.add(d);
+      if (next.has(daypart)) next.delete(daypart);
+      else next.add(daypart);
       return next;
     });
   }
 
   function save(nextEnabled: boolean) {
-    const fd = new FormData();
-    fd.set("student_id", studentId);
-    fd.set("opt_in", String(nextEnabled));
+    const formData = new FormData();
+    formData.set("student_id", studentId);
+    formData.set("opt_in", String(nextEnabled));
     if (nextEnabled) {
-      for (const d of dayparts) fd.append("dayparts", d);
+      for (const daypart of dayparts) formData.append("dayparts", daypart);
     }
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const res = await toggleRefillAvailability(fd);
-      if (res?.error) {
-        setError(res.error);
+      const result = await toggleRefillAvailability(formData);
+      if (result?.error) {
+        setError(result.error);
         return;
       }
       setEnabled(nextEnabled);
@@ -60,60 +63,64 @@ export function RefillOptInForm({
   }
 
   return (
-    <Card>
-      <CardContent className="space-y-3 pt-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-          <BellRing className="h-4 w-4" aria-hidden />
-          Extra lessen bij vrijgekomen tijd
-        </div>
-
-        <p className="text-sm text-muted-foreground">
+    <StudentShowcaseCard
+      title="Extra lessen bij vrijgekomen tijd"
+      eyebrow="Beschikbaarheid"
+      info="Geef aan of je uitnodigingen wilt ontvangen wanneer er onverwacht een lesmoment vrijkomt."
+    >
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-white/60">
           Geef aan of we je mogen uitnodigen wanneer er onverwacht een lesmoment
           vrijkomt. Je bevestigt elke uitnodiging altijd zelf — er wordt nooit
           automatisch een les geboekt.
         </p>
 
         {error ? (
-          <div className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-xs text-danger">
-            {error}
-          </div>
+          <StudentShowcaseNotice
+            tone="danger"
+            title="Opslaan lukt nu niet"
+            description={error}
+            icon={<BellRing className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
 
         {saved ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-success/40 bg-success/5 px-3 py-2 text-xs text-success">
-            <Check className="h-3.5 w-3.5" aria-hidden />
-            Voorkeuren opgeslagen.
-          </div>
+          <StudentShowcaseNotice
+            tone="success"
+            title="Voorkeuren opgeslagen"
+            description="Je voorkeursmomenten zijn bijgewerkt en worden vanaf nu gebruikt voor nieuwe uitnodigingen."
+            icon={<Check className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
 
         {enabled ? (
           <div className="space-y-3">
             <div>
-              <div className="mb-1.5 text-xs font-medium text-foreground">
+              <div className="mb-1.5 text-xs font-medium uppercase tracking-[0.18em] text-white/42">
                 Voorkeursmomenten (optioneel)
               </div>
               <div className="flex flex-wrap gap-2">
-                {INTAKE_DAYPARTS.map((d) => {
-                  const active = dayparts.has(d);
+                {INTAKE_DAYPARTS.map((daypart) => {
+                  const active = dayparts.has(daypart);
                   return (
                     <button
-                      key={d}
+                      key={daypart}
                       type="button"
                       disabled={pending}
-                      onClick={() => toggleDaypart(d)}
+                      onClick={() => toggleDaypart(daypart)}
                       className={
                         active
-                          ? "rounded-full border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
-                          : "rounded-full border border-border bg-card/50 px-3 py-1 text-xs text-foreground hover:border-primary/50"
+                          ? "rounded-full border border-primary/60 bg-primary/18 px-3 py-1.5 text-xs font-medium text-primary"
+                          : "rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70 hover:border-primary/40 hover:text-white"
                       }
                       aria-pressed={active}
                     >
-                      {INTAKE_DAYPART_LABEL[d]}
+                      {INTAKE_DAYPART_LABEL[daypart]}
                     </button>
                   );
                 })}
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-white/46">
                 Laat leeg om voor alle momenten in aanmerking te komen.
               </p>
             </div>
@@ -132,6 +139,7 @@ export function RefillOptInForm({
                 type="button"
                 size="sm"
                 variant="ghost"
+                className="text-white/70 hover:bg-white/10 hover:text-white"
                 disabled={pending}
                 onClick={() => save(false)}
               >
@@ -150,7 +158,7 @@ export function RefillOptInForm({
             Ja, houd me op de hoogte
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }

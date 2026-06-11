@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +40,7 @@ import {
   StudentProgressBar,
   StudentRing,
   StudentShowcaseCard,
+  StudentShowcaseEmptyState,
 } from "@/components/student/Showcase";
 import { createNlDateTimeFormatter } from "@/lib/datetime";
 
@@ -59,11 +59,12 @@ export default async function StudentBetalingenPage() {
 
   if (!student) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />
-        </CardContent>
-      </Card>
+      <StudentShowcaseCard title="Betalingen" eyebrow="Studentdossier">
+        <StudentShowcaseEmptyState
+          title="Nog geen leerling gekoppeld"
+          description="Zodra je dossier gekoppeld is, verschijnen hier je tegoed, facturen en mutaties."
+        />
+      </StudentShowcaseCard>
     );
   }
 
