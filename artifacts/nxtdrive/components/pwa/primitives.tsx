@@ -21,9 +21,9 @@ export function PWAPage({
   return (
     <div
       className={cn(
-        "min-w-0 space-y-4 sm:space-y-5",
+        "min-w-0 space-y-3.5 sm:space-y-[1.125rem]",
         app === "student"
-          ? "mx-auto max-w-[29rem]"
+          ? "mx-auto max-w-[28.5rem]"
           : "mx-auto w-full max-w-[100rem]",
         className,
       )}
@@ -53,8 +53,8 @@ export function PWAHero({
       className={cn(
         "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-2xl",
         app === "student"
-          ? "px-4 py-5.5 sm:px-5 sm:py-6.5"
-          : "px-5 py-5 sm:px-6 sm:py-6 lg:px-7",
+          ? "px-4 py-[1.125rem] sm:px-5 sm:py-[1.375rem]"
+          : "px-[1.125rem] py-4 sm:px-6 sm:py-5 lg:px-7",
         className,
       )}
       style={{
@@ -67,7 +67,7 @@ export function PWAHero({
       <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full border border-white/10" />
       <div className="pointer-events-none absolute -bottom-24 left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
       <div className="relative flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-1.5">
           {eyebrow ? (
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
               {eyebrow}
@@ -77,7 +77,7 @@ export function PWAHero({
             className={cn(
               "text-balance font-black leading-[1.02] tracking-tight text-white",
               app === "student"
-                ? "text-[clamp(1.85rem,8vw,2.85rem)]"
+                ? "text-[clamp(1.72rem,7vw,2.65rem)]"
                 : "text-[clamp(1.75rem,4vw,3.5rem)]",
             )}
           >
@@ -87,7 +87,9 @@ export function PWAHero({
             <p
               className={cn(
                 "max-w-2xl text-sm text-white/72",
-                app === "student" ? "leading-6" : "leading-6 sm:text-[0.95rem]",
+                app === "student"
+                  ? "leading-[1.375rem] sm:text-[0.94rem]"
+                  : "leading-6 sm:text-[0.95rem]",
               )}
             >
               {subtitle}
@@ -113,7 +115,7 @@ export function PWAKpiGrid({
     <div
       className={cn(
         "grid min-w-0 gap-3",
-        compact ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4",
+        compact ? "grid-cols-2 gap-2.5 sm:gap-3" : "grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3",
         className,
       )}
     >
@@ -138,7 +140,7 @@ export function PWAKpiTile({
   return (
     <div
       className={cn(
-        "min-w-0 rounded-2xl border border-border/70 bg-card/88 px-3.5 py-3.5 shadow-sm backdrop-blur",
+        "min-w-0 rounded-[1.2rem] border border-border/70 bg-card/88 px-3 py-3 shadow-sm backdrop-blur sm:rounded-2xl sm:px-3.5 sm:py-3.5",
         className,
       )}
     >
@@ -152,11 +154,13 @@ export function PWAKpiTile({
           </InfoBubble>
         ) : null}
       </div>
-      <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
+      <p className="mt-1 truncate text-[1.05rem] font-bold tracking-tight text-foreground sm:text-xl">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</p>
+        <p className="mt-1 text-[11px] leading-[1.125rem] text-muted-foreground sm:text-xs sm:leading-5">
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -182,12 +186,12 @@ export function PWACard({
   return (
     <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/88 shadow-sm backdrop-blur",
+        "min-w-0 overflow-hidden rounded-[1.35rem] border border-border/70 bg-card/88 shadow-sm backdrop-blur sm:rounded-[1.5rem]",
         className,
       )}
     >
       {title ? (
-        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3.5">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-3.5 py-3 sm:px-4 sm:py-3.5">
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
             {title}
           </div>
@@ -204,7 +208,9 @@ export function PWACard({
           </div>
         </div>
       ) : null}
-      <div className={cn("min-w-0 px-4 py-4", contentClassName)}>{children}</div>
+      <div className={cn("min-w-0 px-3.5 py-3.5 sm:px-4 sm:py-4", contentClassName)}>
+        {children}
+      </div>
     </section>
   );
 }

@@ -144,7 +144,9 @@ assert(
   "instructor dashboard should expose richer overview cards",
 );
 assert(
-  page.includes('contentClassName="space-y-5 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-5 lg:space-y-0"') &&
+  page.includes(
+    'contentClassName="space-y-3 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-3.5 lg:space-y-0 lg:overflow-hidden"',
+  ) &&
     page.includes("lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)]"),
   "instructor dashboard should use the denser responsive home layout",
 );
