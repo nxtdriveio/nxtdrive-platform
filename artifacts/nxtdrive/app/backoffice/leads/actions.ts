@@ -21,6 +21,7 @@ import { loadEmailBranding } from "@/lib/notifications/branding";
 import { renderStudentWelcome } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/provider";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
+import { tenantHasFeature } from "@/lib/platform/features";
 import {
   analyzeIntake,
   intakeAttentionDedupeKey,
@@ -663,6 +664,9 @@ export async function generatePackageAdviceAction(
 ): Promise<{ advice?: PackageAdvice; error?: string }> {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
   if (!leadId) return { error: "lead_id ontbreekt." };
+  if (!tenantHasFeature(tenant, "ai_features")) {
+    return { error: "AI-functies vereisen het Elite-abonnement." };
+  }
 
   const service = createServiceRoleClient();
   const { lead } = await requireLeadBackofficeAccess(service, leadId, "read");

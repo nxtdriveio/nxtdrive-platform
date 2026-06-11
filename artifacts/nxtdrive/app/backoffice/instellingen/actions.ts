@@ -35,6 +35,11 @@ import {
 import { REVIEW_MOMENTS, REVIEW_MOMENTS_KEY } from "@/lib/notifications/settings";
 import { CONTACT_PHONE_KEY } from "@/lib/tenant/contact-phone";
 import {
+  getTenantLimitStatus,
+  loadTenantEntitlementUsage,
+} from "@/lib/platform/entitlements";
+import { tenantHasFeature } from "@/lib/platform/features";
+import {
   checkOwnershipTxt,
   classifyHostname,
   normalizeHostname,
@@ -65,8 +70,20 @@ export async function saveMollieApiKey(formData: FormData) {
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+function assertWhiteLabelFeature(plan: string | null | undefined): void {
+  if (!tenantHasFeature({ plan }, "white_label")) {
+    redirect(
+      "/backoffice/instellingen?branding=error&reason=" +
+        encodeURIComponent(
+          "White-label en eigen domeinen vereisen het Elite-abonnement.",
+        ),
+    );
+  }
+}
+
 export async function saveBranding(formData: FormData) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  assertWhiteLabelFeature(tenant.plan);
 
   const logoUrlRaw = String(formData.get("logo_url") ?? "").trim();
   const primaryRaw = String(formData.get("primary_color") ?? "").trim();
@@ -693,6 +710,12 @@ export async function addTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  if (!tenantHasFeature(tenant, "white_label")) {
+    return {
+      ok: false,
+      error: "Eigen domeinen vereisen het Elite-abonnement.",
+    };
+  }
 
   const host = normalizeHostname(String(formData.get("hostname") ?? ""));
   if (!host) {
@@ -707,6 +730,16 @@ export async function addTenantDomain(
   }
 
   const service = createServiceRoleClient();
+  if (classified.type === "custom") {
+    const usage = await loadTenantEntitlementUsage(service, tenant.id);
+    const domainLimit = getTenantLimitStatus(tenant, usage, "custom_domains");
+    if (domainLimit.isAtLimit) {
+      return {
+        ok: false,
+        error: `Je hebt het maximum aantal eigen domeinen bereikt (${domainLimit.limitLabel}).`,
+      };
+    }
+  }
   const { error } = await service.rpc("add_tenant_domain", {
     p_tenant_id: tenant.id,
     p_hostname: host,
@@ -725,6 +758,12 @@ export async function verifyTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  if (!tenantHasFeature(tenant, "white_label")) {
+    return {
+      ok: false,
+      error: "Eigen domeinen vereisen het Elite-abonnement.",
+    };
+  }
   const domainId = String(formData.get("domain_id") ?? "").trim();
   if (!domainId) {
     return { ok: false, error: "Onbekend domein." };
@@ -773,6 +812,12 @@ export async function removeTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  if (!tenantHasFeature(tenant, "white_label")) {
+    return {
+      ok: false,
+      error: "Eigen domeinen vereisen het Elite-abonnement.",
+    };
+  }
   const domainId = String(formData.get("domain_id") ?? "").trim();
   if (!domainId) {
     return { ok: false, error: "Onbekend domein." };
@@ -805,6 +850,12 @@ export async function setPrimaryTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  if (!tenantHasFeature(tenant, "white_label")) {
+    return {
+      ok: false,
+      error: "Eigen domeinen vereisen het Elite-abonnement.",
+    };
+  }
   const domainId = String(formData.get("domain_id") ?? "").trim();
   if (!domainId) {
     return { ok: false, error: "Onbekend domein." };

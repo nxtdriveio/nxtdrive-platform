@@ -1,5 +1,14 @@
+import Link from "next/link";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { tenantHasFeature } from "@/lib/platform/features";
+import {
+  PLAN_LABELS,
+  lockedFeatures,
+  tenantHasFeature,
+} from "@/lib/platform/features";
+import {
+  getTenantLimitStatuses,
+  loadTenantEntitlementUsage,
+} from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
 import type { TenantBranding } from "@/lib/types";
@@ -123,9 +132,22 @@ export default async function SettingsPage({
     verifyRecord: verificationRecord(d),
     trafficRecords: trafficRecords(d.hostname),
   }));
+  const entitlementUsage = await loadTenantEntitlementUsage(service, tenant.id);
+  const limitStatuses = getTenantLimitStatuses(tenant, entitlementUsage);
+  const customDomainLimit = limitStatuses.custom_domains;
+  const lockedCount = lockedFeatures(tenant).length;
 
   const whiteLabelAvailable = tenantHasFeature(tenant, "white_label");
   const whiteLabelActive = whiteLabelAvailable && tenant.white_label_enabled;
+  const hasExistingWhiteLabelState =
+    tenant.white_label_enabled ||
+    domainViews.length > 0 ||
+    Boolean(
+      branding?.logo_url ||
+        branding?.primary_color ||
+        branding?.primary_foreground ||
+        branding?.welcome_message,
+    );
   const primaryHost =
     domainViews.find((domain) => domain.is_primary && domain.status === "active")
       ?.hostname ?? `${tenant.slug}.nxtdrive.io`;
@@ -142,6 +164,63 @@ export default async function SettingsPage({
           Tenant-specifieke configuratie voor {tenant.name}.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Abonnement & entitlements
+            <Badge variant="primary">
+              {PLAN_LABELS[tenant.plan] ?? tenant.plan}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Je instellingen, white-label en schaalopties volgen het huidige
+            abonnement. Bekijk gebruik, limieten en upgradeblokkades centraal in
+            het abonnementsoverzicht.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {Object.values(limitStatuses).map((status) => (
+              <div
+                key={status.key}
+                className="rounded-lg border border-border bg-muted/30 px-4 py-3"
+              >
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {status.label}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {status.isUnlimited
+                    ? status.used
+                    : `${status.used}/${status.limitLabel}`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {status.isUnlimited
+                    ? "Onbeperkt op dit plan"
+                    : status.isOverLimit
+                      ? "Boven limiet, uitbreiding vergrendeld"
+                      : status.isAtLimit
+                        ? "Limiet bereikt"
+                        : `${status.remaining} beschikbaar`}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              {lockedCount === 0
+                ? "Alle commerciële features van dit plan zijn beschikbaar."
+                : `${lockedCount} commerciële feature${lockedCount === 1 ? "" : "s"} zijn nog vergrendeld op dit abonnement.`}
+            </p>
+            <Link
+              href="/backoffice/abonnement"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Abonnement bekijken →
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -238,10 +317,16 @@ export default async function SettingsPage({
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
               <p className="font-medium">White-label huisstijl vereist het Elite-abonnement.</p>
               <p className="mt-1 text-xs opacity-80">
-                Je kunt je logo en kleuren hier instellen. Ze worden pas
-                zichtbaar voor je team en leerlingen zodra je account is
-                opgewaardeerd naar Elite. Neem contact op met NXTDRIVE.
+                {hasExistingWhiteLabelState
+                  ? "Er staat al white-label configuratie klaar uit een hoger plan. Die blijft zichtbaar als referentie, maar aanpassen is nu read-only totdat Elite weer actief is."
+                  : "Je kunt je logo en kleuren hier instellen. Ze worden pas zichtbaar voor je team en leerlingen zodra je account is opgewaardeerd naar Elite."}
               </p>
+              <Link
+                href="/backoffice/abonnement"
+                className="mt-3 inline-flex items-center justify-center rounded-md border border-amber-500/40 bg-transparent px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-200"
+              >
+                Abonnement bekijken
+              </Link>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -269,6 +354,7 @@ export default async function SettingsPage({
             initialPrimaryColor={branding?.primary_color ?? ""}
             initialPrimaryForeground={branding?.primary_foreground ?? ""}
             initialWelcomeMessage={branding?.welcome_message ?? ""}
+            disabled={!whiteLabelAvailable}
           />
         </CardContent>
       </Card>
@@ -356,10 +442,38 @@ export default async function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Domeinen</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Domeinen
+            {whiteLabelAvailable ? (
+              <Badge variant="success">Beschikbaar</Badge>
+            ) : (
+              <Badge variant="outline">Elite-functie</Badge>
+            )}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <DomainsManager domains={domainViews} />
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Koppel een eigen domein of subdomein aan jouw rijschool. Custom
+            domains, branded login en tenant-specifieke app-shells vereisen het
+            Elite-abonnement.
+          </p>
+          {!whiteLabelAvailable && domainViews.length > 0 ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              Er zijn nog {domainViews.length} domein{domainViews.length === 1 ? "" : "en"} gekoppeld vanuit een hoger plan. Ze blijven zichtbaar, maar domeinbeheer is read-only totdat Elite opnieuw actief is.
+            </div>
+          ) : null}
+          {whiteLabelAvailable && customDomainLimit.isAtLimit ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              Je gebruikt nu {customDomainLimit.used}/{customDomainLimit.limitLabel} eigen
+              domeinen. Nieuwe domeinen toevoegen is vergrendeld totdat je een
+              domein verwijdert of je plan wijzigt.
+            </div>
+          ) : null}
+          <DomainsManager
+            domains={domainViews}
+            editable={whiteLabelAvailable}
+            canAdd={whiteLabelAvailable && !customDomainLimit.isAtLimit}
+          />
         </CardContent>
       </Card>
 

@@ -11,6 +11,7 @@ import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
 import { getAiConfigStatus } from "@/lib/ai/platform-config";
+import { isWhiteLabelEligible } from "@/lib/platform/features";
 import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
 import Link from "next/link";
 
@@ -232,7 +233,7 @@ export default async function PlatformAdminPage({
                           className="flex items-center gap-2 hover:underline underline-offset-2"
                         >
                           {t.name}
-                          {t.white_label_enabled && (
+                          {isWhiteLabelEligible(t) && (
                             <Badge variant="outline" className="text-xs">WL</Badge>
                           )}
                         </Link>

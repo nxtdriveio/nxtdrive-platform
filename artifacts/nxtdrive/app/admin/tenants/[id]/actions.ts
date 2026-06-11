@@ -9,6 +9,7 @@ import {
   type OrganizationLifecycleStatus,
   type OrganizationOnboardingStatus,
 } from "@/lib/organization";
+import { normalizeTenantPlan, tenantHasFeature } from "@/lib/platform/features";
 import type { OrgType, TenantPlan } from "@/lib/types";
 
 const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
@@ -171,6 +172,22 @@ export async function toggleWhiteLabelAction(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  if (enabled) {
+    const { data: tenant } = await service
+      .from("tenants")
+      .select("plan")
+      .eq("id", tenantId)
+      .maybeSingle();
+
+    const tenantPlan = normalizeTenantPlan(tenant?.plan as string | undefined);
+    if (!tenantHasFeature({ plan: tenantPlan }, "white_label")) {
+      redirect(
+        `/admin/tenants/${tenantId}?plan_error=` +
+          encodeURIComponent("White-label vereist het Elite-abonnement."),
+      );
+    }
+  }
+
   const { error } = await service
     .from("tenants")
     .update({ white_label_enabled: enabled })
@@ -270,6 +287,43 @@ export async function setFranchiseeParentAction(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  if (franchisegever_id) {
+    const [{ data: franchiseeTenant }, { data: franchisegeverTenant }] =
+      await Promise.all([
+        service
+          .from("tenants")
+          .select("id, plan")
+          .eq("id", franchisee_id)
+          .maybeSingle(),
+        service
+          .from("tenants")
+          .select("id, plan")
+          .eq("id", franchisegever_id)
+          .maybeSingle(),
+      ]);
+
+    if (!franchiseeTenant || !franchisegeverTenant) {
+      redirect(
+        `/admin/tenants/${franchisee_id}?franchise_error=` +
+          encodeURIComponent("Franchise-koppeling verwijst naar een onbekende tenant."),
+      );
+    }
+
+    if (!tenantHasFeature(franchiseeTenant, "franchise_as_franchisee")) {
+      redirect(
+        `/admin/tenants/${franchisee_id}?franchise_error=` +
+          encodeURIComponent("De franchisee heeft minimaal Pro nodig."),
+      );
+    }
+
+    if (!tenantHasFeature(franchisegeverTenant, "franchise_as_franchisegever")) {
+      redirect(
+        `/admin/tenants/${franchisee_id}?franchise_error=` +
+          encodeURIComponent("De franchisegever heeft het Elite-abonnement nodig."),
+      );
+    }
+  }
+
   const { error } = await service.rpc("set_franchisee_parent", {
     p_franchisee_tenant_id:    franchisee_id,
     p_franchisegever_tenant_id: franchisegever_id || null,

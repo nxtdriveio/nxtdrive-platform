@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { isWhiteLabelEligible } from "@/lib/platform/features";
 import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
 import type { Tenant, TenantBranding, TenantPlan } from "@/lib/types";
 
@@ -59,7 +60,7 @@ export function isWhiteLabelActive(
   tenant: { white_label_enabled: boolean; plan: TenantPlan | string } | null,
 ): boolean {
   if (!tenant) return false;
-  return tenant.white_label_enabled === true && tenant.plan === "elite";
+  return isWhiteLabelEligible(tenant);
 }
 
 /**

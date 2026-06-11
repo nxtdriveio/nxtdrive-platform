@@ -10,11 +10,13 @@ export function BrandingForm({
   initialPrimaryColor,
   initialPrimaryForeground,
   initialWelcomeMessage,
+  disabled = false,
 }: {
   initialLogoUrl: string;
   initialPrimaryColor: string;
   initialPrimaryForeground: string;
   initialWelcomeMessage: string;
+  disabled?: boolean;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [primary, setPrimary] = useState(initialPrimaryColor || "#6b4eff");
@@ -35,6 +37,7 @@ export function BrandingForm({
           placeholder="https://…/logo.png"
           value={logoUrl}
           onChange={(e) => setLogoUrl(e.target.value)}
+          disabled={disabled}
         />
         <p className="text-xs text-muted-foreground">
           Publieke URL naar je logo (PNG of SVG). Laat leeg voor het
@@ -51,6 +54,7 @@ export function BrandingForm({
               type="color"
               value={primary}
               onChange={(e) => setPrimary(e.target.value)}
+              disabled={disabled}
               className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-input"
             />
             <Input
@@ -58,6 +62,7 @@ export function BrandingForm({
               name="primary_color"
               value={primary}
               onChange={(e) => setPrimary(e.target.value)}
+              disabled={disabled}
               placeholder="#6b4eff"
               className="font-mono"
             />
@@ -72,6 +77,7 @@ export function BrandingForm({
               type="color"
               value={foreground}
               onChange={(e) => setForeground(e.target.value)}
+              disabled={disabled}
               className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-input"
             />
             <Input
@@ -79,6 +85,7 @@ export function BrandingForm({
               name="primary_foreground"
               value={foreground}
               onChange={(e) => setForeground(e.target.value)}
+              disabled={disabled}
               placeholder="#ffffff"
               className="font-mono"
             />
@@ -95,6 +102,7 @@ export function BrandingForm({
           maxLength={120}
           value={welcomeMessage}
           onChange={(e) => setWelcomeMessage(e.target.value)}
+          disabled={disabled}
           placeholder="Welkom bij [Rijschool] — log in op je leerlingportaal."
           className="w-full resize-none rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
@@ -141,7 +149,7 @@ export function BrandingForm({
         </div>
       </div>
 
-      <Button type="submit" size="sm">
+      <Button type="submit" size="sm" disabled={disabled}>
         Huisstijl opslaan
       </Button>
     </form>

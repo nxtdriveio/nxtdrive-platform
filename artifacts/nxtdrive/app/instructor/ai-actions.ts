@@ -14,8 +14,10 @@ import {
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
+import { tenantHasFeature } from "@/lib/platform/features";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import type { Lesson } from "@/lib/lessons/types";
+import type { Tenant } from "@/lib/types";
 
 /**
  * Leskaart L6 — on-demand ADVISORY AI server actions. They read the structured
@@ -31,7 +33,15 @@ import type { Lesson } from "@/lib/lessons/types";
  */
 async function loadOwnedLesson(
   lessonId: string,
-): Promise<{ lesson: Lesson; userId: string; tenantId: string } | string> {
+): Promise<
+  | {
+      lesson: Lesson;
+      userId: string;
+      tenantId: string;
+      tenant: Tenant;
+    }
+  | string
+> {
   if (!lessonId) return "lesson_id ontbreekt";
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -51,7 +61,7 @@ async function loadOwnedLesson(
   if (!isAdmin && lesson.instructor_id !== user.id) {
     return "Niet geautoriseerd voor deze les";
   }
-  return { lesson, userId: user.id, tenantId: tenant.id };
+  return { lesson, userId: user.id, tenantId: tenant.id, tenant };
 }
 
 function aiErrorMessage(err: unknown): string {
@@ -67,6 +77,10 @@ function aiErrorMessage(err: unknown): string {
   return "De AI-functie is momenteel niet beschikbaar. Probeer het later opnieuw.";
 }
 
+function aiPlanError(): string {
+  return "AI-functies vereisen het Elite-abonnement.";
+}
+
 export async function generateLessonReportAction(
   formData: FormData,
 ): Promise<{ report?: string; error?: string }> {
@@ -76,6 +90,9 @@ export async function generateLessonReportAction(
 
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
+  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+    return { error: aiPlanError() };
+  }
 
   const service = createServiceRoleClient();
   await primeAiClientIfNeeded(service);
@@ -155,6 +172,9 @@ export async function analyzeProgressAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
+  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+    return { error: aiPlanError() };
+  }
 
   const service = createServiceRoleClient();
   await primeAiClientIfNeeded(service);
@@ -202,6 +222,9 @@ export async function analyzeInternalAttentionAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
+  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+    return { error: aiPlanError() };
+  }
 
   const service = createServiceRoleClient();
   await primeAiClientIfNeeded(service);
@@ -297,6 +320,9 @@ export async function analyzeRetakeAction(
   if (!student) return { error: "Leerling niet gevonden" };
 
   const { organization: tenant } = context;
+  if (!tenantHasFeature(tenant, "ai_features")) {
+    return { error: aiPlanError() };
+  }
   await primeAiClientIfNeeded(service);
 
   try {

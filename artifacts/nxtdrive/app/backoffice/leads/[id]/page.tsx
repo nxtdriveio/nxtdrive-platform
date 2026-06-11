@@ -72,6 +72,7 @@ import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions"
 import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 import { getTrialNeighbours } from "@/lib/trial-lessons/neighbours";
 import type { MapPoint } from "@/components/trial-route-map";
+import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -357,6 +358,7 @@ export default async function LeadDetailPage({
     ? (instructorNames[refillInstructor] ??
       (pick("trial_instructor_name") || "Instructeur"))
     : "";
+  const aiPackageAdviceAvailable = tenantHasFeature(tenant, "ai_features");
 
   return (
     <div className="space-y-6">
@@ -429,7 +431,11 @@ export default async function LeadDetailPage({
           ) : null}
 
           {analysis && !existingStudent ? (
-            <AiPackageAdvice leadId={lead.id} />
+            <AiPackageAdvice
+              leadId={lead.id}
+              available={aiPackageAdviceAvailable}
+              unavailableReason="AI-pakketadvies vereist het Elite-abonnement."
+            />
           ) : null}
 
           {intake ? <IntakeCard intake={intake} /> : null}

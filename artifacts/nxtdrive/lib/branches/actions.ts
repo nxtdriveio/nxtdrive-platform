@@ -2,11 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { requireOrganizationPermission } from "@/lib/organization";
+import { loadTenantEntitlementUsage, getTenantLimitStatus } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { normalizeTenantPlan, tenantHasFeature } from "@/lib/platform/features";
 
 function assertMultiBranchEnabled(tenant: { plan: string }) {
-  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "multi_branch")) {
+  if (!tenantHasFeature({ plan: normalizeTenantPlan(tenant.plan) }, "multi_branch")) {
     redirect(
       "/backoffice/instellingen/vestigingen?error=plan_required&plan=pro",
     );
@@ -27,6 +28,15 @@ export async function createBranch(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const usage = await loadTenantEntitlementUsage(service, organization.id);
+  const branchLimit = getTenantLimitStatus(organization, usage, "branches");
+
+  if (branchLimit.isAtLimit) {
+    redirect(
+      "/backoffice/instellingen/vestigingen?error=branch_limit_reached&limit=" +
+        encodeURIComponent(branchLimit.limitLabel),
+    );
+  }
 
   const { error } = await service.rpc("create_branch", {
     p_tenant_id: organization.id,

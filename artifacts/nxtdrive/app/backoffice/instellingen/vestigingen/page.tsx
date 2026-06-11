@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { BranchForm } from "./branch-form";
 import { createBranch, updateBranch } from "@/lib/branches/actions";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { PLAN_LABELS, tenantHasFeature } from "@/lib/platform/features";
+import { getTenantLimitStatus } from "@/lib/platform/entitlements";
 import { ArrowLeft, MapPin, Users, Workflow } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +19,14 @@ function Feedback({
   name,
   slug,
   reason,
+  limit,
 }: {
   success: string | null;
   error: string | null;
   name: string | null;
   slug: string | null;
   reason: string | null;
+  limit: string | null;
 }) {
   if (success === "created") {
     return (
@@ -57,6 +60,15 @@ function Feedback({
     return (
       <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
         Opslaan mislukt{reason ? `: ${reason}` : "."} Probeer het opnieuw.
+      </p>
+    );
+  }
+  if (error === "branch_limit_reached") {
+    return (
+      <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+        Je hebt het maximum aantal vestigingen voor dit abonnement bereikt
+        {limit ? ` (${limit})` : ""}. Upgrade naar een hoger plan om extra
+        locaties toe te voegen.
       </p>
     );
   }
@@ -107,6 +119,7 @@ export default async function VestigingenPage({
   const name = typeof sp.name === "string" ? sp.name : null;
   const slug = typeof sp.slug === "string" ? sp.slug : null;
   const reason = typeof sp.reason === "string" ? sp.reason : null;
+  const limit = typeof sp.limit === "string" ? sp.limit : null;
   const editId = typeof sp.edit === "string" ? sp.edit : null;
 
   const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
@@ -118,6 +131,11 @@ export default async function VestigingenPage({
     ? (branches.find((b) => b.id === editId) ?? null)
     : null;
   const activeBranches = branches.filter((branch) => branch.is_active).length;
+  const branchLimit = getTenantLimitStatus(
+    tenant,
+    { branches: activeBranches, staff_memberships: 0, custom_domains: 0 },
+    "branches",
+  );
 
   return (
     <div className="space-y-6">
@@ -162,10 +180,17 @@ export default async function VestigingenPage({
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
           <p className="font-medium">Multi-vestiging vereist het Pro-abonnement of hoger.</p>
           <p className="mt-1 text-xs opacity-80">
-            Je kunt vestigingen bekijken, maar aanmaken en bewerken is niet mogelijk
-            op het {tenant.plan === "start" ? "Start" : tenant.plan}-abonnement.
-            Neem contact op met NXTDRIVE om te upgraden.
+            {branches.length > 0
+              ? "Bestaande vestigingen blijven zichtbaar, maar nieuwe locaties toevoegen of bestaande locaties aanpassen is vergrendeld op het huidige plan."
+              : "Je kunt vestigingen bekijken, maar aanmaken en bewerken is niet mogelijk op het huidige plan."}{" "}
+            Upgrade naar {PLAN_LABELS.pro} of hoger om deze beheerlaag weer volledig te openen.
           </p>
+          <Link
+            href="/backoffice/abonnement"
+            className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3`}
+          >
+            Abonnement bekijken
+          </Link>
         </div>
       )}
 
@@ -175,19 +200,45 @@ export default async function VestigingenPage({
         </div>
       )}
 
+      {hasMultiBranch && (branchLimit.isAtLimit || branchLimit.isOverLimit) && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <p className="font-medium">
+            {branchLimit.isOverLimit
+              ? `Vestigingslimiet overschreden: ${branchLimit.used}/${branchLimit.limitLabel}`
+              : `Vestigingslimiet bereikt: ${branchLimit.used}/${branchLimit.limitLabel}`}
+          </p>
+          <p className="mt-1 text-xs opacity-80">
+            {branchLimit.isOverLimit
+              ? "Deze organisatie gebruikt meer actieve vestigingen dan binnen het huidige plan past. Alles blijft zichtbaar, maar uitbreiding blijft vergrendeld totdat het plan wordt verhoogd."
+              : "Deze organisatie kan geen extra vestigingen meer aanmaken op het huidige abonnement. Bestaande vestigingen blijven werken, maar uitbreiden vereist een upgrade."}
+          </p>
+          <Link
+            href="/backoffice/abonnement"
+            className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3`}
+          >
+            Upgrade-opties bekijken
+          </Link>
+        </div>
+      )}
+
       <Feedback
         success={success}
         error={error === "plan_required" ? null : error}
         name={name}
         slug={slug}
         reason={reason}
+        limit={limit}
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Actieve vestigingen"
-          value={`${activeBranches}/${branches.length}`}
-          description="Actieve locaties binnen deze organisatiecontainer."
+          value={
+            branchLimit.isUnlimited
+              ? String(activeBranches)
+              : `${activeBranches}/${branchLimit.limitLabel}`
+          }
+          description="Actieve locaties binnen deze organisatiecontainer en planlimiet."
           icon={MapPin}
         />
         <StatCard
@@ -210,7 +261,7 @@ export default async function VestigingenPage({
         />
       </div>
 
-      {hasMultiBranch && (
+      {hasMultiBranch && !branchLimit.isAtLimit && (
         <Card>
           <CardHeader>
             <CardTitle>Nieuwe vestiging</CardTitle>
@@ -226,7 +277,7 @@ export default async function VestigingenPage({
         </Card>
       )}
 
-      {editBranch ? (
+      {hasMultiBranch && editBranch ? (
         <Card className="border-primary/40">
           <CardHeader>
             <CardTitle>Vestiging bewerken: {editBranch.name}</CardTitle>
@@ -275,7 +326,12 @@ export default async function VestigingenPage({
             </thead>
             <tbody className="divide-y divide-border">
               {branches.map((b) => (
-                <BranchRow key={b.id} branch={b} isEditing={editBranch?.id === b.id} />
+                <BranchRow
+                  key={b.id}
+                  branch={b}
+                  isEditing={editBranch?.id === b.id}
+                  canEdit={hasMultiBranch}
+                />
               ))}
             </tbody>
           </table>
@@ -285,7 +341,15 @@ export default async function VestigingenPage({
   );
 }
 
-function BranchRow({ branch, isEditing }: { branch: Branch; isEditing: boolean }) {
+function BranchRow({
+  branch,
+  isEditing,
+  canEdit,
+}: {
+  branch: Branch;
+  isEditing: boolean;
+  canEdit: boolean;
+}) {
   return (
     <tr className={isEditing ? "bg-primary/5" : "hover:bg-muted/40"}>
       <td className="px-4 py-3 font-medium text-foreground">{branch.name}</td>
@@ -299,12 +363,16 @@ function BranchRow({ branch, isEditing }: { branch: Branch; isEditing: boolean }
         )}
       </td>
       <td className="px-4 py-3">
-        <a
-          href={`/backoffice/instellingen/vestigingen?edit=${branch.id}`}
-          className="text-xs text-primary underline-offset-2 hover:underline"
-        >
-          Bewerken
-        </a>
+        {canEdit ? (
+          <a
+            href={`/backoffice/instellingen/vestigingen?edit=${branch.id}`}
+            className="text-xs text-primary underline-offset-2 hover:underline"
+          >
+            Bewerken
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">Read-only</span>
+        )}
       </td>
     </tr>
   );

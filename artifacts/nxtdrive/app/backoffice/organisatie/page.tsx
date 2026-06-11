@@ -6,6 +6,7 @@ import {
   MapPin,
   ShieldCheck,
   Users,
+  Wallet,
   Workflow,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { listBranches } from "@/lib/branches/service";
+import { lockedFeatures } from "@/lib/platform/features";
 import {
   listOrganizationTeams,
   requireOrganizationPermission,
@@ -241,6 +243,7 @@ export default async function OrganisatiePage({
     : null;
   const activeBranches = branches.filter((branch) => branch.is_active).length;
   const activeTeams = teams.filter((team) => team.is_active).length;
+  const lockedFeatureCount = lockedFeatures(organization).length;
   const roleCounts = memberships.reduce<Record<string, number>>((acc, row) => {
     acc[row.role] = (acc[row.role] ?? 0) + 1;
     return acc;
@@ -498,6 +501,13 @@ export default async function OrganisatiePage({
             href="/backoffice/medewerkers"
             cta="Medewerkers beheren"
             icon={Users}
+          />
+          <SectionLinkCard
+            title="Abonnement & entitlements"
+            description={`${PLAN_LABEL[organization.plan] ?? organization.plan} is nu actief. ${lockedFeatureCount === 0 ? "Alle commerciële features van dit plan zijn vrij." : `${lockedFeatureCount} feature${lockedFeatureCount === 1 ? "" : "s"} zijn nog vergrendeld of vragen om een hoger plan.`}`}
+            href="/backoffice/abonnement"
+            cta="Abonnement bekijken"
+            icon={Wallet}
           />
           <SectionLinkCard
             title="Rollen"
