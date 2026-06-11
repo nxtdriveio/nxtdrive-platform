@@ -33,6 +33,14 @@ import {
 } from "@/lib/lessons/types";
 import type { Student, StudentBalance } from "@/lib/students/types";
 import type { Task, TaskPriority } from "@/lib/tasks/types";
+import {
+  addDaysYmd,
+  amsterdamHour,
+  amsterdamYmd,
+  createNlDateTimeFormatter,
+  isSameAmsterdamDay,
+  startOfAmsterdamDayUtc,
+} from "@/lib/datetime";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -43,14 +51,20 @@ export const dynamic = "force-dynamic";
 
 const LESSON_SLOT_MINUTES = 100;
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
 
-const messageDateFmt = new Intl.DateTimeFormat("nl-NL", {
+const messageDateFmt = createNlDateTimeFormatter({
   day: "numeric",
   month: "short",
+});
+
+const lessonDateFmt = createNlDateTimeFormatter({
+  weekday: "long",
+  day: "numeric",
+  month: "long",
 });
 
 type DashboardTask = Pick<
@@ -78,32 +92,7 @@ type KpiCardProps = {
   icon: ReactNode;
   value: string | number;
   label: string;
-  sublabel: string;
 };
-
-function startOfDay(date: Date): Date {
-  const value = new Date(date);
-  value.setHours(0, 0, 0, 0);
-  return value;
-}
-
-function endOfDay(date: Date): Date {
-  const value = startOfDay(date);
-  value.setDate(value.getDate() + 1);
-  return value;
-}
-
-function addDays(date: Date, days: number): Date {
-  const value = new Date(date);
-  value.setDate(value.getDate() + days);
-  return value;
-}
-
-function isSameLocalDay(left: Date, right: Date) {
-  return left.getFullYear() === right.getFullYear() &&
-    left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate();
-}
 
 function capitalize(text: string) {
   return text.length > 0 ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text;
@@ -116,7 +105,7 @@ function firstName(fullName: string | null | undefined) {
 }
 
 function greetingFor(date: Date) {
-  const hour = date.getHours();
+  const hour = amsterdamHour(date);
   if (hour < 12) return "Goedemorgen";
   if (hour < 18) return "Goedemiddag";
   return "Goedenavond";
@@ -130,9 +119,10 @@ function formatMessageMoment(iso: string | null) {
   if (!iso) return "Geen update";
   const date = new Date(iso);
   const now = new Date();
-  if (isSameLocalDay(date, now)) return timeFmt.format(date);
-  const yesterday = addDays(startOfDay(now), -1);
-  if (isSameLocalDay(date, yesterday)) return "Gisteren";
+  if (isSameAmsterdamDay(date, now)) return timeFmt.format(date);
+  const dateYmd = amsterdamYmd(date);
+  const yesterdayYmd = addDaysYmd(amsterdamYmd(now), -1);
+  if (dateYmd === yesterdayYmd) return "Gisteren";
   return capitalize(messageDateFmt.format(date));
 }
 
@@ -293,18 +283,19 @@ function buildRadarItems(params: {
   return items.slice(0, 4);
 }
 
-function HeroMetricCard({ icon, value, label, sublabel }: KpiCardProps) {
+function HeroMetricCard({ icon, value, label }: KpiCardProps) {
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-[1.35rem] border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-xl">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/10 text-white shadow-inner shadow-white/5">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[1.55rem] font-black leading-none tracking-tight text-white">
-          {value}
+        <p className="flex flex-wrap items-baseline gap-2 text-white">
+          <span className="text-[1.55rem] font-black leading-none tracking-tight">
+            {value}
+          </span>
+          <span className="truncate text-sm font-semibold">{label}</span>
         </p>
-        <p className="mt-1 truncate text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs text-white/64">{sublabel}</p>
       </div>
     </div>
   );
@@ -355,9 +346,10 @@ export default async function InstructorIndexPage() {
   const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
 
   const now = new Date();
-  const dayStart = startOfDay(now);
-  const dayEnd = endOfDay(now);
-  const horizonEnd = endOfDay(addDays(now, 14));
+  const todayYmd = amsterdamYmd(now);
+  const dayStart = startOfAmsterdamDayUtc(todayYmd);
+  const dayEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 1));
+  const horizonEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 15));
   const displayName = user.profile?.full_name ?? user.email ?? "Instructeur";
   const firstUserName = firstName(displayName);
 
@@ -415,7 +407,7 @@ export default async function InstructorIndexPage() {
 
   const lessonWindow = (lessonWindowResult.data ?? []) as Lesson[];
   const todayLessons = lessonWindow.filter((lesson) =>
-    isSameLocalDay(new Date(lesson.starts_at), now)
+    isSameAmsterdamDay(new Date(lesson.starts_at), now)
   );
   const upcomingLessons = lessonWindow.filter(
     (lesson) => new Date(lesson.starts_at).getTime() >= now.getTime(),
@@ -423,7 +415,7 @@ export default async function InstructorIndexPage() {
   const nextLesson = upcomingLessons[0] ?? null;
   const upcomingAppointments = appointmentWindow ?? [];
   const todayAppointments = upcomingAppointments.filter((appointment) =>
-    isSameLocalDay(new Date(appointment.starts_at), now)
+    isSameAmsterdamDay(new Date(appointment.starts_at), now)
   );
   const openTasks = (openTasksResult.data ?? []) as DashboardTask[];
   const openTaskCount = openTaskCountResult.count ?? openTasks.length;
@@ -552,10 +544,11 @@ export default async function InstructorIndexPage() {
   return (
     <PWAPage
       app="instructor"
-      contentClassName="space-y-5 lg:grid lg:min-h-[calc(100vh-8rem)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-5 lg:space-y-0"
+      className="lg:flex lg:h-full lg:flex-col"
+      contentClassName="space-y-4 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-4 lg:space-y-0 lg:overflow-hidden"
     >
       <section
-        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-5"
+        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-4"
       >
         <div className="pointer-events-none absolute inset-y-0 right-0 w-56 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
         <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
@@ -576,31 +569,27 @@ export default async function InstructorIndexPage() {
               icon={<Users className="h-5 w-5" aria-hidden />}
               value={todayLessons.length}
               label="Lessen"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<GraduationCap className="h-5 w-5" aria-hidden />}
               value={todayTrials.length}
               label="Proeflessen"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<FileText className="h-5 w-5" aria-hidden />}
               value={examTodayCount}
               label="Examens"
-              sublabel="Vandaag"
             />
             <HeroMetricCard
               icon={<ListTodo className="h-5 w-5" aria-hidden />}
               value={openTaskCount}
               label="Taken"
-              sublabel="Vandaag"
             />
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)] lg:overflow-hidden">
         <PWACard
           title={
             <CardHeading
@@ -608,8 +597,8 @@ export default async function InstructorIndexPage() {
               info="Je eerstvolgende reguliere rijles met alle context die je direct nodig hebt om te vertrekken."
             />
           }
-          className="flex h-full flex-col bg-card"
-          contentClassName="flex h-full min-h-0 flex-col gap-4"
+          className="flex h-full min-h-0 flex-col bg-card"
+          contentClassName="flex h-full min-h-0 flex-col gap-3 overflow-hidden"
           headerRight={
             nextLesson ? (
               <Badge variant="primary">{formatCountdown(now, nextLesson.starts_at)}</Badge>
@@ -618,7 +607,7 @@ export default async function InstructorIndexPage() {
         >
           {nextLesson && nextLessonContext ? (
             <>
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_10rem]">
+              <div className="grid gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <Avatar name={nextStudent?.full_name ?? "Leerling"} className="h-14 w-14 text-base" />
@@ -632,7 +621,7 @@ export default async function InstructorIndexPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 space-y-4">
+                  <div className="mt-4 space-y-3">
                     <div className="flex gap-3">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                       <div>
@@ -665,10 +654,10 @@ export default async function InstructorIndexPage() {
                   </div>
                 </div>
 
-                <div className="flex min-h-[10rem] flex-col justify-between rounded-[1.35rem] border border-border/70 bg-background/80 p-4">
-                  <div>
+                <div className="grid gap-3 rounded-[1.35rem] border border-border/70 bg-background/80 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                  <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      Vandaag
+                      Tijdslot
                     </p>
                     <p className="mt-2 text-base font-semibold text-foreground">
                       {formatMinuteRange(nextLesson.starts_at, nextLesson.ends_at)}
@@ -677,9 +666,12 @@ export default async function InstructorIndexPage() {
                       Les {nextLessonContext.lessonIndex} van {nextLessonContext.lessonCount}
                     </p>
                   </div>
-                  <div className="rounded-[1rem] border border-primary/20 bg-primary-soft/40 px-3 py-2 text-xs text-primary">
+                  <div className="rounded-[1rem] border border-primary/20 bg-primary-soft/40 px-3 py-2 text-xs font-medium text-primary">
                     {durationMinutes(nextLesson.starts_at, nextLesson.ends_at)} min ingepland
                   </div>
+                  <Badge variant="outline" className="justify-center border-border/80 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                    {capitalize(lessonDateFmt.format(new Date(nextLesson.starts_at)))}
+                  </Badge>
                 </div>
               </div>
 

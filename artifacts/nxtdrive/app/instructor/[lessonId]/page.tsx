@@ -54,27 +54,22 @@ import {
   loadCockpitProgress,
   loadCockpitPayment,
 } from "@/lib/instructor/cockpit-data";
+import {
+  addDaysYmd,
+  amsterdamYmd,
+  createNlDateTimeFormatter,
+  startOfAmsterdamDayUtc,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dtFmt = new Intl.DateTimeFormat("nl-NL", {
+const dtFmt = createNlDateTimeFormatter({
   day: "2-digit",
   month: "short",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function endOfDay(d: Date): Date {
-  const x = startOfDay(d);
-  x.setDate(x.getDate() + 1);
-  return x;
-}
 
 export default async function InstructorLessonPage({
   params,
@@ -105,8 +100,9 @@ export default async function InstructorLessonPage({
   if (!isAdmin && lesson.instructor_id !== user.id) notFound();
 
   const anchor = new Date(lesson.starts_at);
-  const dayStart = startOfDay(anchor);
-  const dayEnd = endOfDay(anchor);
+  const anchorYmd = amsterdamYmd(anchor);
+  const dayStart = startOfAmsterdamDayUtc(anchorYmd);
+  const dayEnd = startOfAmsterdamDayUtc(addDaysYmd(anchorYmd, 1));
 
   let dayQuery = supabase
     .from("lessons")

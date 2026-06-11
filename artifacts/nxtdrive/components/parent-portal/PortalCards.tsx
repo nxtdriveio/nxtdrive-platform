@@ -34,17 +34,18 @@ import type {
   PortalLesson,
   PortalPackage,
 } from "@/lib/parent-portal/data";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   weekday: "short",
   day: "numeric",
   month: "short",
 });
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
-const dayFmt = new Intl.DateTimeFormat("nl-NL", {
+const dayFmt = createNlDateTimeFormatter({
   day: "numeric",
   month: "long",
   year: "numeric",

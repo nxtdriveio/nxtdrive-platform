@@ -17,7 +17,6 @@ const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
-
 const dayFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",

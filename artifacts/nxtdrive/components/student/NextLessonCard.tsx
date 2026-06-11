@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin, User } from "lucide-react";
 import { PWACard, PWAEmptyState, PWASectionHeader } from "@/components/pwa/primitives";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "numeric",
   month: "long",
 });
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
