@@ -11,6 +11,7 @@ import { enterTenantBackoffice } from "../../actions";
 import {
   createTenantAdminAccount,
   setFranchiseeParentAction,
+  updateTenantIdentityAction,
   updateTenantPlanAction,
   toggleWhiteLabelAction,
 } from "./actions";
@@ -18,6 +19,7 @@ import { OrganizationProfileForm } from "./organization-profile-form";
 import {
   FEATURE_PLAN,
   FEATURE_LABELS,
+  PLAN_DESCRIPTIONS,
   PLAN_LABELS,
   PLAN_ORDER,
   isWhiteLabelEligible,
@@ -42,6 +44,21 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   groot: "Grote rijschool",
   multi_vestiging: "Multi-vestiging",
   franchise: "Franchise",
+};
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  prospect: "Prospect",
+  onboarding: "Onboarding",
+  active: "Actief",
+  paused: "Gepauzeerd",
+  churned: "Gestopt",
+};
+
+const ONBOARDING_LABELS: Record<string, string> = {
+  not_started: "Niet gestart",
+  in_progress: "In uitvoering",
+  ready: "Klaar",
+  blocked: "Geblokkeerd",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -167,6 +184,27 @@ export default async function TenantDetailPage({
     tenantObj,
     entitlementUsage,
   );
+  const attentionItems = [
+    ...Object.values(limitStatuses)
+      .filter((status) => status.isAtLimit || status.isOverLimit)
+      .map((status) => ({
+        key: status.key,
+        title: status.label,
+        body: status.isOverLimit
+          ? "Gebruikt meer dan het huidige plan toelaat. Nieuwe uitbreiding moet nu via upgrade of opschoning lopen."
+          : "Limiet bereikt. Nieuwe uitbreiding is geblokkeerd totdat het plan wordt aangepast.",
+      })),
+    ...(!whiteLabelActive && tenantRecord.white_label_enabled
+      ? [
+          {
+            key: "white-label",
+            title: "White-label downgrade",
+            body:
+              "White-label staat nog aan, maar het huidige plan ondersteunt deze tenantinstelling niet volledig.",
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="min-h-screen bg-background">
@@ -259,6 +297,142 @@ export default async function TenantDetailPage({
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {sp.identity_saved && (
+          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+            Tenantgegevens opgeslagen.
+          </div>
+        )}
+        {sp.identity_error && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {sp.identity_error === "missing_fields"
+              ? "Vul minimaal een tenantnaam in."
+              : decodeURIComponent(sp.identity_error)}
+          </div>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tenant basisgegevens</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form action={updateTenantIdentityAction} className="space-y-4">
+                <input type="hidden" name="tenant_id" value={id} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label htmlFor="name" className="text-sm font-medium text-foreground">
+                      Tenantnaam
+                    </label>
+                    <Input
+                      id="name"
+                      name="name"
+                      defaultValue={tenant.name}
+                      placeholder="Rijschoolnaam"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="slug" className="text-sm font-medium text-foreground">
+                      Slug
+                    </label>
+                    <Input
+                      id="slug"
+                      value={tenant.slug}
+                      readOnly
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      De slug is de stabiele tenantidentiteit voor routing en domeinkoppeling en blijft daarom read-only.
+                    </p>
+                  </div>
+                </div>
+                <Button type="submit" variant="outline">
+                  Basisgegevens opslaan
+                </Button>
+              </form>
+
+              <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Commercieel profiel
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {PLAN_DESCRIPTIONS[tenantPlan]}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant={PLAN_BADGE[tenantPlan] ?? "outline"}>
+                    {PLAN_LABELS[tenantPlan] ?? tenantPlan}
+                  </Badge>
+                  <Badge variant="outline">
+                    {ORG_TYPE_LABELS[tenantOrgType ?? ""] ?? "Type onbekend"}
+                  </Badge>
+                  <Badge variant="outline">
+                    {LIFECYCLE_LABELS[organizationProfile?.lifecycle_status ?? "onboarding"] ??
+                      (organizationProfile?.lifecycle_status ?? "Onboarding")}
+                  </Badge>
+                  <Badge variant="outline">
+                    {ONBOARDING_LABELS[organizationProfile?.onboarding_status ?? "not_started"] ??
+                      (organizationProfile?.onboarding_status ?? "Niet gestart")}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Commerciele gezondheid</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Object.values(limitStatuses).map((status) => (
+                  <div
+                    key={status.key}
+                    className="rounded-xl border border-border bg-muted/20 px-4 py-3"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {status.label}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-foreground">
+                      {status.isUnlimited ? status.used : `${status.used}/${status.limitLabel}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {status.isUnlimited
+                        ? "Onbeperkt"
+                        : status.isOverLimit
+                          ? "Boven limiet"
+                          : status.isAtLimit
+                            ? "Limiet bereikt"
+                            : `${status.remaining} beschikbaar`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {attentionItems.length > 0 ? (
+                <div className="space-y-2">
+                  {attentionItems.map((item) => (
+                    <div
+                      key={item.key}
+                      className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3"
+                    >
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-200/90">
+                        {item.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
+                  Deze tenant zit momenteel netjes binnen planlimieten en heeft geen downgrade-waarschuwingen actief.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {sp.profile_saved && (

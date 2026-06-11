@@ -38,6 +38,43 @@ function trimmed(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
+export async function updateTenantIdentityAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = trimmed(formData, "tenant_id");
+  const name = trimmed(formData, "name");
+
+  if (!tenantId || !name) {
+    redirect(`/admin/tenants/${tenantId}?identity_error=missing_fields`);
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("tenants")
+    .update({ name })
+    .eq("id", tenantId);
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?identity_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.name_changed",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { name },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?identity_saved=1`);
+}
+
 /** Platform admin: update a tenant's subscription plan. */
 export async function updateTenantPlanAction(formData: FormData) {
   const actor = await requirePlatformAdmin();
