@@ -303,7 +303,7 @@ export default async function StudentHomePage() {
           : "Je rijbewijsreis is goed gestart.";
 
   return (
-    <PWAPage app="student" contentClassName="space-y-5 sm:space-y-6">
+    <PWAPage app="student" contentClassName="space-y-4 sm:space-y-5">
       <StudentHomeDashboard
         greeting={greetingFor(now)}
         firstName={firstName}

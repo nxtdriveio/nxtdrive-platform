@@ -121,7 +121,7 @@ export default async function StudentLayout({
       <main
         data-student-shell=""
         data-pwa-copy=""
-        className="min-w-0 flex-1 overflow-x-hidden px-4 pb-[6.85rem] pt-[5.7rem] sm:px-5 sm:pb-24 sm:pt-[6.55rem]"
+        className="min-w-0 flex-1 overflow-x-hidden px-4 pb-[6.15rem] pt-[5.2rem] sm:px-5 sm:pb-24 sm:pt-[6.55rem]"
       >
         <div className="mx-auto w-full max-w-[28.5rem]">
           <Suspense fallback={<StudentSplash />}>{children}</Suspense>
