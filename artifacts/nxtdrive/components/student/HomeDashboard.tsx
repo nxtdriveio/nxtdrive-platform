@@ -69,7 +69,7 @@ function ProgressRing({ pct }: { pct: number }) {
   const dash = circumference - (safe / 100) * circumference;
 
   return (
-    <div className="relative h-[8.35rem] w-[8.35rem] shrink-0 sm:h-[9.5rem] sm:w-[9.5rem]">
+    <div className="relative h-[7.25rem] w-[7.25rem] shrink-0 sm:h-[9.5rem] sm:w-[9.5rem]">
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="student-progress-ring" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -97,11 +97,11 @@ function ProgressRing({ pct }: { pct: number }) {
           strokeDashoffset={dash}
         />
       </svg>
-      <div className="absolute inset-[1.2rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(68,38,142,0.35),rgba(7,8,17,0.92)_72%)] text-center sm:inset-[1.35rem]">
-        <div className="text-[1.62rem] font-black leading-none tracking-tight text-white sm:text-[1.9rem]">
+      <div className="absolute inset-[1rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(68,38,142,0.35),rgba(7,8,17,0.92)_72%)] text-center sm:inset-[1.35rem]">
+        <div className="text-[1.38rem] font-black leading-none tracking-tight text-white sm:text-[1.9rem]">
           {safe}%
         </div>
-        <div className="mt-0.5 text-[11px] text-white/72 sm:mt-1 sm:text-sm">Voortgang</div>
+        <div className="mt-0.5 text-[10px] text-white/72 sm:mt-1 sm:text-sm">Voortgang</div>
       </div>
     </div>
   );
@@ -228,28 +228,35 @@ function HomeInfoCard({
 }) {
   return (
     <DashboardSection className="h-full">
-      <div className="flex h-full flex-col p-3.5 sm:p-4">
+      <div className="flex h-full flex-col p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/16 text-primary">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/62 sm:text-[11px] sm:tracking-[0.22em]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-[0.95rem] bg-primary/16 text-primary sm:h-9 sm:w-9 sm:rounded-2xl">
                 {icon}
               </span>
               {eyebrow}
             </div>
-            <div className="text-[1.02rem] font-semibold text-white sm:text-lg">{title}</div>
+            <div className="text-[0.96rem] font-semibold leading-5 text-white sm:text-lg">{title}</div>
           </div>
-          {badge ? <Badge variant={badgeVariant}>{badge}</Badge> : null}
+          {badge ? (
+            <Badge
+              variant={badgeVariant}
+              className="shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] font-semibold sm:text-xs"
+            >
+              {badge}
+            </Badge>
+          ) : null}
         </div>
 
-        <div className="mt-3.5 space-y-[0.3125rem] sm:mt-4 sm:space-y-1.5">
+        <div className="mt-3 space-y-1 sm:mt-4 sm:space-y-1.5">
           {lines.map((line, index) => (
             <p
               key={`${title}-${index}`}
               className={cn(
                 index === 0
-                  ? "text-[1.38rem] font-black leading-none tracking-tight text-white sm:text-[1.86rem]"
-                  : "text-[12px] leading-[1.125rem] text-white/76 sm:text-sm sm:leading-6",
+                  ? "text-[1.08rem] font-black leading-tight tracking-tight text-white sm:text-[1.86rem] sm:leading-none"
+                  : "text-[11px] leading-[1.05rem] text-white/76 sm:text-sm sm:leading-6",
               )}
             >
               {line}
@@ -259,7 +266,7 @@ function HomeInfoCard({
 
         <Link
           href={href}
-          className="mt-auto inline-flex h-[2.625rem] items-center justify-between rounded-[0.95rem] bg-[linear-gradient(135deg,#7548ff,#5d2aff)] px-4 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(98,61,255,0.32)] transition hover:brightness-110 sm:h-12 sm:rounded-[1rem]"
+          className="mt-auto inline-flex h-10 items-center justify-between rounded-[0.95rem] bg-[linear-gradient(135deg,#7548ff,#5d2aff)] px-3.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(98,61,255,0.32)] transition hover:brightness-110 sm:h-12 sm:rounded-[1rem] sm:px-4"
         >
           <span>{ctaLabel}</span>
           <ArrowRight className="h-4 w-4" aria-hidden />
@@ -310,38 +317,46 @@ export function StudentHomeDashboard({
   messageUnreadCount: number;
 }) {
   return (
-    <div className="space-y-3.5 sm:space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <section className="px-1 pt-0.5">
-        <h1 className="text-[clamp(1.72rem,6.2vw,2.35rem)] font-black leading-[1.02] tracking-tight text-white sm:text-[clamp(2.02rem,8vw,2.65rem)]">
+        <h1 className="text-[clamp(1.48rem,5.8vw,2.15rem)] font-black leading-[1.02] tracking-tight text-white sm:text-[clamp(2.02rem,8vw,2.65rem)]">
           {greeting}, {firstName}! <span aria-hidden>👋</span>
         </h1>
-        <p className="mt-1.5 text-[0.9rem] leading-[1.375rem] text-white/72 sm:mt-2 sm:text-[0.98rem] sm:leading-[1.625rem]">
+        <p className="mt-1.5 text-[0.84rem] leading-[1.25rem] text-white/72 sm:mt-2 sm:text-[0.98rem] sm:leading-[1.625rem]">
           Klaar om weer een stap dichter bij je rijbewijs te komen?
         </p>
       </section>
 
       <DashboardSection className="border-primary/30 bg-[radial-gradient(circle_at_12%_0%,rgba(152,115,255,0.18),transparent_28%),linear-gradient(140deg,rgba(34,26,68,0.98),rgba(14,13,28,0.98)_62%,rgba(18,13,39,0.98))]">
-        <div className="space-y-3 p-[0.8125rem] sm:space-y-4 sm:p-4">
+        <div className="space-y-3 p-3 sm:space-y-4 sm:p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[1.16rem] font-bold tracking-tight text-white sm:text-[1.42rem]">
+            <h2 className="text-[1.06rem] font-bold tracking-tight text-white sm:text-[1.42rem]">
               Mijn rijbewijsreis
             </h2>
-            <Badge variant="primary" className="bg-primary/18 text-[11px] text-primary shadow-none sm:text-xs">
+            <Badge
+              variant="primary"
+              className="shrink-0 whitespace-nowrap bg-primary/18 px-2 py-0.5 text-[10px] text-primary shadow-none sm:text-xs"
+            >
               {journeyPct}% voltooid
             </Badge>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,7.15rem)_minmax(0,1fr)] gap-2.5 sm:grid-cols-[minmax(0,9.1rem)_minmax(0,1fr)] sm:gap-4">
-            <div className="space-y-2.5 sm:space-y-4">
+          <div className="space-y-3 sm:grid sm:grid-cols-[minmax(0,9.1rem)_minmax(0,1fr)] sm:gap-4 sm:space-y-0">
+            <div className="flex items-center gap-3 sm:block sm:space-y-4">
               <ProgressRing pct={journeyPct} />
-              <p className="text-[0.88rem] font-medium leading-5 text-white/86 sm:text-[1.02rem] sm:leading-6">
-                {journeyStatus}
-              </p>
+              <div className="min-w-0 flex-1 space-y-2 sm:space-y-0">
+                <p className="text-[0.82rem] font-medium leading-[1.15rem] text-white/86 sm:text-[1.02rem] sm:leading-6">
+                  {journeyStatus}
+                </p>
+                <div className="flex justify-start sm:hidden">
+                  <Sparkline values={sparklineValues} />
+                </div>
+              </div>
             </div>
 
             <div className="min-w-0 space-y-2.5 sm:space-y-4">
               <JourneyTimeline steps={journeySteps} />
-              <div className="flex justify-end">
+              <div className="hidden justify-end sm:flex">
                 <Sparkline values={sparklineValues} />
               </div>
             </div>
@@ -349,7 +364,7 @@ export function StudentHomeDashboard({
         </div>
       </DashboardSection>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-1 gap-2.5 min-[390px]:grid-cols-2 sm:gap-3">
         {nextLesson ? (
           <HomeInfoCard
             icon={<CalendarDays className="h-[1.125rem] w-[1.125rem]" aria-hidden />}
@@ -397,12 +412,15 @@ export function StudentHomeDashboard({
       <DashboardSection className="border-white/8">
         <div className="flex items-center justify-between border-b border-white/6 px-3.5 pb-2.5 pt-3.5 sm:px-4 sm:pb-3 sm:pt-4">
           <h2 className="text-[1.03rem] font-bold tracking-tight text-white sm:text-[1.18rem]">AI Coach</h2>
-          <Badge variant="primary" className="gap-1 bg-primary/16 text-primary shadow-none">
+          <Badge
+            variant="primary"
+            className="gap-1 whitespace-nowrap bg-primary/16 px-2 py-0.5 text-[10px] text-primary shadow-none sm:text-xs"
+          >
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             Nieuw
           </Badge>
         </div>
-        <div className="flex items-center gap-3 p-3.5 sm:gap-4 sm:p-4">
+        <div className="flex items-center gap-2.5 p-3 sm:gap-4 sm:p-4">
           <CoachOrb />
           <div className="min-w-0 flex-1">
             {coach.eyebrow ? (

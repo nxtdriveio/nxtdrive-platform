@@ -84,6 +84,13 @@ function parseSelectedDate(input: string | undefined): Date {
   return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
 }
 
+function summarizeLessonFeedback(summary: string | null | undefined): string | null {
+  if (!summary) return null;
+  const compact = summary.replace(/\s+/g, " ").trim();
+  if (compact.length <= 108) return compact;
+  return `${compact.slice(0, 105).trimEnd()}...`;
+}
+
 function plannerItemsForLessons(
   lessons: Lesson[],
   instructorNames: Map<string, string>,
@@ -241,7 +248,7 @@ export default async function StudentLessonsPage({
   ] satisfies Array<{ key: LessonsTab; label: string; href: string; count?: number }>;
 
   return (
-    <PWAPage app="student" contentClassName="space-y-4">
+    <PWAPage app="student" contentClassName="space-y-3.5">
       <PWAPageHeader
         eyebrow="Agenda"
         title="Lessen"
@@ -308,7 +315,11 @@ export default async function StudentLessonsPage({
                       key={lesson.id}
                       href={`/student/lessons/${lesson.id}`}
                       title={dateFmt.format(start)}
-                      subtitle={lesson.progress_summary ?? lesson.location ?? "Bekijk je lesdetail"}
+                      subtitle={
+                        summarizeLessonFeedback(lesson.progress_summary) ??
+                        lesson.location ??
+                        "Bekijk je lesdetail"
+                      }
                       meta={timeFmt.format(start)}
                       badge={lesson.progress_score != null ? `${lesson.progress_score}/10` : "Les"}
                       badgeVariant={lesson.progress_score != null ? "success" : "outline"}

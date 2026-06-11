@@ -34,9 +34,9 @@ export function QuickActions({
   );
 
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-2">
       <div className="px-1">
-        <h2 className="text-[1.16rem] font-bold tracking-tight text-white sm:text-[1.24rem]">
+        <h2 className="text-[1.08rem] font-bold tracking-tight text-white sm:text-[1.24rem]">
           Snel regelen
         </h2>
       </div>
@@ -49,7 +49,7 @@ export function QuickActions({
               key={shortcut.href}
               href={shortcut.href}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-[1.3rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,20,36,0.98),rgba(11,11,23,0.98))] px-3 py-3 shadow-[0_16px_34px_rgba(1,2,8,0.28)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_20px_40px_rgba(65,38,168,0.22)] sm:rounded-[1.45rem] sm:py-3.5",
+                "group relative min-w-0 overflow-hidden rounded-[1.22rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,20,36,0.98),rgba(11,11,23,0.98))] px-3 py-2.75 shadow-[0_16px_34px_rgba(1,2,8,0.28)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_20px_40px_rgba(65,38,168,0.22)] sm:rounded-[1.45rem] sm:py-3.5",
               )}
             >
               <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
@@ -58,13 +58,13 @@ export function QuickActions({
                   {shortcut.badge > 99 ? "99+" : shortcut.badge}
                 </span>
               ) : null}
-              <div className="relative flex h-full min-h-[7.25rem] flex-col items-start justify-between gap-2.5 text-left sm:min-h-[8rem] sm:gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-11 sm:w-11 sm:rounded-[1.1rem]">
-                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-[1.3rem] sm:w-[1.3rem]" aria-hidden />
+              <div className="relative flex h-full min-h-[6.4rem] flex-col items-start justify-between gap-2 text-left sm:min-h-[8rem] sm:gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[0.95rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-11 sm:w-11 sm:rounded-[1.1rem]">
+                  <Icon className="h-[1.05rem] w-[1.05rem] sm:h-[1.3rem] sm:w-[1.3rem]" aria-hidden />
                 </span>
                 <div className="space-y-1">
-                  <span className="block text-[0.98rem] font-semibold text-white sm:text-[1.04rem]">{shortcut.label}</span>
-                  <span className="block text-[10.5px] leading-4.5 text-white/46 sm:text-[11px] sm:leading-5">
+                  <span className="block text-[0.92rem] font-semibold text-white sm:text-[1.04rem]">{shortcut.label}</span>
+                  <span className="block text-[10px] leading-4 text-white/46 sm:text-[11px] sm:leading-5">
                     {shortcut.label === "Planning"
                       ? "Lessen en verschuivingen"
                       : shortcut.label === "Voortgang"

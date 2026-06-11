@@ -159,7 +159,7 @@ export default async function StudentVoortgangPage({
   ] satisfies Array<{ key: ProgressTab; label: string; href: string; count?: number }>;
 
   return (
-    <PWAPage app="student" contentClassName="space-y-4">
+    <PWAPage app="student" contentClassName="space-y-3.5">
       <PWAPageHeader
         eyebrow="Mijn reis"
         title="Voortgang"
@@ -176,9 +176,12 @@ export default async function StudentVoortgangPage({
             eyebrow="Roadmap overzicht"
             info="Je totale voortgang is gebaseerd op je lesontwikkeling, theorie, CBR-status en afgeronde mijlpalen."
           >
-            <div className="grid grid-cols-[7.4rem_minmax(0,1fr)] gap-4">
-              <StudentRing value={journeyPct} caption={`${completedLessonsCount} lessen afgerond`} />
-              <div className="space-y-3">
+            <div className="space-y-3 sm:grid sm:grid-cols-[7.4rem_minmax(0,1fr)] sm:gap-4 sm:space-y-0">
+              <div className="flex items-center gap-3 sm:block">
+                <StudentRing
+                  value={journeyPct}
+                  caption={`${completedLessonsCount} lessen afgerond`}
+                />
                 <div>
                   <div className="text-lg font-semibold text-white">
                     {journeyPct >= 70
@@ -191,6 +194,8 @@ export default async function StudentVoortgangPage({
                     {ADVICE_LABELS[readiness.advice]} · {PHASE_LABELS[readiness.phase]}
                   </p>
                 </div>
+              </div>
+              <div className="space-y-3">
                 <StudentChecklist
                   items={journeySteps.map((step) => ({
                     label: step.label,
@@ -214,14 +219,14 @@ export default async function StudentVoortgangPage({
             actionLabel="CBR openen"
             actionHref="/student/cbr"
           >
-            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-4">
-              <StudentRing
-                value={readiness.readinessPct}
-                size={102}
-                stroke={10}
-                label="Examen"
-              />
-              <div className="space-y-3">
+            <div className="space-y-3 sm:grid sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:space-y-0">
+              <div className="flex items-center gap-3 sm:block">
+                <StudentRing
+                  value={readiness.readinessPct}
+                  size={102}
+                  stroke={10}
+                  label="Examen"
+                />
                 <div>
                   <div className="text-lg font-semibold text-white">
                     {ADVICE_LABELS[readiness.advice]}
@@ -230,6 +235,8 @@ export default async function StudentVoortgangPage({
                     {blockers[0] ?? "Je theorie, vaardigheden en CBR-mijlpalen bewegen samen richting examen."}
                   </p>
                 </div>
+              </div>
+              <div className="space-y-3">
                 <StudentChecklist
                   items={[
                     {
@@ -260,12 +267,12 @@ export default async function StudentVoortgangPage({
               {weakest.map((category) => (
                 <div
                   key={category.id}
-                  className="rounded-[1.1rem] border border-white/10 bg-white/[0.02] px-3 py-3"
+                  className="rounded-[1.05rem] border border-white/10 bg-white/[0.02] px-3 py-2.75 sm:rounded-[1.1rem] sm:py-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-white">{category.label}</div>
-                      <div className="mt-1 text-xs text-white/46">
+                      <div className="mt-1 text-[11px] leading-[1.05rem] text-white/46 sm:text-xs sm:leading-5">
                         {category.criticalBelow > 0
                           ? `${category.criticalBelow} kritieke punten vragen aandacht`
                           : "Stabiel, maar nog te verdiepen"}
@@ -297,12 +304,12 @@ export default async function StudentVoortgangPage({
             {sortedCategories.map((category) => (
               <div
                 key={category.id}
-                className="rounded-[1.1rem] border border-white/10 bg-white/[0.02] px-3 py-3"
+                className="rounded-[1.05rem] border border-white/10 bg-white/[0.02] px-3 py-2.75 sm:rounded-[1.1rem] sm:py-3"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-white">{category.label}</div>
-                    <div className="mt-1 text-xs text-white/46">
+                    <div className="mt-1 text-[11px] leading-[1.05rem] text-white/46 sm:text-xs sm:leading-5">
                       {category.scoredLeaves} van {category.totalLeaves} onderdelen beoordeeld
                     </div>
                   </div>
@@ -362,7 +369,9 @@ export default async function StudentVoortgangPage({
                     />
                   </div>
                   {lastLesson.summary ? (
-                    <p className="mt-3 text-sm leading-6 text-white/62">{lastLesson.summary}</p>
+                    <p className="mt-3 line-clamp-5 text-sm leading-6 text-white/62">
+                      {lastLesson.summary}
+                    </p>
                   ) : null}
                 </div>
               ) : null}
