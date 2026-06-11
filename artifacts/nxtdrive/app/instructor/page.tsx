@@ -285,16 +285,16 @@ function buildRadarItems(params: {
 
 function HeroMetricCard({ icon, value, label }: KpiCardProps) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-[1.35rem] border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-xl">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/10 text-white shadow-inner shadow-white/5">
+    <div className="flex min-w-0 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/6 px-3 py-2.5 backdrop-blur-xl sm:rounded-[1.35rem] sm:px-4 sm:py-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-white/10 text-white shadow-inner shadow-white/5 sm:h-11 sm:w-11 sm:rounded-[1.15rem]">
         {icon}
       </span>
       <div className="min-w-0">
         <p className="flex flex-wrap items-baseline gap-2 text-white">
-          <span className="text-[1.55rem] font-black leading-none tracking-tight">
+          <span className="text-[1.38rem] font-black leading-none tracking-tight sm:text-[1.55rem]">
             {value}
           </span>
-          <span className="truncate text-sm font-semibold">{label}</span>
+          <span className="truncate text-[0.95rem] font-semibold sm:text-sm">{label}</span>
         </p>
       </div>
     </div>
@@ -545,26 +545,26 @@ export default async function InstructorIndexPage() {
     <PWAPage
       app="instructor"
       className="lg:flex lg:h-full lg:flex-col"
-      contentClassName="space-y-4 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-4 lg:space-y-0 lg:overflow-hidden"
+      contentClassName="space-y-3.5 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-4 lg:space-y-0 lg:overflow-hidden"
     >
       <section
-        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-4"
+        className="relative overflow-hidden rounded-[1.7rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-4 py-4 text-white shadow-2xl shadow-black/20 sm:px-6 sm:py-5 lg:rounded-[1.9rem] lg:px-7 lg:py-4"
       >
         <div className="pointer-events-none absolute inset-y-0 right-0 w-56 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
-        <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
-          <div className="min-w-0 space-y-2">
+        <div className="relative grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
+          <div className="min-w-0 space-y-1.5 sm:space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
               {tenant.name}
             </p>
-            <h1 className="text-balance text-[clamp(1.9rem,3vw,2.85rem)] font-black leading-[1.02] tracking-tight">
+            <h1 className="text-balance text-[clamp(1.7rem,8vw,2.45rem)] font-black leading-[1.02] tracking-tight lg:text-[clamp(1.9rem,3vw,2.85rem)]">
               {greetingFor(now)}, {firstUserName}! <span aria-hidden>👋</span>
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-white/72 sm:text-[0.95rem]">
+            <p className="max-w-2xl text-[13px] leading-5 text-white/72 sm:text-[0.95rem] sm:leading-6">
               Hier is je overzicht van vandaag.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             <HeroMetricCard
               icon={<Users className="h-5 w-5" aria-hidden />}
               value={todayLessons.length}

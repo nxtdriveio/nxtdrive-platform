@@ -47,7 +47,7 @@ export function QuickActions({
               key={shortcut.href}
               href={shortcut.href}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,20,36,0.98),rgba(11,11,23,0.98))] px-3 py-4 shadow-[0_18px_40px_rgba(1,2,8,0.32)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_22px_45px_rgba(65,38,168,0.25)]",
+                "group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,20,36,0.98),rgba(11,11,23,0.98))] px-3 py-3.5 shadow-[0_18px_40px_rgba(1,2,8,0.32)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_22px_45px_rgba(65,38,168,0.25)] sm:py-4",
               )}
             >
               <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
@@ -56,13 +56,13 @@ export function QuickActions({
                   {shortcut.badge > 99 ? "99+" : shortcut.badge}
                 </span>
               ) : null}
-              <div className="relative flex h-full min-h-[8.85rem] flex-col items-start justify-between gap-4 text-left">
-                <span className="flex h-12 w-12 items-center justify-center rounded-[1.1rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <Icon className="h-6 w-6" aria-hidden />
+              <div className="relative flex h-full min-h-[8.1rem] flex-col items-start justify-between gap-3 text-left sm:min-h-[8.85rem] sm:gap-4">
+                <span className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-12 sm:w-12">
+                  <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="space-y-1">
-                  <span className="block text-[1.08rem] font-semibold text-white">{shortcut.label}</span>
-                  <span className="block text-xs leading-5 text-white/46">
+                  <span className="block text-[1rem] font-semibold text-white sm:text-[1.08rem]">{shortcut.label}</span>
+                  <span className="block text-[11px] leading-5 text-white/46 sm:text-xs">
                     {shortcut.label === "Planning"
                       ? "Lessen en verschuivingen"
                       : shortcut.label === "Voortgang"
