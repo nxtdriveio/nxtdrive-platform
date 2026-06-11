@@ -18,10 +18,10 @@ export function StudentTopBar({
   return (
     <header
       className="pointer-events-none fixed inset-x-0 top-0 z-40 px-4 sm:px-5"
-      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.85rem)" }}
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.55rem)" }}
     >
       <div className="mx-auto flex w-full max-w-[29rem] items-center justify-between gap-2.5">
-        <div className="pointer-events-auto flex min-w-0 max-w-[58vw] items-center rounded-[1.25rem] border border-white/10 bg-card/78 px-3.5 py-2.5 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
+        <div className="pointer-events-auto flex min-w-0 max-w-[56vw] items-center rounded-[1.15rem] border border-white/10 bg-card/78 px-3.5 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
           <NxtdriveLogo
             className="truncate text-sm font-semibold sm:text-[0.95rem]"
             logoUrl={logoUrl}
