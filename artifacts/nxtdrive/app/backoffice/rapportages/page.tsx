@@ -33,6 +33,7 @@ import {
 } from "@/components/backoffice/reports/quality";
 import { RevenueBarChart } from "@/components/charts/RevenueBarChart";
 import { DonutChart } from "@/components/charts/DonutChart";
+import { tenantHasFeature } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +100,7 @@ export default async function RapportagesPage({
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
 }) {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const hasAdvancedReports = tenantHasFeature(tenant, "advanced_reports");
   const supabase = await createServerSupabaseClient();
   const params = await searchParams;
 
@@ -639,14 +641,34 @@ export default async function RapportagesPage({
         </p>
       </div>
 
-      <QualityKpis data={quality} />
+      {hasAdvancedReports ? (
+        <>
+          <QualityKpis data={quality} />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <PhaseDistribution data={quality} />
-        <InstructorProgressTable instructors={quality.instructors} />
-      </section>
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <PhaseDistribution data={quality} />
+            <InstructorProgressTable instructors={quality.instructors} />
+          </section>
 
-      <StudentReadinessTable students={quality.students} />
+          <StudentReadinessTable students={quality.students} />
+        </>
+      ) : (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle>Uitgebreide rapportages</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Examenrijpheid, kwaliteitsmetingen en leskaart-analyses zijn
+              beschikbaar vanaf het Pro-abonnement.
+            </p>
+            <p>
+              Je basisrapportages blijven beschikbaar, maar deze verdiepende
+              kwaliteitslaag is vergrendeld op Start.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -16,7 +16,11 @@ import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { Metadata, Viewport } from "next";
 import type { MemberRole } from "@/lib/types";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { PLAN_LABELS, tenantHasFeature } from "@/lib/platform/features";
+import {
+  getTenantLimitStatuses,
+  loadTenantEntitlementUsage,
+} from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +110,13 @@ export default async function BackofficeLayout({
   }
 
   const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
+  const entitlementUsage = await loadTenantEntitlementUsage(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+  const entitlementAlerts = Object.values(
+    getTenantLimitStatuses(tenant, entitlementUsage),
+  ).filter((status) => status.isAtLimit || status.isOverLimit).length;
 
   return (
     <BrandProvider
@@ -122,6 +133,8 @@ export default async function BackofficeLayout({
               isAdmin={roles.includes("tenant_admin")}
               hasFranchise={hasFranchise}
               hasMultiBranch={hasMultiBranch}
+              planLabel={PLAN_LABELS[tenant.plan] ?? tenant.plan}
+              entitlementAlertCount={entitlementAlerts}
             />
           }
           topbar={

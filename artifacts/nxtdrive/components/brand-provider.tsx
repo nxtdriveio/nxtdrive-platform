@@ -1,3 +1,4 @@
+import { isWhiteLabelEligible } from "@/lib/platform/features";
 import type { Tenant, TenantBranding } from "@/lib/types";
 
 /**
@@ -25,10 +26,7 @@ export function BrandProvider({
   className?: string;
   children: React.ReactNode;
 }) {
-  const whitelabel =
-    tenant?.white_label_enabled === true &&
-    tenant?.plan === "elite" &&
-    branding;
+  const whitelabel = isWhiteLabelEligible(tenant) && branding;
   const style: Record<string, string> = {};
 
   if (whitelabel && branding.primary_color) {

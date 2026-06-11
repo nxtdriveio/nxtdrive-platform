@@ -7,7 +7,11 @@ import { DevLoginPanel } from "@/components/dev/DevLoginPanel";
 import { BrandProvider } from "@/components/brand-provider";
 import { sendMagicLink, signInWithPassword } from "./actions";
 import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
-import { getTenantBrandingPublic, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBrandingPublic,
+  isWhiteLabelActive,
+  resolveLogoUrl,
+} from "@/lib/branding";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export default async function LoginPage({
@@ -29,7 +33,7 @@ export default async function LoginPage({
 
   const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
   const logoUrl = resolveLogoUrl(tenant ?? null, branding);
-  const isWhiteLabel = tenant?.white_label_enabled === true && tenant?.plan === "elite";
+  const isWhiteLabel = isWhiteLabelActive(tenant ?? null);
 
   return (
     <BrandProvider tenant={tenant} branding={branding} className="contents">

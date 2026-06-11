@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, Inbox, Layers3 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   getDashboardKpis,
   getTodayLessons,
@@ -24,6 +25,15 @@ import {
   DashboardEmptyState,
 } from "@/components/backoffice/dashboard-card";
 import { Badge } from "@/components/ui/badge";
+import {
+  FEATURE_LABELS,
+  PLAN_LABELS,
+  lockedFeatures,
+} from "@/lib/platform/features";
+import {
+  getTenantLimitStatuses,
+  loadTenantEntitlementUsage,
+} from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +45,7 @@ const FUNNEL_STAGES = [
 ];
 
 export default async function BackofficePage() {
-  const { user, tenant } = await requireActiveTenant([
+  const { user, tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
     "branch_manager",
@@ -44,6 +54,7 @@ export default async function BackofficePage() {
     "marketing",
   ]);
   const supabase = await createServerSupabaseClient();
+  const service = createServiceRoleClient();
 
   const [
     metrics,
@@ -77,6 +88,14 @@ export default async function BackofficePage() {
     (sum, stage) => sum + (pipeline[stage.key] ?? 0),
     0,
   );
+  const showSubscriptionCard = roles.includes("tenant_admin");
+  const entitlementUsage = showSubscriptionCard
+    ? await loadTenantEntitlementUsage(service, tenant.id)
+    : null;
+  const limitStatuses = entitlementUsage
+    ? getTenantLimitStatuses(tenant, entitlementUsage)
+    : null;
+  const lockedCommercialFeatures = lockedFeatures(tenant);
 
   const initialLive: DashboardLiveData = {
     todayLessons,
@@ -135,6 +154,70 @@ export default async function BackofficePage() {
           fetchedAt: new Date().toISOString(),
         }}
       />
+
+      {showSubscriptionCard && limitStatuses ? (
+        <DashboardCard
+          title="Abonnementsoverzicht"
+          actionLabel="Abonnement beheren"
+          actionHref="/backoffice/abonnement"
+        >
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="primary">
+                  {PLAN_LABELS[tenant.plan] ?? tenant.plan}
+                </Badge>
+                {Object.values(limitStatuses).some(
+                  (status) => status.isAtLimit || status.isOverLimit,
+                ) ? (
+                  <Badge variant="warning">Actie vereist</Badge>
+                ) : (
+                  <Badge variant="success">Binnen limieten</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Beheer hier welke commerciële features en capaciteiten nu actief
+                zijn voor {tenant.name}. Uitbreiding en upgradecontext blijft zo
+                zichtbaar voor de organisatiebeheerder.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(limitStatuses).map((status) => (
+                  <span
+                    key={status.key}
+                    className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    {status.label}:{" "}
+                    <strong className="text-foreground">
+                      {status.isUnlimited
+                        ? status.used
+                        : `${status.used}/${status.limitLabel}`}
+                    </strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Nog vergrendeld
+              </p>
+              {lockedCommercialFeatures.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Geen extra commerciële features vergrendeld op dit plan.
+                </p>
+              ) : (
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  {lockedCommercialFeatures.slice(0, 4).map((feature) => (
+                    <li key={feature} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      {FEATURE_LABELS[feature]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </DashboardCard>
+      ) : null}
 
       <DashboardCard
         title={

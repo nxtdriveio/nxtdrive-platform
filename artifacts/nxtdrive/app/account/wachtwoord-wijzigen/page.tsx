@@ -1,7 +1,11 @@
 import { headers } from "next/headers";
 import { BrandProvider } from "@/components/brand-provider";
 import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
-import { getTenantBrandingPublic, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBrandingPublic,
+  isWhiteLabelActive,
+  resolveLogoUrl,
+} from "@/lib/branding";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { WachtwoordWijzigenForm } from "./wachtwoord-wijzigen-form";
 
@@ -13,7 +17,7 @@ export default async function WachtwoordWijzigenPage() {
 
   const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
   const logoUrl = resolveLogoUrl(tenant ?? null, branding);
-  const isWhiteLabel = tenant?.white_label_enabled === true && tenant?.plan === "elite";
+  const isWhiteLabel = isWhiteLabelActive(tenant ?? null);
 
   return (
     <BrandProvider tenant={tenant} branding={branding} className="contents">

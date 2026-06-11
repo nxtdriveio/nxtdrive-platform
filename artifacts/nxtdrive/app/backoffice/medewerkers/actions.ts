@@ -8,6 +8,10 @@ import { loadEmailBranding } from "@/lib/notifications/branding";
 import { sendEmail } from "@/lib/notifications/provider";
 import { renderStaffWelcome } from "@/lib/notifications/staff-welcome";
 import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  getTenantLimitStatus,
+  loadTenantEntitlementUsage,
+} from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
@@ -145,6 +149,19 @@ export async function inviteInstructor(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const usage = await loadTenantEntitlementUsage(service, organization.id);
+  const staffLimit = getTenantLimitStatus(
+    organization,
+    usage,
+    "staff_memberships",
+  );
+
+  if (staffLimit.isAtLimit) {
+    redirect(
+      "/backoffice/medewerkers?error=staff_limit_reached&reason=" +
+        encodeURIComponent(staffLimit.limitLabel),
+    );
+  }
 
   const { data: profileRow } = await service
     .from("profiles")

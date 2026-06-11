@@ -30,6 +30,7 @@ import {
   Workflow,
   TrendingUp,
   AlertTriangle,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -41,6 +42,8 @@ type NavItem = {
   adminOnly: boolean;
   requireFranchise?: boolean;
   requireMultiBranch?: boolean;
+  badge?: string;
+  muted?: boolean;
 };
 
 type NavSection = {
@@ -147,6 +150,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/backoffice/organisatie/teams", label: "Teams", icon: Workflow, adminOnly: true },
       { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
       { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
+      { href: "/backoffice/abonnement", label: "Abonnement", icon: Wallet, adminOnly: true },
       { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
     ],
   },
@@ -160,12 +164,16 @@ export function BackofficeSidebar({
   isAdmin = false,
   hasFranchise = false,
   hasMultiBranch = false,
+  planLabel,
+  entitlementAlertCount = 0,
 }: {
   tenantName: string;
   logoUrl?: string | null;
   isAdmin?: boolean;
   hasFranchise?: boolean;
   hasMultiBranch?: boolean;
+  planLabel: string;
+  entitlementAlertCount?: number;
 }) {
   const pathname = usePathname();
 
@@ -200,12 +208,38 @@ export function BackofficeSidebar({
 
       <nav className="flex-1 overflow-y-auto px-3 pb-3">
         {NAV_SECTIONS.map((section) => {
-          const sectionItems = section.items.filter(
-            (item) =>
-              (!item.adminOnly || isAdmin) &&
-              (!item.requireFranchise || hasFranchise) &&
-              (!item.requireMultiBranch || hasMultiBranch),
-          );
+          let sectionItems: NavItem[] = [];
+          if (section.label === "Franchise" && !hasFranchise) {
+            sectionItems = isAdmin
+              ? [
+                  {
+                    href: "/backoffice/abonnement",
+                    label: "Franchise opties",
+                    icon: Network,
+                    adminOnly: true,
+                    badge: "Elite",
+                    muted: true,
+                  },
+                ]
+              : [];
+          } else {
+            sectionItems = section.items.flatMap((item) => {
+              if (item.adminOnly && !isAdmin) return [];
+              if (item.requireFranchise && !hasFranchise) return [];
+              if (item.requireMultiBranch && !hasMultiBranch) {
+                return isAdmin
+                  ? [
+                      {
+                        ...item,
+                        badge: "Pro+",
+                        muted: true,
+                      },
+                    ]
+                  : [];
+              }
+              return [item];
+            });
+          }
           if (sectionItems.length === 0) return null;
 
           return (
@@ -225,11 +259,18 @@ export function BackofficeSidebar({
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                           active
                             ? "border-l-2 border-primary bg-primary-soft pl-[10px] font-medium text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            : item.muted
+                              ? "text-muted-foreground/80 hover:bg-muted hover:text-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
                         <span className="truncate">{item.label}</span>
+                        {item.badge ? (
+                          <span className="ml-auto rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {item.badge}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );
@@ -241,6 +282,25 @@ export function BackofficeSidebar({
       </nav>
 
       <div className="shrink-0 border-t border-border p-3 space-y-2">
+        <Link
+          href="/backoffice/abonnement"
+          className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm transition-colors hover:bg-muted"
+        >
+          <span className="flex items-center gap-2 text-foreground">
+            <Wallet className="h-4 w-4 shrink-0" aria-hidden />
+            Abonnement
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              {planLabel}
+            </span>
+            {entitlementAlertCount > 0 ? (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+                {entitlementAlertCount} alert{entitlementAlertCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
+          </span>
+        </Link>
         <p className="px-2 text-[10px] text-muted-foreground">
           Powered by <span className="font-semibold text-foreground">NXTDRIVE</span>
         </p>

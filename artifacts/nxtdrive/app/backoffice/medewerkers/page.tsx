@@ -27,6 +27,10 @@ import {
   listOrganizationTeams,
   teamIdsForMembership,
 } from "@/lib/organization";
+import {
+  ENTITLEMENT_STAFF_ROLES,
+  getTenantLimitStatus,
+} from "@/lib/platform/entitlements";
 import type { MemberRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +47,7 @@ type MemberRow = {
   team_names: string[];
 };
 
-const ALL_STAFF_ROLES: MemberRole[] = [
-  "tenant_admin",
-  "instructor",
-  "branch_manager",
-  "planner",
-  "admin_staff",
-  "marketing",
-];
+const ALL_STAFF_ROLES: MemberRole[] = ENTITLEMENT_STAFF_ROLES;
 
 const DATE_FMT = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
@@ -117,6 +114,7 @@ function Feedback({
     missing_fields: "Vul alle verplichte velden in.",
     already_member: `${email ? `${email} heeft` : "Dit account heeft"} al toegang tot jouw school.`,
     invite_failed: `Medewerker toevoegen mislukt${reason ? `: ${reason}` : "."}`,
+    staff_limit_reached: `Het maximum aantal medewerkers voor dit abonnement is bereikt${reason ? ` (${reason})` : ""}.`,
     membership_failed: "Lidmaatschap kon niet worden aangemaakt.",
     remove_failed: "Verwijderen mislukt. Probeer het opnieuw.",
     cannot_remove_self: "Je kunt jezelf niet verwijderen.",
@@ -276,6 +274,11 @@ export default async function MedewerkersPage({
   const teamAssignedCount = members.filter(
     (member) => member.team_names.length > 0,
   ).length;
+  const staffLimit = getTenantLimitStatus(
+    organization,
+    { branches: 0, staff_memberships: members.length, custom_domains: 0 },
+    "staff_memberships",
+  );
 
   return (
     <div className="space-y-6">
@@ -327,7 +330,28 @@ export default async function MedewerkersPage({
             </Link>
           </div>
         </div>
-        <InviteForm branches={branches} teams={teams} />
+        {staffLimit.isAtLimit ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300 lg:max-w-sm">
+            <p className="font-medium">
+              {staffLimit.isOverLimit
+                ? `Medewerkerslimiet overschreden: ${staffLimit.used}/${staffLimit.limitLabel}`
+                : `Medewerkerslimiet bereikt: ${staffLimit.used}/${staffLimit.limitLabel}`}
+            </p>
+            <p className="mt-1 text-xs opacity-80">
+              {staffLimit.isOverLimit
+                ? "Deze organisatie gebruikt meer medewerkers dan binnen het huidige plan past. Nieuwe uitnodigingen blijven vergrendeld totdat het plan wordt uitgebreid of het team wordt afgeschaald."
+                : "Nieuwe uitnodigingen zijn vergrendeld totdat dit abonnement wordt uitgebreid of bestaande medewerkers worden verwijderd."}
+            </p>
+            <Link
+              href="/backoffice/abonnement"
+              className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3`}
+            >
+              Abonnement bekijken
+            </Link>
+          </div>
+        ) : (
+          <InviteForm branches={branches} teams={teams} />
+        )}
       </div>
 
       <Feedback
@@ -340,8 +364,12 @@ export default async function MedewerkersPage({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Medewerkers"
-          value={String(members.length)}
-          description="Totaal aantal backoffice- en instructeursaccounts binnen deze organisatie."
+          value={
+            staffLimit.isUnlimited
+              ? String(members.length)
+              : `${members.length}/${staffLimit.limitLabel}`
+          }
+          description="Totaal aantal backoffice- en instructeursaccounts binnen deze organisatie en planlimiet."
           icon={Users}
         />
         <StatCard

@@ -18,20 +18,17 @@ import { OrganizationProfileForm } from "./organization-profile-form";
 import {
   FEATURE_PLAN,
   FEATURE_LABELS,
+  PLAN_LABELS,
   PLAN_ORDER,
+  isWhiteLabelEligible,
   tenantHasFeature,
   type FeatureKey,
 } from "@/lib/platform/features";
+import { getTenantLimitStatuses, loadTenantEntitlementUsage } from "@/lib/platform/entitlements";
 import type { TenantPlan } from "@/lib/types";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-
-const PLAN_LABELS: Record<string, string> = {
-  start: "Start",
-  pro: "Pro",
-  elite: "Elite",
-};
 
 const PLAN_BADGE: Record<string, "outline" | "primary" | "default"> = {
   start: "outline",
@@ -164,6 +161,12 @@ export default async function TenantDetailPage({
 
   const tenantPlan = (tenant.plan as TenantPlan) ?? "start";
   const tenantObj = { plan: tenantPlan, white_label_enabled: !!tenantRecord.white_label_enabled };
+  const whiteLabelActive = isWhiteLabelEligible(tenantObj);
+  const entitlementUsage = await loadTenantEntitlementUsage(service, id);
+  const limitStatuses = getTenantLimitStatuses(
+    tenantObj,
+    entitlementUsage,
+  );
 
   return (
     <main className="min-h-screen bg-background">
@@ -193,15 +196,15 @@ export default async function TenantDetailPage({
               <h1 className="text-2xl font-bold text-foreground">
                 {tenant.name}
               </h1>
-              <Badge variant={PLAN_BADGE[tenant.plan as string] ?? "outline"}>
-                {PLAN_LABELS[tenant.plan as string] ?? tenant.plan}
+              <Badge variant={PLAN_BADGE[tenantPlan] ?? "outline"}>
+                {PLAN_LABELS[tenantPlan] ?? tenantPlan}
               </Badge>
               {tenantOrgType && (
                 <Badge variant="outline">
                   {ORG_TYPE_LABELS[tenantOrgType] ?? tenantOrgType}
                 </Badge>
               )}
-              {!!tenantRecord.white_label_enabled && (
+              {whiteLabelActive && (
                 <Badge variant="outline">White-label</Badge>
               )}
               {isFranchisee && (
@@ -314,6 +317,33 @@ export default async function TenantDetailPage({
                   Opslaan
                 </Button>
               </form>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {Object.values(limitStatuses).map((status) => (
+                  <div
+                    key={status.key}
+                    className="rounded-md border border-border bg-muted/30 px-3 py-2.5"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {status.label}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {status.isUnlimited
+                        ? status.used
+                        : `${status.used}/${status.limitLabel}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {status.isUnlimited
+                        ? "Onbeperkt op dit plan"
+                        : status.isOverLimit
+                          ? "Boven planlimiet"
+                          : status.isAtLimit
+                            ? "Planlimiet bereikt"
+                            : `${status.remaining} beschikbaar`}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
               {/* White-label toggle — only meaningful for Elite */}
               <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5">
