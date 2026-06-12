@@ -193,7 +193,7 @@ export default async function InstructorLayout({
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-24 pt-6 sm:px-5 md:px-6 md:pb-10 lg:min-h-0 lg:overflow-y-auto lg:px-7 lg:pb-6 lg:pt-5 xl:px-8">
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.5rem] pt-3.5 sm:px-5 sm:pb-20 sm:pt-[1.125rem] md:px-6 md:pb-9 lg:min-h-0 lg:overflow-y-auto lg:px-7 lg:pb-5 lg:pt-[1.125rem] xl:px-8">
             <div className="mx-auto w-full max-w-[100rem] lg:flex lg:h-full lg:flex-col">
               <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
             </div>

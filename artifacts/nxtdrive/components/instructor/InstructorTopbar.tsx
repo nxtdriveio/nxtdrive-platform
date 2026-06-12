@@ -30,10 +30,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const BUTTON_CLASS =
-  "inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
+  "inline-flex h-[2.375rem] shrink-0 items-center gap-2 rounded-[0.95rem] border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:rounded-xl";
 
 const ICON_BUTTON_CLASS =
-  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
+  "inline-flex h-[2.375rem] w-[2.375rem] shrink-0 items-center justify-center rounded-[0.95rem] border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:w-10 xl:rounded-xl";
 
 const ACTIES_INSTRUCTOR = [
   { href: "/instructor/week", icon: ClipboardList, label: "Agenda" },
@@ -63,7 +63,7 @@ export function InstructorTopbar({
     pathname === "/instructor/berichten" || pathname.startsWith("/instructor/berichten/");
 
   return (
-    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border/80 bg-card px-5 lg:flex">
+    <header className="hidden h-[3.75rem] shrink-0 items-center gap-3 border-b border-border/80 bg-card px-4 lg:flex xl:h-16 xl:px-5">
       <div className="flex flex-1 items-center justify-center">
         <div className="w-full max-w-2xl">
           <InstructorQuickSearch />

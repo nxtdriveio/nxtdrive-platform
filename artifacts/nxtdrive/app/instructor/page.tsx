@@ -285,16 +285,16 @@ function buildRadarItems(params: {
 
 function HeroMetricCard({ icon, value, label }: KpiCardProps) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-[1.35rem] border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-xl">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/10 text-white shadow-inner shadow-white/5">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-[1.12rem] border border-white/10 bg-white/6 px-[0.6875rem] py-[0.5625rem] backdrop-blur-xl sm:rounded-[1.3rem] sm:px-3.5 sm:py-[0.6875rem]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] bg-white/10 text-white shadow-inner shadow-white/5 sm:h-10 sm:w-10 sm:rounded-[1.05rem]">
         {icon}
       </span>
       <div className="min-w-0">
         <p className="flex flex-wrap items-baseline gap-2 text-white">
-          <span className="text-[1.55rem] font-black leading-none tracking-tight">
+          <span className="text-[1.2rem] font-black leading-none tracking-tight sm:text-[1.45rem]">
             {value}
           </span>
-          <span className="truncate text-sm font-semibold">{label}</span>
+          <span className="truncate text-[0.85rem] font-semibold sm:text-sm">{label}</span>
         </p>
       </div>
     </div>
@@ -328,12 +328,12 @@ function QuickLinkButton({
   return (
     <Link
       href={href}
-      className="group flex min-h-[6.35rem] flex-col items-center justify-center gap-2 rounded-[1.2rem] border border-border/70 bg-primary-soft/55 px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary-soft/72"
+      className="group flex min-h-[5.4rem] flex-col items-center justify-center gap-1.5 rounded-[1.05rem] border border-border/70 bg-primary-soft/55 px-3 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary-soft/72 sm:min-h-[6rem] sm:gap-2 sm:rounded-[1.2rem] sm:py-4"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-background/85 text-primary shadow-sm">
+      <span className="flex h-9 w-9 items-center justify-center rounded-[0.95rem] bg-background/85 text-primary shadow-sm sm:h-10 sm:w-10 sm:rounded-[1rem]">
         {icon}
       </span>
-      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <span className="text-[0.88rem] font-semibold text-foreground sm:text-sm">{label}</span>
     </Link>
   );
 }
@@ -545,26 +545,26 @@ export default async function InstructorIndexPage() {
     <PWAPage
       app="instructor"
       className="lg:flex lg:h-full lg:flex-col"
-      contentClassName="space-y-4 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-4 lg:space-y-0 lg:overflow-hidden"
+      contentClassName="space-y-3 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-3.5 lg:space-y-0 lg:overflow-hidden"
     >
       <section
-        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-4"
+        className="relative overflow-hidden rounded-[1.55rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-3.5 py-3.5 text-white shadow-2xl shadow-black/20 sm:px-5 sm:py-[1.125rem] lg:rounded-[1.85rem] lg:px-6 lg:py-4"
       >
         <div className="pointer-events-none absolute inset-y-0 right-0 w-56 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
-        <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
-          <div className="min-w-0 space-y-2">
+        <div className="relative grid gap-2.5 sm:gap-3.5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.35fr)] lg:items-end">
+          <div className="min-w-0 space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
               {tenant.name}
             </p>
-            <h1 className="text-balance text-[clamp(1.9rem,3vw,2.85rem)] font-black leading-[1.02] tracking-tight">
+            <h1 className="text-balance text-[clamp(1.55rem,7vw,2.3rem)] font-black leading-[1.02] tracking-tight lg:text-[clamp(1.82rem,3vw,2.75rem)]">
               {greetingFor(now)}, {firstUserName}! <span aria-hidden>👋</span>
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-white/72 sm:text-[0.95rem]">
+            <p className="max-w-2xl text-[12px] leading-[1.125rem] text-white/72 sm:text-[0.92rem] sm:leading-[1.375rem]">
               Hier is je overzicht van vandaag.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             <HeroMetricCard
               icon={<Users className="h-5 w-5" aria-hidden />}
               value={todayLessons.length}
@@ -589,7 +589,7 @@ export default async function InstructorIndexPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)] lg:overflow-hidden">
+      <div className="grid gap-3.5 lg:min-h-0 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.96fr)_minmax(0,0.96fr)] lg:overflow-hidden">
         <PWACard
           title={
             <CardHeading
@@ -598,7 +598,7 @@ export default async function InstructorIndexPage() {
             />
           }
           className="flex h-full min-h-0 flex-col bg-card"
-          contentClassName="flex h-full min-h-0 flex-col gap-3 overflow-hidden"
+          contentClassName="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden"
           headerRight={
             nextLesson ? (
               <Badge variant="primary">{formatCountdown(now, nextLesson.starts_at)}</Badge>
@@ -607,21 +607,21 @@ export default async function InstructorIndexPage() {
         >
           {nextLesson && nextLessonContext ? (
             <>
-              <div className="grid gap-3">
+              <div className="grid gap-2.5">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={nextStudent?.full_name ?? "Leerling"} className="h-14 w-14 text-base" />
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={nextStudent?.full_name ?? "Leerling"} className="h-12 w-12 text-sm sm:h-14 sm:w-14 sm:text-base" />
                     <div className="min-w-0">
-                      <p className="truncate text-[1.4rem] font-bold tracking-tight text-foreground">
+                      <p className="truncate text-[1.2rem] font-bold tracking-tight text-foreground sm:text-[1.35rem]">
                         {nextStudent?.full_name ?? "Leerling"}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-[13px] text-muted-foreground sm:text-sm">
                         {nextStudent?.email ?? "Leerlingcontext beschikbaar vanuit je agenda"}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3.5 space-y-2.5 sm:mt-4 sm:space-y-3">
                     <div className="flex gap-3">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                       <div>

@@ -115,7 +115,7 @@ export default async function StudentTheoriePage({
   ] satisfies Array<{ key: TheoryTab; label: string; href: string; count?: number }>;
 
   return (
-    <PWAPage app="student" contentClassName="space-y-4">
+    <PWAPage app="student" contentClassName="space-y-3.5">
       <PWAPageHeader
         eyebrow="Theorie"
         title="Theorie"
@@ -132,11 +132,9 @@ export default async function StudentTheoriePage({
             eyebrow="Jouw theorie-overzicht"
             info="Gebaseerd op actieve modules en huiswerk dat door je rijschool aan je leerlingdossier is gekoppeld."
           >
-            <div className="grid grid-cols-1 gap-4 min-[430px]:grid-cols-[6.4rem_minmax(0,1fr)] sm:grid-cols-[6.8rem_minmax(0,1fr)]">
-              <div className="flex justify-center min-[430px]:justify-start">
+            <div className="space-y-3 sm:grid sm:grid-cols-[6.8rem_minmax(0,1fr)] sm:gap-4 sm:space-y-0">
+              <div className="flex items-center gap-3 sm:block">
                 <StudentRing value={theoryPct} label="Voortgang" />
-              </div>
-              <div className="space-y-3">
                 <div className="text-lg font-semibold text-white">
                   {theoryPct >= 70
                     ? "Je theoriebasis staat stevig"
@@ -144,6 +142,8 @@ export default async function StudentTheoriePage({
                       ? "Je bouwt goed op"
                       : "Een sterke start is gezet"}
                 </div>
+              </div>
+              <div className="space-y-3">
                 <StudentProgressBar
                   label="Afgeronde modules"
                   value={modules.length > 0 ? (completedModules / modules.length) * 100 : 0}
@@ -196,14 +196,14 @@ export default async function StudentTheoriePage({
                   return (
                     <div
                       key={module.id}
-                      className="rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3"
+                      className="rounded-[1.05rem] border border-white/10 bg-white/[0.02] px-3 py-2.75 sm:rounded-[1.15rem] sm:py-3"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 pr-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
+                        <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-white">
                             {module.title}
                           </div>
-                          <div className="mt-1 text-xs text-white/46">
+                          <div className="mt-1 line-clamp-2 text-[11px] leading-[1.05rem] text-white/46 sm:text-xs sm:leading-5">
                             {module.description ?? "Beschikbaar in je theorietraject"}
                           </div>
                         </div>
@@ -213,14 +213,14 @@ export default async function StudentTheoriePage({
                               ? THEORY_HOMEWORK_STATUS_VARIANT[latest.status]
                               : "outline"
                           }
-                          className="shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] sm:text-xs"
+                          className="shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] font-semibold sm:text-xs"
                         >
                           {latest ? THEORY_HOMEWORK_STATUS_LABEL[latest.status] : "Nieuw"}
                         </Badge>
                       </div>
                       <div className="mt-3">
                         <StudentProgressBar
-                          label="Modulevoortgang"
+                          label="Voortgang"
                           value={progress}
                           rightLabel={`${progress}%`}
                         />

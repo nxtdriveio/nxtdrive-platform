@@ -29,7 +29,7 @@ export function StudentShowcaseTabs({
     <nav
       aria-label="Studentsecties"
       className={cn(
-        "flex min-w-0 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "flex min-w-0 gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
     >
@@ -41,7 +41,7 @@ export function StudentShowcaseTabs({
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold transition",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition sm:px-3.5 sm:py-2 sm:text-xs",
               active
                 ? "border-primary/50 bg-primary/18 text-primary"
                 : "border-white/10 bg-card/72 text-white/62 hover:border-white/16 hover:text-white",
@@ -103,7 +103,7 @@ export function StudentShowcaseCard({
       style={style}
     >
       {title || eyebrow || actionLabel ? (
-        <div className="flex items-center justify-between gap-3 border-b border-white/7 px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b border-white/7 px-3.5 py-3 sm:px-4 sm:py-3.5">
           <div className="min-w-0">
             {eyebrow ? (
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">
@@ -132,7 +132,7 @@ export function StudentShowcaseCard({
           ) : null}
         </div>
       ) : null}
-      <div className={cn("px-4 py-4", bodyClassName)}>{children}</div>
+      <div className={cn("px-3.5 py-3.5 sm:px-4 sm:py-4", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -173,8 +173,8 @@ export function StudentShowcaseMetric({
 
 export function StudentRing({
   value,
-  size = 126,
-  stroke = 12,
+  size = 116,
+  stroke = 11,
   label = "Voortgang",
   caption,
 }: {
@@ -218,18 +218,16 @@ export function StudentRing({
           strokeDashoffset={dash}
         />
       </svg>
-      <div
-        className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full text-center"
-        style={{
-          background:
-            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 28%, transparent), rgba(7,8,17,0.94) 72%)",
-        }}
-      >
-        <div className="text-[1.9rem] font-black leading-none tracking-tight text-white">
+      <div className="absolute inset-[0.95rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(76,44,162,0.28),rgba(7,8,17,0.94)_72%)] text-center sm:inset-[1.1rem]">
+        <div className="text-[1.55rem] font-black leading-none tracking-tight text-white sm:text-[1.9rem]">
           {safe}%
         </div>
-        <div className="mt-1 text-xs text-white/68">{label}</div>
-        {caption ? <div className="mt-1 text-[10px] text-white/42">{caption}</div> : null}
+        <div className="mt-0.5 text-[11px] text-white/68 sm:mt-1 sm:text-xs">{label}</div>
+        {caption ? (
+          <div className="mt-1 max-w-[4.75rem] text-[9px] leading-3 text-white/42 sm:max-w-none sm:text-[10px]">
+            {caption}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -335,24 +333,41 @@ export function StudentListRow({
   const inner = (
     <div
       className={cn(
-        "flex min-w-0 items-start gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3 transition sm:items-center",
+        "flex min-w-0 items-start gap-3 rounded-[1.05rem] border border-white/10 bg-white/[0.02] px-3 py-2.5 transition sm:items-center sm:rounded-[1.15rem] sm:py-3",
         href ? "hover:border-white/14 hover:bg-white/[0.04]" : "",
         className,
       )}
     >
       {leading ? <div className="shrink-0">{leading}</div> : null}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-white">{title}</div>
+        <div className="truncate text-[0.84rem] font-semibold text-white sm:text-sm">{title}</div>
         {subtitle ? (
-          <div className="mt-0.5 line-clamp-4 text-xs leading-5 text-white/50 sm:line-clamp-3">
+          <div className="mt-0.5 line-clamp-3 text-[11px] leading-[1.05rem] text-white/50 sm:line-clamp-2 sm:text-xs sm:leading-5">
             {subtitle}
           </div>
         ) : null}
+        {meta || badge || href ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/42 sm:hidden">
+            {meta ? <span>{meta}</span> : null}
+            {badge ? (
+              <Badge
+                variant={badgeVariant}
+                className="whitespace-nowrap px-2 py-0.5 text-[10px] font-semibold"
+              >
+                {badge}
+              </Badge>
+            ) : null}
+            {href ? <ChevronRight className="h-3.5 w-3.5 text-white/26" aria-hidden /> : null}
+          </div>
+        ) : null}
       </div>
-      <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start pl-2 text-right sm:flex-row sm:items-center sm:self-center sm:text-left">
-        {meta ? <div className="text-[11px] whitespace-nowrap text-white/40">{meta}</div> : null}
+      <div className="hidden shrink-0 items-center gap-2 sm:flex">
+        {meta ? <div className="text-[11px] text-white/40">{meta}</div> : null}
         {badge ? (
-          <Badge variant={badgeVariant} className="shrink-0 whitespace-nowrap">
+          <Badge
+            variant={badgeVariant}
+            className="whitespace-nowrap px-2 py-0.5 text-[10px] font-semibold"
+          >
             {badge}
           </Badge>
         ) : null}
@@ -385,7 +400,7 @@ export function StudentInitialBadge({
   return (
     <span
       className={cn(
-        "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-semibold",
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-semibold sm:h-11 sm:w-11 sm:text-sm",
         toneClass,
       )}
     >

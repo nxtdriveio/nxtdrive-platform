@@ -122,11 +122,11 @@ export function NotificationBell({
         className={cn(
           "relative inline-flex items-center justify-center transition active:scale-95",
           floating
-            ? "h-10 w-10 rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90"
+            ? "h-8.5 w-8.5 rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90 sm:h-10 sm:w-10"
             : "h-10 w-10 rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground",
         )}
       >
-        <Bell className={cn(floating ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
+        <Bell className={cn(floating ? "h-4 w-4 sm:h-5 sm:w-5" : "h-4 w-4")} aria-hidden />
         {unread > 0 && (
           <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
             {badge}
@@ -138,7 +138,7 @@ export function NotificationBell({
         <div
           className={cn(
             floating
-              ? "fixed right-3 top-[calc(env(safe-area-inset-top)+4.4rem)] z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden text-popover-foreground sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 sm:max-w-[calc(100vw-2rem)]"
+              ? "fixed right-3 top-[calc(env(safe-area-inset-top)+4rem)] z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden text-popover-foreground sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 sm:max-w-[calc(100vw-2rem)]"
               : "absolute right-0 z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden text-popover-foreground",
             floating
               ? "rounded-[1.75rem] border border-border/60 bg-popover/80 shadow-2xl shadow-black/20 backdrop-blur-2xl"

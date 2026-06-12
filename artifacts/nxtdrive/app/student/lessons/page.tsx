@@ -84,11 +84,11 @@ function parseSelectedDate(input: string | undefined): Date {
   return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
 }
 
-function summaryPreview(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const compact = value.replace(/\s+/g, " ").trim();
-  if (!compact) return null;
-  return compact.length > 155 ? `${compact.slice(0, 152).trimEnd()}…` : compact;
+function summarizeLessonFeedback(summary: string | null | undefined): string | null {
+  if (!summary) return null;
+  const compact = summary.replace(/\s+/g, " ").trim();
+  if (compact.length <= 108) return compact;
+  return `${compact.slice(0, 105).trimEnd()}...`;
 }
 
 function plannerItemsForLessons(
@@ -248,7 +248,7 @@ export default async function StudentLessonsPage({
   ] satisfies Array<{ key: LessonsTab; label: string; href: string; count?: number }>;
 
   return (
-    <PWAPage app="student" contentClassName="space-y-4">
+    <PWAPage app="student" contentClassName="space-y-3.5">
       <PWAPageHeader
         eyebrow="Agenda"
         title="Lessen"
@@ -316,7 +316,7 @@ export default async function StudentLessonsPage({
                       href={`/student/lessons/${lesson.id}`}
                       title={dateFmt.format(start)}
                       subtitle={
-                        summaryPreview(lesson.progress_summary) ??
+                        summarizeLessonFeedback(lesson.progress_summary) ??
                         lesson.location ??
                         "Bekijk je lesdetail"
                       }
