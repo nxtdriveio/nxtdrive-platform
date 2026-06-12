@@ -84,6 +84,13 @@ function parseSelectedDate(input: string | undefined): Date {
   return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
 }
 
+function summaryPreview(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > 155 ? `${compact.slice(0, 152).trimEnd()}…` : compact;
+}
+
 function plannerItemsForLessons(
   lessons: Lesson[],
   instructorNames: Map<string, string>,
@@ -308,7 +315,11 @@ export default async function StudentLessonsPage({
                       key={lesson.id}
                       href={`/student/lessons/${lesson.id}`}
                       title={dateFmt.format(start)}
-                      subtitle={lesson.progress_summary ?? lesson.location ?? "Bekijk je lesdetail"}
+                      subtitle={
+                        summaryPreview(lesson.progress_summary) ??
+                        lesson.location ??
+                        "Bekijk je lesdetail"
+                      }
                       meta={timeFmt.format(start)}
                       badge={lesson.progress_score != null ? `${lesson.progress_score}/10` : "Les"}
                       badgeVariant={lesson.progress_score != null ? "success" : "outline"}
@@ -421,7 +432,7 @@ export default async function StudentLessonsPage({
                       className={[
                         "rounded-[1rem] border px-1.5 py-2 text-center transition",
                         selected
-                          ? "border-primary/40 bg-primary/16 text-white shadow-[0_12px_24px_rgba(84,48,214,0.18)]"
+                          ? "border-primary/40 bg-primary/16 text-white shadow-[0_12px_24px_color-mix(in_oklab,var(--primary)_22%,transparent)]"
                           : "border-white/8 bg-white/[0.02] text-white/76 hover:border-white/14",
                         !inMonth ? "opacity-45" : "",
                       ].join(" ")}

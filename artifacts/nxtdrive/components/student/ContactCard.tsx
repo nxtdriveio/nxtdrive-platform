@@ -34,7 +34,13 @@ export function ContactCard({
             Stuur direct een bericht
           </div>
           {unreadCount > 0 ? (
-            <span className="absolute right-3 top-3 inline-flex min-w-[1.35rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-[0_10px_25px_rgba(93,42,255,0.35)]">
+            <span
+              className="absolute right-3 top-3 inline-flex min-w-[1.35rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground"
+              style={{
+                boxShadow:
+                  "0 10px 25px color-mix(in oklab, var(--primary) 35%, transparent)",
+              }}
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           ) : null}

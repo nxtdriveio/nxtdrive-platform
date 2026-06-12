@@ -176,8 +176,10 @@ export default async function StudentVoortgangPage({
             eyebrow="Roadmap overzicht"
             info="Je totale voortgang is gebaseerd op je lesontwikkeling, theorie, CBR-status en afgeronde mijlpalen."
           >
-            <div className="grid grid-cols-[7.4rem_minmax(0,1fr)] gap-4">
-              <StudentRing value={journeyPct} caption={`${completedLessonsCount} lessen afgerond`} />
+            <div className="grid grid-cols-1 gap-4 min-[430px]:grid-cols-[7rem_minmax(0,1fr)] sm:grid-cols-[7.4rem_minmax(0,1fr)]">
+              <div className="flex justify-center min-[430px]:justify-start">
+                <StudentRing value={journeyPct} caption={`${completedLessonsCount} lessen afgerond`} />
+              </div>
               <div className="space-y-3">
                 <div>
                   <div className="text-lg font-semibold text-white">
@@ -214,13 +216,15 @@ export default async function StudentVoortgangPage({
             actionLabel="CBR openen"
             actionHref="/student/cbr"
           >
-            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-4">
-              <StudentRing
-                value={readiness.readinessPct}
-                size={102}
-                stroke={10}
-                label="Examen"
-              />
+            <div className="grid grid-cols-1 gap-4 min-[430px]:grid-cols-[6rem_minmax(0,1fr)]">
+              <div className="flex justify-center min-[430px]:justify-start">
+                <StudentRing
+                  value={readiness.readinessPct}
+                  size={102}
+                  stroke={10}
+                  label="Examen"
+                />
+              </div>
               <div className="space-y-3">
                 <div>
                   <div className="text-lg font-semibold text-white">

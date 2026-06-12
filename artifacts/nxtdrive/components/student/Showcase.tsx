@@ -43,9 +43,17 @@ export function StudentShowcaseTabs({
             className={cn(
               "inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold transition",
               active
-                ? "border-primary/50 bg-primary/18 text-primary shadow-[0_10px_30px_rgba(88,51,214,0.2)]"
+                ? "border-primary/50 bg-primary/18 text-primary"
                 : "border-white/10 bg-card/72 text-white/62 hover:border-white/16 hover:text-white",
             )}
+            style={
+              active
+                ? {
+                    boxShadow:
+                      "0 10px 30px color-mix(in oklab, var(--primary) 22%, transparent)",
+                  }
+                : undefined
+            }
           >
             <span>{item.label}</span>
             {item.count != null ? (
@@ -74,6 +82,7 @@ export function StudentShowcaseCard({
   children,
   className,
   bodyClassName,
+  style,
 }: {
   title?: React.ReactNode;
   eyebrow?: React.ReactNode;
@@ -83,6 +92,7 @@ export function StudentShowcaseCard({
   children: React.ReactNode;
   className?: string;
   bodyClassName?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <section
@@ -90,6 +100,7 @@ export function StudentShowcaseCard({
         "overflow-hidden rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,33,0.96),rgba(10,10,22,0.98))] shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
         className,
       )}
+      style={style}
     >
       {title || eyebrow || actionLabel ? (
         <div className="flex items-center justify-between gap-3 border-b border-white/7 px-4 py-3.5">
@@ -183,8 +194,8 @@ export function StudentRing({
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id={`student-showcase-ring-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(160,121,255,1)" />
-            <stop offset="100%" stopColor="rgba(95,42,255,1)" />
+            <stop offset="0%" stopColor="color-mix(in oklab, var(--primary) 72%, white)" />
+            <stop offset="100%" stopColor="var(--primary)" />
           </linearGradient>
         </defs>
         <circle
@@ -207,7 +218,13 @@ export function StudentRing({
           strokeDashoffset={dash}
         />
       </svg>
-      <div className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(76,44,162,0.28),rgba(7,8,17,0.94)_72%)] text-center">
+      <div
+        className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full text-center"
+        style={{
+          background:
+            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 28%, transparent), rgba(7,8,17,0.94) 72%)",
+        }}
+      >
         <div className="text-[1.9rem] font-black leading-none tracking-tight text-white">
           {safe}%
         </div>
@@ -238,8 +255,12 @@ export function StudentProgressBar({
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
         <div
-          className="h-full rounded-full bg-[linear-gradient(90deg,#7d55ff,#5d2aff)]"
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            background:
+              "linear-gradient(90deg, color-mix(in oklab, var(--primary) 78%, white), var(--primary))",
+          }}
         />
       </div>
     </div>
@@ -314,7 +335,7 @@ export function StudentListRow({
   const inner = (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3 transition",
+        "flex min-w-0 items-start gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3 transition sm:items-center",
         href ? "hover:border-white/14 hover:bg-white/[0.04]" : "",
         className,
       )}
@@ -322,11 +343,19 @@ export function StudentListRow({
       {leading ? <div className="shrink-0">{leading}</div> : null}
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-white">{title}</div>
-        {subtitle ? <div className="mt-0.5 text-xs leading-5 text-white/50">{subtitle}</div> : null}
+        {subtitle ? (
+          <div className="mt-0.5 line-clamp-4 text-xs leading-5 text-white/50 sm:line-clamp-3">
+            {subtitle}
+          </div>
+        ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {meta ? <div className="text-[11px] text-white/40">{meta}</div> : null}
-        {badge ? <Badge variant={badgeVariant}>{badge}</Badge> : null}
+      <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start pl-2 text-right sm:flex-row sm:items-center sm:self-center sm:text-left">
+        {meta ? <div className="text-[11px] whitespace-nowrap text-white/40">{meta}</div> : null}
+        {badge ? (
+          <Badge variant={badgeVariant} className="shrink-0 whitespace-nowrap">
+            {badge}
+          </Badge>
+        ) : null}
         {href ? <ChevronRight className="h-4 w-4 text-white/26" aria-hidden /> : null}
       </div>
     </div>
@@ -401,6 +430,7 @@ export function StudentShowcaseNotice({
   tone = "default",
   className,
   children,
+  style,
 }: {
   title: React.ReactNode;
   description: React.ReactNode;
@@ -408,6 +438,7 @@ export function StudentShowcaseNotice({
   tone?: "default" | "success" | "warning" | "info" | "danger";
   className?: string;
   children?: React.ReactNode;
+  style?: React.CSSProperties;
 }) {
   const toneClass =
     tone === "success"
@@ -437,6 +468,7 @@ export function StudentShowcaseNotice({
         toneClass,
         className,
       )}
+      style={style}
     >
       <div className="flex items-start gap-3">
         {icon ? (

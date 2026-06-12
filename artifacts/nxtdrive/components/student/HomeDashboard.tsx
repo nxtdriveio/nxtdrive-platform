@@ -44,9 +44,11 @@ export type StudentCoachSummary = {
 function DashboardSection({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <section
@@ -54,6 +56,7 @@ function DashboardSection({
         "overflow-hidden rounded-[1.65rem] border border-white/10 bg-[linear-gradient(180deg,rgba(22,22,39,0.96),rgba(14,14,27,0.98))] shadow-[0_24px_60px_rgba(1,2,8,0.4)]",
         className,
       )}
+      style={style}
     >
       {children}
     </section>
@@ -73,8 +76,8 @@ function ProgressRing({ pct }: { pct: number }) {
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="student-progress-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(149,116,255,1)" />
-            <stop offset="100%" stopColor="rgba(95,42,255,1)" />
+            <stop offset="0%" stopColor="color-mix(in oklab, var(--primary) 72%, white)" />
+            <stop offset="100%" stopColor="var(--primary)" />
           </linearGradient>
         </defs>
         <circle
@@ -97,7 +100,13 @@ function ProgressRing({ pct }: { pct: number }) {
           strokeDashoffset={dash}
         />
       </svg>
-      <div className="absolute inset-[1.5rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(68,38,142,0.35),rgba(7,8,17,0.92)_72%)] text-center">
+      <div
+        className="absolute inset-[1.5rem] flex flex-col items-center justify-center rounded-full text-center"
+        style={{
+          background:
+            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 34%, transparent), rgba(7,8,17,0.92) 72%)",
+        }}
+      >
         <div className="text-[2.05rem] font-black leading-none tracking-tight text-white">
           {safe}%
         </div>
@@ -228,28 +237,35 @@ function HomeInfoCard({
 }) {
   return (
     <DashboardSection className="h-full">
-      <div className="flex h-full flex-col p-4">
+      <div className="flex h-full flex-col p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/16 text-primary">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/58 sm:text-[11px]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-[1rem] bg-primary/16 text-primary sm:h-9 sm:w-9 sm:rounded-2xl">
                 {icon}
               </span>
               {eyebrow}
             </div>
-            <div className="text-lg font-semibold text-white">{title}</div>
+            <div className="text-base font-semibold leading-6 text-white sm:text-lg">{title}</div>
           </div>
-          {badge ? <Badge variant={badgeVariant}>{badge}</Badge> : null}
+          {badge ? (
+            <Badge
+              variant={badgeVariant}
+              className="shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] sm:text-xs"
+            >
+              {badge}
+            </Badge>
+          ) : null}
         </div>
 
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-3.5 space-y-1.5">
           {lines.map((line, index) => (
             <p
               key={`${title}-${index}`}
               className={cn(
                 index === 0
-                  ? "text-[2rem] font-black leading-none tracking-tight text-white"
-                  : "text-sm leading-6 text-white/76",
+                  ? "text-[1.65rem] font-black leading-none tracking-tight text-white sm:text-[2rem]"
+                  : "text-sm leading-6 text-white/72",
               )}
             >
               {line}
@@ -259,7 +275,13 @@ function HomeInfoCard({
 
         <Link
           href={href}
-          className="mt-auto inline-flex h-12 items-center justify-between rounded-[1rem] bg-[linear-gradient(135deg,#7548ff,#5d2aff)] px-4 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(98,61,255,0.35)] transition hover:brightness-110"
+          className="mt-auto inline-flex h-11 items-center justify-between rounded-[0.95rem] px-4 text-sm font-semibold text-white transition hover:brightness-110 sm:h-12 sm:rounded-[1rem]"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in oklab, var(--primary) 76%, white), var(--primary))",
+            boxShadow:
+              "0 14px 32px color-mix(in oklab, var(--primary) 36%, transparent)",
+          }}
         >
           <span>{ctaLabel}</span>
           <ArrowRight className="h-4 w-4" aria-hidden />
@@ -272,13 +294,30 @@ function HomeInfoCard({
 function CoachOrb() {
   return (
     <div className="relative h-24 w-24 shrink-0">
-      <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.75),rgba(167,122,255,0.3)_34%,rgba(31,22,66,0.95)_70%)] shadow-[0_25px_50px_rgba(79,44,196,0.5)]" />
+      <div
+        className="absolute inset-0 rounded-[2rem]"
+        style={{
+          background:
+            "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.75), color-mix(in oklab, var(--primary) 34%, transparent) 34%, rgba(31,22,66,0.95) 70%)",
+          boxShadow:
+            "0 25px 50px color-mix(in oklab, var(--primary) 34%, transparent)",
+        }}
+      />
       <div className="absolute inset-[0.65rem] rounded-[1.7rem] border border-white/20 bg-[linear-gradient(180deg,rgba(18,18,34,0.9),rgba(8,8,20,0.96))]" />
       <div className="absolute inset-x-[1.45rem] top-[2.1rem] flex justify-between">
-        <span className="h-3 w-3 rounded-full bg-primary shadow-[0_0_16px_rgba(118,84,255,0.85)]" />
-        <span className="h-3 w-3 rounded-full bg-primary shadow-[0_0_16px_rgba(118,84,255,0.85)]" />
+        <span
+          className="h-3 w-3 rounded-full bg-primary"
+          style={{ boxShadow: "0 0 16px color-mix(in oklab, var(--primary) 64%, transparent)" }}
+        />
+        <span
+          className="h-3 w-3 rounded-full bg-primary"
+          style={{ boxShadow: "0 0 16px color-mix(in oklab, var(--primary) 64%, transparent)" }}
+        />
       </div>
-      <div className="absolute left-1/2 top-[3.95rem] h-[0.38rem] w-9 -translate-x-1/2 rounded-full bg-primary/80 shadow-[0_0_12px_rgba(118,84,255,0.55)]" />
+      <div
+        className="absolute left-1/2 top-[3.95rem] h-[0.38rem] w-9 -translate-x-1/2 rounded-full bg-primary/80"
+        style={{ boxShadow: "0 0 12px color-mix(in oklab, var(--primary) 46%, transparent)" }}
+      />
       <div className="absolute -left-2 top-[2.55rem] flex h-7 w-7 items-center justify-center rounded-full border border-white/12 bg-card/80">
         <Bot className="h-4 w-4 text-primary" aria-hidden />
       </div>
@@ -312,29 +351,40 @@ export function StudentHomeDashboard({
   return (
     <div className="space-y-4 sm:space-y-5">
       <section className="px-1 pt-1">
-        <h1 className="text-[clamp(2.1rem,8vw,2.75rem)] font-black leading-[1.02] tracking-tight text-white">
+        <h1 className="text-[clamp(1.9rem,7vw,2.75rem)] font-black leading-[1.02] tracking-tight text-white">
           {greeting}, {firstName}! <span aria-hidden>👋</span>
         </h1>
-        <p className="mt-2 text-[0.98rem] leading-7 text-white/72">
+        <p className="mt-2 text-[0.94rem] leading-6 text-white/72 sm:text-[0.98rem] sm:leading-7">
           Klaar om weer een stap dichter bij je rijbewijs te komen?
         </p>
       </section>
 
-      <DashboardSection className="border-primary/30 bg-[radial-gradient(circle_at_12%_0%,rgba(152,115,255,0.18),transparent_28%),linear-gradient(140deg,rgba(34,26,68,0.98),rgba(14,13,28,0.98)_62%,rgba(18,13,39,0.98))]">
-        <div className="space-y-4 p-4">
+      <DashboardSection
+        className="border-primary/30"
+        style={{
+          background:
+            "radial-gradient(circle at 12% 0%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 28%), linear-gradient(140deg, color-mix(in oklab, var(--primary) 18%, rgba(34,26,68,0.98)), rgba(14,13,28,0.98) 62%, color-mix(in oklab, var(--primary) 12%, rgba(18,13,39,0.98)))",
+        }}
+      >
+        <div className="space-y-4 p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[1.48rem] font-bold tracking-tight text-white">
+            <h2 className="text-[1.28rem] font-bold tracking-tight text-white sm:text-[1.48rem]">
               Mijn rijbewijsreis
             </h2>
-            <Badge variant="primary" className="bg-primary/18 text-primary shadow-none">
+            <Badge
+              variant="primary"
+              className="shrink-0 whitespace-nowrap bg-primary/18 px-2 py-0.5 text-[10px] text-primary shadow-none sm:text-xs"
+            >
               {journeyPct}% voltooid
             </Badge>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-4">
-            <div className="space-y-4">
-              <ProgressRing pct={journeyPct} />
-              <p className="text-[1.05rem] font-medium text-white/86">{journeyStatus}</p>
+          <div className="grid grid-cols-1 gap-4 min-[430px]:grid-cols-[minmax(0,9.4rem)_minmax(0,1fr)] sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+            <div className="space-y-3 text-center min-[430px]:text-left">
+              <div className="flex justify-center min-[430px]:justify-start">
+                <ProgressRing pct={journeyPct} />
+              </div>
+              <p className="text-[0.98rem] font-medium leading-6 text-white/84 sm:text-[1.05rem]">{journeyStatus}</p>
             </div>
 
             <div className="min-w-0 space-y-4">
@@ -347,7 +397,7 @@ export function StudentHomeDashboard({
         </div>
       </DashboardSection>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
         {nextLesson ? (
           <HomeInfoCard
             icon={<CalendarDays className="h-4.5 w-4.5" aria-hidden />}
@@ -394,13 +444,16 @@ export function StudentHomeDashboard({
 
       <DashboardSection className="border-white/8">
         <div className="flex items-center justify-between border-b border-white/6 px-4 pb-3 pt-4">
-          <h2 className="text-[1.22rem] font-bold tracking-tight text-white">AI Coach</h2>
-          <Badge variant="primary" className="gap-1 bg-primary/16 text-primary shadow-none">
+          <h2 className="text-[1.08rem] font-bold tracking-tight text-white sm:text-[1.22rem]">AI Coach</h2>
+          <Badge
+            variant="primary"
+            className="gap-1 whitespace-nowrap bg-primary/16 px-2 py-0.5 text-[10px] text-primary shadow-none sm:text-xs"
+          >
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             Nieuw
           </Badge>
         </div>
-        <div className="flex items-center gap-4 p-4">
+        <div className="flex flex-col items-start gap-4 p-4 min-[430px]:flex-row min-[430px]:items-center">
           <CoachOrb />
           <div className="min-w-0 flex-1">
             {coach.eyebrow ? (
@@ -408,7 +461,7 @@ export function StudentHomeDashboard({
                 {coach.eyebrow}
               </p>
             ) : null}
-            <h3 className="mt-1 text-[1.15rem] font-semibold leading-6 text-white">
+            <h3 className="mt-1 text-[1.02rem] font-semibold leading-6 text-white sm:text-[1.15rem]">
               {coach.title}
             </h3>
             <p className="mt-2 text-sm leading-6 text-white/72">{coach.body}</p>
