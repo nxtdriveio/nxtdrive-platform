@@ -13,6 +13,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QuickActions } from "@/components/student/QuickActions";
+import {
+  STUDENT_ACCENT_SURFACE,
+  STUDENT_PANEL_SURFACE,
+} from "@/components/student/Showcase";
 import type { StudentJourneyStep } from "@/lib/students/app-summary";
 
 export type StudentNextLessonSummary = {
@@ -53,10 +57,10 @@ function DashboardSection({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(22,22,39,0.96),rgba(14,14,27,0.98))] shadow-[0_20px_48px_rgba(1,2,8,0.34)] sm:rounded-[1.65rem] sm:shadow-[0_24px_60px_rgba(1,2,8,0.4)]",
+        "overflow-hidden rounded-[1.65rem] border border-white/10 shadow-[0_24px_60px_rgba(1,2,8,0.4)]",
         className,
       )}
-      style={style}
+      style={{ background: STUDENT_PANEL_SURFACE, ...style }}
     >
       {children}
     </section>
@@ -100,8 +104,14 @@ function ProgressRing({ pct }: { pct: number }) {
           strokeDashoffset={dash}
         />
       </svg>
-      <div className="absolute inset-[1rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(68,38,142,0.35),rgba(7,8,17,0.92)_72%)] text-center sm:inset-[1.35rem]">
-        <div className="text-[1.38rem] font-black leading-none tracking-tight text-white sm:text-[1.9rem]">
+      <div
+        className="absolute inset-[1.5rem] flex flex-col items-center justify-center rounded-full text-center"
+        style={{
+          background:
+            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 34%, transparent), color-mix(in oklab, var(--primary) 6%, #070811) 72%)",
+        }}
+      >
+        <div className="text-[2.05rem] font-black leading-none tracking-tight text-white">
           {safe}%
         </div>
         <div className="mt-0.5 text-[10px] text-white/72 sm:mt-1 sm:text-sm">Voortgang</div>
@@ -281,12 +291,32 @@ function HomeInfoCard({
 
 function CoachOrb() {
   return (
-    <div className="relative h-20 w-20 shrink-0 sm:h-24 sm:w-24">
-      <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.75),rgba(167,122,255,0.3)_34%,rgba(31,22,66,0.95)_70%)] shadow-[0_25px_50px_rgba(79,44,196,0.5)]" />
-      <div className="absolute inset-[0.6rem] rounded-[1.45rem] border border-white/20 bg-[linear-gradient(180deg,rgba(18,18,34,0.9),rgba(8,8,20,0.96))] sm:inset-[0.65rem] sm:rounded-[1.7rem]" />
-      <div className="absolute inset-x-[1.2rem] top-[1.8rem] flex justify-between sm:inset-x-[1.45rem] sm:top-[2.1rem]">
-        <span className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_16px_rgba(118,84,255,0.85)] sm:h-3 sm:w-3" />
-        <span className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_16px_rgba(118,84,255,0.85)] sm:h-3 sm:w-3" />
+    <div className="relative h-24 w-24 shrink-0">
+      <div
+        className="absolute inset-0 rounded-[2rem]"
+        style={{
+          background:
+            "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.75), color-mix(in oklab, var(--primary) 34%, transparent) 34%, color-mix(in oklab, var(--primary) 10%, #0e0f1b) 70%)",
+          boxShadow:
+            "0 25px 50px color-mix(in oklab, var(--primary) 34%, transparent)",
+        }}
+      />
+      <div
+        className="absolute inset-[0.65rem] rounded-[1.7rem] border border-white/20"
+        style={{
+          background:
+            "linear-gradient(180deg, color-mix(in oklab, var(--primary) 10%, #121222), color-mix(in oklab, var(--primary) 6%, #080814))",
+        }}
+      />
+      <div className="absolute inset-x-[1.45rem] top-[2.1rem] flex justify-between">
+        <span
+          className="h-3 w-3 rounded-full bg-primary"
+          style={{ boxShadow: "0 0 16px color-mix(in oklab, var(--primary) 64%, transparent)" }}
+        />
+        <span
+          className="h-3 w-3 rounded-full bg-primary"
+          style={{ boxShadow: "0 0 16px color-mix(in oklab, var(--primary) 64%, transparent)" }}
+        />
       </div>
       <div className="absolute left-1/2 top-[3.25rem] h-[0.34rem] w-8 -translate-x-1/2 rounded-full bg-primary/80 shadow-[0_0_12px_rgba(118,84,255,0.55)] sm:top-[3.95rem] sm:h-[0.38rem] sm:w-9" />
       <div className="absolute -left-1.5 top-[2.1rem] flex h-6 w-6 items-center justify-center rounded-full border border-white/12 bg-card/80 sm:-left-2 sm:top-[2.55rem] sm:h-7 sm:w-7">
@@ -330,8 +360,13 @@ export function StudentHomeDashboard({
         </p>
       </section>
 
-      <DashboardSection className="border-primary/30 bg-[radial-gradient(circle_at_12%_0%,rgba(152,115,255,0.18),transparent_28%),linear-gradient(140deg,rgba(34,26,68,0.98),rgba(14,13,28,0.98)_62%,rgba(18,13,39,0.98))]">
-        <div className="space-y-3 p-3 sm:space-y-4 sm:p-4">
+      <DashboardSection
+        className="border-primary/30"
+        style={{
+          background: `radial-gradient(circle at 12% 0%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 28%), ${STUDENT_ACCENT_SURFACE}`,
+        }}
+      >
+        <div className="space-y-4 p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[1.06rem] font-bold tracking-tight text-white sm:text-[1.42rem]">
               Mijn rijbewijsreis

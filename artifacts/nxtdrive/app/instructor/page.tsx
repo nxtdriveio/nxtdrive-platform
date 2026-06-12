@@ -548,11 +548,21 @@ export default async function InstructorIndexPage() {
       contentClassName="space-y-3 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-3.5 lg:space-y-0 lg:overflow-hidden"
     >
       <section
-        className="relative overflow-hidden rounded-[1.55rem] border border-white/10 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_26%),radial-gradient(circle_at_100%_10%,rgba(129,98,255,0.25),transparent_32%),linear-gradient(138deg,#1a1f32_0%,#111523_52%,#18122b_100%)] px-3.5 py-3.5 text-white shadow-2xl shadow-black/20 sm:px-5 sm:py-[1.125rem] lg:rounded-[1.85rem] lg:px-6 lg:py-4"
+        className="relative overflow-hidden rounded-[1.9rem] border border-white/10 px-5 py-5 text-white shadow-2xl shadow-black/20 sm:px-6 lg:px-7 lg:py-4"
+        style={{
+          background:
+            "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 26%), radial-gradient(circle at 100% 10%, color-mix(in oklab, var(--primary) 24%, transparent), transparent 32%), linear-gradient(138deg, color-mix(in oklab, var(--primary) 12%, #1a1f32) 0%, #111523 52%, color-mix(in oklab, var(--primary) 16%, #18122b) 100%)",
+        }}
       >
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-56 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
-        <div className="relative grid gap-2.5 sm:gap-3.5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.35fr)] lg:items-end">
-          <div className="min-w-0 space-y-1.5">
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-56"
+          style={{
+            background:
+              "radial-gradient(circle at top right, color-mix(in oklab, var(--primary) 16%, rgba(255,255,255,0.12)), transparent 55%)",
+          }}
+        />
+        <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)] lg:items-end">
+          <div className="min-w-0 space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
               {tenant.name}
             </p>

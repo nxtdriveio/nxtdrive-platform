@@ -1,4 +1,12 @@
 import Link from "next/link";
+import {
+  BellRing,
+  CreditCard,
+  Globe,
+  Palette,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import {
   PLAN_LABELS,
@@ -153,6 +161,43 @@ export default async function SettingsPage({
       ?.hostname ?? `${tenant.slug}.nxtdrive.io`;
   const logoUrl = resolveLogoUrl(tenant, branding);
   const themeColor = resolveThemeColor(tenant, branding);
+  const activeDomainCount = domainViews.filter((domain) => domain.status === "active").length;
+  const settingsSummaryCards = [
+    {
+      title: "Abonnement",
+      value: PLAN_LABELS[tenant.plan] ?? tenant.plan,
+      description:
+        lockedCount === 0
+          ? "alle commerciële modules van dit plan zijn beschikbaar"
+          : `${lockedCount} feature${lockedCount === 1 ? "" : "s"} nog vergrendeld`,
+      icon: ShieldCheck,
+    },
+    {
+      title: "Betaalintegratie",
+      value: status.configured ? (status.mode === "live" ? "Live" : "Test") : "Nog leeg",
+      description: status.configured
+        ? "Mollie-sleutel is versleuteld opgeslagen"
+        : "configureer Mollie om betaalflows te activeren",
+      icon: CreditCard,
+    },
+    {
+      title: "White-label",
+      value: whiteLabelActive ? "Actief" : whiteLabelAvailable ? "Beschikbaar" : "Elite",
+      description: whiteLabelActive
+        ? "branding en app-shells volgen tenantstijl"
+        : "branding blijft read-only of platform-default",
+      icon: Palette,
+    },
+    {
+      title: "Domeinen",
+      value: activeDomainCount.toLocaleString("nl-NL"),
+      description:
+        activeDomainCount === 0
+          ? "nog geen actieve branded hosts"
+          : "actieve custom of branded hosts",
+      icon: Globe,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -164,6 +209,124 @@ export default async function SettingsPage({
           Tenant-specifieke configuratie voor {tenant.name}.
         </p>
       </div>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {settingsSummaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.title}>
+              <CardHeader className="flex-row items-center justify-between gap-3">
+                <div>
+                  <CardTitle>{card.title}</CardTitle>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                    {card.value}
+                  </p>
+                </div>
+                <span className="rounded-full bg-primary-soft p-2 text-primary">
+                  <Icon className="h-5 w-5" aria-hidden />
+                </span>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{card.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Regiecentrum</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Technische status
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {status.configured ? "Mollie klaar voor gebruik" : "Betaalstack nog incompleet"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {status.configured
+                  ? "Sleutel staat versleuteld klaar en kan direct gebruikt worden in checkout- en factuurflows."
+                  : "Koppel eerst een Mollie-sleutel zodat facturen, betaallinks en herinneringen live kunnen draaien."}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Brandingstatus
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {whiteLabelActive
+                  ? "Tenantstijl draait live"
+                  : whiteLabelAvailable
+                    ? "Branding staat klaar"
+                    : "White-label hangt af van upgrade"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Primair host: <span className="font-medium text-foreground">{primaryHost}</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Snelle routes</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <Link
+              href="/backoffice/abonnement"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Abonnement beheren</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Bekijk limieten, gating en upgrade-impact per tenant.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/instellingen/notificaties"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <BellRing className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Notificaties beheren</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stuur e-mail-, push- en in-app triggers centraal bij.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/instellingen/vestigingen"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <Workflow className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Vestigingen</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Werk branch-structuur, capaciteitsverdeling en scope uit.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/rapportages"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <Globe className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Rapportages</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Verbind deze instellingen direct met omzet, planning en adoptie.
+              </p>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
 
       <Card>
         <CardHeader>

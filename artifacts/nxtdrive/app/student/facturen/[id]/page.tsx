@@ -220,8 +220,10 @@ export default async function StudentInvoiceDetailPage({
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
               <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#7d55ff,#5d2aff)]"
+                className="h-full rounded-full"
                 style={{
+                  background:
+                    "linear-gradient(90deg, color-mix(in oklab, var(--primary) 76%, white), var(--primary))",
                   width: `${Math.min(
                     100,
                     Math.round(
