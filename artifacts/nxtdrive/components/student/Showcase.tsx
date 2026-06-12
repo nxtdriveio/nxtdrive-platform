@@ -43,9 +43,17 @@ export function StudentShowcaseTabs({
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition sm:px-3.5 sm:py-2 sm:text-xs",
               active
-                ? "border-primary/50 bg-primary/18 text-primary shadow-[0_10px_30px_rgba(88,51,214,0.2)]"
+                ? "border-primary/50 bg-primary/18 text-primary"
                 : "border-white/10 bg-card/72 text-white/62 hover:border-white/16 hover:text-white",
             )}
+            style={
+              active
+                ? {
+                    boxShadow:
+                      "0 10px 30px color-mix(in oklab, var(--primary) 22%, transparent)",
+                  }
+                : undefined
+            }
           >
             <span>{item.label}</span>
             {item.count != null ? (
@@ -74,6 +82,7 @@ export function StudentShowcaseCard({
   children,
   className,
   bodyClassName,
+  style,
 }: {
   title?: React.ReactNode;
   eyebrow?: React.ReactNode;
@@ -83,6 +92,7 @@ export function StudentShowcaseCard({
   children: React.ReactNode;
   className?: string;
   bodyClassName?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <section
@@ -90,6 +100,7 @@ export function StudentShowcaseCard({
         "overflow-hidden rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,33,0.96),rgba(10,10,22,0.98))] shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
         className,
       )}
+      style={style}
     >
       {title || eyebrow || actionLabel ? (
         <div className="flex items-center justify-between gap-3 border-b border-white/7 px-3.5 py-3 sm:px-4 sm:py-3.5">
@@ -183,8 +194,8 @@ export function StudentRing({
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id={`student-showcase-ring-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(160,121,255,1)" />
-            <stop offset="100%" stopColor="rgba(95,42,255,1)" />
+            <stop offset="0%" stopColor="color-mix(in oklab, var(--primary) 72%, white)" />
+            <stop offset="100%" stopColor="var(--primary)" />
           </linearGradient>
         </defs>
         <circle
@@ -242,8 +253,12 @@ export function StudentProgressBar({
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
         <div
-          className="h-full rounded-full bg-[linear-gradient(90deg,#7d55ff,#5d2aff)]"
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            background:
+              "linear-gradient(90deg, color-mix(in oklab, var(--primary) 78%, white), var(--primary))",
+          }}
         />
       </div>
     </div>
@@ -430,6 +445,7 @@ export function StudentShowcaseNotice({
   tone = "default",
   className,
   children,
+  style,
 }: {
   title: React.ReactNode;
   description: React.ReactNode;
@@ -437,6 +453,7 @@ export function StudentShowcaseNotice({
   tone?: "default" | "success" | "warning" | "info" | "danger";
   className?: string;
   children?: React.ReactNode;
+  style?: React.CSSProperties;
 }) {
   const toneClass =
     tone === "success"
@@ -466,6 +483,7 @@ export function StudentShowcaseNotice({
         toneClass,
         className,
       )}
+      style={style}
     >
       <div className="flex items-start gap-3">
         {icon ? (

@@ -32,10 +32,16 @@ export function BrandProvider({
   if (whitelabel && branding.primary_color) {
     const primary = branding.primary_color;
     style["--primary"] = primary;
+    style["--color-primary"] = primary;
     style["--ring"] = primary;
+    style["--color-ring"] = primary;
     style["--primary-soft"] = `color-mix(in oklab, ${primary} 16%, transparent)`;
+    style["--color-primary-soft"] = `color-mix(in oklab, ${primary} 16%, transparent)`;
+    style["--tenant-primary"] = primary;
     if (branding.primary_foreground) {
       style["--primary-foreground"] = branding.primary_foreground;
+      style["--color-primary-foreground"] = branding.primary_foreground;
+      style["--tenant-primary-foreground"] = branding.primary_foreground;
     }
   }
 

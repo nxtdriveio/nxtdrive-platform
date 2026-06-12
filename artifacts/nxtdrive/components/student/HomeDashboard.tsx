@@ -44,9 +44,11 @@ export type StudentCoachSummary = {
 function DashboardSection({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <section
@@ -54,6 +56,7 @@ function DashboardSection({
         "overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(22,22,39,0.96),rgba(14,14,27,0.98))] shadow-[0_20px_48px_rgba(1,2,8,0.34)] sm:rounded-[1.65rem] sm:shadow-[0_24px_60px_rgba(1,2,8,0.4)]",
         className,
       )}
+      style={style}
     >
       {children}
     </section>
@@ -73,8 +76,8 @@ function ProgressRing({ pct }: { pct: number }) {
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="student-progress-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(149,116,255,1)" />
-            <stop offset="100%" stopColor="rgba(95,42,255,1)" />
+            <stop offset="0%" stopColor="color-mix(in oklab, var(--primary) 72%, white)" />
+            <stop offset="100%" stopColor="var(--primary)" />
           </linearGradient>
         </defs>
         <circle

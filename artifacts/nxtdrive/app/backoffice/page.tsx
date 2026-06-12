@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, Inbox, Layers3 } from "lucide-react";
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  BellRing,
+  Gift,
+  Inbox,
+  Layers3,
+  Settings2,
+} from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -218,6 +226,71 @@ export default async function BackofficePage() {
           </div>
         </DashboardCard>
       ) : null}
+
+      <DashboardCard title="Beheerfocus vandaag">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/backoffice/cbr"
+            className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-primary/10 p-2 text-primary">
+                <BadgeCheck className="h-4 w-4" aria-hidden />
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </div>
+            <p className="mt-3 font-medium text-foreground">CBR-status</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Volg machtigingen, theorie, gezondheidsverklaringen en examenritme.
+            </p>
+          </Link>
+          <Link
+            href="/backoffice/referrals"
+            className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-primary/10 p-2 text-primary">
+                <Gift className="h-4 w-4" aria-hidden />
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </div>
+            <p className="mt-3 font-medium text-foreground">Referrals</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bekijk ambassadeurs, referral-conversie en open beloningen.
+            </p>
+          </Link>
+          <Link
+            href="/backoffice/instellingen/notificaties"
+            className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-primary/10 p-2 text-primary">
+                <BellRing className="h-4 w-4" aria-hidden />
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </div>
+            <p className="mt-3 font-medium text-foreground">Notificaties</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Stuur triggers, overrides en templates vanuit een centrale communicatielaag.
+            </p>
+          </Link>
+          <Link
+            href="/backoffice/organisatie/dashboard"
+            className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-full border border-white/10 bg-primary/10 p-2 text-primary">
+                <Settings2 className="h-4 w-4" aria-hidden />
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </div>
+            <p className="mt-3 font-medium text-foreground">Organisatiedashboard</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ga van operationeel beeld naar vestigingsritme, capaciteit en managementsignalen.
+            </p>
+          </Link>
+        </div>
+      </DashboardCard>
 
       <DashboardCard
         title={

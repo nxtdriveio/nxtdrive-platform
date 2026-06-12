@@ -11,9 +11,26 @@ import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
 import { getAiConfigStatus } from "@/lib/ai/platform-config";
-import { isWhiteLabelEligible } from "@/lib/platform/features";
+import {
+  PLAN_DESCRIPTIONS,
+  isWhiteLabelEligible,
+} from "@/lib/platform/features";
+import {
+  ENTITLEMENT_STAFF_ROLES,
+  getTenantLimitStatuses,
+} from "@/lib/platform/entitlements";
 import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
 import Link from "next/link";
+import {
+  Activity,
+  ArrowUpRight,
+  Building2,
+  CircleAlert,
+  CreditCard,
+  Palette,
+  Rocket,
+  ShieldCheck,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +54,21 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   franchise: "Franchise",
 };
 
+const LIFECYCLE_LABELS: Record<string, string> = {
+  prospect: "Prospect",
+  onboarding: "Onboarding",
+  active: "Actief",
+  paused: "Gepauzeerd",
+  churned: "Gestopt",
+};
+
+const ONBOARDING_LABELS: Record<string, string> = {
+  not_started: "Niet gestart",
+  in_progress: "In uitvoering",
+  ready: "Klaar",
+  blocked: "Geblokkeerd",
+};
+
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Vul alle verplichte velden in.",
   slug_exists: "Deze slug is al in gebruik.",
@@ -58,7 +90,8 @@ export default async function PlatformAdminPage({
 }) {
   const [user, params] = await Promise.all([requirePlatformAdmin(), searchParams]);
   const service = createServiceRoleClient();
-  const activeTab = params.tab ?? "tenants";
+  const activeTab = params.tab ?? "overview";
+  const query = (params.q ?? "").trim().toLowerCase();
 
   const [
     { data: tenants },
@@ -68,10 +101,14 @@ export default async function PlatformAdminPage({
     { data: studentsByTenant },
     { data: instructorsByTenant },
     { data: leadsByTenant },
+    { data: organizationProfiles },
+    { data: activeBranchesByTenant },
+    { data: staffMembershipsByTenant },
+    { data: customDomainsByTenant },
   ] = await Promise.all([
     service
       .from("tenants")
-      .select("id, slug, name, plan, white_label_enabled, org_type, created_at")
+      .select("id, slug, name, plan, white_label_enabled, org_type, created_at, parent_tenant_id")
       .order("created_at", { ascending: false }),
     service.from("students").select("*", { count: "exact", head: true }),
     service
@@ -82,6 +119,21 @@ export default async function PlatformAdminPage({
     service.from("students").select("tenant_id"),
     service.from("memberships").select("tenant_id, role").eq("role", "instructor"),
     service.from("leads").select("tenant_id"),
+    service
+      .from("organization_profiles")
+      .select("tenant_id, lifecycle_status, onboarding_status"),
+    service
+      .from("branches")
+      .select("tenant_id, is_active")
+      .eq("is_active", true),
+    service
+      .from("memberships")
+      .select("tenant_id, role")
+      .in("role", ENTITLEMENT_STAFF_ROLES),
+    service
+      .from("tenant_domains")
+      .select("tenant_id, type")
+      .eq("type", "custom"),
   ]);
 
   // Load growth data only when the Groei tab is active
@@ -107,6 +159,92 @@ export default async function PlatformAdminPage({
   function countByTenant(rows: { tenant_id: string }[] | null, id: string): number {
     return rows?.filter((r) => r.tenant_id === id).length ?? 0;
   }
+
+  const organizationProfileMap = new Map(
+    (organizationProfiles ?? []).map((profile) => [profile.tenant_id, profile]),
+  );
+
+  const tenantRows = (tenants ?? []).map((tenant) => {
+    const profile = organizationProfileMap.get(tenant.id);
+    const usage = {
+      branches: countByTenant(activeBranchesByTenant as { tenant_id: string }[], tenant.id),
+      staff_memberships: countByTenant(
+        staffMembershipsByTenant as { tenant_id: string }[],
+        tenant.id,
+      ),
+      custom_domains: countByTenant(
+        customDomainsByTenant as { tenant_id: string }[],
+        tenant.id,
+      ),
+    };
+    const limitStatuses = getTenantLimitStatuses(tenant, usage);
+    const limitAlertCount = Object.values(limitStatuses).filter(
+      (status) => status.isAtLimit || status.isOverLimit,
+    ).length;
+    const whiteLabelDowngraded =
+      !!tenant.white_label_enabled && !isWhiteLabelEligible(tenant);
+    return {
+      ...tenant,
+      lifecycle_status: profile?.lifecycle_status ?? "onboarding",
+      onboarding_status: profile?.onboarding_status ?? "not_started",
+      student_count: countByTenant(studentsByTenant as { tenant_id: string }[], tenant.id),
+      instructor_count: countByTenant(
+        instructorsByTenant as { tenant_id: string }[],
+        tenant.id,
+      ),
+      lead_count: countByTenant(leadsByTenant as { tenant_id: string }[], tenant.id),
+      usage,
+      limitStatuses,
+      whiteLabelDowngraded,
+      alertCount: limitAlertCount + (whiteLabelDowngraded ? 1 : 0),
+    };
+  });
+
+  const filteredTenants = tenantRows.filter((tenant) => {
+    if (!query) return true;
+    return (
+      tenant.name.toLowerCase().includes(query) ||
+      tenant.slug.toLowerCase().includes(query) ||
+      LIFECYCLE_LABELS[tenant.lifecycle_status]?.toLowerCase().includes(query) ||
+      ONBOARDING_LABELS[tenant.onboarding_status]?.toLowerCase().includes(query)
+    );
+  });
+
+  const planCounts = {
+    start: tenantRows.filter((tenant) => tenant.plan === "start").length,
+    pro: tenantRows.filter((tenant) => tenant.plan === "pro").length,
+    elite: tenantRows.filter((tenant) => tenant.plan === "elite").length,
+  };
+  const lifecycleCounts = {
+    active: tenantRows.filter((tenant) => tenant.lifecycle_status === "active").length,
+    onboarding: tenantRows.filter((tenant) => tenant.lifecycle_status === "onboarding").length,
+    paused: tenantRows.filter((tenant) => tenant.lifecycle_status === "paused").length,
+    churned: tenantRows.filter((tenant) => tenant.lifecycle_status === "churned").length,
+  };
+  const onboardingCounts = {
+    not_started: tenantRows.filter((tenant) => tenant.onboarding_status === "not_started").length,
+    in_progress: tenantRows.filter((tenant) => tenant.onboarding_status === "in_progress").length,
+    ready: tenantRows.filter((tenant) => tenant.onboarding_status === "ready").length,
+    blocked: tenantRows.filter((tenant) => tenant.onboarding_status === "blocked").length,
+  };
+  const whiteLabelActiveCount = tenantRows.filter((tenant) =>
+    isWhiteLabelEligible(tenant),
+  ).length;
+  const franchiseNetworkCount = tenantRows.filter(
+    (tenant) =>
+      tenantRows.some((candidate) => candidate.parent_tenant_id === tenant.id),
+  ).length;
+  const attentionTenants = [...tenantRows]
+    .filter(
+      (tenant) =>
+        tenant.alertCount > 0 ||
+        tenant.onboarding_status === "blocked" ||
+        tenant.lifecycle_status === "paused",
+    )
+    .sort((left, right) => right.alertCount - left.alertCount)
+    .slice(0, 8);
+  const recentTenants = [...tenantRows].slice(0, 6);
+  const paidTenants = tenantRows.filter((tenant) => tenant.plan !== "start").length;
 
   const hasError = !!params.error;
   const errorMsg = params.error ? ERROR_MESSAGES[params.error] : null;
@@ -177,6 +315,7 @@ export default async function PlatformAdminPage({
         {/* Tabs */}
         <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit">
           {[
+            { id: "overview", label: "Overzicht" },
             { id: "tenants", label: "Rijscholen" },
             { id: "groei", label: "Groei & MRR" },
             { id: "tenant", label: "Nieuwe rijschool" },
@@ -195,6 +334,325 @@ export default async function PlatformAdminPage({
           </Link>
         </div>
 
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,color-mix(in_srgb,var(--card)_92%,transparent),color-mix(in_srgb,var(--primary)_10%,transparent))] p-5 shadow-[0_24px_80px_rgba(6,12,24,0.22)] sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-3xl space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                    Platform cockpit
+                  </div>
+                  <div className="space-y-2">
+                    <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                      Centrale regie over NXTDRIVE
+                    </h1>
+                    <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                      Beheer tenantgroei, abonnementen, onboarding en platformconfiguratie vanuit een echt operationeel dashboard in plaats van losse adminformulieren.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href="/admin?tab=tenant"
+                    className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    + Nieuwe rijschool
+                  </Link>
+                  <Link
+                    href="/admin?tab=tenants"
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Tenantlijst openen
+                  </Link>
+                </div>
+              </div>
+            </section>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Betaalde tenants",
+                  value: paidTenants,
+                  description: "Pro en Elite samen",
+                  icon: CreditCard,
+                },
+                {
+                  label: "White-label actief",
+                  value: whiteLabelActiveCount,
+                  description: "Elite + tenant toggle actief",
+                  icon: Palette,
+                },
+                {
+                  label: "Franchise netwerken",
+                  value: franchiseNetworkCount,
+                  description: "Tenants met gekoppelde franchisees",
+                  icon: Building2,
+                },
+                {
+                  label: "Aandacht nodig",
+                  value: attentionTenants.length,
+                  description: "Alert, blocked of paused",
+                  icon: CircleAlert,
+                },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={stat.label}>
+                    <CardHeader className="flex-row items-center justify-between gap-3">
+                      <div>
+                        <CardTitle>{stat.label}</CardTitle>
+                        <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                          {stat.value}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-primary-soft p-2 text-primary">
+                        <Icon className="h-5 w-5" aria-hidden />
+                      </span>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{stat.description}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">Tenant-aandacht</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {attentionTenants.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                      Geen directe platformalerts. Tenantportfolio staat momenteel rustig.
+                    </div>
+                  ) : (
+                    attentionTenants.map((tenant) => (
+                      <div
+                        key={tenant.id}
+                        className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-muted/20 px-4 py-4"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/admin/tenants/${tenant.id}`}
+                              className="font-medium text-foreground underline-offset-2 hover:underline"
+                            >
+                              {tenant.name}
+                            </Link>
+                            <Badge variant={PLAN_BADGE[tenant.plan] ?? "outline"}>
+                              {PLAN_LABELS[tenant.plan] ?? tenant.plan}
+                            </Badge>
+                            {tenant.alertCount > 0 ? (
+                              <Badge variant="warning">
+                                {tenant.alertCount} alert{tenant.alertCount === 1 ? "" : "s"}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {LIFECYCLE_LABELS[tenant.lifecycle_status] ?? tenant.lifecycle_status} -{" "}
+                            {ONBOARDING_LABELS[tenant.onboarding_status] ?? tenant.onboarding_status}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {tenant.whiteLabelDowngraded
+                              ? "White-label configuratie staat boven huidige plan."
+                              : tenant.alertCount > 0
+                                ? "Minstens een entitlementlimiet vraagt opvolging."
+                                : "Operationele opvolging nodig vanuit lifecycle of onboarding."}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/admin/tenants/${tenant.id}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            Details
+                          </Link>
+                          <form action={enterTenantBackoffice}>
+                            <input type="hidden" name="tenant_id" value={tenant.id} />
+                            <Button size="sm" variant="outline" type="submit">
+                              Backoffice
+                            </Button>
+                          </form>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-foreground">Planverdeling</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {(["start", "pro", "elite"] as const).map((plan) => (
+                      <div
+                        key={plan}
+                        className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-4 py-3"
+                      >
+                        <div>
+                          <p className="font-medium text-foreground">{PLAN_LABELS[plan]}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {PLAN_DESCRIPTIONS[plan]}
+                          </p>
+                        </div>
+                        <Badge variant={PLAN_BADGE[plan] ?? "outline"}>
+                          {planCounts[plan]}
+                        </Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-foreground">Onboarding & lifecycle</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        label: "Actief",
+                        value: lifecycleCounts.active,
+                        tone: "success",
+                      },
+                      {
+                        label: "Onboarding",
+                        value: lifecycleCounts.onboarding,
+                        tone: "info",
+                      },
+                      {
+                        label: "Blocked",
+                        value: onboardingCounts.blocked,
+                        tone: "warning",
+                      },
+                      {
+                        label: "Paused",
+                        value: lifecycleCounts.paused,
+                        tone: "danger",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-xl border border-border bg-muted/20 px-4 py-3"
+                      >
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-foreground">
+                          {item.value}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 sm:col-span-2">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Klaar voor uitrol
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold text-foreground">
+                        {onboardingCounts.ready}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Tenants die functioneel onboarded zijn en vooral operationele groei of activatie vragen.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">Recent aangemaakt</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentTenants.map((tenant) => (
+                    <div
+                      key={tenant.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 px-4 py-4"
+                    >
+                      <div>
+                        <Link
+                          href={`/admin/tenants/${tenant.id}`}
+                          className="font-medium text-foreground underline-offset-2 hover:underline"
+                        >
+                          {tenant.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {tenant.slug}.nxtdrive.io
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={PLAN_BADGE[tenant.plan] ?? "outline"}>
+                          {PLAN_LABELS[tenant.plan] ?? tenant.plan}
+                        </Badge>
+                        <Badge variant="outline">
+                          {ORG_TYPE_LABELS[tenant.org_type ?? ""] ?? "Onbekend"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">Snelle platformroutes</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    {
+                      href: "/admin?tab=tenant",
+                      label: "Nieuwe tenant aanmaken",
+                      description: "Commerciele intake, plan en organisatieprofiel.",
+                      icon: Rocket,
+                    },
+                    {
+                      href: "/admin?tab=groei",
+                      label: "Groei & MRR",
+                      description: "MRR, actieve tenants en inactiviteitsrisico.",
+                      icon: Activity,
+                    },
+                    {
+                      href: "/admin?tab=email",
+                      label: "Platform e-mail",
+                      description: "SendGrid sleutel en from-address beheren.",
+                      icon: CreditCard,
+                    },
+                    {
+                      href: "/admin?tab=ai",
+                      label: "Platform AI",
+                      description: "OpenAI configuratie voor tenantfeatures.",
+                      icon: Palette,
+                    },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="block rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/40"
+                      >
+                        <div className="flex items-center gap-2 text-foreground">
+                          <Icon className="h-4 w-4 text-primary" aria-hidden />
+                          <span className="font-medium">{item.label}</span>
+                          <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden />
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </Link>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
         {/* Feedback banners */}
         {params.created && (
           <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
@@ -210,6 +668,27 @@ export default async function PlatformAdminPage({
         {/* Tab: Rijscholen */}
         {activeTab === "tenants" && (
           <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <CardTitle className="text-foreground">Tenantbeheer</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Doorzoek rijscholen, open hun detailcockpit en zie direct waar abonnementen of onboarding aandacht vragen.
+                  </p>
+                </div>
+                <form action="/admin" className="flex w-full max-w-md gap-2">
+                  <input type="hidden" name="tab" value="tenants" />
+                  <Input
+                    name="q"
+                    defaultValue={params.q ?? ""}
+                    placeholder="Zoek op naam, slug of status"
+                  />
+                  <Button type="submit" variant="outline">
+                    Zoeken
+                  </Button>
+                </form>
+              </div>
+            </CardHeader>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
@@ -217,7 +696,8 @@ export default async function PlatformAdminPage({
                     <th className="px-4 py-3 font-medium">Naam</th>
                     <th className="px-4 py-3 font-medium">Slug</th>
                     <th className="px-4 py-3 font-medium">Plan</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Alerts</th>
                     <th className="px-4 py-3 text-right font-medium">Leerlingen</th>
                     <th className="px-4 py-3 text-right font-medium">Instructeurs</th>
                     <th className="px-4 py-3 text-right font-medium">Leads</th>
@@ -225,7 +705,7 @@ export default async function PlatformAdminPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(tenants ?? []).map((t) => (
+                  {filteredTenants.map((t) => (
                     <tr key={t.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3 font-medium text-foreground">
                         <Link
@@ -246,35 +726,79 @@ export default async function PlatformAdminPage({
                           {PLAN_LABELS[t.plan] ?? t.plan}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {ORG_TYPE_LABELS[(t as unknown as { org_type?: string }).org_type ?? ""] ?? "—"}
+                      <td className="px-4 py-3">
+                        <div className="space-y-1 text-xs">
+                          <p className="text-foreground">
+                            {LIFECYCLE_LABELS[t.lifecycle_status] ?? t.lifecycle_status}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {ONBOARDING_LABELS[t.onboarding_status] ?? t.onboarding_status}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {t.alertCount > 0 ? (
+                            <Badge variant="warning">{t.alertCount} alert{t.alertCount === 1 ? "" : "s"}</Badge>
+                          ) : (
+                            <Badge variant="success">Gezond</Badge>
+                          )}
+                          {t.whiteLabelDowngraded ? (
+                            <Badge variant="outline">WL downgrade</Badge>
+                          ) : null}
+                          {t.parent_tenant_id ? (
+                            <Badge variant="outline">Franchisee</Badge>
+                          ) : null}
+                          {ORG_TYPE_LABELS[t.org_type ?? ""] ? (
+                            <Badge variant="outline">
+                              {ORG_TYPE_LABELS[t.org_type ?? ""]}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t.usage.branches} vestigingen · {t.usage.staff_memberships} medewerkers · {t.usage.custom_domains} domeinen
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {countByTenant(studentsByTenant, t.id)}
+                        {t.student_count}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {countByTenant(instructorsByTenant as { tenant_id: string }[], t.id)}
+                        {t.instructor_count}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {countByTenant(leadsByTenant as { tenant_id: string }[], t.id)}
+                        {t.lead_count}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <form action={enterTenantBackoffice}>
-                          <input type="hidden" name="tenant_id" value={t.id} />
-                          <Button size="sm" variant="outline" type="submit">
-                            Backoffice →
-                          </Button>
-                        </form>
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/admin/tenants/${t.id}`}
+                            className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            Details
+                          </Link>
+                          <form action={enterTenantBackoffice}>
+                            <input type="hidden" name="tenant_id" value={t.id} />
+                            <Button size="sm" variant="outline" type="submit">
+                              Backoffice →
+                            </Button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))}
-                  {(tenants?.length ?? 0) === 0 && (
+                  {filteredTenants.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                        Nog geen rijscholen.{" "}
-                        <Link href="/admin?tab=tenant" className="text-primary underline underline-offset-2">
-                          Maak er een aan.
-                        </Link>
+                      <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
+                        {query ? (
+                          <>Geen rijscholen gevonden voor deze zoekopdracht.</>
+                        ) : (
+                          <>
+                            Nog geen rijscholen.{" "}
+                            <Link href="/admin?tab=tenant" className="text-primary underline underline-offset-2">
+                              Maak er een aan.
+                            </Link>
+                          </>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -283,7 +807,6 @@ export default async function PlatformAdminPage({
             </div>
           </Card>
         )}
-
         {/* Tab: Groei & MRR */}
         {activeTab === "groei" && growthData && (
           <div className="space-y-6">

@@ -86,7 +86,11 @@ export function ExamPrepCard({
       title={`${noun} voorbereiding`}
       eyebrow="Dossier"
       info="Alle belangrijke informatie voor je toets of praktijkexamen staat hier overzichtelijk bij elkaar."
-      className="border-primary/20 bg-[linear-gradient(180deg,rgba(35,26,68,0.94),rgba(10,10,22,0.98))]"
+      className="border-primary/20"
+      style={{
+        background:
+          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.94)), rgba(10,10,22,0.98))",
+      }}
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">

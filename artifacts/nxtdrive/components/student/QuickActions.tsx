@@ -54,7 +54,13 @@ export function QuickActions({
             >
               <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
               {shortcut.badge ? (
-                <span className="absolute right-3 top-3 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground shadow-[0_0_16px_rgba(99,64,255,0.45)]">
+                <span
+                  className="absolute right-3 top-3 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground"
+                  style={{
+                    boxShadow:
+                      "0 0 16px color-mix(in oklab, var(--primary) 45%, transparent)",
+                  }}
+                >
                   {shortcut.badge > 99 ? "99+" : shortcut.badge}
                 </span>
               ) : null}
