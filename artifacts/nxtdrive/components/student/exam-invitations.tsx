@@ -62,7 +62,11 @@ export function ExamInvitations({
       title={`Examenmoment${invitations.length > 1 ? "en" : ""} beschikbaar`}
       eyebrow="Examens"
       info="Bevestig je het moment, dan word je eraan gekoppeld. Een examen kost geen lestegoed."
-      className="border-primary/20 bg-[linear-gradient(180deg,rgba(35,26,68,0.96),rgba(10,10,22,0.98))]"
+      className="border-primary/20"
+      style={{
+        background:
+          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.96)), rgba(10,10,22,0.98))",
+      }}
     >
       <div className="space-y-3">
         <p className="text-sm leading-6 text-white/60">

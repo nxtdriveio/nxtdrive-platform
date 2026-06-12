@@ -15,7 +15,12 @@ export default function StudentOfflinePage() {
       contentClassName="flex min-h-[70vh] flex-col items-center justify-center"
     >
       <div className="w-full max-w-md space-y-4">
-        <StudentShowcaseCard className="bg-[radial-gradient(circle_at_top,rgba(72,43,153,0.42),rgba(10,10,22,0.98)_72%)]">
+        <StudentShowcaseCard
+          style={{
+            background:
+              "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 32%, transparent), rgba(10,10,22,0.98) 72%)",
+          }}
+        >
           <div className="flex flex-col items-center gap-4 py-2 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.04] text-primary">
               <BrandLogo className="h-10 w-10" />
@@ -34,7 +39,11 @@ export default function StudentOfflinePage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_18px_40px_rgba(86,47,214,0.38)] transition hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              style={{
+                boxShadow:
+                  "0 18px 40px color-mix(in oklab, var(--primary) 38%, transparent)",
+              }}
             >
               <RefreshCw className="h-4 w-4" aria-hidden />
               Opnieuw proberen

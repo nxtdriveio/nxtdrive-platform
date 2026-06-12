@@ -132,8 +132,10 @@ export default async function StudentTheoriePage({
             eyebrow="Jouw theorie-overzicht"
             info="Gebaseerd op actieve modules en huiswerk dat door je rijschool aan je leerlingdossier is gekoppeld."
           >
-            <div className="grid grid-cols-[6.8rem_minmax(0,1fr)] gap-4">
-              <StudentRing value={theoryPct} label="Voortgang" />
+            <div className="grid grid-cols-1 gap-4 min-[430px]:grid-cols-[6.4rem_minmax(0,1fr)] sm:grid-cols-[6.8rem_minmax(0,1fr)]">
+              <div className="flex justify-center min-[430px]:justify-start">
+                <StudentRing value={theoryPct} label="Voortgang" />
+              </div>
               <div className="space-y-3">
                 <div className="text-lg font-semibold text-white">
                   {theoryPct >= 70
@@ -196,8 +198,8 @@ export default async function StudentTheoriePage({
                       key={module.id}
                       className="rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3 py-3"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 pr-2">
                           <div className="truncate text-sm font-semibold text-white">
                             {module.title}
                           </div>
@@ -211,6 +213,7 @@ export default async function StudentTheoriePage({
                               ? THEORY_HOMEWORK_STATUS_VARIANT[latest.status]
                               : "outline"
                           }
+                          className="shrink-0 whitespace-nowrap px-2 py-0.5 text-[10px] sm:text-xs"
                         >
                           {latest ? THEORY_HOMEWORK_STATUS_LABEL[latest.status] : "Nieuw"}
                         </Badge>

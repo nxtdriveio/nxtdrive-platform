@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { AlertTriangle, Download, Receipt, Wallet } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,37 @@ function formatRate(rateBp: number): string {
   return `${(rateBp / 100).toLocaleString("nl-NL")}%`;
 }
 
+function FinanceStatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
+        <div>
+          <CardTitle className="text-sm">{label}</CardTitle>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {value}
+          </p>
+        </div>
+        <span className="rounded-full bg-primary-soft p-2 text-primary">
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{hint}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function BoekhoudingPage({
   searchParams,
 }: {
@@ -61,6 +92,9 @@ export default async function BoekhoudingPage({
   const exportFacturen = `/backoffice/boekhouding/export/facturen${q}`;
   const exportBetalingen = `/backoffice/boekhouding/export/betalingen${q}`;
   const exportKlanten = `/backoffice/boekhouding/export/klanten`;
+  const overdueInvoices = overview.outstanding.filter((invoice) => invoice.daysOverdue > 0);
+  const oldestOutstanding = overdueInvoices[0] ?? overview.outstanding[0] ?? null;
+  const latestMonth = overview.monthly[overview.monthly.length - 1] ?? null;
 
   return (
     <div className="space-y-6">
@@ -73,6 +107,41 @@ export default async function BoekhoudingPage({
           betaalde facturen; creditfacturen worden automatisch verrekend.
         </p>
       </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <FinanceStatCard
+          label="Betaalde omzet"
+          value={formatEuros(overview.revenueTotals.totalCents)}
+          hint={`Periode ${formatYmd(from)} t/m ${formatYmd(to)}`}
+          icon={Wallet}
+        />
+        <FinanceStatCard
+          label="BTW af te dragen"
+          value={formatEuros(overview.vatTotals.vatCents)}
+          hint={
+            overview.vatByRate.length > 0
+              ? `${overview.vatByRate.length} BTW-tarief${overview.vatByRate.length === 1 ? "" : "en"} actief`
+              : "Nog geen betaalde facturen in deze periode"
+          }
+          icon={Receipt}
+        />
+        <FinanceStatCard
+          label="Openstaand"
+          value={formatEuros(overview.outstandingTotalCents)}
+          hint={`${overview.outstanding.length} open factuur${overview.outstanding.length === 1 ? "" : "en"}`}
+          icon={AlertTriangle}
+        />
+        <FinanceStatCard
+          label="Lopende maand"
+          value={latestMonth ? formatEuros(latestMonth.totalCents) : formatEuros(0)}
+          hint={
+            latestMonth
+              ? `${formatMonth(latestMonth.month)} · ${formatEuros(latestMonth.outstandingCents)} nog open`
+              : "Nog geen maanddata opgebouwd"
+          }
+          icon={Download}
+        />
+      </section>
 
       <Card>
         <CardContent>
@@ -128,12 +197,115 @@ export default async function BoekhoudingPage({
         </CardContent>
       </Card>
 
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Financiële aandacht</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {oldestOutstanding ? (
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Factuur #{String(oldestOutstanding.invoiceNo).padStart(4, "0")} vraagt opvolging
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {oldestOutstanding.studentName} ·{" "}
+                      {oldestOutstanding.dueDate
+                        ? `verviel op ${formatYmd(oldestOutstanding.dueDate)}`
+                        : "geen vervaldatum ingesteld"}
+                    </p>
+                  </div>
+                  <Badge variant={DISPLAY_STATUS_VARIANT[oldestOutstanding.display]}>
+                    {DISPLAY_STATUS_LABEL[oldestOutstanding.display]}
+                  </Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span>{formatEuros(oldestOutstanding.totalCents)}</span>
+                  <span>
+                    {oldestOutstanding.daysOverdue > 0
+                      ? `${oldestOutstanding.daysOverdue} dagen te laat`
+                      : "Nog binnen betaaltermijn"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
+                Geen openstaande opvolgpunten. Alle facturen in deze selectie zijn verwerkt of op tijd.
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Open posten met risico
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {overdueInvoices.length}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Facturen die al voorbij de vervaldatum zijn.
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  BTW grondslag
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {formatEuros(overview.vatTotals.baseCents)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Totale basis waarover BTW in deze periode is berekend.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Export & vervolgstappen</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link
+              href={exportFacturen}
+              prefetch={false}
+              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+            >
+              <Download className="h-4 w-4" aria-hidden />
+              Facturen exporteren
+            </Link>
+            <Link
+              href={exportBetalingen}
+              prefetch={false}
+              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+            >
+              <Download className="h-4 w-4" aria-hidden />
+              Betalingen exporteren
+            </Link>
+            <Link
+              href={exportKlanten}
+              prefetch={false}
+              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+            >
+              <Download className="h-4 w-4" aria-hidden />
+              Klanten exporteren
+            </Link>
+            <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              Gebruik deze exports voor boekhouder, reconciliatie of maandafsluiting. Openstaande posten blijven hieronder direct zichtbaar voor opvolging.
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Omzetoverzicht */}
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Omzetoverzicht</CardTitle>
         </CardHeader>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[44rem] text-sm">
           <thead className="border-y border-border bg-muted/40 text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Maand</th>
@@ -175,6 +347,7 @@ export default async function BoekhoudingPage({
             </tr>
           </tfoot>
         </table>
+        </div>
       </Card>
 
       {/* BTW-overzicht */}
@@ -189,7 +362,8 @@ export default async function BoekhoudingPage({
             </p>
           </CardContent>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[38rem] text-sm">
             <thead className="border-y border-border bg-muted/40 text-left text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">BTW-tarief</th>
@@ -231,6 +405,7 @@ export default async function BoekhoudingPage({
               </tr>
             </tfoot>
           </table>
+          </div>
         )}
       </Card>
 
@@ -246,7 +421,8 @@ export default async function BoekhoudingPage({
             </p>
           </CardContent>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[56rem] text-sm">
             <thead className="border-y border-border bg-muted/40 text-left text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Factuur</th>
@@ -302,6 +478,7 @@ export default async function BoekhoudingPage({
               </tr>
             </tfoot>
           </table>
+          </div>
         )}
       </Card>
 
@@ -310,7 +487,8 @@ export default async function BoekhoudingPage({
         <CardHeader>
           <CardTitle>Maandrapportage</CardTitle>
         </CardHeader>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[46rem] text-sm">
           <thead className="border-y border-border bg-muted/40 text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Maand</th>
@@ -342,6 +520,7 @@ export default async function BoekhoudingPage({
             ))}
           </tbody>
         </table>
+        </div>
         <CardContent>
           <p className="pt-4 text-xs text-muted-foreground">
             Omzet is toegerekend aan de maand waarin de factuur is betaald.

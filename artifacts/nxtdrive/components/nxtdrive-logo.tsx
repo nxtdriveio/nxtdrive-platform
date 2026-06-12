@@ -46,9 +46,9 @@ export function NxtdriveLogo({
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#b8a0ff" />
-            <stop offset="55%" stopColor="#7c5cff" />
-            <stop offset="100%" stopColor="#4a2fd6" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.56" />
+            <stop offset="55%" stopColor="var(--primary)" stopOpacity="0.94" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="1" />
           </linearGradient>
         </defs>
         {/* Two crossing chevrons forming a notched X */}

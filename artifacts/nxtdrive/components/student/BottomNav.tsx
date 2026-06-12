@@ -24,9 +24,9 @@ export function StudentBottomNav() {
     <nav
       aria-label="Hoofdnavigatie"
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 2xl:hidden"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.7rem)" }}
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.55rem)" }}
     >
-      <ul className="pointer-events-auto mx-auto grid max-w-[28.75rem] grid-cols-5 items-end rounded-[1.9rem] border border-white/10 bg-card/78 px-2 pb-2 pt-2 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+      <ul className="pointer-events-auto mx-auto grid max-w-[28.75rem] grid-cols-5 items-end rounded-[1.75rem] border border-white/10 bg-card/78 px-2 pb-1.5 pt-1.5 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
         {orderedItems.map((item) => {
           const active = isNavItemActive(item, pathname);
           const Icon = item.icon;
@@ -39,24 +39,30 @@ export function StudentBottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex min-w-0 flex-col items-center justify-end rounded-[1.3rem] text-[10px] font-semibold transition active:scale-95",
-                  isHome ? "gap-1 pb-0" : "gap-1 px-1 py-1.5",
+                  isHome ? "gap-1 pb-0" : "gap-1 px-1 py-1",
                   active ? "text-primary" : "text-white/52 hover:text-white",
                 )}
               >
                 {isHome ? (
                   <>
-                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-12 rounded-[1.3rem] bg-primary/8 blur-xl" />
+                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-10 rounded-[1.2rem] bg-primary/8 blur-xl" />
                     <motion.span
                       layoutId="student-home-active"
                       className={cn(
-                        "relative z-10 flex h-[4.55rem] w-[4.55rem] items-center justify-center rounded-full border border-white/12 bg-[radial-gradient(circle_at_30%_24%,rgba(164,122,255,0.95),rgba(93,42,255,0.98)_60%,rgba(39,18,100,1))] text-white shadow-[0_0_0_4px_rgba(104,62,255,0.14),0_18px_38px_rgba(86,47,214,0.55)]",
-                        active ? "-translate-y-4" : "-translate-y-3 opacity-88",
+                        "relative z-10 flex h-[4rem] w-[4rem] items-center justify-center rounded-full border border-white/12 text-white",
+                        active ? "-translate-y-3.5" : "-translate-y-2.5 opacity-88",
                       )}
+                      style={{
+                        background:
+                          "radial-gradient(circle at 30% 24%, color-mix(in oklab, var(--primary) 86%, white), color-mix(in oklab, var(--primary) 100%, black) 60%, color-mix(in oklab, var(--primary) 30%, #0c0916))",
+                        boxShadow:
+                          "0 0 0 4px color-mix(in oklab, var(--primary) 18%, transparent), 0 18px 38px color-mix(in oklab, var(--primary) 44%, transparent)",
+                      }}
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     >
-                      <Icon className="h-7 w-7" aria-hidden />
+                      <Icon className="h-6 w-6" aria-hidden />
                     </motion.span>
-                    <span className="relative z-10 -mt-1 text-[11px] font-semibold text-white">
+                    <span className="relative z-10 -mt-0.5 text-[10px] font-semibold text-white">
                       {item.label}
                     </span>
                   </>

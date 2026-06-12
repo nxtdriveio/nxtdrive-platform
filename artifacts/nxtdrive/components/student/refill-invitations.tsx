@@ -56,7 +56,11 @@ export function RefillInvitations({
       title={`Vrijgekomen lesmoment${invitations.length > 1 ? "en" : ""}`}
       eyebrow="Snel reageren"
       info="Als je bevestigt, wordt de les direct ingepland en op je tegoed verwerkt."
-      className="border-primary/20 bg-[linear-gradient(180deg,rgba(35,26,68,0.96),rgba(10,10,22,0.98))]"
+      className="border-primary/20"
+      style={{
+        background:
+          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.96)), rgba(10,10,22,0.98))",
+      }}
     >
       <div className="space-y-3">
         <p className="text-sm leading-6 text-white/60">
