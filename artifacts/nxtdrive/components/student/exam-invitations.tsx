@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, GraduationCap, MapPin, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  STUDENT_ACCENT_SURFACE,
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
@@ -64,8 +65,7 @@ export function ExamInvitations({
       info="Bevestig je het moment, dan word je eraan gekoppeld. Een examen kost geen lestegoed."
       className="border-primary/20"
       style={{
-        background:
-          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.96)), rgba(10,10,22,0.98))",
+        background: STUDENT_ACCENT_SURFACE,
       }}
     >
       <div className="space-y-3">

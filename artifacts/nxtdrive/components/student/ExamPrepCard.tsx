@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
+  STUDENT_ACCENT_SURFACE,
   StudentChecklist,
   StudentShowcaseCard,
 } from "@/components/student/Showcase";
@@ -88,8 +89,7 @@ export function ExamPrepCard({
       info="Alle belangrijke informatie voor je toets of praktijkexamen staat hier overzichtelijk bij elkaar."
       className="border-primary/20"
       style={{
-        background:
-          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.94)), rgba(10,10,22,0.98))",
+        background: STUDENT_ACCENT_SURFACE,
       }}
     >
       <div className="space-y-4">

@@ -146,6 +146,25 @@ export default async function RapportagesPage({
   const exams = await getExamStats(supabase, tenant.id, cStart, cEnd, quality.bijnaExamenrijpCount);
 
   const selectedLabel = monthOptions.find((o) => o.value === selectedMonth)?.label ?? selectedMonth;
+  const averageRevenueCents =
+    monthlyRevenue.length > 0
+      ? Math.round(
+          monthlyRevenue.reduce((sum, point) => sum + point.cents, 0) /
+            monthlyRevenue.length,
+        )
+      : 0;
+  const topMarketingSource = sources[0] ?? null;
+  const planningFollowUpLabel =
+    studentsWithout === 1
+      ? "1 leerling wacht op een nieuwe les."
+      : `${studentsWithout.toLocaleString("nl-NL")} leerlingen wachten op een nieuwe les.`;
+  const alertInvoiceLabel =
+    openInvoices.count === 0
+      ? "Geen openstaande facturen op dit moment."
+      : `${openInvoices.count.toLocaleString("nl-NL")} facturen staan nog open.`;
+  const advancedReportsLabel = hasAdvancedReports
+    ? "Kwaliteitslaag actief"
+    : "Kwaliteitslaag vergrendeld";
 
   const kpiCards = [
     {
@@ -233,6 +252,101 @@ export default async function RapportagesPage({
       </div>
 
       {/* ── KPI cards ── */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)_minmax(0,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Managementfocus</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Planning
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{planningFollowUpLabel}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Leerlingen zonder vervolgafspraak vertragen omzet, slagingsritme en capaciteit.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Commercieel ritme
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                Gemiddeld {formatEuros(averageRevenueCents)}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                gemiddelde maandelijkse omzet op basis van de laatste zes maanden.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Aandachtspunten</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Openstaande facturen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {openInvoices.count === 0
+                  ? "Geen directe betaalachterstand."
+                  : `${formatEuros(openInvoices.totalCents)} staat nog open en vraagt opvolging.`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Bijna examenrijp</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {quality.bijnaExamenrijpCount.toLocaleString("nl-NL")} leerlingen naderen examengereedheid.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Sterkste bron</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {topMarketingSource
+                  ? `${topMarketingSource.label} levert nu de meeste instroom op.`
+                  : "Nog geen bronverdeling beschikbaar."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Snelle routes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">{selectedLabel}</Badge>
+              <Badge variant={hasAdvancedReports ? "success" : "outline"}>
+                {advancedReportsLabel}
+              </Badge>
+              <Badge variant={openInvoices.count > 0 ? "warning" : "success"}>
+                {alertInvoiceLabel}
+              </Badge>
+            </div>
+            <Link
+              href="/backoffice/leerlingen"
+              className="block rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <p className="font-medium text-foreground">Leerlingen opvolgen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Open dossiers zonder vervolgafspraak en stuur planning direct bij.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/facturen"
+              className="block rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <p className="font-medium text-foreground">Facturen nalopen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pak openstaande posten en betaalritme van deze maand erbij.
+              </p>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
+
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon;

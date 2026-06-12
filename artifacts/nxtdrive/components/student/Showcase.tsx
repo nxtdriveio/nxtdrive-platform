@@ -9,6 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { InfoBubble } from "@/components/ui/info-bubble";
 import { cn } from "@/lib/utils";
 
+export const STUDENT_PANEL_SURFACE =
+  "linear-gradient(180deg, color-mix(in oklab, var(--primary) 10%, #121221), color-mix(in oklab, var(--primary) 6%, #0a0a16))";
+
+export const STUDENT_ACCENT_SURFACE =
+  "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, #161628), color-mix(in oklab, var(--primary) 8%, #0a0a16))";
+
 export type StudentTabItem = {
   key: string;
   label: string;
@@ -97,10 +103,10 @@ export function StudentShowcaseCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,33,0.96),rgba(10,10,22,0.98))] shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
+        "overflow-hidden rounded-[1.55rem] border border-white/10 shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
         className,
       )}
-      style={style}
+      style={{ background: STUDENT_PANEL_SURFACE, ...style }}
     >
       {title || eyebrow || actionLabel ? (
         <div className="flex items-center justify-between gap-3 border-b border-white/7 px-3.5 py-3 sm:px-4 sm:py-3.5">
@@ -218,8 +224,14 @@ export function StudentRing({
           strokeDashoffset={dash}
         />
       </svg>
-      <div className="absolute inset-[0.95rem] flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(76,44,162,0.28),rgba(7,8,17,0.94)_72%)] text-center sm:inset-[1.1rem]">
-        <div className="text-[1.55rem] font-black leading-none tracking-tight text-white sm:text-[1.9rem]">
+      <div
+        className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full text-center"
+        style={{
+          background:
+            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 28%, transparent), color-mix(in oklab, var(--primary) 6%, #070811) 72%)",
+        }}
+      >
+        <div className="text-[1.9rem] font-black leading-none tracking-tight text-white">
           {safe}%
         </div>
         <div className="mt-0.5 text-[11px] text-white/68 sm:mt-1 sm:text-xs">{label}</div>

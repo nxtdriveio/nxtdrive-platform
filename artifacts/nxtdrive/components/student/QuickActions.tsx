@@ -6,6 +6,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { STUDENT_PANEL_SURFACE } from "@/components/student/Showcase";
 import { cn } from "@/lib/utils";
 
 type Shortcut = {
@@ -49,8 +50,9 @@ export function QuickActions({
               key={shortcut.href}
               href={shortcut.href}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-[1.22rem] border border-white/10 bg-[linear-gradient(180deg,rgba(20,20,36,0.98),rgba(11,11,23,0.98))] px-3 py-2.75 shadow-[0_16px_34px_rgba(1,2,8,0.28)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_20px_40px_rgba(65,38,168,0.22)] sm:rounded-[1.45rem] sm:py-3.5",
+                "group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-white/10 px-3 py-4 shadow-[0_18px_40px_rgba(1,2,8,0.32)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_22px_45px_color-mix(in_oklab,var(--primary)_28%,transparent)]",
               )}
+              style={{ background: STUDENT_PANEL_SURFACE }}
             >
               <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
               {shortcut.badge ? (

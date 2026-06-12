@@ -5,6 +5,7 @@ import { Check, Copy, Gift, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  STUDENT_ACCENT_SURFACE,
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
@@ -63,8 +64,7 @@ export function ReferralInvite({
       info="Deel je eigen link. Zodra iemand daarmee inschrijft, wordt die aanmelding automatisch aan jou gekoppeld."
       className="border-primary/20"
       style={{
-        background:
-          "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, rgba(35,26,68,0.96)), rgba(10,10,22,0.98))",
+        background: STUDENT_ACCENT_SURFACE,
       }}
     >
       <div className="space-y-3">
