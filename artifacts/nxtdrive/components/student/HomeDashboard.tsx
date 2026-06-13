@@ -279,7 +279,13 @@ function HomeInfoCard({
 
         <Link
           href={href}
-          className="mt-auto inline-flex h-10 items-center justify-between rounded-[0.95rem] bg-[linear-gradient(135deg,#7548ff,#5d2aff)] px-3.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(98,61,255,0.32)] transition hover:brightness-110 sm:h-12 sm:rounded-[1rem] sm:px-4"
+          className="mt-auto inline-flex h-10 items-center justify-between rounded-[0.95rem] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 sm:h-12 sm:rounded-[1rem] sm:px-4"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in oklab, var(--primary) 76%, white), var(--primary))",
+            boxShadow:
+              "0 14px 28px color-mix(in oklab, var(--primary) 32%, transparent)",
+          }}
         >
           <span>{ctaLabel}</span>
           <ArrowRight className="h-4 w-4" aria-hidden />
