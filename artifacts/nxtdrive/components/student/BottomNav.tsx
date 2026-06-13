@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
+  brandPrimaryActiveSurfaceStyle,
+  brandPrimaryTint,
+} from "@/lib/brand-styles";
+import {
   STUDENT_NAV_ITEMS,
   isNavItemActive,
   type StudentNavItem,
@@ -44,15 +48,23 @@ export function StudentBottomNav() {
                 {active ? (
                   <motion.span
                     layoutId="student-nav-active"
-                    className="absolute inset-0 rounded-[1.05rem] bg-primary/11"
+                    className="absolute inset-0 rounded-[1.05rem]"
+                    style={brandPrimaryActiveSurfaceStyle()}
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 ) : null}
                 <span
                   className={cn(
                     "relative z-10 flex h-7.5 w-7.5 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8",
-                    active ? "bg-primary/16 text-primary" : "bg-transparent text-current",
+                    active ? "text-primary" : "bg-transparent text-current",
                   )}
+                  style={
+                    active
+                      ? {
+                          background: brandPrimaryTint(16),
+                        }
+                      : undefined
+                  }
                 >
                   <Icon
                     className={cn("transition-transform", active && "scale-105")}

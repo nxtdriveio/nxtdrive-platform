@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { InfoBubble } from "@/components/ui/info-bubble";
+import {
+  brandPrimaryGlowShadow,
+  brandPrimaryProgressStyle,
+} from "@/lib/brand-styles";
 import { cn } from "@/lib/utils";
 
 export const STUDENT_PANEL_SURFACE =
@@ -55,8 +59,11 @@ export function StudentShowcaseTabs({
             style={
               active
                 ? {
-                    boxShadow:
-                      "0 10px 30px color-mix(in oklab, var(--primary) 22%, transparent)",
+                    boxShadow: brandPrimaryGlowShadow({
+                      y: 10,
+                      blur: 30,
+                      strength: 22,
+                    }),
                   }
                 : undefined
             }
@@ -268,8 +275,7 @@ export function StudentProgressBar({
           className="h-full rounded-full"
           style={{
             width: `${pct}%`,
-            background:
-              "linear-gradient(90deg, color-mix(in oklab, var(--primary) 78%, white), var(--primary))",
+            ...brandPrimaryProgressStyle({ startMix: 78 }),
           }}
         />
       </div>

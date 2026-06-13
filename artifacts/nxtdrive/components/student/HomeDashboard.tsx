@@ -17,6 +17,10 @@ import {
   STUDENT_ACCENT_SURFACE,
   STUDENT_PANEL_SURFACE,
 } from "@/components/student/Showcase";
+import {
+  brandPrimaryCtaStyle,
+  brandPrimaryGlowShadow,
+} from "@/lib/brand-styles";
 import type { StudentJourneyStep } from "@/lib/students/app-summary";
 
 export type StudentNextLessonSummary = {
@@ -280,12 +284,7 @@ function HomeInfoCard({
         <Link
           href={href}
           className="mt-auto inline-flex h-10 items-center justify-between rounded-[0.95rem] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 sm:h-12 sm:rounded-[1rem] sm:px-4"
-          style={{
-            background:
-              "linear-gradient(135deg, color-mix(in oklab, var(--primary) 76%, white), var(--primary))",
-            boxShadow:
-              "0 14px 28px color-mix(in oklab, var(--primary) 32%, transparent)",
-          }}
+          style={brandPrimaryCtaStyle()}
         >
           <span>{ctaLabel}</span>
           <ArrowRight className="h-4 w-4" aria-hidden />
@@ -324,7 +323,10 @@ function CoachOrb() {
           style={{ boxShadow: "0 0 16px color-mix(in oklab, var(--primary) 64%, transparent)" }}
         />
       </div>
-      <div className="absolute left-1/2 top-[3.25rem] h-[0.34rem] w-8 -translate-x-1/2 rounded-full bg-primary/80 shadow-[0_0_12px_rgba(118,84,255,0.55)] sm:top-[3.95rem] sm:h-[0.38rem] sm:w-9" />
+      <div
+        className="absolute left-1/2 top-[3.25rem] h-[0.34rem] w-8 -translate-x-1/2 rounded-full bg-primary/80 sm:top-[3.95rem] sm:h-[0.38rem] sm:w-9"
+        style={{ boxShadow: brandPrimaryGlowShadow({ y: 0, blur: 12, strength: 46 }) }}
+      />
       <div className="absolute -left-1.5 top-[2.1rem] flex h-6 w-6 items-center justify-center rounded-full border border-white/12 bg-card/80 sm:-left-2 sm:top-[2.55rem] sm:h-7 sm:w-7">
         <Bot className="h-3.5 w-3.5 text-primary sm:h-4 sm:w-4" aria-hidden />
       </div>
