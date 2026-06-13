@@ -31,6 +31,7 @@ import {
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import { brandPrimaryProgressStyle } from "@/lib/brand-styles";
 import { payStudentInvoice } from "../payment-actions";
 import { PaymentStatusBanner } from "./payment-status-banner";
 import { derivePaymentReturnStatus } from "@/lib/invoices/payment-return";
@@ -222,8 +223,7 @@ export default async function StudentInvoiceDetailPage({
               <div
                 className="h-full rounded-full"
                 style={{
-                  background:
-                    "linear-gradient(90deg, color-mix(in oklab, var(--primary) 76%, white), var(--primary))",
+                  ...brandPrimaryProgressStyle(),
                   width: `${Math.min(
                     100,
                     Math.round(

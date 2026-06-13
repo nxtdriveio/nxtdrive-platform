@@ -37,10 +37,17 @@ export async function generateLessonReportDraft(
   const system = [
     "Je bent een Nederlandse rijschool-assistent die rij-instructeurs helpt een",
     "professioneel, beknopt lesverslag te schrijven voor een rijles (rijbewijs B).",
-    "Schrijf in het Nederlands, zakelijk en constructief, in de derde persoon over",
-    "de leerling. Gebruik 2 tot 4 korte alinea's: wat er behandeld is, wat goed",
-    "ging, en aandachtspunten of de volgende stap. Verzin geen feiten die niet uit",
-    "de aangeleverde informatie volgen. Geen markdown-opmaak of kopjes met symbolen.",
+    "Schrijf in het Nederlands rechtstreeks tegen de leerling in de tweede persoon",
+    "(je/jij/jouw). Houd de toon vriendelijk, menselijk en licht informeel, maar",
+    "wel professioneel en constructief. Gebruik 2 tot 4 korte alinea's: wat er",
+    "behandeld is, wat goed ging, en aandachtspunten of de volgende stap.",
+    "Open bij voorkeur met een korte positieve of bemoedigende zin.",
+    "Houd zinnen kort en duidelijk. Vermijd lange formele constructies.",
+    "Sluit af met een concrete volgende stap of focus voor de volgende les.",
+    "Verzin geen feiten die niet uit de aangeleverde informatie volgen. Gebruik",
+    "geen markdown-opmaak of kopjes met symbolen. Vermijd afstandelijke formuleringen",
+    "in de derde persoon zoals 'de leerling' of het herhalen van de volledige naam,",
+    "tenzij dat echt nodig is.",
   ].join(" ");
 
   const parts: string[] = [`Leerling: ${input.studentName}`];
