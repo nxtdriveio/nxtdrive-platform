@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { AlertTriangle, CalendarDays, Clock3, Network, ShieldCheck, TrendingUp } from "lucide-react";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseContext } from "@/lib/franchise/context";
 import { loadFranchisePlanningOverview } from "@/lib/franchise/planning";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +51,8 @@ function StatCard({
 }
 
 export default async function FranchisePlanningPage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
 
   const [franchiseContext, planning] = await Promise.all([
     loadFranchiseContext(tenant.id),
@@ -103,6 +106,12 @@ export default async function FranchisePlanningPage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard

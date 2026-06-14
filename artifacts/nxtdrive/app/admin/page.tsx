@@ -2,6 +2,7 @@ import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
 import { getAiConfigStatus } from "@/lib/ai/platform-config";
+import { listThemePresets } from "@/lib/branding";
 import {
   PLAN_DESCRIPTIONS,
   isWhiteLabelEligible,
@@ -20,6 +22,8 @@ import {
   getTenantLimitStatuses,
 } from "@/lib/platform/entitlements";
 import { TenantGrowthChart } from "@/components/charts/TenantGrowthChart";
+import { ThemePresetForm } from "@/components/admin/theme-preset-form";
+import type { ThemePreset } from "@/lib/types";
 import Link from "next/link";
 import {
   Activity,
@@ -31,6 +35,7 @@ import {
   Rocket,
   ShieldCheck,
 } from "lucide-react";
+import { upsertThemePresetAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +87,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   owner_not_found: "Eigenaar e-mail bestaat nog niet als auth user.",
   unknown: "Er is een onbekende fout opgetreden.",
 };
+
+const MRR_SEGMENT_COLORS = ["var(--warning)", "var(--info)", "var(--primary)"] as const;
 
 export default async function PlatformAdminPage({
   searchParams,
@@ -146,6 +153,26 @@ export default async function PlatformAdminPage({
   const aiConfigStatus = activeTab === "ai"
     ? await getAiConfigStatus(service)
     : null;
+  const themeTabData: {
+    presets: ThemePreset[];
+    assignments: Array<{ tenant_id: string; theme_preset_id: string | null }>;
+  } =
+    activeTab === "themes"
+      ? {
+          presets: await listThemePresets(),
+          assignments:
+            (
+              await service
+                .from("tenant_branding")
+                .select("tenant_id, theme_preset_id")
+                .not("theme_preset_id", "is", null)
+            ).data ?? [],
+        }
+      : {
+          presets: [],
+          assignments: [],
+        };
+  const { presets: themePresets, assignments: themeAssignments } = themeTabData;
 
   // MRR is restricted to tenants with activity in the last 30 days.
   // Inactive / churn-risk tenants are excluded so the metric reflects
@@ -248,6 +275,19 @@ export default async function PlatformAdminPage({
 
   const hasError = !!params.error;
   const errorMsg = params.error ? ERROR_MESSAGES[params.error] : null;
+  const themeUsageMap = new Map<string, string[]>();
+
+  if (activeTab === "themes") {
+    for (const row of themeAssignments) {
+      if (!row.theme_preset_id) continue;
+      const tenantName =
+        tenantRows.find((tenant) => tenant.id === row.tenant_id)?.name ??
+        row.tenant_id;
+      const tenantsForPreset = themeUsageMap.get(row.theme_preset_id) ?? [];
+      tenantsForPreset.push(tenantName);
+      themeUsageMap.set(row.theme_preset_id, tenantsForPreset);
+    }
+  }
 
   const tabClass = (tab: string) =>
     `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -321,6 +361,7 @@ export default async function PlatformAdminPage({
             { id: "tenant", label: "Nieuwe rijschool" },
             { id: "email", label: "E-mail" },
             { id: "ai", label: "AI-model" },
+            { id: "themes", label: "Thema's" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
               {tab.label}
@@ -655,13 +696,180 @@ export default async function PlatformAdminPage({
 
         {/* Feedback banners */}
         {params.created && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Rijschool <strong>{params.created}</strong> aangemaakt.
-          </div>
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Rijschool aangemaakt</AlertTitle>
+              <AlertDescription>
+                Rijschool <strong>{params.created}</strong> is toegevoegd aan het platform.
+              </AlertDescription>
+            </div>
+          </Alert>
         )}
         {hasError && errorMsg && (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {errorMsg}
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Actie mislukt</AlertTitle>
+              <AlertDescription>{errorMsg}</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {params.themeSaved && (
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Theme preset opgeslagen</AlertTitle>
+              <AlertDescription>
+                Het light/dark presetpakket staat nu centraal klaar voor tenantkoppeling.
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {params.themeError && (
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Theme preset kon niet worden opgeslagen</AlertTitle>
+              <AlertDescription>{decodeURIComponent(params.themeError)}</AlertDescription>
+            </div>
+          </Alert>
+        )}
+
+        {/* Tab: Thema's */}
+        {activeTab === "themes" && (
+          <div className="space-y-6">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Actieve presets",
+                  value: themePresets.filter((preset) => preset.is_active).length,
+                  description: "Beschikbaar voor tenantkoppeling",
+                },
+                {
+                  label: "Systeempresets",
+                  value: themePresets.filter((preset) => preset.is_system).length,
+                  description: "Platform-beheerde basispaletten",
+                },
+                {
+                  label: "Custom presets",
+                  value: themePresets.filter((preset) => !preset.is_system).length,
+                  description: "Tenant-specifieke of handgemaakte varianten",
+                },
+                {
+                  label: "Toewijzingen",
+                  value: Array.from(themeUsageMap.values()).reduce(
+                    (total, tenants) => total + tenants.length,
+                    0,
+                  ),
+                  description: "Actieve tenant → preset koppelingen",
+                },
+              ].map((stat) => (
+                <Card key={stat.label}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-semibold tracking-tight text-foreground">
+                      {stat.value}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <ThemePresetForm
+                heading="Nieuw theme preset"
+                submitLabel="Preset opslaan"
+                action={upsertThemePresetAction}
+              />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">Presetmatrix</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Koppel deze presets daarna op tenantniveau. Systeempresets blijven read-only; maak daarvan een custom variant als je wilt afwijken.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {themePresets.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                      Nog geen presets beschikbaar.
+                    </div>
+                  ) : (
+                    themePresets.map((preset) => {
+                      const assignedTenants = themeUsageMap.get(preset.id) ?? [];
+                      return (
+                        <div
+                          key={preset.id}
+                          className="rounded-2xl border border-border bg-muted/15 p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                  {preset.name}
+                                </h3>
+                                <Badge variant={preset.is_active ? "success" : "outline"}>
+                                  {preset.is_active ? "Actief" : "Inactief"}
+                                </Badge>
+                                {preset.is_system ? (
+                                  <Badge variant="outline">Systeem</Badge>
+                                ) : (
+                                  <Badge variant="primary">Custom</Badge>
+                                )}
+                              </div>
+                              <p className="font-mono text-xs text-muted-foreground">
+                                {preset.slug}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {preset.description?.trim()
+                                  ? preset.description
+                                  : "Geen beschrijving opgegeven."}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="h-8 w-8 rounded-full border border-white/10"
+                                style={{ backgroundColor: preset.tokens_dark.primary }}
+                                title="Dark primary"
+                              />
+                              <span
+                                className="h-8 w-8 rounded-full border border-border"
+                                style={{ backgroundColor: preset.tokens_light.primary }}
+                                title="Light primary"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            <span className="rounded-full border border-border bg-background px-3 py-1">
+                              {assignedTenants.length} tenant{assignedTenants.length === 1 ? "" : "s"}
+                            </span>
+                            <span className="rounded-full border border-border bg-background px-3 py-1">
+                              bijgewerkt {new Date(preset.updated_at).toLocaleDateString("nl-NL")}
+                            </span>
+                          </div>
+
+                          <div className="mt-4">
+                            <ThemePresetForm
+                              heading={`Preset bewerken: ${preset.name}`}
+                              submitLabel="Wijzigingen opslaan"
+                              action={upsertThemePresetAction}
+                              preset={preset}
+                              usageCount={assignedTenants.length}
+                              assignedTenantNames={assignedTenants}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            </section>
           </div>
         )}
 
@@ -832,12 +1040,15 @@ export default async function PlatformAdminPage({
                           .filter((t) => t.total > 0)
                           .map((t, i) => {
                             const pct = Math.round((t.total / mrr.totalMonthly) * 100);
-                            const colors = ["bg-amber-500", "bg-primary", "bg-purple-500"];
                             return (
                               <div
                                 key={t.plan}
-                                className={colors[i % colors.length]}
-                                style={{ width: `${pct}%` }}
+                                className="h-full"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor:
+                                    MRR_SEGMENT_COLORS[i % MRR_SEGMENT_COLORS.length],
+                                }}
                                 title={`${t.label}: €${t.total} (${pct}%)`}
                               />
                             );
@@ -845,11 +1056,6 @@ export default async function PlatformAdminPage({
                       </div>
                       <ul className="mt-2 space-y-1">
                         {mrr.byTier.map((t, i) => {
-                          const colors = [
-                            "bg-amber-500",
-                            "bg-primary",
-                            "bg-purple-500",
-                          ];
                           const pct =
                             mrr.totalMonthly > 0
                               ? Math.round((t.total / mrr.totalMonthly) * 100)
@@ -861,7 +1067,11 @@ export default async function PlatformAdminPage({
                             >
                               <span className="flex items-center gap-1.5 text-muted-foreground">
                                 <span
-                                  className={`h-2 w-2 shrink-0 rounded-full ${colors[i % colors.length]}`}
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      MRR_SEGMENT_COLORS[i % MRR_SEGMENT_COLORS.length],
+                                  }}
                                 />
                                 <Badge
                                   variant={PLAN_BADGE[t.plan] ?? "outline"}
@@ -1051,14 +1261,20 @@ export default async function PlatformAdminPage({
         {activeTab === "email" && platformEmailStatus && (
           <div className="max-w-lg space-y-4">
             {params.emailSaved && (
-              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-                E-mailinstellingen opgeslagen.
-              </div>
+              <Alert variant="success">
+                <div>
+                  <AlertTitle>E-mailinstellingen opgeslagen</AlertTitle>
+                  <AlertDescription>De platform mailconfiguratie is bijgewerkt.</AlertDescription>
+                </div>
+              </Alert>
             )}
             {params.emailError && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {params.emailError}
-              </div>
+              <Alert variant="danger">
+                <div>
+                  <AlertTitle>E-mailinstellingen konden niet worden opgeslagen</AlertTitle>
+                  <AlertDescription>{params.emailError}</AlertDescription>
+                </div>
+              </Alert>
             )}
 
             {/* Status overzicht */}
@@ -1160,14 +1376,20 @@ export default async function PlatformAdminPage({
         {activeTab === "ai" && aiConfigStatus && (
           <div className="max-w-lg space-y-4">
             {params.aiSaved && (
-              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-                AI-instellingen opgeslagen.
-              </div>
+              <Alert variant="success">
+                <div>
+                  <AlertTitle>AI-instellingen opgeslagen</AlertTitle>
+                  <AlertDescription>De platform AI-configuratie is bijgewerkt.</AlertDescription>
+                </div>
+              </Alert>
             )}
             {params.aiError && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {params.aiError}
-              </div>
+              <Alert variant="danger">
+                <div>
+                  <AlertTitle>AI-instellingen konden niet worden opgeslagen</AlertTitle>
+                  <AlertDescription>{params.aiError}</AlertDescription>
+                </div>
+              </Alert>
             )}
 
             {/* Status */}

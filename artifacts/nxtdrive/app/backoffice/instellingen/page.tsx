@@ -10,16 +10,10 @@ import {
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import {
   PLAN_LABELS,
-  lockedFeatures,
-  tenantHasFeature,
 } from "@/lib/platform/features";
-import {
-  getTenantLimitStatuses,
-  loadTenantEntitlementUsage,
-} from "@/lib/platform/entitlements";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
-import type { TenantBranding } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -32,9 +26,10 @@ import { Badge } from "@/components/ui/badge";
 import { BrandingForm } from "@/components/backoffice/branding-form";
 import { WhiteLabelFoundationCard } from "@/components/backoffice/white-label-foundation-card";
 import {
+  getTenantBrandingBundle,
   resolveBrandAppName,
   resolveLogoUrl,
-  resolveThemeColor,
+  resolveThemeColorForMode,
 } from "@/lib/branding";
 import { saveMollieApiKey } from "./actions";
 import {
@@ -80,22 +75,9 @@ export default async function SettingsPage({
 
   const service = createServiceRoleClient();
   const status = await getMollieApiKeyStatus(service, tenant.id);
-  const { data: brandingRow } = await service
-    .from("tenant_branding")
-    .select("logo_url, primary_color, primary_foreground, custom_domain, welcome_message")
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
-
-  const branding: TenantBranding | null = brandingRow
-    ? {
-        tenant_id: tenant.id,
-        logo_url: brandingRow.logo_url ?? null,
-        primary_color: brandingRow.primary_color ?? null,
-        primary_foreground: brandingRow.primary_foreground ?? null,
-        custom_domain: brandingRow.custom_domain ?? null,
-        welcome_message: brandingRow.welcome_message ?? null,
-      }
-    : null;
+  const brandingBundle = await getTenantBrandingBundle(tenant.id);
+  const branding = brandingBundle.branding;
+  const themePreset = brandingBundle.preset;
 
   const [{ data: departmentRows }, { data: ruleRows }] = await Promise.all([
     service
@@ -140,32 +122,42 @@ export default async function SettingsPage({
     verifyRecord: verificationRecord(d),
     trafficRecords: trafficRecords(d.hostname),
   }));
-  const entitlementUsage = await loadTenantEntitlementUsage(service, tenant.id);
-  const limitStatuses = getTenantLimitStatuses(tenant, entitlementUsage);
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    tenant.id,
+  );
+  const currentTenant = entitlementSnapshot.tenant;
+  const limitStatuses = entitlementSnapshot.limitStatuses;
   const customDomainLimit = limitStatuses.custom_domains;
-  const lockedCount = lockedFeatures(tenant).length;
+  const lockedCount = entitlementSnapshot.entitlements.locked.length;
 
-  const whiteLabelAvailable = tenantHasFeature(tenant, "white_label");
-  const whiteLabelActive = whiteLabelAvailable && tenant.white_label_enabled;
+  const whiteLabelAvailable = entitlementSnapshot.featureAccess.white_label.allowed;
+  const whiteLabelActive = whiteLabelAvailable && currentTenant.white_label_enabled;
   const hasExistingWhiteLabelState =
-    tenant.white_label_enabled ||
+    currentTenant.white_label_enabled ||
     domainViews.length > 0 ||
     Boolean(
       branding?.logo_url ||
         branding?.primary_color ||
         branding?.primary_foreground ||
-        branding?.welcome_message,
+        branding?.welcome_message ||
+        branding?.theme_preset_id,
     );
   const primaryHost =
     domainViews.find((domain) => domain.is_primary && domain.status === "active")
-      ?.hostname ?? `${tenant.slug}.nxtdrive.io`;
-  const logoUrl = resolveLogoUrl(tenant, branding);
-  const themeColor = resolveThemeColor(tenant, branding);
+      ?.hostname ?? `${currentTenant.slug}.nxtdrive.io`;
+  const logoUrl = resolveLogoUrl(currentTenant, branding);
+  const themeColor = resolveThemeColorForMode(
+    currentTenant,
+    "dark",
+    brandingBundle,
+    "#0c0c15",
+  );
   const activeDomainCount = domainViews.filter((domain) => domain.status === "active").length;
   const settingsSummaryCards = [
     {
       title: "Abonnement",
-      value: PLAN_LABELS[tenant.plan] ?? tenant.plan,
+      value: PLAN_LABELS[currentTenant.plan] ?? currentTenant.plan,
       description:
         lockedCount === 0
           ? "alle commerciële modules van dit plan zijn beschikbaar"
@@ -267,6 +259,11 @@ export default async function SettingsPage({
               <p className="mt-2 text-sm text-muted-foreground">
                 Primair host: <span className="font-medium text-foreground">{primaryHost}</span>
               </p>
+              {themePreset ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Preset: <span className="font-medium text-foreground">{themePreset.name}</span>
+                </p>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -333,7 +330,7 @@ export default async function SettingsPage({
           <CardTitle className="flex items-center gap-2">
             Abonnement & entitlements
             <Badge variant="primary">
-              {PLAN_LABELS[tenant.plan] ?? tenant.plan}
+        {PLAN_LABELS[currentTenant.plan] ?? currentTenant.plan}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -495,7 +492,7 @@ export default async function SettingsPage({
             <p className="text-sm text-muted-foreground">
               Stel je eigen logo en kleuren in voor het backoffice, de
               instructeur- en de leerlingomgeving.
-              {tenant.white_label_enabled
+              {currentTenant.white_label_enabled
                 ? " Je huisstijl loopt nu ook door naar metadata, manifests en domeingebonden app-shells."
                 : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
             </p>
@@ -514,10 +511,19 @@ export default async function SettingsPage({
 
           <BrandingForm
             initialLogoUrl={branding?.logo_url ?? ""}
-            initialPrimaryColor={branding?.primary_color ?? ""}
-            initialPrimaryForeground={branding?.primary_foreground ?? ""}
+            initialPrimaryColor={
+              themePreset ? brandingBundle.tokens.dark.primary : branding?.primary_color ?? ""
+            }
+            initialPrimaryForeground={
+              themePreset
+                ? brandingBundle.tokens.dark.primary_foreground
+                : branding?.primary_foreground ?? ""
+            }
             initialWelcomeMessage={branding?.welcome_message ?? ""}
             disabled={!whiteLabelAvailable}
+            colorFieldsLocked={Boolean(themePreset)}
+            themePresetName={themePreset?.name ?? null}
+            themePresetDescription={themePreset?.description ?? null}
           />
         </CardContent>
       </Card>

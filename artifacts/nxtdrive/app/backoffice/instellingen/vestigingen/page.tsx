@@ -7,8 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { BranchForm } from "./branch-form";
 import { createBranch, updateBranch } from "@/lib/branches/actions";
-import { PLAN_LABELS, tenantHasFeature } from "@/lib/platform/features";
-import { getTenantLimitStatus } from "@/lib/platform/entitlements";
+import { PLAN_LABELS } from "@/lib/platform/features";
+import {
+  canManageExistingBranches,
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
 import { ArrowLeft, MapPin, Users, Workflow } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -122,20 +125,17 @@ export default async function VestigingenPage({
   const limit = typeof sp.limit === "string" ? sp.limit : null;
   const editId = typeof sp.edit === "string" ? sp.edit : null;
 
-  const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
-
   const service = createServiceRoleClient();
   const branches = await listBranches(service, tenant.id);
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
 
   const editBranch = editId
     ? (branches.find((b) => b.id === editId) ?? null)
     : null;
-  const activeBranches = branches.filter((branch) => branch.is_active).length;
-  const branchLimit = getTenantLimitStatus(
-    tenant,
-    { branches: activeBranches, staff_memberships: 0, custom_domains: 0 },
-    "branches",
-  );
+  const hasMultiBranch = snapshot.featureAccess.multi_branch.allowed;
+  const branchLimit = snapshot.limitStatuses.branches;
+  const canCreateBranches = hasMultiBranch && !branchLimit.isAtLimit;
+  const canManageExisting = canManageExistingBranches(snapshot);
 
   return (
     <div className="space-y-6">
@@ -181,7 +181,7 @@ export default async function VestigingenPage({
           <p className="font-medium">Multi-vestiging vereist het Pro-abonnement of hoger.</p>
           <p className="mt-1 text-xs opacity-80">
             {branches.length > 0
-              ? "Bestaande vestigingen blijven zichtbaar, maar nieuwe locaties toevoegen of bestaande locaties aanpassen is vergrendeld op het huidige plan."
+              ? "Bestaande vestigingen blijven zichtbaar. Je kunt ze nog corrigeren of afschalen om terug binnen je plan te komen, maar nieuwe locaties toevoegen blijft vergrendeld."
               : "Je kunt vestigingen bekijken, maar aanmaken en bewerken is niet mogelijk op het huidige plan."}{" "}
             Upgrade naar {PLAN_LABELS.pro} of hoger om deze beheerlaag weer volledig te openen.
           </p>
@@ -209,7 +209,7 @@ export default async function VestigingenPage({
           </p>
           <p className="mt-1 text-xs opacity-80">
             {branchLimit.isOverLimit
-              ? "Deze organisatie gebruikt meer actieve vestigingen dan binnen het huidige plan past. Alles blijft zichtbaar, maar uitbreiding blijft vergrendeld totdat het plan wordt verhoogd."
+              ? "Deze organisatie gebruikt meer actieve vestigingen dan binnen het huidige plan past. Alles blijft zichtbaar en je kunt vestigingen nog afschalen of corrigeren, maar uitbreiding blijft vergrendeld totdat het plan wordt verhoogd."
               : "Deze organisatie kan geen extra vestigingen meer aanmaken op het huidige abonnement. Bestaande vestigingen blijven werken, maar uitbreiden vereist een upgrade."}
           </p>
           <Link
@@ -235,8 +235,8 @@ export default async function VestigingenPage({
           title="Actieve vestigingen"
           value={
             branchLimit.isUnlimited
-              ? String(activeBranches)
-              : `${activeBranches}/${branchLimit.limitLabel}`
+              ? String(branchLimit.used)
+              : `${branchLimit.used}/${branchLimit.limitLabel}`
           }
           description="Actieve locaties binnen deze organisatiecontainer en planlimiet."
           icon={MapPin}
@@ -261,7 +261,7 @@ export default async function VestigingenPage({
         />
       </div>
 
-      {hasMultiBranch && !branchLimit.isAtLimit && (
+      {canCreateBranches && (
         <Card>
           <CardHeader>
             <CardTitle>Nieuwe vestiging</CardTitle>
@@ -277,10 +277,20 @@ export default async function VestigingenPage({
         </Card>
       )}
 
-      {hasMultiBranch && editBranch ? (
+      {canManageExisting && editBranch ? (
         <Card className="border-primary/40">
           <CardHeader>
-            <CardTitle>Vestiging bewerken: {editBranch.name}</CardTitle>
+            <CardTitle>
+              {!hasMultiBranch ? "Bestaande vestiging beheren" : "Vestiging bewerken"}:{" "}
+              {editBranch.name}
+            </CardTitle>
+            {!hasMultiBranch ? (
+              <p className="text-sm text-muted-foreground">
+                Downgrade-modus: je kunt deze vestiging nog corrigeren of
+                inactief zetten, maar geen nieuwe locaties meer toevoegen
+                totdat het plan weer {PLAN_LABELS.pro} of hoger is.
+              </p>
+            ) : null}
           </CardHeader>
           <CardContent>
             <BranchForm action={updateBranch} branch={editBranch} />
@@ -330,7 +340,7 @@ export default async function VestigingenPage({
                   key={b.id}
                   branch={b}
                   isEditing={editBranch?.id === b.id}
-                  canEdit={hasMultiBranch}
+                  canEdit={canManageExisting}
                 />
               ))}
             </tbody>

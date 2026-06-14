@@ -1,11 +1,11 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getTheme } from "@/lib/theme";
 import {
-  getTenantBranding,
+  getTenantBrandingBundle,
   resolveBrandAppName,
   resolveBrandDescription,
   resolveLogoUrl,
-  resolveThemeColor,
+  resolveThemeColorForMode,
 } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { BackofficeSidebar } from "@/components/backoffice/sidebar";
@@ -16,10 +16,11 @@ import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { Metadata, Viewport } from "next";
 import type { MemberRole } from "@/lib/types";
-import { PLAN_LABELS, tenantHasFeature } from "@/lib/platform/features";
+import { cache } from "react";
+import { PLAN_LABELS } from "@/lib/platform/features";
 import {
-  getTenantLimitStatuses,
-  loadTenantEntitlementUsage,
+  canViewExistingFranchiseNetwork,
+  loadTenantEntitlementSnapshot,
 } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
@@ -44,19 +45,18 @@ const ROLE_LABELS: Record<string, string> = {
   franchise_admin: "Franchise Admin",
 };
 
-async function loadBackofficeBrandingContext() {
+const loadBackofficeBrandingContext = cache(async () => {
   const { tenant } = await requireActiveTenant(BACKOFFICE_ROLES);
-  const branding = await getTenantBranding(tenant.id);
+  const bundle = await getTenantBrandingBundle(tenant.id);
 
   return {
     tenant,
-    branding,
-    logoUrl: resolveLogoUrl(tenant, branding),
+    bundle,
+    logoUrl: resolveLogoUrl(tenant, bundle.branding),
     brandTitle: resolveBrandAppName(tenant, "backoffice"),
     brandDescription: resolveBrandDescription(tenant, "backoffice"),
-    themeColor: resolveThemeColor(tenant, branding),
   };
-}
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandingContext = await loadBackofficeBrandingContext();
@@ -70,10 +70,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateViewport(): Promise<Viewport> {
-  const brandingContext = await loadBackofficeBrandingContext();
+  const [brandingContext, theme] = await Promise.all([
+    loadBackofficeBrandingContext(),
+    getTheme(),
+  ]);
 
   return {
-    themeColor: brandingContext.themeColor,
+    themeColor: resolveThemeColorForMode(
+      brandingContext.tenant,
+      theme,
+      brandingContext.bundle,
+    ),
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
@@ -87,8 +94,8 @@ export default async function BackofficeLayout({
 }) {
   const { user, tenant, roles } = await requireActiveTenant(BACKOFFICE_ROLES);
   const theme = await getTheme();
-  const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, branding);
+  const bundle = await getTenantBrandingBundle(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Onbekend";
   const roleLabel = roles
@@ -96,32 +103,32 @@ export default async function BackofficeLayout({
     .join(" + ");
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
+  const service = createServiceRoleClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    tenant.id,
+  );
   let hasFranchise = false;
-  if (
-    tenantHasFeature(tenant, "franchise_as_franchisegever") &&
-    (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined)
-  ) {
-    const service = createServiceRoleClient();
+  if (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined) {
     const { count } = await service
       .from("tenants")
       .select("id", { count: "exact", head: true })
       .eq("parent_tenant_id", tenant.id);
-    hasFranchise = (count ?? 0) > 0;
+    hasFranchise = canViewExistingFranchiseNetwork(
+      entitlementSnapshot,
+      count ?? 0,
+    );
   }
-
-  const hasMultiBranch = tenantHasFeature(tenant, "multi_branch");
-  const entitlementUsage = await loadTenantEntitlementUsage(
-    createServiceRoleClient(),
-    tenant.id,
-  );
+  const hasMultiBranch = entitlementSnapshot.featureAccess.multi_branch.allowed;
   const entitlementAlerts = Object.values(
-    getTenantLimitStatuses(tenant, entitlementUsage),
+    entitlementSnapshot.limitStatuses,
   ).filter((status) => status.isAtLimit || status.isOverLimit).length;
 
   return (
     <BrandProvider
       tenant={tenant}
-      branding={branding}
+      branding={bundle.branding}
+      themeTokens={bundle.tokens}
       className="h-screen overflow-hidden"
     >
       <div data-management-shell="" className="h-screen overflow-hidden">

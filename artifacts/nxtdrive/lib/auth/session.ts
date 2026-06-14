@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { cache } from "react";
 import type {
   AuthenticatedUser,
   MemberRole,
@@ -13,7 +14,7 @@ import type {
  * or null if not logged in. Uses the service role to load profile + memberships
  * to avoid RLS recursion on the auth bootstrap path.
  */
-export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
+export const getCurrentUser = cache(async (): Promise<AuthenticatedUser | null> => {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -77,7 +78,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
       Membership & { tenant: Tenant }
     >,
   };
-}
+});
 
 export function rolesForTenant(
   user: AuthenticatedUser,

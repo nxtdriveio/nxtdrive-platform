@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, TrendingUp, TrendingDown, Users, Inbox, Wallet, CheckCircle2, XCircle, Clock, AlertCircle, Star } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,8 @@ import {
 } from "@/components/backoffice/reports/quality";
 import { RevenueBarChart } from "@/components/charts/RevenueBarChart";
 import { DonutChart } from "@/components/charts/DonutChart";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -100,8 +102,15 @@ export default async function RapportagesPage({
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
 }) {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
-  const hasAdvancedReports = tenantHasFeature(tenant, "advanced_reports");
   const supabase = await createServerSupabaseClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+  const hasAdvancedReports =
+    entitlementSnapshot.featureAccess.advanced_reports.allowed;
+  const advancedReportsGate =
+    entitlementSnapshot.featureAccess.advanced_reports;
   const params = await searchParams;
 
   // Month selector
@@ -774,7 +783,8 @@ export default async function RapportagesPage({
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
               Examenrijpheid, kwaliteitsmetingen en leskaart-analyses zijn
-              beschikbaar vanaf het Pro-abonnement.
+              beschikbaar vanaf het{" "}
+              {PLAN_LABELS[advancedReportsGate.requiredPlan]}-abonnement.
             </p>
             <p>
               Je basisrapportages blijven beschikbaar, maar deze verdiepende

@@ -1,5 +1,6 @@
+import { buildThemeStyleVars } from "@/lib/brand-theme";
 import { isWhiteLabelEligible } from "@/lib/platform/features";
-import type { Tenant, TenantBranding } from "@/lib/types";
+import type { Tenant, TenantBranding, ThemeTokenSet } from "@/lib/types";
 
 /**
  * Applies tenant-specific brand colors when white-labeling is enabled by
@@ -18,35 +19,36 @@ import type { Tenant, TenantBranding } from "@/lib/types";
 export function BrandProvider({
   tenant,
   branding,
+  themeTokens,
   className,
   children,
 }: {
   tenant: Tenant | null;
   branding: TenantBranding | null;
+  themeTokens?: { light: ThemeTokenSet; dark: ThemeTokenSet } | null;
   className?: string;
   children: React.ReactNode;
 }) {
   const whitelabel = isWhiteLabelEligible(tenant) && branding;
-  const style: Record<string, string> = {};
+  const style: Record<string, string> = themeTokens
+    ? buildThemeStyleVars(themeTokens)
+    : {};
 
-  if (whitelabel && branding.primary_color) {
-    const primary = branding.primary_color;
-    style["--primary"] = primary;
-    style["--color-primary"] = primary;
-    style["--ring"] = primary;
-    style["--color-ring"] = primary;
-    style["--primary-soft"] = `color-mix(in oklab, ${primary} 16%, transparent)`;
-    style["--color-primary-soft"] = `color-mix(in oklab, ${primary} 16%, transparent)`;
-    style["--tenant-primary"] = primary;
+  if (whitelabel && !themeTokens && branding.primary_color) {
+    style["--tenant-light-primary"] = branding.primary_color;
+    style["--tenant-dark-primary"] = branding.primary_color;
     if (branding.primary_foreground) {
-      style["--primary-foreground"] = branding.primary_foreground;
-      style["--color-primary-foreground"] = branding.primary_foreground;
-      style["--tenant-primary-foreground"] = branding.primary_foreground;
+      style["--tenant-light-primary-foreground"] = branding.primary_foreground;
+      style["--tenant-dark-primary-foreground"] = branding.primary_foreground;
     }
   }
 
   return (
-    <div className={className} style={style as React.CSSProperties}>
+    <div
+      className={className}
+      style={style as React.CSSProperties}
+      data-white-label-theme={whitelabel ? "true" : undefined}
+    >
       {children}
     </div>
   );

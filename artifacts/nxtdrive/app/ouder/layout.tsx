@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import { getTenantBrandingBundle, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { getActiveStudent } from "@/lib/students/access";
 import { loadParentPortalVisibility } from "@/lib/parent-portal/visibility";
@@ -33,8 +33,8 @@ export default async function OuderLayout({
     tenant.id,
   );
 
-  const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, branding);
+  const bundle = await getTenantBrandingBundle(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
 
   const navItems: PortalNavItem[] = [{ href: "/ouder", label: "Overzicht" }];
   if (visibility.planning)
@@ -62,7 +62,8 @@ export default async function OuderLayout({
   return (
     <BrandProvider
       tenant={tenant}
-      branding={branding}
+      branding={bundle.branding}
+      themeTokens={bundle.tokens}
       className="min-h-screen bg-background text-foreground"
     >
       <header className="border-b border-border bg-card">

@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,12 +22,10 @@ import {
   PLAN_HIGHLIGHTS,
   PLAN_LABELS,
   PLAN_ORDER,
-  getTenantEntitlements,
   type FeatureKey,
 } from "@/lib/platform/features";
 import {
-  getTenantLimitStatuses,
-  loadTenantEntitlementUsage,
+  loadTenantEntitlementSnapshot,
   type TenantLimitStatus,
 } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -128,16 +127,18 @@ function requiredPlanBadge(feature: FeatureKey) {
 export default async function AbonnementPage() {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const service = createServiceRoleClient();
-  const usage = await loadTenantEntitlementUsage(service, tenant.id);
-  const limitStatuses = getTenantLimitStatuses(tenant, usage);
-  const entitlements = getTenantEntitlements(tenant);
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  const currentTenant = snapshot.tenant;
+  const usage = snapshot.usage;
+  const limitStatuses = snapshot.limitStatuses;
+  const entitlements = snapshot.entitlements;
   const alertStatuses = Object.values(limitStatuses).filter(
     (status) => status.isAtLimit || status.isOverLimit,
   );
   const planUpgrade = nextPlan(entitlements.plan);
   const whiteLabelDowngraded =
     !entitlements.whiteLabelEligible &&
-    (tenant.white_label_enabled || usage.custom_domains > 0);
+    (currentTenant.white_label_enabled || usage.custom_domains > 0);
 
   const operationalAlerts = [
     ...alertStatuses.map((status) => {
@@ -147,7 +148,7 @@ export default async function AbonnementPage() {
           title: "Vestigingen",
           body:
             status.isOverLimit
-              ? "Bestaande vestigingen blijven zichtbaar, maar branch-uitbreiding en branch-mutaties horen nu in een upgradeflow thuis."
+              ? "Bestaande vestigingen blijven zichtbaar en je kunt ze nog corrigeren of afschalen, maar branch-uitbreiding blijft vergrendeld totdat het plan wordt verhoogd."
               : "Extra vestigingen aanmaken is nu geblokkeerd totdat het plan wordt verhoogd.",
         };
       }
@@ -198,7 +199,7 @@ export default async function AbonnementPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">{tenant.name}</Badge>
+                <Badge variant="primary">{currentTenant.name}</Badge>
               {alertStatuses.length > 0 || whiteLabelDowngraded ? (
                 <Badge variant="warning">
                   <ShieldAlert className="h-3 w-3" aria-hidden />
@@ -266,17 +267,12 @@ export default async function AbonnementPage() {
           </CardHeader>
           <CardContent className="grid gap-3 lg:grid-cols-2">
             {operationalAlerts.map((alert) => (
-              <div
-                key={alert.key}
-                className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-4"
-              >
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                  {alert.title}
-                </p>
-                <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-200/90">
-                  {alert.body}
-                </p>
-              </div>
+              <Alert key={alert.key} variant="warning">
+                <div>
+                  <AlertTitle>{alert.title}</AlertTitle>
+                  <AlertDescription>{alert.body}</AlertDescription>
+                </div>
+              </Alert>
             ))}
           </CardContent>
         </Card>
@@ -286,9 +282,14 @@ export default async function AbonnementPage() {
             <CardTitle className="text-foreground">Commerciele status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-800 dark:text-emerald-200">
-              Deze tenant zit momenteel netjes binnen planlimieten en heeft geen read-only downgradeblokkades actief.
-            </div>
+            <Alert variant="success">
+              <div>
+                <AlertTitle>Binnen planlimieten</AlertTitle>
+                <AlertDescription>
+                  Deze tenant zit momenteel netjes binnen planlimieten en heeft geen read-only downgradeblokkades actief.
+                </AlertDescription>
+              </div>
+            </Alert>
           </CardContent>
         </Card>
       )}

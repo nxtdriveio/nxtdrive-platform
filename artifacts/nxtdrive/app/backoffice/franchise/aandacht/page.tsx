@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, CalendarDays, ShieldCheck, TrendingDown, Users } from "lucide-react";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { PLAN_LABELS } from "@/lib/platform/features";
 import {
   loadFranchisePerformanceOverview,
   type FranchisePerformanceRow,
@@ -78,7 +80,8 @@ function AttentionCard({
 }
 
 export default async function FranchiseAttentionPage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
   const overview = await loadFranchisePerformanceOverview(tenant.id);
 
   const mediumPriority = overview.franchisees.filter((item) => item.attention_priority === "middel");
@@ -115,6 +118,12 @@ export default async function FranchiseAttentionPage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>

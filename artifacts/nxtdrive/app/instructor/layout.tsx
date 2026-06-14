@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
@@ -6,11 +6,11 @@ import { roleHomePath } from "@/lib/auth/role-home";
 import { homePathForRoles } from "@/lib/auth/role-routing";
 import { getTheme } from "@/lib/theme";
 import {
-  getTenantBranding,
+  getTenantBrandingBundle,
   resolveBrandAppName,
   resolveBrandDescription,
   resolveLogoUrl,
-  resolveThemeColor,
+  resolveThemeColorForMode,
 } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { InstructorSidebar } from "@/components/instructor/Sidebar";
@@ -27,18 +27,17 @@ import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
-async function loadInstructorBrandingContext() {
+const loadInstructorBrandingContext = cache(async () => {
   const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
-  const branding = await getTenantBranding(tenant.id);
+  const bundle = await getTenantBrandingBundle(tenant.id);
 
   return {
     tenant,
-    branding,
+    bundle,
     brandTitle: resolveBrandAppName(tenant, "instructor"),
     brandDescription: resolveBrandDescription(tenant, "instructor"),
-    themeColor: resolveThemeColor(tenant, branding, "#0c0c15"),
   };
-}
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandingContext = await loadInstructorBrandingContext();
@@ -70,10 +69,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateViewport(): Promise<Viewport> {
-  const brandingContext = await loadInstructorBrandingContext();
+  const [brandingContext, theme] = await Promise.all([
+    loadInstructorBrandingContext(),
+    getTheme(),
+  ]);
 
   return {
-    themeColor: brandingContext.themeColor,
+    themeColor: resolveThemeColorForMode(
+      brandingContext.tenant,
+      theme,
+      brandingContext.bundle,
+      "#0c0c15",
+    ),
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
@@ -111,8 +118,8 @@ export default async function InstructorLayout({
   const visibleStartHour = user.profile?.calendar_start_hour ?? 6;
   const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
 
-  const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, branding);
+  const bundle = await getTenantBrandingBundle(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   const today = new Date();
@@ -167,7 +174,11 @@ export default async function InstructorLayout({
   );
 
   return (
-    <BrandProvider tenant={tenant} branding={branding}>
+    <BrandProvider
+      tenant={tenant}
+      branding={bundle.branding}
+      themeTokens={bundle.tokens}
+    >
       <div
         data-instructor-shell=""
         data-pwa-copy=""

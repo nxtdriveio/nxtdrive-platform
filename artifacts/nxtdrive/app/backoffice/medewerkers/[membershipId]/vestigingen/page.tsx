@@ -20,6 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { MemberRole } from "@/lib/types";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,11 @@ export default async function MemberBranchesPage({
     listBranches(service, organization.id, { activeOnly: true }),
     listMembershipBranches(service, membershipId),
   ]);
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    organization.id,
+  );
+  const hasMultiBranch = entitlementSnapshot.featureAccess.multi_branch.allowed;
 
   const governanceDefinition = isStaffGovernanceRole(role)
     ? roleGovernanceDefinition(role)
@@ -121,6 +128,15 @@ export default async function MemberBranchesPage({
         <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           Opslaan mislukt{reason ? `: ${reason}` : "."}
         </p>
+      ) : null}
+
+      {!hasMultiBranch && branches.length > 0 ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          Deze organisatie draait momenteel onder het multi-branch plan. Je kunt
+          branch-scope hier nog corrigeren of afschalen voor bestaande
+          vestigingen, maar nieuwe vestigingen toevoegen blijft vergrendeld
+          totdat {PLAN_LABELS.pro} of hoger weer actief is.
+        </div>
       ) : null}
 
       <Card>

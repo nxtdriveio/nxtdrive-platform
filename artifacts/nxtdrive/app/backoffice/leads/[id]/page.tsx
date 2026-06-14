@@ -72,7 +72,7 @@ import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions"
 import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 import { getTrialNeighbours } from "@/lib/trial-lessons/neighbours";
 import type { MapPoint } from "@/components/trial-route-map";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +94,11 @@ export default async function LeadDetailPage({
   const { id } = await params;
   const sp = await searchParams;
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const service = createServiceRoleClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    tenant.id,
+  );
 
   const supabase = await createServerSupabaseClient();
   const { data: leadRaw } = await supabase
@@ -106,7 +111,7 @@ export default async function LeadDetailPage({
   const lead = leadRaw as Lead;
 
   const taskLaunch = await loadTaskLaunchData(
-    createServiceRoleClient(),
+    service,
     tenant.id,
   );
 
@@ -358,7 +363,8 @@ export default async function LeadDetailPage({
     ? (instructorNames[refillInstructor] ??
       (pick("trial_instructor_name") || "Instructeur"))
     : "";
-  const aiPackageAdviceAvailable = tenantHasFeature(tenant, "ai_features");
+  const aiPackageAdviceAvailable =
+    entitlementSnapshot.featureAccess.ai_features.allowed;
 
   return (
     <div className="space-y-6">

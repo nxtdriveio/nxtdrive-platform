@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, BarChart3, CalendarDays, Gauge, ShieldCheck, TrendingDown, TrendingUp, Users } from "lucide-react";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import {
   loadFranchisePerformanceOverview,
   type FranchisePerformanceRow,
 } from "@/lib/franchise/performance";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +115,8 @@ function WatchlistCard({
 }
 
 export default async function FranchisePerformancePage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
   const overview = await loadFranchisePerformanceOverview(tenant.id);
 
   return (
@@ -163,6 +166,12 @@ export default async function FranchisePerformancePage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard

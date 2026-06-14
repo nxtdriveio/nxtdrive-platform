@@ -11,12 +11,18 @@ export function BrandingForm({
   initialPrimaryForeground,
   initialWelcomeMessage,
   disabled = false,
+  colorFieldsLocked = false,
+  themePresetName = null,
+  themePresetDescription = null,
 }: {
   initialLogoUrl: string;
   initialPrimaryColor: string;
   initialPrimaryForeground: string;
   initialWelcomeMessage: string;
   disabled?: boolean;
+  colorFieldsLocked?: boolean;
+  themePresetName?: string | null;
+  themePresetDescription?: string | null;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [primary, setPrimary] = useState(initialPrimaryColor || "#6b4eff");
@@ -24,9 +30,26 @@ export function BrandingForm({
     initialPrimaryForeground || "#ffffff",
   );
   const [welcomeMessage, setWelcomeMessage] = useState(initialWelcomeMessage);
+  const colorsDisabled = disabled || colorFieldsLocked;
 
   return (
     <form action={saveBranding} className="space-y-5">
+      {themePresetName ? (
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <p className="text-sm font-medium text-foreground">
+            Platform theme preset actief: {themePresetName}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {themePresetDescription?.trim()
+              ? themePresetDescription
+              : "Light- en darkmode kleuren worden centraal beheerd vanuit platform backoffice."}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Lokale kleurvelden zijn daarom read-only. Logo en welkomsttekst blijven tenant-specifiek.
+          </p>
+        </div>
+      ) : null}
+
       <div className="space-y-1.5">
         <Label htmlFor="logo_url">Logo-URL</Label>
         <Input
@@ -54,7 +77,7 @@ export function BrandingForm({
               type="color"
               value={primary}
               onChange={(e) => setPrimary(e.target.value)}
-              disabled={disabled}
+              disabled={colorsDisabled}
               className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-input"
             />
             <Input
@@ -62,7 +85,7 @@ export function BrandingForm({
               name="primary_color"
               value={primary}
               onChange={(e) => setPrimary(e.target.value)}
-              disabled={disabled}
+              disabled={colorsDisabled}
               placeholder="#6b4eff"
               className="font-mono"
             />
@@ -77,7 +100,7 @@ export function BrandingForm({
               type="color"
               value={foreground}
               onChange={(e) => setForeground(e.target.value)}
-              disabled={disabled}
+              disabled={colorsDisabled}
               className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-input"
             />
             <Input
@@ -85,7 +108,7 @@ export function BrandingForm({
               name="primary_foreground"
               value={foreground}
               onChange={(e) => setForeground(e.target.value)}
-              disabled={disabled}
+              disabled={colorsDisabled}
               placeholder="#ffffff"
               className="font-mono"
             />

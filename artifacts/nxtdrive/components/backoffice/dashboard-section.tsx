@@ -62,11 +62,11 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 const AVATAR_COLORS = [
-  "bg-violet-500",
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-rose-500",
-  "bg-amber-500",
+  "var(--primary)",
+  "var(--info)",
+  "var(--success)",
+  "var(--accent-foreground)",
+  "var(--warning)",
 ];
 
 const ALERT_COLORS: Record<SmartAlert["type"], string> = {
@@ -97,9 +97,15 @@ export function DashboardSection({ initial, monthlyRevenue, studentProgress, ten
   const [data, setData] = useState<DashboardLiveData>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
+    if (!force && typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return;
+    }
+    if (inFlightRef.current) return;
     try {
+      inFlightRef.current = true;
       setRefreshing(true);
       const res = await fetch("/backoffice/dashboard", { cache: "no-store" });
       if (!res.ok) return;
@@ -107,14 +113,24 @@ export function DashboardSection({ initial, monthlyRevenue, studentProgress, ten
       setData(json);
     } catch {
     } finally {
+      inFlightRef.current = false;
       setRefreshing(false);
     }
   }, []);
 
   // 60 s polling — fallback when realtime connection is unavailable
   useEffect(() => {
-    intervalRef.current = setInterval(fetchData, REFRESH_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchData(true);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    intervalRef.current = setInterval(() => {
+      void fetchData();
+    }, REFRESH_INTERVAL_MS);
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchData]);
@@ -176,7 +192,7 @@ export function DashboardSection({ initial, monthlyRevenue, studentProgress, ten
           Bijgewerkt om {lastUpdated}
         </span>
         <button
-          onClick={fetchData}
+          onClick={() => { void fetchData(true); }}
           disabled={refreshing}
           aria-label="Nu vernieuwen"
           className="flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
@@ -307,7 +323,8 @@ export function DashboardSection({ initial, monthlyRevenue, studentProgress, ten
                   return (
                     <li key={s.studentId} className="flex items-center gap-2.5">
                       <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
+                        style={{ backgroundColor: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
                       >
                         {s.initials}
                       </span>

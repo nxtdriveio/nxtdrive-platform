@@ -39,8 +39,7 @@ import {
   lockedFeatures,
 } from "@/lib/platform/features";
 import {
-  getTenantLimitStatuses,
-  loadTenantEntitlementUsage,
+  loadTenantEntitlementSnapshot,
 } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
@@ -97,13 +96,11 @@ export default async function BackofficePage() {
     0,
   );
   const showSubscriptionCard = roles.includes("tenant_admin");
-  const entitlementUsage = showSubscriptionCard
-    ? await loadTenantEntitlementUsage(service, tenant.id)
+  const entitlementSnapshot = showSubscriptionCard
+    ? await loadTenantEntitlementSnapshot(service, tenant.id)
     : null;
-  const limitStatuses = entitlementUsage
-    ? getTenantLimitStatuses(tenant, entitlementUsage)
-    : null;
-  const lockedCommercialFeatures = lockedFeatures(tenant);
+  const limitStatuses = entitlementSnapshot?.limitStatuses ?? null;
+  const lockedCommercialFeatures = entitlementSnapshot?.entitlements.locked ?? lockedFeatures(tenant);
 
   const initialLive: DashboardLiveData = {
     todayLessons,

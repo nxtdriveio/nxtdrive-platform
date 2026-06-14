@@ -1,5 +1,6 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireAdvancedReportExportAccess } from "@/lib/platform/commercial-access";
 import { amsterdamYmd } from "@/lib/dashboard/metrics";
 import { buildCsv, csvResponse } from "@/lib/accounting/csv";
 import type { Student } from "@/lib/students/types";
@@ -9,6 +10,9 @@ export const dynamic = "force-dynamic";
 /** Klantenexport — all students (customers) of the active tenant. */
 export async function GET() {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const blocked = await requireAdvancedReportExportAccess(tenant.id);
+  if (blocked) return blocked;
+
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowDownWideNarrow, ArrowUpWideNarrow, BarChart3, Gauge, TrendingUp } from "lucide-react";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import {
   loadFranchiseOverview,
   type FranchiseeLocation,
 } from "@/lib/franchise/overview";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +91,8 @@ function LeaderboardCard({
 }
 
 export default async function FranchiseComparisonPage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
 
   const [franchiseContext, overview] = await Promise.all([
     loadFranchiseContext(tenant.id),
@@ -162,6 +165,12 @@ export default async function FranchiseComparisonPage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

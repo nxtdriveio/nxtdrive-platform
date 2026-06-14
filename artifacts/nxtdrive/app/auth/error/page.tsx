@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { BrandProvider } from "@/components/brand-provider";
 import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
 import {
-  getTenantBrandingPublic,
+  getTenantBrandingBundle,
   isWhiteLabelActive,
   resolveLogoUrl,
 } from "@/lib/branding";
@@ -24,7 +24,8 @@ export default async function AuthErrorPage({
   const service = createServiceRoleClient();
   const tenant = await resolveTenantByHost(service, host);
 
-  const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
+  const bundle = tenant ? await getTenantBrandingBundle(tenant.id) : null;
+  const branding = bundle?.branding ?? null;
   const logoUrl = resolveLogoUrl(tenant ?? null, branding);
   const isWhiteLabel = isWhiteLabelActive(tenant ?? null);
 
@@ -36,7 +37,12 @@ export default async function AuthErrorPage({
         : "Er is iets misgegaan. De link is mogelijk verlopen of ongeldig.";
 
   return (
-    <BrandProvider tenant={tenant} branding={branding} className="contents">
+    <BrandProvider
+      tenant={tenant}
+      branding={branding}
+      themeTokens={bundle?.tokens ?? null}
+      className="contents"
+    >
       <main className="bg-nxt-grid relative flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-10">
         <Card className="w-full max-w-sm space-y-6 p-8">
           <div className="text-center">

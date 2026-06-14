@@ -9,8 +9,10 @@ import {
   type OrganizationLifecycleStatus,
   type OrganizationOnboardingStatus,
 } from "@/lib/organization";
-import { normalizeTenantPlan, tenantHasFeature } from "@/lib/platform/features";
-import type { OrgType, TenantPlan } from "@/lib/types";
+import { normalizeTenantPlan } from "@/lib/platform/features";
+import { getTenantFeatureAccess } from "@/lib/platform/entitlements";
+import { THEME_TOKEN_KEYS } from "@/lib/brand-theme";
+import type { OrgType, TenantPlan, ThemeMode, ThemeTokenOverrides } from "@/lib/types";
 
 const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
 const VALID_ORG_TYPES: OrgType[] = [
@@ -33,9 +35,28 @@ const VALID_ONBOARDING_STATUSES: OrganizationOnboardingStatus[] = [
   "ready",
   "blocked",
 ];
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 function trimmed(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
+}
+
+function parseThemeTokenOverrides(
+  formData: FormData,
+  mode: ThemeMode,
+): ThemeTokenOverrides | null {
+  const overrides: ThemeTokenOverrides = {};
+
+  for (const key of THEME_TOKEN_KEYS) {
+    const raw = String(formData.get(`${mode}_${key}`) ?? "").trim();
+    if (!raw) continue;
+    if (!HEX_RE.test(raw)) {
+      throw new Error(`Ongeldige kleur voor ${mode}:${key}`);
+    }
+    overrides[key] = raw;
+  }
+
+  return Object.keys(overrides).length > 0 ? overrides : null;
 }
 
 export async function updateTenantIdentityAction(formData: FormData) {
@@ -212,12 +233,20 @@ export async function toggleWhiteLabelAction(formData: FormData) {
   if (enabled) {
     const { data: tenant } = await service
       .from("tenants")
-      .select("plan")
+      .select("plan, white_label_enabled")
       .eq("id", tenantId)
       .maybeSingle();
 
     const tenantPlan = normalizeTenantPlan(tenant?.plan as string | undefined);
-    if (!tenantHasFeature({ plan: tenantPlan }, "white_label")) {
+    const whiteLabelAccess = getTenantFeatureAccess(
+      {
+        plan: tenantPlan,
+        white_label_enabled:
+          (tenant?.white_label_enabled as boolean | null | undefined) ?? false,
+      },
+      "white_label",
+    );
+    if (!whiteLabelAccess.allowed) {
       redirect(
         `/admin/tenants/${tenantId}?plan_error=` +
           encodeURIComponent("White-label vereist het Elite-abonnement."),
@@ -248,6 +277,160 @@ export async function toggleWhiteLabelAction(formData: FormData) {
 
   revalidatePath(`/admin/tenants/${tenantId}`);
   redirect(`/admin/tenants/${tenantId}?plan_saved=1`);
+}
+
+export async function assignTenantThemePresetAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  const themePresetId = String(formData.get("theme_preset_id") ?? "").trim();
+
+  if (!tenantId) {
+    redirect("/admin?tab=tenants");
+  }
+
+  const service = createServiceRoleClient();
+
+  if (themePresetId) {
+    const { data: preset } = await service
+      .from("theme_presets")
+      .select("id, is_active")
+      .eq("id", themePresetId)
+      .maybeSingle();
+
+    if (!preset || preset.is_active === false) {
+      redirect(
+        `/admin/tenants/${tenantId}?theme_error=` +
+          encodeURIComponent("Geselecteerde theme preset bestaat niet of is niet actief."),
+      );
+    }
+  }
+
+  const { error } = await service.from("tenant_branding").upsert(
+    {
+      tenant_id: tenantId,
+      theme_preset_id: themePresetId || null,
+    },
+    { onConflict: "tenant_id" },
+  );
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?theme_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.theme_preset_changed",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { theme_preset_id: themePresetId || null },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?theme_saved=1`);
+}
+
+export async function saveTenantThemeOverridesAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  if (!tenantId) {
+    redirect("/admin?tab=tenants");
+  }
+
+  let light: ThemeTokenOverrides | null;
+  let dark: ThemeTokenOverrides | null;
+  try {
+    light = parseThemeTokenOverrides(formData, "light");
+    dark = parseThemeTokenOverrides(formData, "dark");
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Theme-overrides konden niet worden gelezen.";
+    redirect(
+      `/admin/tenants/${tenantId}?theme_overrides_error=` +
+        encodeURIComponent(message.slice(0, 200)),
+    );
+  }
+
+  const overrides =
+    light || dark
+      ? {
+          ...(light ? { light } : {}),
+          ...(dark ? { dark } : {}),
+        }
+      : null;
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_branding").upsert(
+    {
+      tenant_id: tenantId,
+      theme_overrides: overrides,
+    },
+    { onConflict: "tenant_id" },
+  );
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?theme_overrides_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.theme_overrides_changed",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: { theme_overrides: overrides },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?theme_overrides_saved=1`);
+}
+
+export async function resetTenantThemeOverridesAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  if (!tenantId) {
+    redirect("/admin?tab=tenants");
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_branding").upsert(
+    {
+      tenant_id: tenantId,
+      theme_overrides: null,
+    },
+    { onConflict: "tenant_id" },
+  );
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?theme_overrides_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.theme_overrides_reset",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: {},
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?theme_overrides_reset=1`);
 }
 
 export async function createTenantAdminAccount(
@@ -346,14 +529,26 @@ export async function setFranchiseeParentAction(formData: FormData) {
       );
     }
 
-    if (!tenantHasFeature(franchiseeTenant, "franchise_as_franchisee")) {
+    const franchiseeAccess = getTenantFeatureAccess(
+      {
+        plan: franchiseeTenant.plan as string | undefined,
+      },
+      "franchise_as_franchisee",
+    );
+    if (!franchiseeAccess.allowed) {
       redirect(
         `/admin/tenants/${franchisee_id}?franchise_error=` +
           encodeURIComponent("De franchisee heeft minimaal Pro nodig."),
       );
     }
 
-    if (!tenantHasFeature(franchisegeverTenant, "franchise_as_franchisegever")) {
+    const franchisegeverAccess = getTenantFeatureAccess(
+      {
+        plan: franchisegeverTenant.plan as string | undefined,
+      },
+      "franchise_as_franchisegever",
+    );
+    if (!franchisegeverAccess.allowed) {
       redirect(
         `/admin/tenants/${franchisee_id}?franchise_error=` +
           encodeURIComponent("De franchisegever heeft het Elite-abonnement nodig."),

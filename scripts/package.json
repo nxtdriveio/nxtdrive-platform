@@ -74,6 +74,7 @@
     "test-franchise-attention-foundation": "tsx ./src/test-franchise-attention-foundation.ts",
     "test-franchise-governance-foundation": "tsx ./src/test-franchise-governance-foundation.ts",
     "test-white-label-foundation": "tsx ./src/test-white-label-foundation.ts",
+    "test-entitlement-completion-foundation": "tsx ./src/test-entitlement-completion-foundation.ts",
     "test-management-dashboard-foundation": "tsx ./src/test-management-dashboard-foundation.ts",
     "test-app-polish-foundation": "tsx ./src/test-app-polish-foundation.ts",
     "test-route-info-bubbles": "tsx ./src/test-route-info-bubbles.ts",
