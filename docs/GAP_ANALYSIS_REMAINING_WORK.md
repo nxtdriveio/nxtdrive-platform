@@ -1,7 +1,7 @@
 # NXTDRIVE Gap Analysis & Remaining Work Plan
 
 Status: working analysis
-Last updated: 2026-06-11
+Last updated: 2026-06-14
 Owner: product / architecture / delivery
 
 ## Purpose
@@ -40,6 +40,7 @@ The strongest part of the system is the operational and authorization foundation
 The weakest part is not the data model anymore, but the finishing layer around it:
 
 - entitlement enforcement,
+- performance and perceived speed,
 - reporting depth,
 - full white-label completion,
 - device-perfect PWA polish,
@@ -58,7 +59,9 @@ Current state:
 - email config exists,
 - AI key/config exists,
 - notification management exists,
-- white-label flags are visible.
+- white-label flags are visible,
+- central theme preset management exists,
+- tenant-level theme overrides and shell previews now exist.
 
 Working well:
 
@@ -236,6 +239,9 @@ Current state:
 - tenant-aware branding helpers exist,
 - domain model exists,
 - branded manifests and shell naming exist,
+- platform-managed light/dark theme presets exist,
+- tenant-specific theme overrides exist,
+- multi-surface theme preview exists in platform admin,
 - host-based resolution exists.
 
 Working well:
@@ -248,6 +254,7 @@ Main gaps:
 
 - transactional email branding is not fully finished,
 - deeper brand assets and iconography strategy are still light,
+- some live surfaces still need a final semantic token migration pass,
 - plan-based white-label gating exists but broader entitlement discipline is still incomplete.
 
 Conclusion:

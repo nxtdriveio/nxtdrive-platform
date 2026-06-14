@@ -1,14 +1,21 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, type TooltipProps } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  type TooltipProps,
+} from "recharts";
 
 const SEGMENT_COLORS = [
-  "#f59e0b", // amber
-  "#a855f7", // purple
-  "#22c55e", // green
-  "#3b82f6", // blue
-  "#f97316", // orange
-  "#6b7280", // gray
+  "var(--warning)",
+  "var(--primary)",
+  "var(--success)",
+  "var(--info)",
+  "var(--accent-foreground)",
+  "var(--muted-foreground)",
 ];
 
 type Segment = { label: string; count: number; pct: number };
@@ -17,19 +24,19 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
   const item = payload[0];
   return (
-    <div className="rounded-lg border border-white/10 bg-gray-900 px-3 py-2 text-xs shadow-lg">
-      <p className="font-medium text-gray-200">{item.name}</p>
-      <p className="text-amber-400">{item.value} leads</p>
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-lg">
+      <p className="font-medium text-popover-foreground">{item.name}</p>
+      <p className="text-primary">{item.value} leads</p>
     </div>
   );
 }
 
 export function DonutChart({ data }: { data: Segment[] }) {
-  const chartData = data.map((d, i) => ({
-    name: d.label,
-    value: d.count,
-    pct: d.pct,
-    color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+  const chartData = data.map((item, index) => ({
+    name: item.label,
+    value: item.count,
+    pct: item.pct,
+    color: SEGMENT_COLORS[index % SEGMENT_COLORS.length],
   }));
 
   return (
@@ -47,8 +54,8 @@ export function DonutChart({ data }: { data: Segment[] }) {
               strokeWidth={0}
               paddingAngle={2}
             >
-              {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} />
+              {chartData.map((entry, index) => (
+                <Cell key={index} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
@@ -56,15 +63,15 @@ export function DonutChart({ data }: { data: Segment[] }) {
         </ResponsiveContainer>
       </div>
       <ul className="flex-1 space-y-1.5">
-        {data.map((d, i) => (
-          <li key={d.label} className="flex items-center gap-2 text-xs">
+        {data.map((item, index) => (
+          <li key={item.label} className="flex items-center gap-2 text-xs">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
+              style={{ background: SEGMENT_COLORS[index % SEGMENT_COLORS.length] }}
             />
-            <span className="min-w-0 truncate text-muted-foreground">{d.label}</span>
+            <span className="min-w-0 truncate text-muted-foreground">{item.label}</span>
             <span className="ml-auto shrink-0 font-semibold tabular-nums text-foreground">
-              {d.pct}%
+              {item.pct}%
             </span>
           </li>
         ))}

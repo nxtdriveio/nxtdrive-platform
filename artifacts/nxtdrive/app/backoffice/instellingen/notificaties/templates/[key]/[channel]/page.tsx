@@ -1,12 +1,16 @@
-import { requireActiveTenant } from "@/lib/auth/require-role";
-import { createServiceRoleClient } from "@/lib/supabase/service";
-import { getPlatformNotificationConfig } from "@/lib/notifications/platform-notification-config";
-import { getShortcodesForKey } from "@/lib/notifications/shortcodes";
-import { TemplateEditorClient } from "@/app/admin/notifications/templates/[key]/[channel]/editor-client";
-import { saveTenantTemplate } from "../../../actions";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { TemplateEditorClient } from "@/app/admin/notifications/templates/[key]/[channel]/editor-client";
+import { Badge } from "@/components/ui/badge";
+import { requireActiveTenant } from "@/lib/auth/require-role";
+import { getPlatformNotificationConfig } from "@/lib/notifications/platform-notification-config";
+import { getShortcodesForKey } from "@/lib/notifications/shortcodes";
+import {
+  getTenantFeatureAccess,
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { saveTenantTemplate } from "../../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,28 +53,27 @@ export default async function TenantTemplateEditorPage({
 
   const service = createServiceRoleClient();
 
-  const [tenantRow, platformConfig] = await Promise.all([
-    service.from("tenants").select("plan, white_label_enabled, name").eq("id", tenant.id).maybeSingle(),
+  const [snapshot, platformConfig] = await Promise.all([
+    loadTenantEntitlementSnapshot(service, tenant.id),
     getPlatformNotificationConfig(service, key, channel),
   ]);
 
-  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
-  if (
-    !isWhiteLabelEligible({
-      plan: (tenantRow.data?.plan as "start" | "pro" | "elite" | undefined) ?? "start",
-      white_label_enabled: tenantRow.data?.white_label_enabled as boolean | null | undefined,
-    })
-  ) {
+  const whiteLabelGate = getTenantFeatureAccess(snapshot.tenant, "white_label", {
+    requireEnabledFlag: true,
+  });
+  if (!whiteLabelGate.allowed) {
     redirect("/backoffice/instellingen/notificaties");
   }
 
   if (!platformConfig) notFound();
 
-  const tenantName = (tenantRow.data?.name as string | null) ?? tenant.name ?? "Rijschool";
+  const tenantName = snapshot.tenant.name ?? tenant.name ?? "Rijschool";
 
   const { data: tenantTemplate } = await service
     .from("notification_templates")
-    .select("subject, body_html, body_text, push_title, push_body, inapp_title, inapp_body")
+    .select(
+      "subject, body_html, body_text, push_title, push_body, inapp_title, inapp_body",
+    )
     .eq("tenant_id", tenant.id)
     .eq("key", key)
     .eq("channel", channel)
@@ -86,20 +89,24 @@ export default async function TenantTemplateEditorPage({
           href="/backoffice/instellingen/notificaties"
           className="text-muted-foreground hover:text-foreground"
         >
-          ← Notificaties
+          Terug naar notificaties
         </Link>
         <span className="text-muted-foreground">/</span>
-        <span className="text-foreground font-medium">{platformConfig.labelNl}</span>
-        <Badge variant="outline" className="ml-1 text-xs">{CHANNEL_LABEL[channel]}</Badge>
+        <span className="font-medium text-foreground">
+          {platformConfig.labelNl}
+        </span>
+        <Badge variant="outline" className="ml-1 text-xs">
+          {CHANNEL_LABEL[channel]}
+        </Badge>
       </div>
 
       <div>
         <h1 className="text-xl font-bold text-foreground">
-          Template bewerken — {platformConfig.labelNl}
+          Template bewerken - {platformConfig.labelNl}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {platformConfig.description} Je eigen template overschrijft het NXTDRIVE-standaard voor
-          jouw rijschool.
+          {platformConfig.description} Je eigen template overschrijft de
+          NXTDRIVE-standaard voor jouw rijschool.
         </p>
       </div>
 
@@ -108,12 +115,34 @@ export default async function TenantTemplateEditorPage({
           eventKey={key}
           channel={channel}
           labelNl={platformConfig.labelNl}
-          initialSubject={(tenantTemplate?.subject as string | null) ?? platformConfig.subject ?? ""}
-          initialBodyHtml={(tenantTemplate?.body_html as string | null) ?? platformConfig.bodyHtml ?? ""}
-          initialPushTitle={(tenantTemplate?.push_title as string | null) ?? platformConfig.pushTitle ?? ""}
-          initialPushBody={(tenantTemplate?.push_body as string | null) ?? platformConfig.pushBody ?? ""}
-          initialInappTitle={(tenantTemplate?.inapp_title as string | null) ?? platformConfig.inappTitle ?? ""}
-          initialInappBody={(tenantTemplate?.inapp_body as string | null) ?? platformConfig.inappBody ?? ""}
+          initialSubject={
+            (tenantTemplate?.subject as string | null) ?? platformConfig.subject ?? ""
+          }
+          initialBodyHtml={
+            (tenantTemplate?.body_html as string | null) ??
+            platformConfig.bodyHtml ??
+            ""
+          }
+          initialPushTitle={
+            (tenantTemplate?.push_title as string | null) ??
+            platformConfig.pushTitle ??
+            ""
+          }
+          initialPushBody={
+            (tenantTemplate?.push_body as string | null) ??
+            platformConfig.pushBody ??
+            ""
+          }
+          initialInappTitle={
+            (tenantTemplate?.inapp_title as string | null) ??
+            platformConfig.inappTitle ??
+            ""
+          }
+          initialInappBody={
+            (tenantTemplate?.inapp_body as string | null) ??
+            platformConfig.inappBody ??
+            ""
+          }
           shortcodes={shortcodes}
           brandingHtml={brandingHtml}
           cancelHref="/backoffice/instellingen/notificaties"

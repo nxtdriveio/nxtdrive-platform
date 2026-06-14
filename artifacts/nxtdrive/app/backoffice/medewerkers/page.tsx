@@ -29,7 +29,7 @@ import {
 } from "@/lib/organization";
 import {
   ENTITLEMENT_STAFF_ROLES,
-  getTenantLimitStatus,
+  loadTenantEntitlementSnapshot,
 } from "@/lib/platform/entitlements";
 import type { MemberRole } from "@/lib/types";
 
@@ -274,11 +274,11 @@ export default async function MedewerkersPage({
   const teamAssignedCount = members.filter(
     (member) => member.team_names.length > 0,
   ).length;
-  const staffLimit = getTenantLimitStatus(
-    organization,
-    { branches: 0, staff_memberships: members.length, custom_domains: 0 },
-    "staff_memberships",
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    organization.id,
   );
+  const staffLimit = entitlementSnapshot.limitStatuses.staff_memberships;
 
   return (
     <div className="space-y-6">
@@ -339,7 +339,7 @@ export default async function MedewerkersPage({
             </p>
             <p className="mt-1 text-xs opacity-80">
               {staffLimit.isOverLimit
-                ? "Deze organisatie gebruikt meer medewerkers dan binnen het huidige plan past. Nieuwe uitnodigingen blijven vergrendeld totdat het plan wordt uitgebreid of het team wordt afgeschaald."
+                ? "Deze organisatie gebruikt meer medewerkers dan binnen het huidige plan past. Nieuwe uitnodigingen blijven vergrendeld, maar je kunt bestaande rollen, teams en branch-scope nog wel aanpassen om gecontroleerd terug te schalen."
                 : "Nieuwe uitnodigingen zijn vergrendeld totdat dit abonnement wordt uitgebreid of bestaande medewerkers worden verwijderd."}
             </p>
             <Link

@@ -14,7 +14,7 @@ import {
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import type { Lesson } from "@/lib/lessons/types";
 import type { Tenant } from "@/lib/types";
@@ -39,6 +39,7 @@ async function loadOwnedLesson(
       userId: string;
       tenantId: string;
       tenant: Tenant;
+      aiAllowed: boolean;
     }
   | string
 > {
@@ -61,7 +62,14 @@ async function loadOwnedLesson(
   if (!isAdmin && lesson.instructor_id !== user.id) {
     return "Niet geautoriseerd voor deze les";
   }
-  return { lesson, userId: user.id, tenantId: tenant.id, tenant };
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  return {
+    lesson,
+    userId: user.id,
+    tenantId: tenant.id,
+    tenant,
+    aiAllowed: snapshot.featureAccess.ai_features.allowed,
+  };
 }
 
 function aiErrorMessage(err: unknown): string {
@@ -90,7 +98,7 @@ export async function generateLessonReportAction(
 
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
-  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+  if (!ctx.aiAllowed) {
     return { error: aiPlanError() };
   }
 
@@ -172,7 +180,7 @@ export async function analyzeProgressAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
-  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+  if (!ctx.aiAllowed) {
     return { error: aiPlanError() };
   }
 
@@ -222,7 +230,7 @@ export async function analyzeInternalAttentionAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
-  if (!tenantHasFeature(ctx.tenant, "ai_features")) {
+  if (!ctx.aiAllowed) {
     return { error: aiPlanError() };
   }
 
@@ -320,7 +328,8 @@ export async function analyzeRetakeAction(
   if (!student) return { error: "Leerling niet gevonden" };
 
   const { organization: tenant } = context;
-  if (!tenantHasFeature(tenant, "ai_features")) {
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.ai_features.allowed) {
     return { error: aiPlanError() };
   }
   await primeAiClientIfNeeded(service);

@@ -18,7 +18,9 @@ import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchiseOverview } from "@/lib/franchise/overview";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { PLAN_LABELS } from "@/lib/platform/features";
 import type { FranchiseeLocation } from "@/lib/franchise/overview";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -147,7 +149,8 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
 }
 
 export default async function FranchiseDashboardPage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
   const [overview, performance, governance] = await Promise.all([
     loadFranchiseOverview(tenant.id),
     loadFranchisePerformanceOverview(tenant.id),
@@ -197,6 +200,12 @@ export default async function FranchiseDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>

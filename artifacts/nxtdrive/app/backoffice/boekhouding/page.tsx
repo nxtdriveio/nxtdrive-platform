@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { AlertTriangle, Download, Receipt, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertTriangle, Download, Lock, Receipt, Wallet } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -16,6 +19,8 @@ import {
   getAccountingOverview,
   defaultAccountingRange,
 } from "@/lib/accounting/overview";
+import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +77,40 @@ function FinanceStatCard({
   );
 }
 
+function ExportLink({
+  href,
+  locked,
+  className,
+  children,
+}: {
+  href: string;
+  locked: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const buttonClassName = `${buttonVariants({ variant: "outline" })}${className ? ` ${className}` : ""}`;
+
+  if (locked) {
+    return (
+      <span
+        aria-disabled="true"
+        className={`${buttonClassName} cursor-not-allowed opacity-55`}
+        title="Exporteren vereist een abonnement met uitgebreide rapportages."
+      >
+        <Lock className="h-4 w-4" aria-hidden />
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={href} prefetch={false} className={buttonClassName}>
+      <Download className="h-4 w-4" aria-hidden />
+      {children}
+    </Link>
+  );
+}
+
 export default async function BoekhoudingPage({
   searchParams,
 }: {
@@ -79,6 +118,13 @@ export default async function BoekhoudingPage({
 }) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const supabase = await createServerSupabaseClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+  const exportAccess = entitlementSnapshot.featureAccess.advanced_reports;
+  const exportsLocked = !exportAccess.allowed;
+  const exportPlanLabel = PLAN_LABELS[exportAccess.requiredPlan];
 
   const params = await searchParams;
   const fallback = defaultAccountingRange();
@@ -169,31 +215,28 @@ export default async function BoekhoudingPage({
             <Button type="submit">Toepassen</Button>
           </form>
           <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-            <Link
-              href={exportFacturen}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              <Download className="h-4 w-4" aria-hidden />
+            <ExportLink href={exportFacturen} locked={exportsLocked}>
               Factuurexport
-            </Link>
-            <Link
-              href={exportBetalingen}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              <Download className="h-4 w-4" aria-hidden />
+            </ExportLink>
+            <ExportLink href={exportBetalingen} locked={exportsLocked}>
               Betalingenexport
-            </Link>
-            <Link
-              href={exportKlanten}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              <Download className="h-4 w-4" aria-hidden />
+            </ExportLink>
+            <ExportLink href={exportKlanten} locked={exportsLocked}>
               Klantenexport
-            </Link>
+            </ExportLink>
           </div>
+          {exportsLocked ? (
+            <Alert variant="warning" className="mt-4">
+              <Lock className="h-4 w-4 shrink-0 text-warning" aria-hidden />
+              <div>
+                <AlertTitle>Exports vallen onder uitgebreide rapportages</AlertTitle>
+                <AlertDescription>
+                  Het boekhoudingsoverzicht blijft beschikbaar, maar CSV-exports
+                  vereisen het {exportPlanLabel}-abonnement.
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -204,18 +247,18 @@ export default async function BoekhoudingPage({
           </CardHeader>
           <CardContent className="space-y-4">
             {oldestOutstanding ? (
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-4">
+              <Alert variant="warning">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">
+                    <AlertTitle>
                       Factuur #{String(oldestOutstanding.invoiceNo).padStart(4, "0")} vraagt opvolging
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    </AlertTitle>
+                    <AlertDescription className="mt-1">
                       {oldestOutstanding.studentName} ·{" "}
                       {oldestOutstanding.dueDate
                         ? `verviel op ${formatYmd(oldestOutstanding.dueDate)}`
                         : "geen vervaldatum ingesteld"}
-                    </p>
+                    </AlertDescription>
                   </div>
                   <Badge variant={DISPLAY_STATUS_VARIANT[oldestOutstanding.display]}>
                     {DISPLAY_STATUS_LABEL[oldestOutstanding.display]}
@@ -229,11 +272,16 @@ export default async function BoekhoudingPage({
                       : "Nog binnen betaaltermijn"}
                   </span>
                 </div>
-              </div>
+              </Alert>
             ) : (
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
-                Geen openstaande opvolgpunten. Alle facturen in deze selectie zijn verwerkt of op tijd.
-              </div>
+              <Alert variant="success">
+                <div>
+                  <AlertTitle>Geen openstaande opvolgpunten</AlertTitle>
+                  <AlertDescription>
+                    Alle facturen in deze selectie zijn verwerkt of op tijd.
+                  </AlertDescription>
+                </div>
+              </Alert>
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -268,32 +316,32 @@ export default async function BoekhoudingPage({
             <CardTitle>Export & vervolgstappen</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Link
+            <ExportLink
               href={exportFacturen}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+              locked={exportsLocked}
+              className="w-full justify-start"
             >
-              <Download className="h-4 w-4" aria-hidden />
               Facturen exporteren
-            </Link>
-            <Link
+            </ExportLink>
+            <ExportLink
               href={exportBetalingen}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+              locked={exportsLocked}
+              className="w-full justify-start"
             >
-              <Download className="h-4 w-4" aria-hidden />
               Betalingen exporteren
-            </Link>
-            <Link
+            </ExportLink>
+            <ExportLink
               href={exportKlanten}
-              prefetch={false}
-              className={buttonVariants({ variant: "outline" }) + " w-full justify-start"}
+              locked={exportsLocked}
+              className="w-full justify-start"
             >
-              <Download className="h-4 w-4" aria-hidden />
               Klanten exporteren
-            </Link>
+            </ExportLink>
             <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              Gebruik deze exports voor boekhouder, reconciliatie of maandafsluiting. Openstaande posten blijven hieronder direct zichtbaar voor opvolging.
+              {exportsLocked
+                ? `Gebruik het ${exportPlanLabel}-abonnement voor boekhouder-, reconciliatie- en maandafsluitingexports.`
+                : "Gebruik deze exports voor boekhouder, reconciliatie of maandafsluiting."}{" "}
+              Openstaande posten blijven hieronder direct zichtbaar voor opvolging.
             </div>
           </CardContent>
         </Card>

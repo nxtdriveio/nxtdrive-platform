@@ -9,11 +9,13 @@ import {
   TrendingUp,
   Workflow,
 } from "lucide-react";
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,8 @@ function StatCard({
 }
 
 export default async function FranchisePlaybookPage() {
-  const { tenant } = await requireFranchiseOperator();
+  const { tenant, franchiseAccess, readOnlyDowngrade } =
+    await requireFranchiseOperator();
   const governance = await loadFranchiseGovernanceOverview(tenant.id);
 
   return (
@@ -89,6 +92,12 @@ export default async function FranchisePlaybookPage() {
           </Link>
         </div>
       </div>
+
+      {readOnlyDowngrade ? (
+        <FranchiseDowngradeAlert
+          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard

@@ -11,6 +11,10 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getAllPlatformNotificationConfigs } from "@/lib/notifications/platform-notification-config";
 import {
+  getTenantFeatureAccess,
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -72,6 +76,15 @@ export default async function TenantNotificationsPage({
   ]);
 
   const service = createServiceRoleClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    tenant.id,
+  );
+  const whiteLabelGate = getTenantFeatureAccess(
+    entitlementSnapshot.tenant,
+    "white_label",
+    { requireEnabledFlag: true },
+  );
 
   const [platformConfigs, { data: tenantTemplates }] = await Promise.all([
     getAllPlatformNotificationConfigs(service),
@@ -82,14 +95,7 @@ export default async function TenantNotificationsPage({
       )
       .eq("tenant_id", tenant.id),
   ]);
-
-  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
-  const isWhiteLabel = isWhiteLabelEligible(
-    tenant as {
-      plan: import("@/lib/types").TenantPlan;
-      white_label_enabled?: boolean | null;
-    },
-  );
+  const isWhiteLabel = whiteLabelGate.allowed;
 
   const savedKey = params.saved ?? null;
   const globallyEnabledConfigs = platformConfigs.filter((c) => c.globallyEnabled);

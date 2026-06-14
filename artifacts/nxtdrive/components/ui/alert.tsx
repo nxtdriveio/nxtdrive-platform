@@ -9,6 +9,8 @@ const alertVariants = cva(
       variant: {
         default: "border-border bg-card text-card-foreground",
         primary: "border-primary/30 bg-primary-soft text-foreground",
+        info:
+          "border-[color-mix(in_oklab,var(--info)_35%,transparent)] bg-[color-mix(in_oklab,var(--info)_12%,transparent)] text-foreground",
         warning:
           "border-[color-mix(in_oklab,var(--warning)_35%,transparent)] bg-[color-mix(in_oklab,var(--warning)_12%,transparent)] text-foreground",
         danger:

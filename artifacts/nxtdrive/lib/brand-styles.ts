@@ -20,9 +20,13 @@ export function brandPrimaryTint(mix = 16): string {
 
 export function brandPrimaryGradient({
   angle = 135,
-  startMix = 76,
-  endColor = "var(--primary)",
+  startMix,
+  endColor = "var(--cta-gradient-end)",
 }: PrimaryGradientOptions = {}): string {
+  if (startMix == null) {
+    return `linear-gradient(${angle}deg, var(--cta-gradient-start), ${endColor})`;
+  }
+
   return `linear-gradient(${angle}deg, color-mix(in oklab, var(--primary) ${startMix}%, white), ${endColor})`;
 }
 
@@ -31,8 +35,12 @@ export function brandPrimaryGlowShadow({
   y = 14,
   blur = 28,
   spread = 0,
-  strength = 32,
+  strength,
 }: PrimaryShadowOptions = {}): string {
+  if (strength == null) {
+    return `${x}px ${y}px ${blur}px ${spread}px var(--cta-shadow-color)`;
+  }
+
   return `${x}px ${y}px ${blur}px ${spread}px color-mix(in oklab, var(--primary) ${strength}%, transparent)`;
 }
 

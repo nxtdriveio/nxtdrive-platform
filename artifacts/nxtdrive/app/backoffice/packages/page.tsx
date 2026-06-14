@@ -1,11 +1,15 @@
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadFranchiseeTemplates } from "@/lib/franchise/templates";
 import { activateFranchiseTemplateAsPackage } from "@/lib/franchise/actions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import {
   formatEuros,
   OFFERING_CATEGORIES,
@@ -29,6 +33,15 @@ export const dynamic = "force-dynamic";
 export default async function PackagesPage() {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const supabase = await createServerSupabaseClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+  const franchiseeTemplateAccess =
+    entitlementSnapshot.featureAccess.franchise_as_franchisee;
+  const franchiseTemplatesLocked = !franchiseeTemplateAccess.allowed;
+  const franchiseTemplatePlanLabel =
+    PLAN_LABELS[franchiseeTemplateAccess.requiredPlan];
 
   // Franchise: load templates available from franchisegever (if this is a franchisee).
   const { templates: franchiseTemplates, activations: franchiseActivations, franchisegever_name } =
@@ -620,6 +633,17 @@ export default async function PackagesPage() {
             Activeer een sjabloon om het als pakket in deze vestiging beschikbaar te stellen.
             Eenmaal geactiveerd is het pakket zichtbaar in de normale pakkettenlijst.
           </p>
+          {franchiseTemplatesLocked ? (
+            <Alert variant="warning">
+              <div>
+                <AlertTitle>Franchise-sjablonen zijn read-only</AlertTitle>
+                <AlertDescription>
+                  Je kunt bestaande sjablonen bekijken, maar activeren vereist
+                  het {franchiseTemplatePlanLabel}-abonnement.
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {franchiseTemplates.map((t) => {
               const activated = franchiseActivations.some(
@@ -650,8 +674,16 @@ export default async function PackagesPage() {
                     {!activated ? (
                       <form action={activateFranchiseTemplateAsPackage} className="mt-3">
                         <input type="hidden" name="template_id" value={t.id} />
-                        <Button type="submit" size="sm" variant="outline" className="w-full text-xs">
-                          Activeren als pakket
+                        <Button
+                          type="submit"
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-xs"
+                          disabled={franchiseTemplatesLocked}
+                        >
+                          {franchiseTemplatesLocked
+                            ? `${franchiseTemplatePlanLabel} vereist`
+                            : "Activeren als pakket"}
                         </Button>
                       </form>
                     ) : (

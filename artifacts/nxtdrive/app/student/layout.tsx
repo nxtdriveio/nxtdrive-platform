@@ -1,15 +1,16 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
 import { homePathForRoles } from "@/lib/auth/role-routing";
+import { getTheme } from "@/lib/theme";
 import {
-  getTenantBranding,
+  getTenantBrandingBundle,
   resolveBrandAppName,
   resolveBrandDescription,
   resolveLogoUrl,
-  resolveThemeColor,
+  resolveThemeColorForMode,
 } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
@@ -22,18 +23,17 @@ import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
 
-async function loadStudentBrandingContext() {
+const loadStudentBrandingContext = cache(async () => {
   const { tenant } = await requireActiveTenant(["student", "parent"]);
-  const branding = await getTenantBranding(tenant.id);
+  const bundle = await getTenantBrandingBundle(tenant.id);
 
   return {
     tenant,
-    branding,
+    bundle,
     brandTitle: resolveBrandAppName(tenant, "student"),
     brandDescription: resolveBrandDescription(tenant, "student"),
-    themeColor: resolveThemeColor(tenant, branding, "#0F172A"),
   };
-}
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandingContext = await loadStudentBrandingContext();
@@ -65,10 +65,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateViewport(): Promise<Viewport> {
-  const brandingContext = await loadStudentBrandingContext();
+  const [brandingContext, theme] = await Promise.all([
+    loadStudentBrandingContext(),
+    getTheme(),
+  ]);
 
   return {
-    themeColor: brandingContext.themeColor,
+    themeColor: resolveThemeColorForMode(
+      brandingContext.tenant,
+      theme,
+      brandingContext.bundle,
+      "#0F172A",
+    ),
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
@@ -94,14 +102,15 @@ export default async function StudentLayout({
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
 
-  const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, branding);
+  const bundle = await getTenantBrandingBundle(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   return (
     <BrandProvider
       tenant={tenant}
-      branding={branding}
+      branding={bundle.branding}
+      themeTokens={bundle.tokens}
       className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground"
     >
       <StudentTopBar

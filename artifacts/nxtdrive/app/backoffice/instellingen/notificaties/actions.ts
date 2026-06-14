@@ -8,6 +8,10 @@ import {
 } from "@/lib/notifications/platform-notification-config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  getTenantFeatureAccess,
+  loadTenantEntitlementTenant,
+} from "@/lib/platform/entitlements";
 
 export async function toggleTenantTrigger(formData: FormData) {
   const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
@@ -28,28 +32,19 @@ export async function toggleTenantTrigger(formData: FormData) {
 
 export async function saveTenantTemplate(formData: FormData) {
   const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+  const service = createServiceRoleClient();
+  const currentTenant = await loadTenantEntitlementTenant(service, tenant.id);
+  const whiteLabelGate = getTenantFeatureAccess(currentTenant, "white_label", {
+    requireEnabledFlag: true,
+  });
 
-  const { isWhiteLabelEligible } = await import("@/lib/platform/features");
-  const { data: tenantRow } = await createServiceRoleClient()
-    .from("tenants")
-    .select("plan, white_label_enabled")
-    .eq("id", tenant.id)
-    .maybeSingle();
-
-  if (
-    !isWhiteLabelEligible({
-      plan: (tenantRow?.plan as "start" | "pro" | "elite" | undefined) ?? "start",
-      white_label_enabled: tenantRow?.white_label_enabled as boolean | null | undefined,
-    })
-  ) {
+  if (!whiteLabelGate.allowed) {
     throw new Error("Aanpassen van e-mailtemplates vereist het Elite-abonnement met white-label ingeschakeld.");
   }
 
   const eventKey = formData.get("event_key") as string;
   const channel = formData.get("channel") as string;
   if (!eventKey || !channel) throw new Error("event_key en channel zijn verplicht");
-
-  const service = createServiceRoleClient();
 
   const template: Record<string, string | null> = {};
   if (channel === "email") {
