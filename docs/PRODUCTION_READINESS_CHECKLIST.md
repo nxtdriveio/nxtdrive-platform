@@ -85,7 +85,6 @@ This is useful progress, but it is not yet the full performance or production ha
   backoffice shells to improve perceived navigation speed,
 - `docs/PRODUCTION_RUNBOOK.md` now documents deploy verification, smoke tests,
   incident triage, rollback and the initial performance budget.
-
 ## Hard Go-Live Requirements
 
 These are the items that should be completed before production rollout is treated as stable.
