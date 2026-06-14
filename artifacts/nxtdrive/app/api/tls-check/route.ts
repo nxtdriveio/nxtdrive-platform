@@ -5,6 +5,16 @@ import { isPlatformHost, normalizeHostname } from "@/lib/tenant/domains";
 
 export const dynamic = "force-dynamic";
 
+function tlsResponse(body: string, status: number): NextResponse {
+  return new NextResponse(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 /**
  * Caddy on-demand-TLS "ask" endpoint.
  *
@@ -21,12 +31,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const host = normalizeHostname(req.nextUrl.searchParams.get("domain") ?? "");
   if (!host) {
-    return new NextResponse("invalid domain", { status: 400 });
+    return tlsResponse("invalid domain", 400);
   }
 
   // Wildcard cert already covers *.nxtdrive.io — never issue on-demand for it.
   if (isPlatformHost(host)) {
-    return new NextResponse("managed by wildcard", { status: 403 });
+    return tlsResponse("managed by wildcard", 403);
   }
 
   const service = createServiceRoleClient();
@@ -39,10 +49,10 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     // Fail closed: do not authorise a cert when the lookup failed.
-    return new NextResponse("lookup failed", { status: 503 });
+    return tlsResponse("lookup failed", 503);
   }
 
   return data
-    ? new NextResponse("ok", { status: 200 })
-    : new NextResponse("unknown host", { status: 404 });
+    ? tlsResponse("ok", 200)
+    : tlsResponse("unknown host", 404);
 }
