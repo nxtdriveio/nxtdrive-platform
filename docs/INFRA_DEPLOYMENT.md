@@ -61,6 +61,18 @@ takes the live site down — `current/` only moves after a successful build.
 `GET /api/health` → `200 {"status":"ok",...}`. No auth, no DB; it only proves
 the Node process is up and serving. Used by the deploy/rollback health gate.
 
+`GET /api/health/ready` is the readiness endpoint. It validates required runtime
+environment variables and a lightweight Supabase service-role database read. Use
+this for external uptime/readiness monitoring and manual release verification,
+not for the fast systemd restart gate.
+
+Production smoke checks:
+
+```bash
+SMOKE_BASE_URL=https://app.nxtdrive.io \
+  pnpm --filter @workspace/scripts run smoke:production
+```
+
 ---
 
 ## 2. Rollback
@@ -167,7 +179,8 @@ See `infra/README.md` for the `bootstrap.sh` quick start. Summary:
   cloud firewall (preferred) and/or tighten the UFW rule.
 - **Cloudflare proxied mode** — once certs are issued, optionally enable the
   orange cloud for WAF/DDoS in front of Caddy.
-- **Off-box log shipping / uptime monitoring** — external probe on `/api/health`.
+- **Off-box log shipping / uptime monitoring** — external probe on
+  `/api/health` plus readiness probe on `/api/health/ready`.
 
 ---
 

@@ -62,6 +62,30 @@ This is useful progress, but it is not yet the full performance or production ha
   franchise networks and commercial exports,
 - direct CSV export routes now enforce advanced-reporting access server-side.
 
+### Live readiness foundation
+
+- auth cookies now default to 90 days and can be tuned with
+  `NXTDRIVE_SESSION_MAX_AGE_DAYS`,
+- middleware auth refresh is limited to protected app routes instead of almost
+  every request,
+- protected app responses get baseline security headers from the Next layer in
+  addition to the reverse proxy,
+- PWA manifests are cacheable with host-aware `Vary` headers for white-label
+  safety,
+- the Caddy TLS ask endpoint now returns explicit no-store, nosniff responses,
+- Next package import optimization is enabled for icon/chart-heavy surfaces.
+
+### Monitoring, smoke and runbook foundation
+
+- `/api/health/ready` now checks required runtime secrets and a lightweight
+  Supabase service-role database read,
+- a production smoke runner validates health, readiness, PWA manifests, login
+  page rendering and optional student/instructor login flows,
+- route-level loading states were added for the student, instructor and
+  backoffice shells to improve perceived navigation speed,
+- `docs/PRODUCTION_RUNBOOK.md` now documents deploy verification, smoke tests,
+  incident triage, rollback and the initial performance budget.
+
 ## Hard Go-Live Requirements
 
 These are the items that should be completed before production rollout is treated as stable.
@@ -84,9 +108,9 @@ Without this, plan behavior remains partially implicit and commercial scope can 
 
 Required:
 
-- reduce unnecessary `force-dynamic` usage,
+- continue reducing unnecessary `force-dynamic` usage,
 - add route-level loading states and skeletons for the heaviest surfaces,
-- audit repeated bootstrap queries across layouts and dashboards,
+- keep auditing repeated bootstrap queries across layouts and dashboards,
 - shrink obvious bundle outliers such as `/account/wachtwoord-wijzigen`,
 - review expensive pages for server-render cost and over-invalidation,
 - measure cold and warm navigation on student / instructor / backoffice.
