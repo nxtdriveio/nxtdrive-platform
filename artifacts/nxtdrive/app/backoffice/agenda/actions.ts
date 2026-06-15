@@ -16,6 +16,12 @@ import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
+import {
   notifyLessonRefillInvitation,
   notifyExamInvitation,
   notifyLessonCancelled,
@@ -31,6 +37,45 @@ async function instructorCanServeBranch(
     branchIds: branchId ? [branchId] : null,
   });
   return instructors.some((instructor) => instructor.id === instructorId);
+}
+
+type PlanningContext = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+
+function actorForPlanningContext(
+  context: PlanningContext["context"],
+  branchScope: PlanningContext["branchScope"],
+): PlanningActorAccess {
+  const tenantId = context.organization.id;
+  const canManageTenant =
+    Boolean(context.user.profile?.is_platform_admin) ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  return {
+    userId: context.user.id,
+    roles: context.roles,
+    isPlatformAdmin: Boolean(context.user.profile?.is_platform_admin),
+    tenantIds: canManageTenant ? [tenantId] : [],
+    branchAccess: [
+      {
+        tenantId,
+        branchIds:
+          branchScope.scope_type === "all" ? "all" : branchScope.branch_ids,
+      },
+    ],
+  };
+}
+
+function scopeForTenantBranch(
+  tenantId: string,
+  branchId: string | null | undefined,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningMessage(blockingReasons: readonly { message: string }[]): string {
+  return blockingReasons[0]?.message ?? "Deze planning past niet binnen de regels.";
 }
 
 export async function scheduleLesson(formData: FormData) {
@@ -113,6 +158,33 @@ export async function scheduleLesson(formData: FormData) {
     ))
   ) {
     redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const planningInput = {
+    actor: actorForPlanningContext(context, studentAccess.branchScope),
+    scope: scopeForTenantBranch(
+      context.organization.id,
+      studentAccess.student.branch_id,
+    ),
+    entityType: "lesson" as const,
+    entityId: null,
+    tenantId: context.organization.id,
+    branchId: studentAccess.student.branch_id,
+    instructorId,
+    vehicleId: null,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: null,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningMessage(validation.blockingReasons),
+      )}`,
+    );
   }
 
   const { data: lessonId, error } = await service.rpc("schedule_lesson", {
