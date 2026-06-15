@@ -59,6 +59,7 @@ export type Lesson = {
   // staat NIET hier maar in lesson_internal (staff-only).
   vehicle_id: string | null;
   location_id: string | null;
+  pickup_service_area_id: string | null;
   student_note: string | null;
   attention_points: string | null;
   advice: string | null;

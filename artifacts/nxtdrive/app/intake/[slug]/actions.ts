@@ -9,6 +9,11 @@ import {
   notifyTrialLessonReceived,
   notifyIntakeReceived,
 } from "@/lib/notifications/dispatch";
+import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningCandidateInput,
+} from "@/lib/planning-core";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -66,6 +71,14 @@ function oneOf<T extends string>(
   return typeof value === "string" && (allowed as readonly string[]).includes(value)
     ? (value as T)
     : null;
+}
+
+function intakeRequiredTransmission(
+  value: IntakeTransmission | null,
+): PlanningCandidateInput["requiredTransmission"] {
+  if (value === "manual") return "schakel";
+  if (value === "automatic") return "automaat";
+  return null;
 }
 
 /** A required date (yyyy-mm-dd) or null if absent; throws via err on invalid. */
@@ -367,7 +380,7 @@ export async function chooseTrialLesson(formData: FormData) {
 
   const { data: lead } = await service
     .from("leads")
-    .select("id")
+    .select("id, branch_id, preferred_transmission")
     .eq("id", leadId)
     .eq("tenant_id", tenant.id)
     .maybeSingle();
@@ -379,6 +392,42 @@ export async function chooseTrialLesson(formData: FormData) {
   });
   if (!valid) {
     // Slot no longer free / invalid — bounce back so a new set is shown.
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
+  const planningInput: PlanningCandidateInput = {
+    actor: {
+      userId: "public-intake",
+      roles: [],
+      tenantIds: [tenant.id],
+      branchAccess: [
+        {
+          tenantId: tenant.id,
+          branchIds: lead.branch_id ? [lead.branch_id as string] : "all",
+        },
+      ],
+    },
+    scope: lead.branch_id
+      ? { type: "branch", tenantId: tenant.id, branchId: lead.branch_id as string }
+      : { type: "tenant", tenantId: tenant.id },
+    entityType: "trial_lesson",
+    entityId: null,
+    tenantId: tenant.id,
+    branchId: (lead.branch_id as string | null) ?? null,
+    instructorId: valid.instructorId,
+    vehicleId: null,
+    startAt: new Date(valid.startsAt),
+    endAt: new Date(valid.endsAt),
+    pickupServiceAreaId: null,
+    requiredTransmission: intakeRequiredTransmission(
+      (lead.preferred_transmission as IntakeTransmission | null) ?? null,
+    ),
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
     redirect(
       `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
     );

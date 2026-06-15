@@ -18,6 +18,12 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
+import {
   AGENDA_APPOINTMENT_TYPES,
   AGENDA_APPOINTMENT_RESULTS,
   isStudentLinkedType,
@@ -67,6 +73,45 @@ function canManageAgendaBranch(
     rolesGrantPermission(context.roles, "planning:manage") &&
     canAccessBranch(branchScope, branchId)
   );
+}
+
+function agendaPlanningActor(
+  context: AuthorizedOrganizationContext,
+  branchScope: BranchAccessScope,
+): PlanningActorAccess {
+  const tenantId = context.organization.id;
+  const canManageTenant =
+    Boolean(context.user.profile?.is_platform_admin) ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  return {
+    userId: context.user.id,
+    roles: context.roles,
+    isPlatformAdmin: Boolean(context.user.profile?.is_platform_admin),
+    tenantIds: canManageTenant ? [tenantId] : [],
+    branchAccess: [
+      {
+        tenantId,
+        branchIds:
+          branchScope.scope_type === "all" ? "all" : branchScope.branch_ids,
+      },
+    ],
+  };
+}
+
+function agendaPlanningScope(
+  tenantId: string,
+  branchId: string | null,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningValidationMessage(
+  blockingReasons: readonly { message: string }[],
+): string {
+  return blockingReasons[0]?.message ?? "Deze afspraak past niet in de planning.";
 }
 
 async function instructorCanServeBranch(
@@ -154,6 +199,30 @@ export async function createAppointment(formData: FormData) {
     ))
   ) {
     redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const planningInput = {
+    actor: agendaPlanningActor(context, branchScope),
+    scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: null,
+    tenantId: context.organization.id,
+    branchId: appointmentBranchId,
+    instructorId,
+    vehicleId: null,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: null,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningValidationMessage(validation.blockingReasons),
+      )}`,
+    );
   }
 
   const { data: newId, error } = await service.rpc("create_agenda_appointment", {
@@ -298,6 +367,30 @@ export async function updateAppointment(formData: FormData) {
     ))
   ) {
     redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const planningInput = {
+    actor: agendaPlanningActor(context, branchScope),
+    scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: appointmentId,
+    tenantId: context.organization.id,
+    branchId: appointmentBranchId,
+    instructorId: appointmentAccess.appointment.instructor_id,
+    vehicleId: appointmentAccess.appointment.vehicle_id,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: appointmentAccess.appointment.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningValidationMessage(validation.blockingReasons),
+      )}`,
+    );
   }
 
   const { error } = await service.rpc("update_agenda_appointment", {

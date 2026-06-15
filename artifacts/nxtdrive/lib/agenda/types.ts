@@ -132,6 +132,9 @@ export type AgendaAppointment = {
   location: string | null;
   notes: string | null;
   color_override: string | null;
+  vehicle_id: string | null;
+  location_id: string | null;
+  pickup_service_area_id: string | null;
   result: AgendaAppointmentResult | null;
   result_note: string | null;
   result_recorded_at: string | null;

@@ -7,6 +7,11 @@ import {
   loadCancellationPolicy,
   DEFAULT_CANCELLATION_POLICY,
 } from "@/lib/lessons/cancellation-policy";
+import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+} from "@/lib/planning-core";
 import type { Lesson } from "@/lib/lessons/types";
 
 /**
@@ -151,6 +156,43 @@ export async function rescheduleLesson(
   // Capture the OLD start time before the RPC overwrites the row — the
   // notification needs the previous moment, which is gone after the update.
   const previousStartsAt = lesson.starts_at;
+  const oldStart = new Date(lesson.starts_at);
+  const oldEnd = new Date(lesson.ends_at);
+  const durationMs = oldEnd.getTime() - oldStart.getTime();
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return { error: "De oorspronkelijke lesduur is ongeldig." };
+  }
+  const newEnds = new Date(newStarts.getTime() + durationMs);
+  const planningActor: PlanningActorAccess = {
+    userId: user.id,
+    roles,
+    tenantIds: [],
+    branchAccess: [{ tenantId: tenant.id, branchIds: "all" }],
+  };
+  const planningInput = {
+    actor: planningActor,
+    scope: lesson.branch_id
+      ? { type: "branch" as const, tenantId: tenant.id, branchId: lesson.branch_id }
+      : { type: "tenant" as const, tenantId: tenant.id },
+    entityType: "lesson" as const,
+    entityId: lessonId,
+    tenantId: tenant.id,
+    branchId: lesson.branch_id,
+    instructorId: lesson.instructor_id,
+    vehicleId: lesson.vehicle_id,
+    startAt: newStarts,
+    endAt: newEnds,
+    pickupServiceAreaId: lesson.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    return {
+      error:
+        validation.blockingReasons[0]?.message ??
+        "Dat moment past niet binnen de planning. Kies een ander tijdstip.",
+    };
+  }
 
   const { error } = await service.rpc("student_reschedule_lesson", {
     p_lesson_id: lessonId,

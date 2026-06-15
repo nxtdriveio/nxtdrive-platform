@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+  type PlanningCandidateInput,
+} from "@/lib/planning-core";
+import {
   LEAD_STATUSES,
   LEAD_SOURCES,
   type Lead,
@@ -34,6 +40,7 @@ import {
   generatePackageAdvice,
   type PackageAdvice,
 } from "@/lib/ai/leskaart-advisor";
+import type { MemberRole } from "@/lib/types";
 
 export async function convertLeadToStudent(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -177,6 +184,88 @@ export async function updateStatus(formData: FormData) {
 
 const TRIAL_DURATIONS = [60, 90, 120] as const;
 
+function planningActorForLeadFlow(input: {
+  userId: string;
+  tenantId: string;
+  roles: readonly MemberRole[];
+  isPlatformAdmin?: boolean;
+  branchId?: string | null;
+}): PlanningActorAccess {
+  const canManageTenant =
+    Boolean(input.isPlatformAdmin) ||
+    input.roles.includes("tenant_admin") ||
+    input.roles.includes("franchise_admin");
+  return {
+    userId: input.userId,
+    roles: input.roles,
+    isPlatformAdmin: Boolean(input.isPlatformAdmin),
+    tenantIds: canManageTenant ? [input.tenantId] : [],
+    branchAccess: [
+      {
+        tenantId: input.tenantId,
+        branchIds: canManageTenant
+          ? "all"
+          : input.branchId
+            ? [input.branchId]
+            : "all",
+      },
+    ],
+  };
+}
+
+function trialRequiredTransmission(
+  value: Lead["preferred_transmission"],
+): PlanningCandidateInput["requiredTransmission"] {
+  if (value === "manual") return "schakel";
+  if (value === "automatic") return "automaat";
+  return null;
+}
+
+function planningBlockMessage(
+  reasons: readonly { message: string }[],
+): string {
+  return reasons[0]?.message ?? "Dit proeflesmoment past niet binnen de planning.";
+}
+
+async function validateTrialPlanning(input: {
+  userId: string;
+  roles: readonly MemberRole[];
+  isPlatformAdmin?: boolean;
+  lead: Lead;
+  instructorId: string;
+  startsAt: Date;
+  durationMin: number;
+  trialId?: string | null;
+}): Promise<string | null> {
+  const endsAt = new Date(input.startsAt.getTime() + input.durationMin * 60000);
+  const service = createServiceRoleClient();
+  const planningInput: PlanningCandidateInput = {
+    actor: planningActorForLeadFlow({
+      userId: input.userId,
+      tenantId: input.lead.tenant_id,
+      roles: input.roles,
+      isPlatformAdmin: input.isPlatformAdmin,
+      branchId: input.lead.branch_id,
+    }),
+    scope: input.lead.branch_id
+      ? { type: "branch", tenantId: input.lead.tenant_id, branchId: input.lead.branch_id }
+      : { type: "tenant", tenantId: input.lead.tenant_id },
+    entityType: "trial_lesson",
+    entityId: input.trialId ?? null,
+    tenantId: input.lead.tenant_id,
+    branchId: input.lead.branch_id,
+    instructorId: input.instructorId,
+    vehicleId: null,
+    startAt: input.startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: null,
+    requiredTransmission: trialRequiredTransmission(input.lead.preferred_transmission),
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  return validation.allowed ? null : planningBlockMessage(validation.blockingReasons);
+}
+
 export async function confirmTrialLesson(formData: FormData) {
   const { user, tenant } = await requireActiveTenant([
     "tenant_admin",
@@ -222,7 +311,7 @@ export async function confirmTrialLesson(formData: FormData) {
  * still confirms via the normal trial flow. Service role (mutation).
  */
 export async function bookTrialAtSlot(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant([
+  const { user, tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
   ]);
@@ -275,6 +364,19 @@ export async function bookTrialAtSlot(formData: FormData) {
     .maybeSingle();
   if (activeTrial) {
     redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  const planningError = await validateTrialPlanning({
+    userId: user.id,
+    roles,
+    isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+    lead,
+    instructorId,
+    startsAt: new Date(startMs),
+    durationMin,
+  });
+  if (planningError) {
+    redirect(`/backoffice/leads/${leadId}?trial=${encodeURIComponent(planningError)}`);
   }
 
   const { error } = await service.rpc("book_trial_lesson", {
@@ -331,7 +433,7 @@ export async function rejectTrialLesson(formData: FormData) {
 }
 
 export async function rescheduleTrialLesson(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant([
+  const { user, tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
   ]);
@@ -357,6 +459,29 @@ export async function rescheduleTrialLesson(formData: FormData) {
   const service = createServiceRoleClient();
   const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
   if (!lead) redirect("/backoffice/leads");
+
+  const { data: trialRaw } = await service
+    .from("trial_lessons")
+    .select("id, instructor_id")
+    .eq("id", trialId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  const trial = trialRaw as { id: string; instructor_id: string } | null;
+  if (!trial) redirect(`/backoffice/leads/${leadId}?trial=error`);
+
+  const planningError = await validateTrialPlanning({
+    userId: user.id,
+    roles,
+    isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+    lead,
+    instructorId: trial.instructor_id,
+    startsAt,
+    durationMin: duration,
+    trialId,
+  });
+  if (planningError) {
+    redirect(`/backoffice/leads/${leadId}?trial=${encodeURIComponent(planningError)}`);
+  }
 
   const { error } = await service.rpc("reschedule_trial_lesson", {
     p_trial_id: trialId,
