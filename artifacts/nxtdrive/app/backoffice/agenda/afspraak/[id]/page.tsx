@@ -3,7 +3,7 @@ import { ChevronLeft, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
-import { listBranches } from "@/lib/branches/service";
+import { listBranches, type Branch } from "@/lib/branches/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,19 +77,35 @@ export default async function EditAppointmentPage({
       ? await loadTenantInstructors(tenant.id)
       : undefined;
 
-  const [allBranches, vehicles] = canEditAppointment
-    ? await Promise.all([
-        listBranches(service, tenant.id),
-        loadVehicles(service, tenant.id, {
-          branchIds:
-            branchScope.scope_type === "branches"
-              ? branchScope.branch_ids
-              : null,
-          includeShared: true,
-          activeOnly: true,
-        }),
-      ])
-    : [[], []];
+  let serviceAreasQuery = service
+    .from("service_areas")
+    .select("id, name, branch_id")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (branchScope.scope_type === "branches") {
+    serviceAreasQuery = serviceAreasQuery.or(
+      `branch_id.is.null,branch_id.in.(${branchScope.branch_ids.join(",")})`,
+    );
+  }
+
+  const allBranches: Branch[] = canEditAppointment
+    ? await listBranches(service, tenant.id)
+    : [];
+  const vehicles = canEditAppointment
+    ? await loadVehicles(service, tenant.id, {
+        branchIds:
+          branchScope.scope_type === "branches" ? branchScope.branch_ids : null,
+        includeShared: true,
+        activeOnly: true,
+      })
+    : [];
+  const serviceAreasRes = canEditAppointment
+    ? await serviceAreasQuery
+    : { data: [], error: null };
+  if (serviceAreasRes.error) {
+    throw new Error(`Rayons laden mislukt: ${serviceAreasRes.error.message}`);
+  }
   const branches =
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
@@ -270,11 +286,13 @@ export default async function EditAppointmentPage({
               }
               students={students}
               vehicles={vehicles}
+              serviceAreas={serviceAreasRes.data ?? []}
               defaults={{
                 type: appt.type,
                 branchId: appt.branch_id ?? appointmentBranchId,
                 instructorId: appt.instructor_id,
                 vehicleId: appt.vehicle_id,
+                pickupServiceAreaId: appt.pickup_service_area_id,
                 studentId: appt.student_id,
                 date: appt.starts_at.slice(0, 10),
                 time: appt.starts_at.slice(11, 16),

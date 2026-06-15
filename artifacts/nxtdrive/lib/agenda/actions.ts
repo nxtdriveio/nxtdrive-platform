@@ -164,6 +164,8 @@ export async function createAppointment(formData: FormData) {
     .trim()
     .slice(0, 1000);
   const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const pickupServiceAreaId =
+    String(formData.get("pickup_service_area_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
@@ -230,7 +232,7 @@ export async function createAppointment(formData: FormData) {
     vehicleId,
     startAt: startsAt,
     endAt: endsAt,
-    pickupServiceAreaId: null,
+    pickupServiceAreaId,
   };
   const kernelData = await loadPlanningKernelData(service, planningInput);
   const validation = await getPlanningPreview(planningInput, kernelData);
@@ -257,6 +259,7 @@ export async function createAppointment(formData: FormData) {
       p_location: location || null,
       p_notes: notes || null,
       p_vehicle_id: vehicleId,
+      p_pickup_service_area_id: pickupServiceAreaId,
     },
   );
   if (error) {
@@ -343,6 +346,8 @@ export async function updateAppointment(formData: FormData) {
     .trim()
     .slice(0, 1000);
   const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const pickupServiceAreaId =
+    String(formData.get("pickup_service_area_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
@@ -411,7 +416,7 @@ export async function updateAppointment(formData: FormData) {
     vehicleId,
     startAt: startsAt,
     endAt: endsAt,
-    pickupServiceAreaId: appointmentAccess.appointment.pickup_service_area_id,
+    pickupServiceAreaId,
   };
   const kernelData = await loadPlanningKernelData(service, planningInput);
   const validation = await getPlanningPreview(planningInput, kernelData);
@@ -435,6 +440,7 @@ export async function updateAppointment(formData: FormData) {
     p_location: location || null,
     p_notes: notes || null,
     p_vehicle_id: vehicleId,
+    p_pickup_service_area_id: pickupServiceAreaId,
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);

@@ -46,9 +46,11 @@ export type PlanningReasonCode =
   | "INSTRUCTOR_HAS_OVERLAP"
   | "INSUFFICIENT_TRAVEL_TIME_BEFORE"
   | "INSUFFICIENT_TRAVEL_TIME_AFTER"
+  | "UNKNOWN_SERVICE_AREA_TRAVEL_TIME"
   | "OUTSIDE_INSTRUCTOR_SERVICE_AREA"
   | "MISSING_REQUIRED_CAPABILITY"
   | "MISSING_REQUIRED_VEHICLE_CAPABILITY"
+  | "PREFERRED_CAPABILITY_MISSING"
   | "VEHICLE_NOT_FOUND"
   | "VEHICLE_UNAVAILABLE"
   | "VEHICLE_APK_EXPIRED"
@@ -82,6 +84,7 @@ export type PlanningCandidateInput = {
   entityId?: string | null;
   tenantId: string;
   branchId?: string | null;
+  studentId?: string | null;
   instructorId: string;
   vehicleId?: string | null;
   startAt: string | Date;
@@ -91,6 +94,9 @@ export type PlanningCandidateInput = {
   requiredInstructorCapabilityIds?: readonly string[];
   preferredInstructorCapabilityIds?: readonly string[];
   requiredVehicleCapabilityIds?: readonly string[];
+  preferredVehicleCapabilityIds?: readonly string[];
+  studentRequirementCapabilityIds?: readonly string[];
+  preferredCapabilityIds?: readonly string[];
 };
 
 export type PlanningBusyInterval = {
@@ -148,11 +154,18 @@ export type PlanningSettings = {
   defaultTravelBufferMinutes?: number;
   sameAreaTravelMinutes?: number;
   differentAreaTravelMinutes?: number;
+  unknownTravelTimePolicy?: "fallback_warning" | "fallback_silent";
 };
 
 export type PlanningKernelData = {
   instructor: PlanningInstructorData | null;
   vehicle?: PlanningVehicleData | null;
+  requirements?: {
+    requiredInstructorCapabilityIds?: readonly string[];
+    preferredInstructorCapabilityIds?: readonly string[];
+    requiredVehicleCapabilityIds?: readonly string[];
+    preferredVehicleCapabilityIds?: readonly string[];
+  };
   busyIntervals?: readonly PlanningBusyInterval[];
   serviceAreaTravelMatrix?: readonly PlanningTravelMatrixEntry[];
   settings?: PlanningSettings;
