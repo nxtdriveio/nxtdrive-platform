@@ -8,12 +8,14 @@
 import { chromium, type Browser, type Page } from "playwright";
 
 type SmokeResult = "OK" | "SKIP" | "FAIL";
+type BrowserMode = "required" | "off";
 
 const baseUrl = normalizeBaseUrl(process.env["SMOKE_BASE_URL"] ?? "http://127.0.0.1:5001");
 const timeoutMs = Number(process.env["SMOKE_TIMEOUT_MS"] ?? "15000");
 const allowDegradedReady = process.env["SMOKE_ALLOW_DEGRADED_READY"] === "1";
 const tenantHost = normalizeOptionalUrl(process.env["SMOKE_TENANT_HOST"]);
 const customDomainHost = normalizeOptionalUrl(process.env["SMOKE_CUSTOM_DOMAIN_HOST"]);
+const browserMode = normalizeBrowserMode(process.env["SMOKE_BROWSER_MODE"]);
 
 const studentEmail = process.env["SMOKE_STUDENT_EMAIL"];
 const studentPassword = process.env["SMOKE_STUDENT_PASSWORD"];
@@ -29,6 +31,11 @@ function normalizeBaseUrl(value: string): string {
 function normalizeOptionalUrl(value: string | undefined): string | null {
   if (!value) return null;
   return normalizeBaseUrl(value);
+}
+
+function normalizeBrowserMode(value: string | undefined): BrowserMode {
+  if ((value ?? "").toLowerCase() === "off") return "off";
+  return "required";
 }
 
 function url(path: string): string {
@@ -145,6 +152,29 @@ async function checkLoginPage(page: Page): Promise<void> {
   record("OK", "GET /login browser", "login form rendered");
 }
 
+async function checkLoginPageHttp(path: string, label: string, base = baseUrl): Promise<void> {
+  const response = await fetch(`${base}${path}`, {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "nxtdrive-smoke/1.0",
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (response.status !== 200) {
+    record("FAIL", label, `expected 200, got ${response.status}`);
+    return;
+  }
+
+  const body = await response.text();
+  if (!body.includes('type="email"') || !body.includes('type="password"')) {
+    record("FAIL", label, "email/password fields not found in html");
+    return;
+  }
+
+  record("OK", label, `${base}${path}`);
+}
+
 async function checkHostedLoginPage(
   browser: Browser,
   label: string,
@@ -177,6 +207,15 @@ async function checkHostedLoginPage(
   } finally {
     await page.close();
   }
+}
+
+async function checkHostedLoginPageHttp(label: string, targetBaseUrl: string | null): Promise<void> {
+  if (!targetBaseUrl) {
+    record("SKIP", label, "host not configured");
+    return;
+  }
+
+  await checkLoginPageHttp("/login", label, targetBaseUrl);
 }
 
 async function checkLoginFlow(
@@ -226,18 +265,26 @@ async function main(): Promise<void> {
   await checkManifest("/student/manifest.webmanifest");
   await checkManifest("/instructor/manifest.webmanifest");
 
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage();
-    await checkLoginPage(page);
-    await page.close();
+  if (browserMode === "off") {
+    await checkLoginPageHttp("/login", "GET /login html shell");
+    await checkHostedLoginPageHttp("tenant host login shell", tenantHost);
+    await checkHostedLoginPageHttp("custom domain login shell", customDomainHost);
+    record("SKIP", "student login", "browser mode off");
+    record("SKIP", "instructor login", "browser mode off");
+  } else {
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      await checkLoginPage(page);
+      await page.close();
 
-    await checkHostedLoginPage(browser, "tenant host login shell", tenantHost);
-    await checkHostedLoginPage(browser, "custom domain login shell", customDomainHost);
-    await checkLoginFlow(browser, "student", studentEmail, studentPassword);
-    await checkLoginFlow(browser, "instructor", instructorEmail, instructorPassword);
-  } finally {
-    await browser.close();
+      await checkHostedLoginPage(browser, "tenant host login shell", tenantHost);
+      await checkHostedLoginPage(browser, "custom domain login shell", customDomainHost);
+      await checkLoginFlow(browser, "student", studentEmail, studentPassword);
+      await checkLoginFlow(browser, "instructor", instructorEmail, instructorPassword);
+    } finally {
+      await browser.close();
+    }
   }
 
   console.log("");

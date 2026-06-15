@@ -77,6 +77,7 @@
     "test-entitlement-completion-foundation": "tsx ./src/test-entitlement-completion-foundation.ts",
     "test-live-readiness-foundation": "tsx ./src/test-live-readiness-foundation.ts",
     "test-operations-readiness-foundation": "tsx ./src/test-operations-readiness-foundation.ts",
+    "test-monitoring-alerting-foundation": "tsx ./src/test-monitoring-alerting-foundation.ts",
     "test-e2e-business-flows-foundation": "tsx ./src/test-e2e-business-flows-foundation.ts",
     "test-management-dashboard-foundation": "tsx ./src/test-management-dashboard-foundation.ts",
     "test-app-polish-foundation": "tsx ./src/test-app-polish-foundation.ts",

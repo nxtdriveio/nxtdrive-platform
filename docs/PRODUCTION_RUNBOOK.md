@@ -20,6 +20,10 @@ voor `app.nxtdrive.io` en later exact hetzelfde voor staging.
 Gebruik `/api/health` voor de snelle GitHub deploy health gate.
 Gebruik `/api/health/ready` voor externe monitoring en handmatige release checks.
 
+Deploy workflows draaien nu na restart ook een `Deploy-integrated smoke`-pass
+tegen de live URL. Die gebruikt `SMOKE_BROWSER_MODE=off`, zodat iedere deploy
+ten minste health, readiness, manifests en hosted login shells opnieuw verifieert.
+
 ## Deploy verificatie
 
 Na iedere productie-deploy:
@@ -94,6 +98,19 @@ SMOKE_CUSTOM_DOMAIN_HOST=https://rijschool.example.nl \
 `SMOKE_TENANT_HOST` en `SMOKE_CUSTOM_DOMAIN_HOST` controleren alleen of de
 hosted `/login` shell via HTTPS laadt en de auth-form rendert.
 
+Voor deploy-integrated smoke in GitHub Actions worden dezelfde environment
+host secret names gebruikt:
+
+- `SMOKE_TENANT_HOST`
+- `SMOKE_CUSTOM_DOMAIN_HOST`
+
+De geplande monitor-workflow gebruikt daarnaast ook de browser-login secrets:
+
+- `SMOKE_STUDENT_EMAIL`
+- `SMOKE_STUDENT_PASSWORD`
+- `SMOKE_INSTRUCTOR_EMAIL`
+- `SMOKE_INSTRUCTOR_PASSWORD`
+
 ## E2E business flows
 
 De smoke-runner is bewust licht. Voor echte regressiedekking op de kritieke
@@ -127,11 +144,15 @@ Belangrijk:
   is niet genoeg; zonder het wildcard-certificaat faalt de browser-run met
   `ERR_SSL_PROTOCOL_ERROR`.
 
-Huidige bekende productieblokkade:
+Actuele productiestatus:
 
-- `https://test.nxtdrive.io/login` geeft op dit moment een TLS-handshakefout.
-  Zie `docs/INFRA_ROADMAP.md` voor de verplichte wildcard-Caddy/Cloudflare
-  setup (`infra/Caddyfile.wildcard`, DNS plugin en `CLOUDFLARE_API_TOKEN`).
+- de wildcard subdomain check voor `https://test.nxtdrive.io/login` is nu
+  groen in production;
+- de business-flow suite is groen voor production op login/session reuse, lead
+  -> proefles -> leerling, lesson completion, messaging, branch isolation,
+  white-label subdomain shell en student payments entrypoint;
+- alleen optionele checks blijven afhankelijk van configuratie:
+  `E2E_CUSTOM_DOMAIN_HOST` en `E2E_ENABLE_PAYMENT_REDIRECT=1`.
 
 ## Wildcard TLS enablement op de VPS
 
@@ -176,6 +197,26 @@ Aanbevolen externe tooling:
 - Sentry voor frontend/server exceptions;
 - Supabase logs/advisors voor database en auth;
 - VPS metrics voor CPU, memory, disk en systemd restarts.
+
+## Monitor smoke and alerts
+
+Er draait nu ook een GitHub Actions monitor-workflow:
+
+- workflow: `Monitor smoke and alerts`
+- frequentie: iedere 30 minuten plus handmatige `workflow_dispatch`
+- targets: production en staging
+- uitvoering: browser-smoke met Playwright op GitHub-hosted runners
+
+Alerting gedrag:
+
+- bij een smoke failure opent of update de workflow een GitHub issue:
+  - `[ops] Production smoke monitor failing`
+  - `[ops] Staging smoke monitor failing`
+- zodra de omgeving weer groen is, plaatst dezelfde workflow een herstelcomment
+  en sluit het openstaande alert issue automatisch.
+
+Dit vervangt geen externe uptime tooling of Sentry, maar geeft wel direct
+repo-native alerting op deploy-regressies en publiek bereikbare smoke-fouten.
 
 ## Incident triage
 
@@ -252,6 +293,8 @@ Voor broad production:
 - `pnpm run typecheck` groen;
 - `pnpm --filter @workspace/nxtdrive run build` groen;
 - operations guardrail groen;
+- deploy-integrated smoke groen in de deploy workflow;
+- monitor-workflow groen voor production en staging;
 - smoke-runner groen tegen productie;
 - business-flow E2E groen tegen staging of productie;
 - wildcard/subdomain TLS gevalideerd voor `*.nxtdrive.io` wanneer white-label
