@@ -48,6 +48,12 @@ type BranchFixture = {
   studentAName: string;
   studentBName: string;
 };
+type AuthCookieState = {
+  cookies: Array<{
+    name: string;
+    expires: number;
+  }>;
+};
 
 const DEFAULT_TENANT_ID = "926d29c2-4d77-4ab9-824b-f566725f9ae9";
 
@@ -94,6 +100,40 @@ const createdInvoiceIds: string[] = [];
 const createdLessonIds: string[] = [];
 const createdConversationIds: string[] = [];
 const createdMessageIds: string[] = [];
+
+function assertPersistentSessionCookies(
+  account: Account,
+  storage: AuthCookieState,
+): string {
+  const sessionCookies = storage.cookies.filter((cookie) =>
+    cookie.name.includes("sb-") && cookie.name.includes("auth-token"),
+  );
+
+  if (sessionCookies.length === 0) {
+    throw new Error(`no supabase auth cookies found for ${account.label}`);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const minRetentionSeconds = 60 * 60 * 24 * 30;
+  const expirySeconds = sessionCookies
+    .map((cookie) => cookie.expires)
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (expirySeconds.length === 0) {
+    throw new Error(`session cookies for ${account.label} are not persistent`);
+  }
+
+  const earliestExpiry = Math.min(...expirySeconds);
+  const retentionDays = Math.floor((earliestExpiry - now) / (60 * 60 * 24));
+
+  if (earliestExpiry - now < minRetentionSeconds) {
+    throw new Error(
+      `session cookies for ${account.label} expire too soon (${Math.max(retentionDays, 0)} days)`,
+    );
+  }
+
+  return `${retentionDays} days`;
+}
 
 function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
@@ -206,10 +246,12 @@ async function verifyRoleLogin(browser: Browser, account: Account): Promise<void
     await loginViaUi(page, account);
     const landingUrl = new URL(page.url());
     const storage = await context.storageState();
+    const retention = assertPersistentSessionCookies(account, storage);
     await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     if (!new URL(page.url()).pathname.startsWith(account.expectedPath)) {
       throw new Error(`reload redirected to ${page.url()}`);
     }
+    record("OK", `${account.label} session retention`, retention);
 
     const restored = await browser.newContext({ storageState: storage });
     const restoredPage = await createPage(restored);

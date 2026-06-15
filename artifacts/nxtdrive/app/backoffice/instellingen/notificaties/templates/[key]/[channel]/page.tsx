@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { TemplateEditorClient } from "@/app/admin/notifications/templates/[key]/[channel]/editor-client";
+import { TemplateEditorShell } from "@/app/admin/notifications/templates/[key]/[channel]/editor-shell";
 import { Badge } from "@/components/ui/badge";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getPlatformNotificationConfig } from "@/lib/notifications/platform-notification-config";
@@ -111,7 +111,7 @@ export default async function TenantTemplateEditorPage({
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
-        <TemplateEditorClient
+        <TemplateEditorShell
           eventKey={key}
           channel={channel}
           labelNl={platformConfig.labelNl}

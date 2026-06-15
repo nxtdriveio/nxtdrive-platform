@@ -11,7 +11,7 @@ import { useCallback, useState } from "react";
 import type { ShortcodeDef } from "@/lib/notifications/shortcodes";
 import { Button } from "@/components/ui/button";
 
-type Props = {
+export type TemplateEditorClientProps = {
   eventKey: string;
   channel: string;
   labelNl: string;
@@ -70,7 +70,7 @@ export function TemplateEditorClient({
   brandingHtml,
   cancelHref,
   action,
-}: Props) {
+}: TemplateEditorClientProps) {
   const isEmail = channel === "email";
   const isPush = channel === "push";
   const isInApp = channel === "inapp";

@@ -79,12 +79,14 @@
     "test-operations-readiness-foundation": "tsx ./src/test-operations-readiness-foundation.ts",
     "test-monitoring-alerting-foundation": "tsx ./src/test-monitoring-alerting-foundation.ts",
     "test-e2e-business-flows-foundation": "tsx ./src/test-e2e-business-flows-foundation.ts",
+    "test-performance-livegang-foundation": "tsx ./src/test-performance-livegang-foundation.ts",
     "test-management-dashboard-foundation": "tsx ./src/test-management-dashboard-foundation.ts",
     "test-app-polish-foundation": "tsx ./src/test-app-polish-foundation.ts",
     "test-route-info-bubbles": "tsx ./src/test-route-info-bubbles.ts",
     "test-instructor-ui-polish": "tsx ./src/test-instructor-ui-polish.ts",
     "smoke:production": "tsx ./src/smoke-production.ts",
     "e2e:business-flows": "tsx ./src/e2e-business-flows.ts",
+    "check-route-performance": "tsx ./src/check-route-performance.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -124,6 +124,7 @@ pnpm --filter @workspace/scripts run e2e:business-flows -- --env=production
 De suite dekt:
 
 - tenant admin, instructor en student login + sessieherstel;
+- verificatie van persistente auth cookies / session retention;
 - lead -> proefles -> leerling conversie;
 - les plannen -> starten -> afronden;
 - chat tussen leerling en instructeur;
@@ -150,9 +151,37 @@ Actuele productiestatus:
   groen in production;
 - de business-flow suite is groen voor production op login/session reuse, lead
   -> proefles -> leerling, lesson completion, messaging, branch isolation,
-  white-label subdomain shell en student payments entrypoint;
+  white-label subdomain shell, student payments entrypoint en session retention;
 - alleen optionele checks blijven afhankelijk van configuratie:
   `E2E_CUSTOM_DOMAIN_HOST` en `E2E_ENABLE_PAYMENT_REDIRECT=1`.
+
+## Route performance budgets
+
+Voor livegang moet de routegrootte meetbaar bewaakt blijven. Gebruik daarom:
+
+```bash
+pnpm --filter @workspace/scripts run check-route-performance
+```
+
+Deze budgetcheck draait een production build en bewaakt minimaal:
+
+- `/account/wachtwoord-wijzigen`
+- `/student`
+- `/instructor`
+- `/backoffice`
+- de notification-template editors
+- `First Load JS shared by all`
+- middleware bundle grootte
+
+Actuele winst uit deze pass:
+
+- `/account/wachtwoord-wijzigen` daalde van `570 kB` naar `180 kB` first load
+  door lazy password-strength loading;
+- notification template editors daalden van `256 kB` naar `108 kB` first load
+  door de Tiptap editor pas na interactie in te laden.
+
+Gebruik deze budgetcheck vóór brede productie-livegang en na iedere grotere
+frontend-sprint die student, instructor, admin of backoffice shells raakt.
 
 ## Wildcard TLS enablement op de VPS
 
