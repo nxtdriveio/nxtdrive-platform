@@ -28,19 +28,46 @@ export async function loadVehicles(
   tenantId: string,
   opts: BranchScopedAssetLoadOptions = {},
 ): Promise<Vehicle[]> {
-  if (Array.isArray(opts.branchIds) && opts.branchIds.length === 0 && !opts.includeShared) {
+  if (
+    Array.isArray(opts.branchIds) &&
+    opts.branchIds.length === 0 &&
+    !opts.includeShared
+  ) {
     return [];
   }
 
   let q = client
     .from("vehicles")
     .select(
-      "id, tenant_id, branch_id, label, license_plate, transmission, active, sort_order, created_at, updated_at",
+      [
+        "id",
+        "tenant_id",
+        "branch_id",
+        "label",
+        "license_plate",
+        "brand",
+        "model",
+        "transmission",
+        "vehicle_type",
+        "status",
+        "apk_expires_at",
+        "insurance_expires_at",
+        "current_odometer_km",
+        "default_instructor_id",
+        "notes",
+        "active",
+        "sort_order",
+        "created_at",
+        "updated_at",
+      ].join(", "),
     )
     .eq("tenant_id", tenantId);
   if (opts.activeOnly) q = q.eq("active", true);
   if (Array.isArray(opts.branchIds)) {
-    const filter = branchScopeFilter(opts.branchIds, opts.includeShared === true);
+    const filter = branchScopeFilter(
+      opts.branchIds,
+      opts.includeShared === true,
+    );
     if (filter) {
       q = q.or(filter);
     } else {
@@ -51,9 +78,11 @@ export async function loadVehicles(
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
   if (error) {
-    throw new Error(`vehicles: load failed (tenant=${tenantId}): ${error.message}`);
+    throw new Error(
+      `vehicles: load failed (tenant=${tenantId}): ${error.message}`,
+    );
   }
-  return (data ?? []) as Vehicle[];
+  return (data ?? []) as unknown as Vehicle[];
 }
 
 export async function loadLocations(
@@ -61,7 +90,11 @@ export async function loadLocations(
   tenantId: string,
   opts: BranchScopedAssetLoadOptions = {},
 ): Promise<Location[]> {
-  if (Array.isArray(opts.branchIds) && opts.branchIds.length === 0 && !opts.includeShared) {
+  if (
+    Array.isArray(opts.branchIds) &&
+    opts.branchIds.length === 0 &&
+    !opts.includeShared
+  ) {
     return [];
   }
 
@@ -73,7 +106,10 @@ export async function loadLocations(
     .eq("tenant_id", tenantId);
   if (opts.activeOnly) q = q.eq("active", true);
   if (Array.isArray(opts.branchIds)) {
-    const filter = branchScopeFilter(opts.branchIds, opts.includeShared === true);
+    const filter = branchScopeFilter(
+      opts.branchIds,
+      opts.includeShared === true,
+    );
     if (filter) {
       q = q.or(filter);
     } else {
@@ -84,7 +120,9 @@ export async function loadLocations(
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
   if (error) {
-    throw new Error(`locations: load failed (tenant=${tenantId}): ${error.message}`);
+    throw new Error(
+      `locations: load failed (tenant=${tenantId}): ${error.message}`,
+    );
   }
   return (data ?? []) as Location[];
 }
@@ -121,24 +159,28 @@ export async function loadLessonContext(
   ]);
 
   if (lessonRes.error) {
-    throw new Error(`lesson context: load lesson failed (${ctx}): ${lessonRes.error.message}`);
+    throw new Error(
+      `lesson context: load lesson failed (${ctx}): ${lessonRes.error.message}`,
+    );
   }
   if (internalRes.error) {
-    throw new Error(`lesson context: load internal failed (${ctx}): ${internalRes.error.message}`);
+    throw new Error(
+      `lesson context: load internal failed (${ctx}): ${internalRes.error.message}`,
+    );
   }
   if (topicsRes.error) {
-    throw new Error(`lesson context: load topics failed (${ctx}): ${topicsRes.error.message}`);
+    throw new Error(
+      `lesson context: load topics failed (${ctx}): ${topicsRes.error.message}`,
+    );
   }
 
-  const lesson = lessonRes.data as
-    | {
-        vehicle_id: string | null;
-        location_id: string | null;
-        student_note: string | null;
-        attention_points: string | null;
-        advice: string | null;
-      }
-    | null;
+  const lesson = lessonRes.data as {
+    vehicle_id: string | null;
+    location_id: string | null;
+    student_note: string | null;
+    attention_points: string | null;
+    advice: string | null;
+  } | null;
 
   return {
     vehicleId: lesson?.vehicle_id ?? null,
@@ -147,7 +189,10 @@ export async function loadLessonContext(
     attentionPoints: lesson?.attention_points ?? null,
     advice: lesson?.advice ?? null,
     internalNote:
-      (internalRes.data as { internal_note: string | null } | null)?.internal_note ?? null,
-    topicSkillIds: ((topicsRes.data ?? []) as { skill_id: string }[]).map((r) => r.skill_id),
+      (internalRes.data as { internal_note: string | null } | null)
+        ?.internal_note ?? null,
+    topicSkillIds: ((topicsRes.data ?? []) as { skill_id: string }[]).map(
+      (r) => r.skill_id,
+    ),
   };
 }

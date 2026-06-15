@@ -1,4 +1,7 @@
-import type { AvailabilityException, WeeklyAvailability } from "@/lib/availability/types";
+import type {
+  AvailabilityException,
+  WeeklyAvailability,
+} from "@/lib/availability/types";
 import type { MemberRole } from "@/lib/types";
 
 export type PlanningScope =
@@ -49,10 +52,15 @@ export type PlanningReasonCode =
   | "VEHICLE_NOT_FOUND"
   | "VEHICLE_UNAVAILABLE"
   | "VEHICLE_APK_EXPIRED"
+  | "VEHICLE_APK_EXPIRING_SOON"
   | "VEHICLE_HAS_OVERLAP"
   | "VEHICLE_HAS_BLOCKING_DAMAGE"
-  | "VEHICLE_HAS_BLOCKING_MAINTENANCE"
-  | "TRANSMISSION_MISMATCH";
+  | "VEHICLE_HAS_NON_BLOCKING_DAMAGE"
+  | "VEHICLE_MAINTENANCE_BLOCK"
+  | "VEHICLE_MAINTENANCE_UPCOMING"
+  | "VEHICLE_TRANSMISSION_MISMATCH"
+  | "VEHICLE_OUTSIDE_BRANCH_SCOPE"
+  | "VEHICLE_ODOMETER_STALE";
 
 export type PlanningReason = {
   code: PlanningReasonCode;
@@ -79,7 +87,7 @@ export type PlanningCandidateInput = {
   startAt: string | Date;
   endAt: string | Date;
   pickupServiceAreaId?: string | null;
-  requiredTransmission?: "schakel" | "automaat" | null;
+  requiredTransmission?: "schakel" | "automaat" | "manual" | "automatic" | null;
   requiredInstructorCapabilityIds?: readonly string[];
   preferredInstructorCapabilityIds?: readonly string[];
   requiredVehicleCapabilityIds?: readonly string[];
@@ -109,15 +117,23 @@ export type PlanningVehicleData = {
   id: string;
   tenantId: string;
   branchId?: string | null;
-  transmission?: "schakel" | "automaat" | null;
+  transmission?: "schakel" | "automaat" | "manual" | "automatic" | null;
   status?: "active" | "inactive" | "maintenance" | "damaged" | "sold" | null;
   apkExpiresAt?: string | null;
+  currentOdometerKm?: number | null;
+  latestOdometerRecordedAt?: string | null;
   capabilityIds?: readonly string[];
   hasBlockingDamage?: boolean;
+  nonBlockingDamageCount?: number;
   blockingMaintenanceIntervals?: readonly {
     id: string;
     startsAt: string | Date;
     endsAt: string | Date;
+  }[];
+  upcomingMaintenanceIntervals?: readonly {
+    id: string;
+    startsAt: string | Date;
+    endsAt?: string | Date | null;
   }[];
 };
 

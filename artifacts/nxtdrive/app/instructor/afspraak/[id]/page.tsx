@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { loadVehicles } from "@/lib/lessons/context-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
@@ -54,12 +55,19 @@ export default async function EditInstructorAppointmentPage({
     ? await loadTenantInstructors(tenant.id)
     : undefined;
 
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
+  const [studentsRes, vehicles] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, full_name")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("full_name", { ascending: true }),
+    loadVehicles(supabase, tenant.id, {
+      activeOnly: true,
+      includeShared: true,
+    }),
+  ]);
+  const { data: studentsRaw } = studentsRes;
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
 
   const examSignals = await loadExamSignals(
@@ -117,9 +125,11 @@ export default async function EditInstructorAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            vehicles={vehicles}
             defaults={{
               type: appt!.type,
               instructorId: appt!.instructor_id,
+              vehicleId: appt!.vehicle_id,
               studentId: appt!.student_id,
               date: appt!.starts_at.slice(0, 10),
               time: appt!.starts_at.slice(11, 16),

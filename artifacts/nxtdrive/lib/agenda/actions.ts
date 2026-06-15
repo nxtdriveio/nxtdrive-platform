@@ -36,7 +36,9 @@ import {
 // RPCs as service_role; every write first resolves explicit agenda/student
 // access so service_role never becomes the authorization boundary.
 
-type AgendaContextAccess = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+type AgendaContextAccess = Awaited<
+  ReturnType<typeof requireAgendaAccessContext>
+>;
 type AppointmentCreateAccess = StudentBackofficeAccess | AgendaContextAccess;
 
 function hasStudentAccess(
@@ -45,7 +47,9 @@ function hasStudentAccess(
   return "student" in access;
 }
 
-function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null {
+function parseType(
+  raw: FormDataEntryValue | null,
+): AgendaAppointmentType | null {
   const v = String(raw ?? "");
   return (AGENDA_APPOINTMENT_TYPES as readonly string[]).includes(v)
     ? (v as AgendaAppointmentType)
@@ -57,7 +61,10 @@ function parseBranchId(raw: FormDataEntryValue | null): string | null {
   return v || null;
 }
 
-function safeRedirect(raw: FormDataEntryValue | null, fallback: string): string {
+function safeRedirect(
+  raw: FormDataEntryValue | null,
+  fallback: string,
+): string {
   const v = String(raw ?? "").trim();
   // Only allow internal absolute paths to avoid open-redirects.
   return v.startsWith("/") ? v : fallback;
@@ -111,7 +118,9 @@ function agendaPlanningScope(
 function planningValidationMessage(
   blockingReasons: readonly { message: string }[],
 ): string {
-  return blockingReasons[0]?.message ?? "Deze afspraak past niet in de planning.";
+  return (
+    blockingReasons[0]?.message ?? "Deze afspraak past niet in de planning."
+  );
 }
 
 async function instructorCanServeBranch(
@@ -135,18 +144,26 @@ export async function createAppointment(formData: FormData) {
   const type = parseType(formData.get("type"));
   if (!type) redirect(`${errorTo}?error=type`);
 
-  const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
+  const requestedInstructorId = String(
+    formData.get("instructor_id") ?? "",
+  ).trim();
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = isStudentLinkedType(type) && studentIdRaw
-    ? studentIdRaw
-    : null;
+  const studentId =
+    isStudentLinkedType(type) && studentIdRaw ? studentIdRaw : null;
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const title = String(formData.get("title") ?? "")
+    .trim()
+    .slice(0, 200);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const notes = String(formData.get("notes") ?? "")
+    .trim()
+    .slice(0, 1000);
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
@@ -210,7 +227,7 @@ export async function createAppointment(formData: FormData) {
     tenantId: context.organization.id,
     branchId: appointmentBranchId,
     instructorId,
-    vehicleId: null,
+    vehicleId,
     startAt: startsAt,
     endAt: endsAt,
     pickupServiceAreaId: null,
@@ -225,19 +242,23 @@ export async function createAppointment(formData: FormData) {
     );
   }
 
-  const { data: newId, error } = await service.rpc("create_agenda_appointment", {
-    p_tenant_id: context.organization.id,
-    p_actor: context.user.id,
-    p_instructor_id: instructorId,
-    p_type: type,
-    p_starts_at: startsAt.toISOString(),
-    p_duration_min: duration,
-    p_student_id: studentId,
-    p_branch_id: appointmentBranchId,
-    p_title: title || null,
-    p_location: location || null,
-    p_notes: notes || null,
-  });
+  const { data: newId, error } = await service.rpc(
+    "create_agenda_appointment",
+    {
+      p_tenant_id: context.organization.id,
+      p_actor: context.user.id,
+      p_instructor_id: instructorId,
+      p_type: type,
+      p_starts_at: startsAt.toISOString(),
+      p_duration_min: duration,
+      p_student_id: studentId,
+      p_branch_id: appointmentBranchId,
+      p_title: title || null,
+      p_location: location || null,
+      p_notes: notes || null,
+      p_vehicle_id: vehicleId,
+    },
+  );
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
   }
@@ -245,7 +266,11 @@ export async function createAppointment(formData: FormData) {
   // White-label-aware "exam scheduled" mail to the student. Idempotent per
   // appointment and best-effort; mail failures must never block planning.
   if (studentId && (type === "exam" || type === "interim_test") && newId) {
-    await maybeNotifyExamPlanned(service, context.organization.id, String(newId));
+    await maybeNotifyExamPlanned(
+      service,
+      context.organization.id,
+      String(newId),
+    );
   }
 
   revalidatePath("/backoffice/agenda");
@@ -278,9 +303,8 @@ async function maybeNotifyExamResult(
   appointmentId: string,
 ) {
   try {
-    const { notifyExamResult, maybeFireExamPassedReview } = await import(
-      "@/lib/notifications/dispatch"
-    );
+    const { notifyExamResult, maybeFireExamPassedReview } =
+      await import("@/lib/notifications/dispatch");
     await notifyExamResult(service, tenantId, appointmentId);
     // Task #113 - review request after a passed driving exam. Idempotent per
     // appointment; no-op for failed/TTT or when disabled.
@@ -304,15 +328,21 @@ export async function updateAppointment(formData: FormData) {
   const hasBranchField = formData.has("branch_id");
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = isStudentLinkedType(type) && studentIdRaw
-    ? studentIdRaw
-    : null;
+  const studentId =
+    isStudentLinkedType(type) && studentIdRaw ? studentIdRaw : null;
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const title = String(formData.get("title") ?? "")
+    .trim()
+    .slice(0, 200);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const notes = String(formData.get("notes") ?? "")
+    .trim()
+    .slice(0, 1000);
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
@@ -378,7 +408,7 @@ export async function updateAppointment(formData: FormData) {
     tenantId: context.organization.id,
     branchId: appointmentBranchId,
     instructorId: appointmentAccess.appointment.instructor_id,
-    vehicleId: appointmentAccess.appointment.vehicle_id,
+    vehicleId,
     startAt: startsAt,
     endAt: endsAt,
     pickupServiceAreaId: appointmentAccess.appointment.pickup_service_area_id,
@@ -404,6 +434,7 @@ export async function updateAppointment(formData: FormData) {
     p_title: title || null,
     p_location: location || null,
     p_notes: notes || null,
+    p_vehicle_id: vehicleId,
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
@@ -412,7 +443,11 @@ export async function updateAppointment(formData: FormData) {
   // Idempotent per appointment: later edits never re-send with the same dedupe
   // key, but an appointment made complete by this edit can still notify once.
   if (studentId && (type === "exam" || type === "interim_test")) {
-    await maybeNotifyExamPlanned(service, context.organization.id, appointmentId);
+    await maybeNotifyExamPlanned(
+      service,
+      context.organization.id,
+      appointmentId,
+    );
   }
 
   revalidatePath("/backoffice/agenda");
@@ -475,7 +510,9 @@ export async function setAppointmentResult(formData: FormData) {
 
   const result = parseResult(formData.get("result"));
   if (!result) redirect(`${errorTo}?error=result`);
-  const note = String(formData.get("result_note") ?? "").trim().slice(0, 1000);
+  const note = String(formData.get("result_note") ?? "")
+    .trim()
+    .slice(0, 1000);
 
   const service = createServiceRoleClient();
   const { context, appointment } = await requireAgendaAppointmentAccess(
@@ -542,7 +579,8 @@ export async function setExamAppointmentDetails(formData: FormData) {
         for (const item of parsed) {
           if (!item || typeof item !== "object") continue;
           const r = item as Record<string, unknown>;
-          const code = typeof r.code === "string" ? r.code.trim().slice(0, 60) : "";
+          const code =
+            typeof r.code === "string" ? r.code.trim().slice(0, 60) : "";
           const label =
             typeof r.label === "string" ? r.label.trim().slice(0, 200) : "";
           if (!code || !label) continue;

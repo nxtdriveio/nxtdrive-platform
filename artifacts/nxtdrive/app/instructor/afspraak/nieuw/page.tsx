@@ -4,6 +4,7 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { loadVehicles } from "@/lib/lessons/context-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
@@ -34,12 +35,19 @@ export default async function NewInstructorAppointmentPage({
     ? await loadTenantInstructors(tenant.id)
     : undefined;
 
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
+  const [studentsRes, vehicles] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, full_name")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("full_name", { ascending: true }),
+    loadVehicles(supabase, tenant.id, {
+      activeOnly: true,
+      includeShared: true,
+    }),
+  ]);
+  const { data: studentsRaw } = studentsRes;
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
 
   const now = new Date();
@@ -80,7 +88,9 @@ export default async function NewInstructorAppointmentPage({
               Reguliere les nodig?
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
-              Een gewone rijles kies je niet in deze lijst, omdat dit scherm alleen agenda-afspraken en tijdsblokken beheert. Open daarvoor direct de lesplanner.
+              Een gewone rijles kies je niet in deze lijst, omdat dit scherm
+              alleen agenda-afspraken en tijdsblokken beheert. Open daarvoor
+              direct de lesplanner.
             </p>
           </div>
           <Link
@@ -115,6 +125,7 @@ export default async function NewInstructorAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            vehicles={vehicles}
             defaults={{
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),

@@ -45,6 +45,7 @@ type VehicleRow = {
   transmission: "schakel" | "automaat" | null;
   status: PlanningVehicleData["status"] | null;
   apk_expires_at: string | null;
+  current_odometer_km: number | null;
 };
 
 type BusyRow = {
@@ -58,7 +59,9 @@ type BusyRow = {
 };
 
 function uniq(values: readonly (string | null | undefined)[]): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value))),
+  );
 }
 
 function activeBusy(row: BusyRow): boolean {
@@ -94,7 +97,9 @@ async function selectIds(
   filters: (query: any) => any,
 ): Promise<string[]> {
   const { data } = await filters(client.from(table).select(column));
-  return uniq(((data ?? []) as Record<string, string | null>[]).map((row) => row[column]));
+  return uniq(
+    ((data ?? []) as Record<string, string | null>[]).map((row) => row[column]),
+  );
 }
 
 async function loadVehicleData(
@@ -107,7 +112,9 @@ async function loadVehicleData(
 
   const { data: vehicleRaw } = await client
     .from("vehicles")
-    .select("id, tenant_id, branch_id, transmission, status, apk_expires_at")
+    .select(
+      "id, tenant_id, branch_id, transmission, status, apk_expires_at, current_odometer_km",
+    )
     .eq("id", input.vehicleId)
     .eq("tenant_id", input.tenantId)
     .maybeSingle();
@@ -115,7 +122,15 @@ async function loadVehicleData(
   const vehicle = vehicleRaw as VehicleRow | null;
   if (!vehicle) return null;
 
-  const [capabilityIds, damageRows, maintenanceRows] = await Promise.all([
+  const upcomingMaintenanceCutoff = new Date(end.getTime() + 30 * 86400000);
+  const [
+    capabilityIds,
+    blockingDamageRows,
+    nonBlockingDamageRows,
+    blockingMaintenanceRows,
+    upcomingMaintenanceRows,
+    odometerRows,
+  ] = await Promise.all([
     selectIds(client, "vehicle_capabilities", "capability_id", (query) =>
       query.eq("vehicle_id", input.vehicleId).eq("tenant_id", input.tenantId),
     ),
@@ -127,6 +142,13 @@ async function loadVehicleData(
       .eq("blocks_planning", true)
       .in("status", ["open", "in_review"]),
     client
+      .from("vehicle_damage_reports")
+      .select("id")
+      .eq("vehicle_id", input.vehicleId)
+      .eq("tenant_id", input.tenantId)
+      .eq("blocks_planning", false)
+      .in("status", ["open", "in_review"]),
+    client
       .from("vehicle_maintenance_events")
       .select("id, starts_at, ends_at")
       .eq("vehicle_id", input.vehicleId)
@@ -134,6 +156,23 @@ async function loadVehicleData(
       .eq("blocks_planning", true)
       .lt("starts_at", end.toISOString())
       .gt("ends_at", start.toISOString()),
+    client
+      .from("vehicle_maintenance_events")
+      .select("id, starts_at, ends_at")
+      .eq("vehicle_id", input.vehicleId)
+      .eq("tenant_id", input.tenantId)
+      .eq("status", "planned")
+      .gte("starts_at", end.toISOString())
+      .lte("starts_at", upcomingMaintenanceCutoff.toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(3),
+    client
+      .from("vehicle_odometer_entries")
+      .select("recorded_at")
+      .eq("vehicle_id", input.vehicleId)
+      .eq("tenant_id", input.tenantId)
+      .order("recorded_at", { ascending: false })
+      .limit(1),
   ]);
 
   return {
@@ -143,10 +182,13 @@ async function loadVehicleData(
     transmission: vehicle.transmission,
     status: vehicle.status,
     apkExpiresAt: vehicle.apk_expires_at,
+    currentOdometerKm: vehicle.current_odometer_km,
     capabilityIds,
-    hasBlockingDamage: ((damageRows.data ?? []) as IdRow[]).length > 0,
+    hasBlockingDamage: ((blockingDamageRows.data ?? []) as IdRow[]).length > 0,
+    nonBlockingDamageCount: ((nonBlockingDamageRows.data ?? []) as IdRow[])
+      .length,
     blockingMaintenanceIntervals: (
-      (maintenanceRows.data ?? []) as {
+      (blockingMaintenanceRows.data ?? []) as {
         id: string;
         starts_at: string;
         ends_at: string;
@@ -156,6 +198,20 @@ async function loadVehicleData(
       startsAt: row.starts_at,
       endsAt: row.ends_at,
     })),
+    upcomingMaintenanceIntervals: (
+      (upcomingMaintenanceRows.data ?? []) as {
+        id: string;
+        starts_at: string;
+        ends_at: string | null;
+      }[]
+    ).map((row) => ({
+      id: row.id,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+    })),
+    latestOdometerRecordedAt:
+      ((odometerRows.data ?? []) as { recorded_at: string }[])[0]
+        ?.recorded_at ?? null,
   };
 }
 
@@ -168,19 +224,25 @@ async function loadBusyIntervals(
   const [lessons, trials, appointments] = await Promise.all([
     client
       .from("lessons")
-      .select("id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status")
+      .select(
+        "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
+      )
       .eq("tenant_id", input.tenantId)
       .lt("starts_at", end.toISOString())
       .gt("ends_at", start.toISOString()),
     client
       .from("trial_lessons")
-      .select("id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status")
+      .select(
+        "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
+      )
       .eq("tenant_id", input.tenantId)
       .lt("starts_at", end.toISOString())
       .gt("ends_at", start.toISOString()),
     client
       .from("agenda_appointments")
-      .select("id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status")
+      .select(
+        "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
+      )
       .eq("tenant_id", input.tenantId)
       .lt("starts_at", end.toISOString())
       .gt("ends_at", start.toISOString()),
@@ -203,7 +265,8 @@ export async function loadPlanningKernelData(
   client: SupabaseClient,
   input: PlanningCandidateInput,
 ): Promise<PlanningKernelData> {
-  const start = input.startAt instanceof Date ? input.startAt : new Date(input.startAt);
+  const start =
+    input.startAt instanceof Date ? input.startAt : new Date(input.startAt);
   const end = input.endAt instanceof Date ? input.endAt : new Date(input.endAt);
   const fromYmd = amsterdamYmd(start);
   const toYmd = amsterdamYmd(end);
@@ -231,10 +294,18 @@ export async function loadPlanningKernelData(
       .gte("exception_date", fromYmd)
       .lte("exception_date", toYmd),
     selectIds(client, "instructor_capabilities", "capability_id", (query) =>
-      query.eq("tenant_id", input.tenantId).eq("instructor_id", input.instructorId),
+      query
+        .eq("tenant_id", input.tenantId)
+        .eq("instructor_id", input.instructorId),
     ),
-    selectIds(client, "instructor_service_area_assignments", "service_area_id", (query) =>
-      query.eq("tenant_id", input.tenantId).eq("instructor_id", input.instructorId),
+    selectIds(
+      client,
+      "instructor_service_area_assignments",
+      "service_area_id",
+      (query) =>
+        query
+          .eq("tenant_id", input.tenantId)
+          .eq("instructor_id", input.instructorId),
     ),
     client
       .from("memberships")
@@ -250,7 +321,11 @@ export async function loadPlanningKernelData(
   ]);
 
   const branchIds = uniq(
-    ((branchMemberships.data ?? []) as { membership_branches?: { branch_id: string }[] }[])
+    (
+      (branchMemberships.data ?? []) as {
+        membership_branches?: { branch_id: string }[];
+      }[]
+    )
       .flatMap((row) => row.membership_branches ?? [])
       .map((row) => row.branch_id),
   );
@@ -263,7 +338,8 @@ export async function loadPlanningKernelData(
       capabilityIds: instructorCapabilities,
       serviceAreaIds: instructorServiceAreas,
       availabilityRules: (rules.data ?? []) as AvailabilityRuleRow[],
-      availabilityExceptions: (exceptions.data ?? []) as AvailabilityExceptionRow[],
+      availabilityExceptions: (exceptions.data ??
+        []) as AvailabilityExceptionRow[],
     },
     vehicle,
     busyIntervals,
