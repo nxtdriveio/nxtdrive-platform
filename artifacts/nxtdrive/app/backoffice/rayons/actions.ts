@@ -35,6 +35,18 @@ async function requirePlanningManage() {
   return { context, service, branchScope };
 }
 
+async function requireOrganizationWidePlanningManage() {
+  const result = await requirePlanningManage();
+  const isOrganizationWide =
+    Boolean(result.context.user.profile?.is_platform_admin) ||
+    result.context.roles.includes("tenant_admin") ||
+    result.context.roles.includes("franchise_admin");
+  if (!isOrganizationWide) {
+    redirect(`${PAGE}?error=forbidden`);
+  }
+  return result;
+}
+
 function assertBranchAccess(
   branchScope: Awaited<ReturnType<typeof loadOrganizationBranchScope>>,
   branchId: string | null,
@@ -45,7 +57,7 @@ function assertBranchAccess(
 }
 
 export async function savePlanningSettings(formData: FormData) {
-  const { context, service } = await requirePlanningManage();
+  const { context, service } = await requireOrganizationWidePlanningManage();
   const { organization: tenant, user } = context;
   const { error } = await service.rpc("upsert_planning_settings", {
     p_tenant_id: tenant.id,
@@ -136,7 +148,7 @@ export async function saveInstructorServiceAreaAssignment(formData: FormData) {
 }
 
 export async function saveTravelMatrixEntry(formData: FormData) {
-  const { context, service } = await requirePlanningManage();
+  const { context, service } = await requireOrganizationWidePlanningManage();
   const { organization: tenant, user } = context;
   const { error } = await service.rpc("upsert_service_area_travel_matrix", {
     p_tenant_id: tenant.id,

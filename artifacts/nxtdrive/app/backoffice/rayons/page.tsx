@@ -95,6 +95,15 @@ function branchOptions(branches: readonly Branch[]) {
   );
 }
 
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
 function groupBy<T extends Record<K, string>, K extends keyof T>(
   rows: readonly T[],
   key: K,
@@ -106,9 +115,14 @@ function groupBy<T extends Record<K, string>, K extends keyof T>(
   return map;
 }
 
-export default async function RayonsPage() {
+export default async function RayonsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = searchParams ? await searchParams : {};
   const context = await requireOrganizationPermission("planning:read");
-  const { organization: tenant } = context;
+  const { organization: tenant, roles, user } = context;
   const service = createServiceRoleClient();
   const [branchScope, allBranches] = await Promise.all([
     loadOrganizationBranchScope(service, context),
@@ -120,6 +134,10 @@ export default async function RayonsPage() {
       : allBranches.filter((branch) => branchScope.branch_ids.includes(branch.id));
   const branchIds =
     branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
+  const canManageOrganizationWidePlanning =
+    Boolean(user.profile?.is_platform_admin) ||
+    roles.includes("tenant_admin") ||
+    roles.includes("franchise_admin");
 
   let areasQuery = service
     .from("service_areas")
@@ -195,6 +213,11 @@ export default async function RayonsPage() {
         branchCount={visibleBranches.length}
         sharedRowsLabel="Gedeelde rayons blijven zichtbaar in de planning."
       />
+      {sp.error === "forbidden" ? (
+        <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
+          Je hebt geen rechten om organisatiebrede rayoninstellingen te wijzigen.
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <Card>
@@ -360,53 +383,87 @@ export default async function RayonsPage() {
               <CardTitle>Planningbeleid</CardTitle>
             </CardHeader>
             <CardContent>
-              <form action={savePlanningSettings} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Rayonbeleid</Label>
-                  <Select name="rayon_policy" defaultValue={settings.rayon_policy}>
-                    {Object.entries(RAYON_POLICY_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
+              {canManageOrganizationWidePlanning ? (
+                <form action={savePlanningSettings} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Rayonbeleid</Label>
+                    <Select
+                      name="rayon_policy"
+                      defaultValue={settings.rayon_policy}
+                    >
+                      {Object.entries(RAYON_POLICY_LABEL).map(
+                        ([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ),
+                      )}
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                    <div className="space-y-1.5">
+                      <Label>Standaard buffer</Label>
+                      <Input
+                        name="default_travel_buffer_minutes"
+                        type="number"
+                        min={0}
+                        max={240}
+                        defaultValue={settings.default_travel_buffer_minutes}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Zelfde rayon</Label>
+                      <Input
+                        name="same_area_travel_minutes"
+                        type="number"
+                        min={0}
+                        max={240}
+                        defaultValue={settings.same_area_travel_minutes}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Ander rayon</Label>
+                      <Input
+                        name="different_area_travel_minutes"
+                        type="number"
+                        min={0}
+                        max={240}
+                        defaultValue={settings.different_area_travel_minutes}
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" size="sm" className="w-full">
+                    Beleid opslaan
+                  </Button>
+                </form>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="rounded-md border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Rayonbeleid</p>
+                    <p className="font-medium text-foreground">
+                      {RAYON_POLICY_LABEL[settings.rayon_policy]}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Metric
+                      label="Standaard"
+                      value={`${settings.default_travel_buffer_minutes} min`}
+                    />
+                    <Metric
+                      label="Zelfde"
+                      value={`${settings.same_area_travel_minutes} min`}
+                    />
+                    <Metric
+                      label="Ander"
+                      value={`${settings.different_area_travel_minutes} min`}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Alleen tenant- en franchisebeheerders kunnen dit
+                    organisatiebrede beleid wijzigen.
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                  <div className="space-y-1.5">
-                    <Label>Standaard buffer</Label>
-                    <Input
-                      name="default_travel_buffer_minutes"
-                      type="number"
-                      min={0}
-                      max={240}
-                      defaultValue={settings.default_travel_buffer_minutes}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Zelfde rayon</Label>
-                    <Input
-                      name="same_area_travel_minutes"
-                      type="number"
-                      min={0}
-                      max={240}
-                      defaultValue={settings.same_area_travel_minutes}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Ander rayon</Label>
-                    <Input
-                      name="different_area_travel_minutes"
-                      type="number"
-                      min={0}
-                      max={240}
-                      defaultValue={settings.different_area_travel_minutes}
-                    />
-                  </div>
-                </div>
-                <Button type="submit" size="sm" className="w-full">
-                  Beleid opslaan
-                </Button>
-              </form>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -461,42 +518,49 @@ export default async function RayonsPage() {
             <CardTitle>Reistijdmatrix</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form
-              action={saveTravelMatrixEntry}
-              className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto]"
-            >
-              <Select name="from_service_area_id" required defaultValue="">
-                <option value="" disabled>
-                  Van rayon
-                </option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
+            {canManageOrganizationWidePlanning ? (
+              <form
+                action={saveTravelMatrixEntry}
+                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto]"
+              >
+                <Select name="from_service_area_id" required defaultValue="">
+                  <option value="" disabled>
+                    Van rayon
                   </option>
-                ))}
-              </Select>
-              <Select name="to_service_area_id" required defaultValue="">
-                <option value="" disabled>
-                  Naar rayon
-                </option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </Select>
+                <Select name="to_service_area_id" required defaultValue="">
+                  <option value="" disabled>
+                    Naar rayon
                   </option>
-                ))}
-              </Select>
-              <Input
-                name="estimated_minutes"
-                type="number"
-                min={0}
-                max={600}
-                placeholder="Min"
-                required
-              />
-              <Button type="submit" size="sm">
-                Opslaan
-              </Button>
-            </form>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  name="estimated_minutes"
+                  type="number"
+                  min={0}
+                  max={600}
+                  placeholder="Min"
+                  required
+                />
+                <Button type="submit" size="sm">
+                  Opslaan
+                </Button>
+              </form>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                De reistijdmatrix is organisatiebreed en kan alleen door
+                tenant- of franchisebeheerders worden gewijzigd.
+              </p>
+            )}
             {matrix.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Geen expliciete reistijden. De planning gebruikt fallback-buffers.
