@@ -1,7 +1,7 @@
 # NXTDRIVE Production Readiness Checklist
 
 Status: working checklist  
-Last updated: 2026-06-14  
+Last updated: 2026-06-15  
 Owner: product / engineering / operations
 
 ## Purpose
@@ -81,6 +81,10 @@ This is useful progress, but it is not yet the full performance or production ha
   Supabase service-role database read,
 - a production smoke runner validates health, readiness, PWA manifests, login
   page rendering and optional student/instructor login flows,
+- a browser-driven E2E business-flow runner now covers seeded login/session
+  reuse, lead to trial lesson to student conversion, lesson scheduling and
+  completion, student/instructor messaging, branch isolation, white-label host
+  shells and the student payment entrypoint,
 - route-level loading states were added for the student, instructor and
   backoffice shells to improve perceived navigation speed,
 - `docs/PRODUCTION_RUNBOOK.md` now documents deploy verification, smoke tests,
@@ -160,6 +164,13 @@ Minimum required flows:
 - branch-scope isolation,
 - white-label host resolution and themed shells.
 
+Current production finding from the browser E2E pass:
+
+- the functional suite is green except for tenant subdomain TLS:
+  `https://test.nxtdrive.io/login` currently fails the HTTPS handshake
+  (`ERR_SSL_PROTOCOL_ERROR` / no secure SSL/TLS channel).
+  This is an infrastructure blocker, not an app-flow blocker.
+
 Why:
 
 The platform is broad enough that manual QA alone is no longer sufficient.
@@ -171,6 +182,7 @@ Required:
 - finish remaining hardcoded non-semantic color uses on live user-facing surfaces,
 - brand transactional emails,
 - verify theme behavior in both light and dark mode per shell,
+- validate wildcard `*.nxtdrive.io` TLS end to end in production,
 - define preset governance and override rules operationally.
 
 Why:

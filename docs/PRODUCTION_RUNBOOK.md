@@ -2,7 +2,7 @@
 
 Status: active runbook
 Owner: product / engineering / operations
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 ## Doel
 
@@ -81,6 +81,45 @@ SMOKE_INSTRUCTOR_PASSWORD="..." \
 
 Gebruik `SMOKE_ALLOW_DEGRADED_READY=1` alleen lokaal of in tijdelijke staging
 waar runtime secrets bewust incompleet zijn. Niet gebruiken als productie-gate.
+
+## E2E business flows
+
+De smoke-runner is bewust licht. Voor echte regressiedekking op de kritieke
+productflows is er daarnaast een browsergedreven suite:
+
+```bash
+pnpm --filter @workspace/scripts run e2e:business-flows
+pnpm --filter @workspace/scripts run e2e:business-flows -- --env=production
+```
+
+De suite dekt:
+
+- tenant admin, instructor en student login + sessieherstel;
+- lead -> proefles -> leerling conversie;
+- les plannen -> starten -> afronden;
+- chat tussen leerling en instructeur;
+- branch-scope isolatie in de backoffice;
+- white-label host resolution op subdomain en optioneel custom domain;
+- student factuurweergave en optioneel de checkout-entrypoint.
+
+Belangrijk:
+
+- de suite verwacht scenario-accounts, of expliciete `E2E_*` credentials;
+- `E2E_TENANT_HOST` is nodig wanneer tenant-subdomains niet automatisch uit de
+  target origin afgeleid kunnen worden;
+- `E2E_CUSTOM_DOMAIN_HOST` is optioneel voor verified custom-domain routing;
+- `E2E_ENABLE_PAYMENT_REDIRECT=1` volgt de externe PSP redirect echt door.
+  Zonder deze flag blijft de check binnen de app boundary.
+- white-label subdomain-validatie voor `*.nxtdrive.io` slaagt alleen als de
+  wildcard TLS-setup echt actief is in Caddy. Een geldige DNS A-record alleen
+  is niet genoeg; zonder het wildcard-certificaat faalt de browser-run met
+  `ERR_SSL_PROTOCOL_ERROR`.
+
+Huidige bekende productieblokkade:
+
+- `https://test.nxtdrive.io/login` geeft op dit moment een TLS-handshakefout.
+  Zie `docs/INFRA_ROADMAP.md` voor de verplichte wildcard-Caddy/Cloudflare
+  setup (`infra/Caddyfile.wildcard`, DNS plugin en `CLOUDFLARE_API_TOKEN`).
 
 ## Monitoring
 
@@ -177,6 +216,9 @@ Voor broad production:
 - `pnpm --filter @workspace/nxtdrive run build` groen;
 - operations guardrail groen;
 - smoke-runner groen tegen productie;
+- business-flow E2E groen tegen staging of productie;
+- wildcard/subdomain TLS gevalideerd voor `*.nxtdrive.io` wanneer white-label
+  subdomains onderdeel zijn van de livegang;
 - rollback dry-run minimaal op staging getest;
 - testaccounts bestaan en worden periodiek gevalideerd;
 - runbook is bijgewerkt bij relevante infrastructuurwijzigingen.

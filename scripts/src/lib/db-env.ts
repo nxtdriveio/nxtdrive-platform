@@ -43,6 +43,51 @@ export function resolveConnectionString(env: DbEnv): string {
   return url;
 }
 
+function resolveRealtimeTransport(): typeof WebSocket | undefined {
+  if (typeof globalThis.WebSocket !== "undefined") {
+    return globalThis.WebSocket;
+  }
+
+  class ScriptOnlyWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+
+    readonly CONNECTING = ScriptOnlyWebSocket.CONNECTING;
+    readonly OPEN = ScriptOnlyWebSocket.OPEN;
+    readonly CLOSING = ScriptOnlyWebSocket.CLOSING;
+    readonly CLOSED = ScriptOnlyWebSocket.CLOSED;
+    readonly readyState = ScriptOnlyWebSocket.CLOSED;
+    binaryType: "blob" | "arraybuffer" = "arraybuffer";
+    bufferedAmount = 0;
+    extensions = "";
+    protocol = "";
+    url = "";
+    onclose = null;
+    onerror = null;
+    onmessage = null;
+    onopen = null;
+
+    constructor() {
+      throw new Error(
+        "This script runtime does not provide a native WebSocket transport. " +
+          "The admin client is configured for REST-only usage; realtime/channel usage is not supported here.",
+      );
+    }
+
+    addEventListener(): void {}
+    close(): void {}
+    dispatchEvent(): boolean {
+      return true;
+    }
+    removeEventListener(): void {}
+    send(): void {}
+  }
+
+  return ScriptOnlyWebSocket as unknown as typeof WebSocket;
+}
+
 export function resolveSupabaseAdminClient(env: DbEnv): SupabaseClient {
   let url: string;
   let serviceKey: string;
@@ -68,6 +113,7 @@ export function resolveSupabaseAdminClient(env: DbEnv): SupabaseClient {
 
   return createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    realtime: { transport: resolveRealtimeTransport() },
   });
 }
 
