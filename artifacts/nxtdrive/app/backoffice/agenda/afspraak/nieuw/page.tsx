@@ -42,14 +42,30 @@ export default async function NewAppointmentPage({
     ? await loadTenantInstructors(tenant.id, { branchIds: branchFilterIds })
     : undefined;
 
-  const [allBranches, vehicles] = await Promise.all([
+  let serviceAreasQuery = service
+    .from("service_areas")
+    .select("id, name, branch_id")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (branchFilterIds) {
+    serviceAreasQuery = serviceAreasQuery.or(
+      `branch_id.is.null,branch_id.in.(${branchFilterIds.join(",")})`,
+    );
+  }
+
+  const [allBranches, vehicles, serviceAreasRes] = await Promise.all([
     listBranches(service, tenant.id, { activeOnly: true }),
     loadVehicles(service, tenant.id, {
       branchIds: branchFilterIds,
       includeShared: true,
       activeOnly: true,
     }),
+    serviceAreasQuery,
   ]);
+  if (serviceAreasRes.error) {
+    throw new Error(`Rayons laden mislukt: ${serviceAreasRes.error.message}`);
+  }
   const branches =
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
@@ -122,6 +138,7 @@ export default async function NewAppointmentPage({
             }
             students={students}
             vehicles={vehicles}
+            serviceAreas={serviceAreasRes.data ?? []}
             defaults={{
               branchId: branches[0]?.id ?? null,
               date: now.toISOString().slice(0, 10),

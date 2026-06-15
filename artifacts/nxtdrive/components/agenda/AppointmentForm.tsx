@@ -25,12 +25,14 @@ type VehicleOption = {
   status?: string | null;
   default_instructor_id?: string | null;
 };
+type ServiceAreaOption = { id: string; name: string; branch_id?: string | null };
 
 export type AppointmentFormDefaults = {
   type?: AgendaAppointmentType;
   branchId?: string | null;
   instructorId?: string;
   vehicleId?: string | null;
+  pickupServiceAreaId?: string | null;
   studentId?: string | null;
   date?: string;
   time?: string;
@@ -53,6 +55,7 @@ export function AppointmentForm({
   instructors,
   ownInstructor,
   vehicles,
+  serviceAreas,
   students,
   defaults,
   submitLabel,
@@ -68,6 +71,7 @@ export function AppointmentForm({
   instructors?: InstructorOption[];
   ownInstructor?: InstructorOption;
   vehicles?: VehicleOption[];
+  serviceAreas?: ServiceAreaOption[];
   students: StudentOption[];
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
@@ -211,6 +215,24 @@ export function AppointmentForm({
                   ]
                     .filter(Boolean)
                     .join(" · ")}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+
+        {serviceAreas && serviceAreas.length > 0 ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="pickup_service_area_id">Rayon</Label>
+            <Select
+              id="pickup_service_area_id"
+              name="pickup_service_area_id"
+              defaultValue={defaults?.pickupServiceAreaId ?? ""}
+            >
+              <option value="">Geen rayon</option>
+              {serviceAreas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
                 </option>
               ))}
             </Select>

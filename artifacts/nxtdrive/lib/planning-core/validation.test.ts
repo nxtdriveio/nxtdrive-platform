@@ -172,6 +172,28 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("MISSING_REQUIRED_CAPABILITY"));
   });
 
+  it("blocks missing student requirement capabilities", () => {
+    const result = validateScheduleCandidate(
+      candidate(),
+      data({
+        requirements: { requiredInstructorCapabilityIds: ["adhd_coaching"] },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("MISSING_REQUIRED_CAPABILITY"));
+  });
+
+  it("warns for preferred capability mismatch without blocking", () => {
+    const result = validateScheduleCandidate(
+      candidate({ preferredInstructorCapabilityIds: ["english"] }),
+      data(),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(warningCodes(result).includes("PREFERRED_CAPABILITY_MISSING"));
+  });
+
   it("warns for outside rayon when policy is warning_only", () => {
     const result = validateScheduleCandidate(
       candidate({ pickupServiceAreaId: "area-b" }),
@@ -190,6 +212,17 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
+  });
+
+  it("ignores outside rayon when policy is ignore", () => {
+    const result = validateScheduleCandidate(
+      candidate({ pickupServiceAreaId: "area-b" }),
+      data({ settings: { rayonPolicy: "ignore" } }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(!codes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
+    assert.ok(!warningCodes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
   });
 
   it("allows active vehicles", () => {
@@ -325,6 +358,26 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("VEHICLE_TRANSMISSION_MISMATCH"));
   });
 
+  it("blocks missing required vehicle capabilities", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        vehicleId: "vehicle-1",
+        requiredVehicleCapabilityIds: ["dual_controls"],
+      }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          capabilityIds: ["automatic"],
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("MISSING_REQUIRED_VEHICLE_CAPABILITY"));
+  });
+
   it("blocks branch mismatch", () => {
     const result = validateScheduleCandidate(
       candidate({ vehicleId: "vehicle-1", branchId: "branch-a" }),
@@ -400,5 +453,97 @@ describe("validateScheduleCandidate", () => {
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
     assert.ok(codes(result).includes("INSUFFICIENT_TRAVEL_TIME_AFTER"));
+  });
+
+  it("uses same-area travel buffer", () => {
+    const result = validateScheduleCandidate(
+      candidate(),
+      data({
+        busyIntervals: [
+          {
+            id: "prev",
+            entityType: "lesson",
+            instructorId: "instructor-1",
+            startsAt: "2026-06-15T06:00:00.000Z",
+            endsAt: "2026-06-15T07:55:00.000Z",
+            serviceAreaId: "area-a",
+          },
+        ],
+        settings: { sameAreaTravelMinutes: 10 },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
+  });
+
+  it("uses different-area fallback travel buffer", () => {
+    const result = validateScheduleCandidate(
+      candidate(),
+      data({
+        busyIntervals: [
+          {
+            id: "prev",
+            entityType: "lesson",
+            instructorId: "instructor-1",
+            startsAt: "2026-06-15T06:00:00.000Z",
+            endsAt: "2026-06-15T07:35:00.000Z",
+            serviceAreaId: "area-b",
+          },
+        ],
+        settings: { differentAreaTravelMinutes: 30 },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
+    assert.ok(warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"));
+  });
+
+  it("uses travel matrix override", () => {
+    const result = validateScheduleCandidate(
+      candidate(),
+      data({
+        busyIntervals: [
+          {
+            id: "prev",
+            entityType: "lesson",
+            instructorId: "instructor-1",
+            startsAt: "2026-06-15T06:00:00.000Z",
+            endsAt: "2026-06-15T07:35:00.000Z",
+            serviceAreaId: "area-b",
+          },
+        ],
+        serviceAreaTravelMatrix: [
+          {
+            fromServiceAreaId: "area-b",
+            toServiceAreaId: "area-a",
+            estimatedMinutes: 20,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(!codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
+    assert.ok(!warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"));
+  });
+
+  it("blocks branch-scoped actors outside their branch", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        actor: {
+          userId: "branch-planner",
+          roles: ["planner"],
+          branchAccess: [{ tenantId: "tenant-1", branchIds: ["branch-a"] }],
+        },
+        scope: { type: "branch", tenantId: "tenant-1", branchId: "branch-b" },
+        branchId: "branch-b",
+      }),
+      data(),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("ACTOR_NOT_ALLOWED_FOR_SCOPE"));
   });
 });

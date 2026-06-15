@@ -5,6 +5,7 @@ import type {
   PlanningBusyInterval,
   PlanningCandidateInput,
   PlanningKernelData,
+  PlanningSettings,
   PlanningTravelMatrixEntry,
   PlanningVehicleData,
 } from "@/lib/planning-core/types";
@@ -56,6 +57,13 @@ type BusyRow = {
   ends_at: string;
   pickup_service_area_id?: string | null;
   status?: string | null;
+};
+
+type PlanningSettingsRow = {
+  rayon_policy: PlanningSettings["rayonPolicy"] | null;
+  default_travel_buffer_minutes: number | null;
+  same_area_travel_minutes: number | null;
+  different_area_travel_minutes: number | null;
 };
 
 function uniq(values: readonly (string | null | undefined)[]): string[] {
@@ -280,6 +288,9 @@ export async function loadPlanningKernelData(
     vehicle,
     busyIntervals,
     travelRows,
+    settingsRows,
+    studentRequiredCapabilityIds,
+    studentPreferredCapabilityIds,
   ] = await Promise.all([
     client
       .from("instructor_availability")
@@ -318,6 +329,29 @@ export async function loadPlanningKernelData(
       .from("service_area_travel_matrix")
       .select("from_service_area_id, to_service_area_id, estimated_minutes")
       .eq("tenant_id", input.tenantId),
+    client
+      .from("planning_settings")
+      .select(
+        "rayon_policy, default_travel_buffer_minutes, same_area_travel_minutes, different_area_travel_minutes",
+      )
+      .eq("tenant_id", input.tenantId)
+      .maybeSingle(),
+    input.studentId
+      ? selectIds(client, "student_requirements", "capability_id", (query) =>
+          query
+            .eq("tenant_id", input.tenantId)
+            .eq("student_id", input.studentId)
+            .eq("requirement_type", "required"),
+        )
+      : Promise.resolve([]),
+    input.studentId
+      ? selectIds(client, "student_requirements", "capability_id", (query) =>
+          query
+            .eq("tenant_id", input.tenantId)
+            .eq("student_id", input.studentId)
+            .eq("requirement_type", "preferred"),
+        )
+      : Promise.resolve([]),
   ]);
 
   const branchIds = uniq(
@@ -342,6 +376,10 @@ export async function loadPlanningKernelData(
         []) as AvailabilityExceptionRow[],
     },
     vehicle,
+    requirements: {
+      requiredInstructorCapabilityIds: studentRequiredCapabilityIds,
+      preferredInstructorCapabilityIds: studentPreferredCapabilityIds,
+    },
     busyIntervals,
     serviceAreaTravelMatrix: (
       (travelRows.data ?? []) as {
@@ -354,5 +392,16 @@ export async function loadPlanningKernelData(
       toServiceAreaId: row.to_service_area_id,
       estimatedMinutes: row.estimated_minutes,
     })),
+    settings: (() => {
+      const row = settingsRows.data as PlanningSettingsRow | null;
+      return {
+        rayonPolicy: row?.rayon_policy ?? undefined,
+        defaultTravelBufferMinutes:
+          row?.default_travel_buffer_minutes ?? undefined,
+        sameAreaTravelMinutes: row?.same_area_travel_minutes ?? undefined,
+        differentAreaTravelMinutes:
+          row?.different_area_travel_minutes ?? undefined,
+      };
+    })(),
   };
 }

@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: Required<PlanningSettings> = {
   defaultTravelBufferMinutes: 15,
   sameAreaTravelMinutes: 10,
   differentAreaTravelMinutes: 30,
+  unknownTravelTimePolicy: "fallback_warning",
 };
 
 const VEHICLE_BLOCKING_STATUSES = new Set(["inactive", "maintenance", "sold"]);
@@ -129,20 +130,20 @@ function matrixTravelMinutes(
   toServiceAreaId: string | null | undefined,
   data: PlanningKernelData,
   settings: Required<PlanningSettings>,
-): number {
+): { minutes: number; known: boolean } {
   if (!fromServiceAreaId || !toServiceAreaId) {
-    return settings.defaultTravelBufferMinutes;
+    return { minutes: settings.defaultTravelBufferMinutes, known: true };
   }
   if (fromServiceAreaId === toServiceAreaId) {
-    return settings.sameAreaTravelMinutes;
+    return { minutes: settings.sameAreaTravelMinutes, known: true };
   }
   const direct = data.serviceAreaTravelMatrix?.find(
     (entry) =>
       entry.fromServiceAreaId === fromServiceAreaId &&
       entry.toServiceAreaId === toServiceAreaId,
   );
-  if (direct) return direct.estimatedMinutes;
-  return settings.differentAreaTravelMinutes;
+  if (direct) return { minutes: direct.estimatedMinutes, known: true };
+  return { minutes: settings.differentAreaTravelMinutes, known: false };
 }
 
 function activeBusyIntervals(
@@ -349,7 +350,10 @@ function validateVehicle(
 
   const missingVehicleCapabilities = includesAll(
     vehicle.capabilityIds,
-    input.requiredVehicleCapabilityIds,
+    [
+      ...(input.requiredVehicleCapabilityIds ?? []),
+      ...(data.requirements?.requiredVehicleCapabilityIds ?? []),
+    ],
   );
   if (missingVehicleCapabilities.length > 0) {
     blockers.push(
@@ -390,7 +394,7 @@ function validateTravel(
   start: Date,
   end: Date,
   settings: Required<PlanningSettings>,
-): PlanningReason[] {
+): { blockers: PlanningReason[]; warnings: PlanningReason[] } {
   const intervals = activeBusyIntervals(input, data)
     .filter((interval) => interval.instructorId === input.instructorId)
     .sort(
@@ -402,6 +406,7 @@ function validateTravel(
     .find((interval) => toDate(interval.endsAt) <= start);
   const next = intervals.find((interval) => toDate(interval.startsAt) >= end);
   const blockers: PlanningReason[] = [];
+  const warnings: PlanningReason[] = [];
 
   if (previous) {
     const travel = matrixTravelMinutes(
@@ -410,16 +415,33 @@ function validateTravel(
       data,
       settings,
     );
+    if (!travel.known && settings.unknownTravelTimePolicy === "fallback_warning") {
+      warnings.push(
+        reason(
+          "UNKNOWN_SERVICE_AREA_TRAVEL_TIME",
+          "Reistijd tussen rayons is onbekend; fallback reistijd gebruikt.",
+          "warning",
+          {
+            fromServiceAreaId: previous.serviceAreaId,
+            toServiceAreaId: input.pickupServiceAreaId,
+            fallbackMinutes: travel.minutes,
+          },
+        ),
+      );
+    }
     const availableGap = Math.round(
       (start.getTime() - toDate(previous.endsAt).getTime()) / 60000,
     );
-    if (availableGap < travel) {
+    if (availableGap < travel.minutes) {
       blockers.push(
         reason(
           "INSUFFICIENT_TRAVEL_TIME_BEFORE",
           "Er is te weinig reistijd vanaf de vorige afspraak.",
           "blocking",
-          { availableGapMinutes: availableGap, requiredTravelMinutes: travel },
+          {
+            availableGapMinutes: availableGap,
+            requiredTravelMinutes: travel.minutes,
+          },
         ),
       );
     }
@@ -432,22 +454,56 @@ function validateTravel(
       data,
       settings,
     );
+    if (!travel.known && settings.unknownTravelTimePolicy === "fallback_warning") {
+      warnings.push(
+        reason(
+          "UNKNOWN_SERVICE_AREA_TRAVEL_TIME",
+          "Reistijd tussen rayons is onbekend; fallback reistijd gebruikt.",
+          "warning",
+          {
+            fromServiceAreaId: input.pickupServiceAreaId,
+            toServiceAreaId: next.serviceAreaId,
+            fallbackMinutes: travel.minutes,
+          },
+        ),
+      );
+    }
     const availableGap = Math.round(
       (toDate(next.startsAt).getTime() - end.getTime()) / 60000,
     );
-    if (availableGap < travel) {
+    if (availableGap < travel.minutes) {
       blockers.push(
         reason(
           "INSUFFICIENT_TRAVEL_TIME_AFTER",
           "Er is te weinig reistijd naar de volgende afspraak.",
           "blocking",
-          { availableGapMinutes: availableGap, requiredTravelMinutes: travel },
+          {
+            availableGapMinutes: availableGap,
+            requiredTravelMinutes: travel.minutes,
+          },
         ),
       );
     }
   }
 
-  return blockers;
+  return { blockers, warnings };
+}
+
+function validatePreferredCapabilities(
+  available: readonly string[] | undefined,
+  preferred: readonly string[] | undefined,
+  entity: "instructor" | "vehicle" | "mixed",
+): PlanningReason[] {
+  const missing = includesAll(available, preferred);
+  if (missing.length === 0) return [];
+  return [
+    reason(
+      "PREFERRED_CAPABILITY_MISSING",
+      "Een voorkeurseigenschap ontbreekt voor deze planning.",
+      "warning",
+      { entity, missingCapabilityIds: missing },
+    ),
+  ];
 }
 
 export function validateScheduleCandidate(
@@ -537,7 +593,11 @@ export function validateScheduleCandidate(
 
   const missingInstructorCapabilities = includesAll(
     data.instructor.capabilityIds,
-    input.requiredInstructorCapabilityIds,
+    [
+      ...(input.requiredInstructorCapabilityIds ?? []),
+      ...(input.studentRequirementCapabilityIds ?? []),
+      ...(data.requirements?.requiredInstructorCapabilityIds ?? []),
+    ],
   );
   if (missingInstructorCapabilities.length > 0) {
     blockingReasons.push(
@@ -549,6 +609,18 @@ export function validateScheduleCandidate(
       ),
     );
   }
+
+  warnings.push(
+    ...validatePreferredCapabilities(
+      data.instructor.capabilityIds,
+      [
+        ...(input.preferredInstructorCapabilityIds ?? []),
+        ...(input.preferredCapabilityIds ?? []),
+        ...(data.requirements?.preferredInstructorCapabilityIds ?? []),
+      ],
+      "instructor",
+    ),
+  );
 
   if (
     input.pickupServiceAreaId &&
@@ -569,7 +641,21 @@ export function validateScheduleCandidate(
   const vehicleValidation = validateVehicle(input, data, start, end);
   blockingReasons.push(...vehicleValidation.blockers);
   warnings.push(...vehicleValidation.warnings);
-  blockingReasons.push(...validateTravel(input, data, start, end, settings));
+  if (input.vehicleId && data.vehicle) {
+    warnings.push(
+      ...validatePreferredCapabilities(
+        data.vehicle.capabilityIds,
+        [
+          ...(input.preferredVehicleCapabilityIds ?? []),
+          ...(data.requirements?.preferredVehicleCapabilityIds ?? []),
+        ],
+        "vehicle",
+      ),
+    );
+  }
+  const travelValidation = validateTravel(input, data, start, end, settings);
+  blockingReasons.push(...travelValidation.blockers);
+  warnings.push(...travelValidation.warnings);
 
   return {
     allowed: blockingReasons.length === 0,
