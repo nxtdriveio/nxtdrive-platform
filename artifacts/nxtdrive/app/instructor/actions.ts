@@ -33,15 +33,16 @@ function isValidColorOverride(color: string | null): boolean {
  * check is an additional defense-in-depth layer so one instructor cannot mutate
  * another instructor's lesson via the instructor UI.
  */
-async function loadOwnedLesson(
-  lessonId: string,
-): Promise<{
-  lesson: Lesson;
-  userId: string;
-  tenantId: string;
-  roles: readonly MemberRole[];
-  isPlatformAdmin: boolean;
-} | string> {
+async function loadOwnedLesson(lessonId: string): Promise<
+  | {
+      lesson: Lesson;
+      userId: string;
+      tenantId: string;
+      roles: readonly MemberRole[];
+      isPlatformAdmin: boolean;
+    }
+  | string
+> {
   if (!lessonId) return "lesson_id ontbreekt";
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -76,7 +77,8 @@ function planningActorForOwnedMutation(ctx: {
   roles: readonly string[];
   isPlatformAdmin: boolean;
 }): PlanningActorAccess {
-  const canManageTenant = ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
+  const canManageTenant =
+    ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
   return {
     userId: ctx.userId,
     roles: ctx.roles as PlanningActorAccess["roles"],
@@ -172,7 +174,8 @@ export async function moveOwnedAppointmentAction(input: {
     input.appointmentId,
     "manage",
   );
-  if (!access.appointment) return { error: "Niet geautoriseerd voor deze afspraak." };
+  if (!access.appointment)
+    return { error: "Niet geautoriseerd voor deze afspraak." };
   const appointment = access.appointment;
 
   const startsAt = new Date(input.startsAt);
@@ -198,9 +201,10 @@ export async function moveOwnedAppointmentAction(input: {
       branchAccess: [
         {
           tenantId,
-          branchIds: access.branchScope.scope_type === "all"
-            ? ("all" as const)
-            : access.branchScope.branch_ids ?? [],
+          branchIds:
+            access.branchScope.scope_type === "all"
+              ? ("all" as const)
+              : (access.branchScope.branch_ids ?? []),
         },
       ],
     },
@@ -224,12 +228,16 @@ export async function moveOwnedAppointmentAction(input: {
         p_tenant_id: tenantId,
         p_actor: access.context.user.id,
         p_starts_at: startsAt.toISOString(),
-        p_duration_min: durationMinutes(startsAt.toISOString(), endsAt.toISOString()),
+        p_duration_min: durationMinutes(
+          startsAt.toISOString(),
+          endsAt.toISOString(),
+        ),
         p_student_id: appointment.student_id,
         p_branch_id: access.appointmentBranchId,
         p_title: appointment.title,
         p_location: appointment.location,
         p_notes: appointment.notes,
+        p_vehicle_id: appointment.vehicle_id,
       });
       if (error) throw new Error(error.message);
       return true;
@@ -258,7 +266,8 @@ export async function setOwnedAppointmentColorAction(input: {
     input.appointmentId,
     "manage",
   );
-  if (!access.appointment) return { error: "Niet geautoriseerd voor deze afspraak." };
+  if (!access.appointment)
+    return { error: "Niet geautoriseerd voor deze afspraak." };
 
   const { error } = await service
     .from("agenda_appointments")
@@ -315,7 +324,11 @@ export async function completeLessonAction(formData: FormData): Promise<void> {
   }
   // Task #113 — beoordeel reviewmomenten (na N lessen / examenwaardig). Best-
   // effort: faalt nooit de lesactie; idempotent via de dedupe key.
-  await maybeFireLessonReviewMoments(service, ctx.tenantId, ctx.lesson.student_id);
+  await maybeFireLessonReviewMoments(
+    service,
+    ctx.tenantId,
+    ctx.lesson.student_id,
+  );
   revalidatePath(`/instructor/${lessonId}`);
   revalidatePath("/instructor");
   redirect(`/instructor/${lessonId}`);
@@ -325,7 +338,9 @@ export async function cancelLessonAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 500);
   if (!reason) return { error: "Reden is verplicht" };
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -368,7 +383,9 @@ export async function addLessonNoteAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
-  const body = String(formData.get("body") ?? "").trim().slice(0, 4000);
+  const body = String(formData.get("body") ?? "")
+    .trim()
+    .slice(0, 4000);
   if (!body) return { error: "Notitie kan niet leeg zijn" };
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -445,7 +462,9 @@ export async function setLessonProgressAction(
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
   const scoreRaw = String(formData.get("score") ?? "");
-  const summary = String(formData.get("summary") ?? "").trim().slice(0, 2000);
+  const summary = String(formData.get("summary") ?? "")
+    .trim()
+    .slice(0, 2000);
   const score = parseInt(scoreRaw, 10);
   if (!Number.isFinite(score) || score < 0 || score > 10) {
     return { error: "Score moet tussen 0 en 10 liggen" };
@@ -518,10 +537,18 @@ export async function setLessonContextAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
   const locationId = String(formData.get("location_id") ?? "").trim() || null;
-  const studentNote = String(formData.get("student_note") ?? "").trim().slice(0, 4000);
-  const internalNote = String(formData.get("internal_note") ?? "").trim().slice(0, 4000);
-  const attention = String(formData.get("attention_points") ?? "").trim().slice(0, 4000);
-  const advies = String(formData.get("advice") ?? "").trim().slice(0, 4000);
+  const studentNote = String(formData.get("student_note") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const internalNote = String(formData.get("internal_note") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const attention = String(formData.get("attention_points") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const advies = String(formData.get("advice") ?? "")
+    .trim()
+    .slice(0, 4000);
   const topicSkillIds = formData
     .getAll("topic_skill_ids")
     .map((v) => String(v))
@@ -562,7 +589,9 @@ export async function assignTheoryHomeworkAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const moduleId = String(formData.get("module_id") ?? "").trim();
   const deadline = String(formData.get("deadline") ?? "").trim() || null;
-  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+  const note = String(formData.get("note") ?? "")
+    .trim()
+    .slice(0, 1000);
   if (!moduleId) return { error: "Kies een theoriemodule" };
 
   const ctx = await loadOwnedLesson(lessonId);

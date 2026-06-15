@@ -68,6 +68,12 @@ function codes(result: ReturnType<typeof validateScheduleCandidate>): string[] {
   return result.blockingReasons.map((item) => item.code);
 }
 
+function warningCodes(
+  result: ReturnType<typeof validateScheduleCandidate>,
+): string[] {
+  return result.warnings.map((item) => item.code);
+}
+
 describe("validateScheduleCandidate", () => {
   it("allows a valid appointment inside availability", () => {
     const result = validateScheduleCandidate(candidate(), data());
@@ -186,7 +192,25 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
   });
 
-  it("blocks unavailable vehicles, expired APK and blocking damage", () => {
+  it("allows active vehicles", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          apkExpiresAt: "2026-12-01",
+          latestOdometerRecordedAt: "2026-06-14T10:00:00.000Z",
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.deepEqual(result.blockingReasons, []);
+  });
+
+  it("blocks maintenance vehicles", () => {
     const result = validateScheduleCandidate(
       candidate({ vehicleId: "vehicle-1" }),
       data({
@@ -194,27 +218,79 @@ describe("validateScheduleCandidate", () => {
           id: "vehicle-1",
           tenantId: "tenant-1",
           status: "maintenance",
-          apkExpiresAt: "2026-06-01",
-          hasBlockingDamage: true,
         },
       }),
     );
 
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("VEHICLE_UNAVAILABLE"));
-    assert.ok(codes(result).includes("VEHICLE_APK_EXPIRED"));
-    assert.ok(codes(result).includes("VEHICLE_HAS_BLOCKING_DAMAGE"));
   });
 
-  it("blocks vehicle overlap and transmission mismatch", () => {
+  it("blocks expired APK", () => {
     const result = validateScheduleCandidate(
-      candidate({ vehicleId: "vehicle-1", requiredTransmission: "automaat" }),
+      candidate({ vehicleId: "vehicle-1" }),
       data({
         vehicle: {
           id: "vehicle-1",
           tenantId: "tenant-1",
           status: "active",
-          transmission: "schakel",
+          apkExpiresAt: "2026-06-01",
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_APK_EXPIRED"));
+  });
+
+  it("blocks blocking damage", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          hasBlockingDamage: true,
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_HAS_BLOCKING_DAMAGE"));
+  });
+
+  it("blocks overlapping blocking maintenance", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          blockingMaintenanceIntervals: [
+            {
+              id: "maintenance-1",
+              startsAt: "2026-06-15T07:30:00.000Z",
+              endsAt: "2026-06-15T08:30:00.000Z",
+            },
+          ],
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_MAINTENANCE_BLOCK"));
+  });
+
+  it("blocks overlapping vehicle appointments", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
         },
         busyIntervals: [
           {
@@ -230,7 +306,58 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("VEHICLE_HAS_OVERLAP"));
-    assert.ok(codes(result).includes("TRANSMISSION_MISMATCH"));
+  });
+
+  it("blocks transmission mismatch", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1", requiredTransmission: "automatic" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          transmission: "schakel",
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_TRANSMISSION_MISMATCH"));
+  });
+
+  it("blocks branch mismatch", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1", branchId: "branch-a" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          branchId: "branch-b",
+          status: "active",
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_OUTSIDE_BRANCH_SCOPE"));
+  });
+
+  it("warns for non-blocking damage", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          status: "active",
+          nonBlockingDamageCount: 1,
+          latestOdometerRecordedAt: "2026-06-14T10:00:00.000Z",
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(warningCodes(result).includes("VEHICLE_HAS_NON_BLOCKING_DAMAGE"));
   });
 
   it("blocks insufficient travel time before and after", () => {

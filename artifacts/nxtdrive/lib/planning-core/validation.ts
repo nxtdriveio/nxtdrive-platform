@@ -20,6 +20,10 @@ const DEFAULT_SETTINGS: Required<PlanningSettings> = {
   differentAreaTravelMinutes: 30,
 };
 
+const VEHICLE_BLOCKING_STATUSES = new Set(["inactive", "maintenance", "sold"]);
+const WARNING_WINDOW_DAYS = 30;
+const ODOMETER_STALE_DAYS = 45;
+
 function reason(
   code: PlanningReasonCode,
   message: string,
@@ -63,6 +67,19 @@ function includesAll(
   return (needles ?? []).filter((needle) => !values.has(needle));
 }
 
+function normalizeTransmission(
+  value: PlanningCandidateInput["requiredTransmission"],
+): "schakel" | "automaat" | null {
+  if (value === "manual") return "schakel";
+  if (value === "automatic") return "automaat";
+  if (value === "schakel" || value === "automaat") return value;
+  return null;
+}
+
+function daysBetween(left: Date, right: Date): number {
+  return Math.ceil((right.getTime() - left.getTime()) / 86400000);
+}
+
 function actorCanManageScope(
   actor: PlanningActorAccess,
   scope: PlanningScope,
@@ -72,7 +89,8 @@ function actorCanManageScope(
     if (actor.tenantIds?.includes(scope.tenantId)) return true;
     return Boolean(
       actor.branchAccess?.some(
-        (entry) => entry.tenantId === scope.tenantId && entry.branchIds === "all",
+        (entry) =>
+          entry.tenantId === scope.tenantId && entry.branchIds === "all",
       ),
     );
   }
@@ -186,20 +204,24 @@ function validateVehicle(
   data: PlanningKernelData,
   start: Date,
   end: Date,
-): PlanningReason[] {
+): { blockers: PlanningReason[]; warnings: PlanningReason[] } {
   const blockers: PlanningReason[] = [];
-  if (!input.vehicleId) return blockers;
+  const warnings: PlanningReason[] = [];
+  if (!input.vehicleId) return { blockers, warnings };
   const vehicle = data.vehicle;
   if (!vehicle || vehicle.id !== input.vehicleId) {
-    return [
-      reason(
-        "VEHICLE_NOT_FOUND",
-        "Voertuig kon niet binnen deze planningcontext worden gevonden.",
-      ),
-    ];
+    return {
+      blockers: [
+        reason(
+          "VEHICLE_NOT_FOUND",
+          "Voertuig kon niet binnen deze planningcontext worden gevonden.",
+        ),
+      ],
+      warnings,
+    };
   }
 
-  if (vehicle.status && vehicle.status !== "active") {
+  if (vehicle.status && VEHICLE_BLOCKING_STATUSES.has(vehicle.status)) {
     blockers.push(
       reason(
         "VEHICLE_UNAVAILABLE",
@@ -210,15 +232,48 @@ function validateVehicle(
     );
   }
 
-  if (vehicle.apkExpiresAt && vehicle.apkExpiresAt < amsterdamYmd(start)) {
+  if (
+    vehicle.branchId &&
+    input.branchId &&
+    vehicle.branchId !== input.branchId
+  ) {
     blockers.push(
       reason(
-        "VEHICLE_APK_EXPIRED",
-        "Voertuig heeft een verlopen APK op de afspraakdatum.",
+        "VEHICLE_OUTSIDE_BRANCH_SCOPE",
+        "Voertuig valt buiten de vestigingsscope van deze afspraak.",
         "blocking",
-        { apkExpiresAt: vehicle.apkExpiresAt },
+        {
+          vehicleBranchId: vehicle.branchId,
+          appointmentBranchId: input.branchId,
+        },
       ),
     );
+  }
+
+  if (vehicle.apkExpiresAt) {
+    const apkDate = startOfAmsterdamDayUtc(vehicle.apkExpiresAt);
+    if (vehicle.apkExpiresAt < amsterdamYmd(start)) {
+      blockers.push(
+        reason(
+          "VEHICLE_APK_EXPIRED",
+          "Voertuig heeft verlopen APK.",
+          "blocking",
+          { apkExpiresAt: vehicle.apkExpiresAt },
+        ),
+      );
+    } else {
+      const days = daysBetween(start, apkDate);
+      if (days <= WARNING_WINDOW_DAYS) {
+        warnings.push(
+          reason(
+            "VEHICLE_APK_EXPIRING_SOON",
+            "APK verloopt binnenkort.",
+            "warning",
+            { apkExpiresAt: vehicle.apkExpiresAt, daysUntilExpiry: days },
+          ),
+        );
+      }
+    }
   }
 
   if (vehicle.hasBlockingDamage) {
@@ -230,32 +285,63 @@ function validateVehicle(
     );
   }
 
+  if ((vehicle.nonBlockingDamageCount ?? 0) > 0) {
+    warnings.push(
+      reason(
+        "VEHICLE_HAS_NON_BLOCKING_DAMAGE",
+        "Voertuig heeft open schade die planning niet blokkeert.",
+        "warning",
+        { count: vehicle.nonBlockingDamageCount },
+      ),
+    );
+  }
+
   if (
     vehicle.blockingMaintenanceIntervals?.some((interval) =>
       overlaps(start, end, toDate(interval.startsAt), toDate(interval.endsAt)),
     )
   ) {
     blockers.push(
+      reason("VEHICLE_MAINTENANCE_BLOCK", "Voertuig staat in onderhoud."),
+    );
+  }
+
+  const upcomingMaintenance = vehicle.upcomingMaintenanceIntervals?.find(
+    (interval) => {
+      const startsAt = toDate(interval.startsAt);
+      return (
+        startsAt >= end && daysBetween(start, startsAt) <= WARNING_WINDOW_DAYS
+      );
+    },
+  );
+  if (upcomingMaintenance) {
+    warnings.push(
       reason(
-        "VEHICLE_HAS_BLOCKING_MAINTENANCE",
-        "Voertuig staat in onderhoud tijdens dit tijdslot.",
+        "VEHICLE_MAINTENANCE_UPCOMING",
+        "Onderhoud staat binnenkort gepland.",
+        "warning",
+        { maintenanceId: upcomingMaintenance.id },
       ),
     );
   }
 
+  const requiredTransmission = normalizeTransmission(
+    input.requiredTransmission,
+  );
+  const vehicleTransmission = normalizeTransmission(vehicle.transmission);
   if (
-    input.requiredTransmission &&
-    vehicle.transmission &&
-    input.requiredTransmission !== vehicle.transmission
+    requiredTransmission &&
+    vehicleTransmission &&
+    requiredTransmission !== vehicleTransmission
   ) {
     blockers.push(
       reason(
-        "TRANSMISSION_MISMATCH",
+        "VEHICLE_TRANSMISSION_MISMATCH",
         "Voertuigtransmissie past niet bij deze afspraak.",
         "blocking",
         {
-          requiredTransmission: input.requiredTransmission,
-          vehicleTransmission: vehicle.transmission,
+          requiredTransmission,
+          vehicleTransmission,
         },
       ),
     );
@@ -276,7 +362,26 @@ function validateVehicle(
     );
   }
 
-  return blockers;
+  if (!vehicle.latestOdometerRecordedAt) {
+    warnings.push(
+      reason(
+        "VEHICLE_ODOMETER_STALE",
+        "Kilometerstand is onbekend.",
+        "warning",
+      ),
+    );
+  } else if (
+    daysBetween(toDate(vehicle.latestOdometerRecordedAt), start) >
+    ODOMETER_STALE_DAYS
+  ) {
+    warnings.push(
+      reason("VEHICLE_ODOMETER_STALE", "Kilometerstand is oud.", "warning", {
+        latestOdometerRecordedAt: vehicle.latestOdometerRecordedAt,
+      }),
+    );
+  }
+
+  return { blockers, warnings };
 }
 
 function validateTravel(
@@ -289,8 +394,7 @@ function validateTravel(
   const intervals = activeBusyIntervals(input, data)
     .filter((interval) => interval.instructorId === input.instructorId)
     .sort(
-      (a, b) =>
-        toDate(a.startsAt).getTime() - toDate(b.startsAt).getTime(),
+      (a, b) => toDate(a.startsAt).getTime() - toDate(b.startsAt).getTime(),
     );
 
   const previous = [...intervals]
@@ -368,7 +472,11 @@ export function validateScheduleCandidate(
     );
   }
 
-  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) {
+  if (
+    !Number.isFinite(start.getTime()) ||
+    !Number.isFinite(end.getTime()) ||
+    start >= end
+  ) {
     blockingReasons.push(
       reason("INVALID_TIME_RANGE", "Het gekozen tijdslot is ongeldig."),
     );
@@ -408,7 +516,12 @@ export function validateScheduleCandidate(
     const vehicleOverlap = activeBusyIntervals(input, data).find(
       (interval) =>
         interval.vehicleId === input.vehicleId &&
-        overlaps(start, end, toDate(interval.startsAt), toDate(interval.endsAt)),
+        overlaps(
+          start,
+          end,
+          toDate(interval.startsAt),
+          toDate(interval.endsAt),
+        ),
     );
     if (vehicleOverlap) {
       blockingReasons.push(
@@ -449,10 +562,13 @@ export function validateScheduleCandidate(
       { pickupServiceAreaId: input.pickupServiceAreaId },
     );
     if (settings.rayonPolicy === "warning_only") warnings.push(rayonReason);
-    if (settings.rayonPolicy === "hard_block") blockingReasons.push(rayonReason);
+    if (settings.rayonPolicy === "hard_block")
+      blockingReasons.push(rayonReason);
   }
 
-  blockingReasons.push(...validateVehicle(input, data, start, end));
+  const vehicleValidation = validateVehicle(input, data, start, end);
+  blockingReasons.push(...vehicleValidation.blockers);
+  warnings.push(...vehicleValidation.warnings);
   blockingReasons.push(...validateTravel(input, data, start, end, settings));
 
   return {
@@ -462,7 +578,9 @@ export function validateScheduleCandidate(
   };
 }
 
-export function scoreValidationResult(result: PlanningValidationResult): number {
+export function scoreValidationResult(
+  result: PlanningValidationResult,
+): number {
   if (!result.allowed) return -1000 - result.blockingReasons.length * 100;
   return 100 - result.warnings.length * 10;
 }
