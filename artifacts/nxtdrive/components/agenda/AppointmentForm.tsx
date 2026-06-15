@@ -17,11 +17,20 @@ import {
 type BranchOption = { id: string; name: string };
 type InstructorOption = { id: string; full_name: string | null };
 type StudentOption = { id: string; full_name: string };
+type VehicleOption = {
+  id: string;
+  label: string;
+  license_plate: string | null;
+  transmission: "schakel" | "automaat" | null;
+  status?: string | null;
+  default_instructor_id?: string | null;
+};
 
 export type AppointmentFormDefaults = {
   type?: AgendaAppointmentType;
   branchId?: string | null;
   instructorId?: string;
+  vehicleId?: string | null;
   studentId?: string | null;
   date?: string;
   time?: string;
@@ -43,6 +52,7 @@ export function AppointmentForm({
   branches,
   instructors,
   ownInstructor,
+  vehicles,
   students,
   defaults,
   submitLabel,
@@ -57,6 +67,7 @@ export function AppointmentForm({
   // When provided, the instructor is selectable (admin/planner). Otherwise pinned.
   instructors?: InstructorOption[];
   ownInstructor?: InstructorOption;
+  vehicles?: VehicleOption[];
   students: StudentOption[];
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
@@ -127,7 +138,8 @@ export function AppointmentForm({
             </Select>
             {showStudent ? (
               <p className="text-xs text-muted-foreground">
-                Bij een gekoppelde leerling wordt de vestiging automatisch gelijkgezet met het leerlingdossier.
+                Bij een gekoppelde leerling wordt de vestiging automatisch
+                gelijkgezet met het leerlingdossier.
               </p>
             ) : null}
           </div>
@@ -172,6 +184,33 @@ export function AppointmentForm({
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+
+        {vehicles ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="vehicle_id">Voertuig</Label>
+            <Select
+              id="vehicle_id"
+              name="vehicle_id"
+              defaultValue={defaults?.vehicleId ?? ""}
+            >
+              <option value="">Geen voertuig</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {[
+                    vehicle.license_plate ?? vehicle.label,
+                    vehicle.transmission,
+                    vehicle.default_instructor_id ? "standaard voertuig" : null,
+                    vehicle.status && vehicle.status !== "active"
+                      ? vehicle.status
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </option>
               ))}
             </Select>
@@ -251,7 +290,10 @@ export function AppointmentForm({
       </div>
 
       <div className="flex justify-end gap-2">
-        <Link href={redirectTo} className={buttonVariants({ variant: "ghost" })}>
+        <Link
+          href={redirectTo}
+          className={buttonVariants({ variant: "ghost" })}
+        >
           Annuleren
         </Link>
         <Button type="submit">{submitLabel}</Button>

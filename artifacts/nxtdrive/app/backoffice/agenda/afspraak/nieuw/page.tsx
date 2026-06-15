@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { listBranches } from "@/lib/branches/service";
+import { loadVehicles } from "@/lib/lessons/context-data";
 import {
   requireAgendaAccessContext,
   AGENDA_BACKOFFICE_MANAGE_ROLES,
@@ -41,7 +42,14 @@ export default async function NewAppointmentPage({
     ? await loadTenantInstructors(tenant.id, { branchIds: branchFilterIds })
     : undefined;
 
-  const allBranches = await listBranches(service, tenant.id, { activeOnly: true });
+  const [allBranches, vehicles] = await Promise.all([
+    listBranches(service, tenant.id, { activeOnly: true }),
+    loadVehicles(service, tenant.id, {
+      branchIds: branchFilterIds,
+      includeShared: true,
+      activeOnly: true,
+    }),
+  ]);
   const branches =
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
@@ -113,6 +121,7 @@ export default async function NewAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            vehicles={vehicles}
             defaults={{
               branchId: branches[0]?.id ?? null,
               date: now.toISOString().slice(0, 10),
