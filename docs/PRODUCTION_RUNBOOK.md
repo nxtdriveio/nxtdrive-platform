@@ -2,7 +2,7 @@
 
 Status: active runbook
 Owner: product / engineering / operations
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 ## Doel
 
@@ -81,6 +81,82 @@ SMOKE_INSTRUCTOR_PASSWORD="..." \
 
 Gebruik `SMOKE_ALLOW_DEGRADED_READY=1` alleen lokaal of in tijdelijke staging
 waar runtime secrets bewust incompleet zijn. Niet gebruiken als productie-gate.
+
+Wanneer subdomain/custom-domain login shells expliciet mee moeten in de smoke:
+
+```bash
+SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_TENANT_HOST=https://test.nxtdrive.io \
+SMOKE_CUSTOM_DOMAIN_HOST=https://rijschool.example.nl \
+  pnpm --filter @workspace/scripts run smoke:production
+```
+
+`SMOKE_TENANT_HOST` en `SMOKE_CUSTOM_DOMAIN_HOST` controleren alleen of de
+hosted `/login` shell via HTTPS laadt en de auth-form rendert.
+
+## E2E business flows
+
+De smoke-runner is bewust licht. Voor echte regressiedekking op de kritieke
+productflows is er daarnaast een browsergedreven suite:
+
+```bash
+pnpm --filter @workspace/scripts run e2e:business-flows
+pnpm --filter @workspace/scripts run e2e:business-flows -- --env=production
+```
+
+De suite dekt:
+
+- tenant admin, instructor en student login + sessieherstel;
+- lead -> proefles -> leerling conversie;
+- les plannen -> starten -> afronden;
+- chat tussen leerling en instructeur;
+- branch-scope isolatie in de backoffice;
+- white-label host resolution op subdomain en optioneel custom domain;
+- student factuurweergave en optioneel de checkout-entrypoint.
+
+Belangrijk:
+
+- de suite verwacht scenario-accounts, of expliciete `E2E_*` credentials;
+- `E2E_TENANT_HOST` is nodig wanneer tenant-subdomains niet automatisch uit de
+  target origin afgeleid kunnen worden;
+- `E2E_CUSTOM_DOMAIN_HOST` is optioneel voor verified custom-domain routing;
+- `E2E_ENABLE_PAYMENT_REDIRECT=1` volgt de externe PSP redirect echt door.
+  Zonder deze flag blijft de check binnen de app boundary.
+- white-label subdomain-validatie voor `*.nxtdrive.io` slaagt alleen als de
+  wildcard TLS-setup echt actief is in Caddy. Een geldige DNS A-record alleen
+  is niet genoeg; zonder het wildcard-certificaat faalt de browser-run met
+  `ERR_SSL_PROTOCOL_ERROR`.
+
+Huidige bekende productieblokkade:
+
+- `https://test.nxtdrive.io/login` geeft op dit moment een TLS-handshakefout.
+  Zie `docs/INFRA_ROADMAP.md` voor de verplichte wildcard-Caddy/Cloudflare
+  setup (`infra/Caddyfile.wildcard`, DNS plugin en `CLOUDFLARE_API_TOKEN`).
+
+## Wildcard TLS enablement op de VPS
+
+Voor `*.nxtdrive.io` is naast DNS ook een expliciete Caddy one-time setup nodig.
+Gebruik op de VPS bij voorkeur het meegeleverde script:
+
+```bash
+cd /root/nxtdrive-platform
+sudo WILDCARD_TEST_HOST=test.nxtdrive.io ./infra/enable-wildcard-tls.sh
+```
+
+Dit script:
+
+- controleert of de Caddy binary de `dns.providers.cloudflare` module bevat;
+- controleert of `CLOUDFLARE_API_TOKEN` in `/etc/caddy/caddy.env` staat;
+- installeert `infra/Caddyfile.wildcard` naar `/etc/caddy/sites-enabled/wildcard`;
+- valideert de Caddy-config;
+- herstart Caddy;
+- verifieert `https://<subdomain>.nxtdrive.io/login`.
+
+Als de Cloudflare DNS plugin ontbreekt, voer eerst uit:
+
+```bash
+sudo caddy add-package github.com/caddy-dns/cloudflare
+```
 
 ## Monitoring
 
@@ -177,6 +253,9 @@ Voor broad production:
 - `pnpm --filter @workspace/nxtdrive run build` groen;
 - operations guardrail groen;
 - smoke-runner groen tegen productie;
+- business-flow E2E groen tegen staging of productie;
+- wildcard/subdomain TLS gevalideerd voor `*.nxtdrive.io` wanneer white-label
+  subdomains onderdeel zijn van de livegang;
 - rollback dry-run minimaal op staging getest;
 - testaccounts bestaan en worden periodiek gevalideerd;
 - runbook is bijgewerkt bij relevante infrastructuurwijzigingen.

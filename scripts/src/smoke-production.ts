@@ -12,6 +12,8 @@ type SmokeResult = "OK" | "SKIP" | "FAIL";
 const baseUrl = normalizeBaseUrl(process.env["SMOKE_BASE_URL"] ?? "http://127.0.0.1:5001");
 const timeoutMs = Number(process.env["SMOKE_TIMEOUT_MS"] ?? "15000");
 const allowDegradedReady = process.env["SMOKE_ALLOW_DEGRADED_READY"] === "1";
+const tenantHost = normalizeOptionalUrl(process.env["SMOKE_TENANT_HOST"]);
+const customDomainHost = normalizeOptionalUrl(process.env["SMOKE_CUSTOM_DOMAIN_HOST"]);
 
 const studentEmail = process.env["SMOKE_STUDENT_EMAIL"];
 const studentPassword = process.env["SMOKE_STUDENT_PASSWORD"];
@@ -22,6 +24,11 @@ let failures = 0;
 
 function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function normalizeOptionalUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  return normalizeBaseUrl(value);
 }
 
 function url(path: string): string {
@@ -138,6 +145,40 @@ async function checkLoginPage(page: Page): Promise<void> {
   record("OK", "GET /login browser", "login form rendered");
 }
 
+async function checkHostedLoginPage(
+  browser: Browser,
+  label: string,
+  targetBaseUrl: string | null,
+): Promise<void> {
+  if (!targetBaseUrl) {
+    record("SKIP", label, "host not configured");
+    return;
+  }
+
+  const page = await browser.newPage();
+
+  try {
+    await page.goto(`${targetBaseUrl}/login`, {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+
+    const email = page.locator('input[type="email"], input[name="email"]').first();
+    const password = page.locator('input[type="password"], input[name="password"]').first();
+
+    if ((await email.count()) === 0 || (await password.count()) === 0) {
+      record("FAIL", label, "email/password fields not found");
+      return;
+    }
+
+    record("OK", label, `${targetBaseUrl}/login`);
+  } catch (error) {
+    record("FAIL", label, error instanceof Error ? error.message : "unknown error");
+  } finally {
+    await page.close();
+  }
+}
+
 async function checkLoginFlow(
   browser: Browser,
   label: "student" | "instructor",
@@ -191,6 +232,8 @@ async function main(): Promise<void> {
     await checkLoginPage(page);
     await page.close();
 
+    await checkHostedLoginPage(browser, "tenant host login shell", tenantHost);
+    await checkHostedLoginPage(browser, "custom domain login shell", customDomainHost);
     await checkLoginFlow(browser, "student", studentEmail, studentPassword);
     await checkLoginFlow(browser, "instructor", instructorEmail, instructorPassword);
   } finally {
