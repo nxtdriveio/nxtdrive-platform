@@ -81,10 +81,14 @@ This is useful progress, but it is not yet the full performance or production ha
   Supabase service-role database read,
 - a production smoke runner validates health, readiness, PWA manifests, login
   page rendering and optional student/instructor login flows,
+- deploy workflows now run a deploy-integrated smoke pass after the health gate,
+  using HTTP shell checks for live login surfaces and manifests,
 - a browser-driven E2E business-flow runner now covers seeded login/session
   reuse, lead to trial lesson to student conversion, lesson scheduling and
   completion, student/instructor messaging, branch isolation, white-label host
   shells and the student payment entrypoint,
+- a scheduled GitHub smoke monitor now runs against staging and production and
+  uses issue-based alerting when public smoke checks fail,
 - route-level loading states were added for the student, instructor and
   backoffice shells to improve perceived navigation speed,
 - `docs/PRODUCTION_RUNBOOK.md` now documents deploy verification, smoke tests,
@@ -166,10 +170,12 @@ Minimum required flows:
 
 Current production finding from the browser E2E pass:
 
-- the functional suite is green except for tenant subdomain TLS:
-  `https://test.nxtdrive.io/login` currently fails the HTTPS handshake
-  (`ERR_SSL_PROTOCOL_ERROR` / no secure SSL/TLS channel).
-  This is an infrastructure blocker, not an app-flow blocker.
+- the functional suite is green for production on login/session persistence,
+  lead -> trial lesson -> student conversion, lesson scheduling/completion,
+  student/instructor messaging, branch isolation, white-label subdomain shells
+  and the student payments entrypoint;
+- optional checks remain configuration-dependent:
+  `E2E_CUSTOM_DOMAIN_HOST` and `E2E_ENABLE_PAYMENT_REDIRECT=1`.
 
 Why:
 
@@ -182,7 +188,6 @@ Required:
 - finish remaining hardcoded non-semantic color uses on live user-facing surfaces,
 - brand transactional emails,
 - verify theme behavior in both light and dark mode per shell,
-- validate wildcard `*.nxtdrive.io` TLS end to end in production,
 - define preset governance and override rules operationally.
 
 Why:

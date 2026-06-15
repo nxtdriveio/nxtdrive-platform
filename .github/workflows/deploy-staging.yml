@@ -9,6 +9,8 @@ name: Deploy staging
 #   STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY,
 #   STAGING_SUPABASE_SERVICE_ROLE_KEY, STAGING_SESSION_SECRET,
 #   STAGING_DATABASE_URL
+# Optional environment secrets for deploy-integrated smoke:
+#   SMOKE_TENANT_HOST, SMOKE_CUSTOM_DOMAIN_HOST
 # The old SSH_* secrets are no longer used.
 
 on:
@@ -134,3 +136,12 @@ jobs:
           echo "::error::Health check FAILED after 60s for $url"
           systemctl status "$SERVICE" --no-pager -l || true
           exit 1
+
+      - name: Deploy-integrated smoke
+        env:
+          SMOKE_BASE_URL: ${{ env.APP_URL }}
+          SMOKE_BROWSER_MODE: off
+          SMOKE_TIMEOUT_MS: "30000"
+          SMOKE_TENANT_HOST: ${{ secrets.SMOKE_TENANT_HOST }}
+          SMOKE_CUSTOM_DOMAIN_HOST: ${{ secrets.SMOKE_CUSTOM_DOMAIN_HOST }}
+        run: pnpm --filter @workspace/scripts run smoke:production
