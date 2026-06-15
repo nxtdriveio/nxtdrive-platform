@@ -7,10 +7,18 @@ import { requireAgendaAppointmentAccess } from "@/lib/agenda/access";
 import { durationMinutes } from "@/lib/agenda/types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
+  loadPlanningKernelData,
+  PlanningValidationError,
+  rescheduleAppointment,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
+import {
   notifyCbrAuthorizationNeeded,
   maybeFireLessonReviewMoments,
 } from "@/lib/notifications/dispatch";
 import type { Lesson } from "@/lib/lessons/types";
+import type { MemberRole } from "@/lib/types";
 
 type ActionResult = { error?: string };
 
@@ -27,7 +35,13 @@ function isValidColorOverride(color: string | null): boolean {
  */
 async function loadOwnedLesson(
   lessonId: string,
-): Promise<{ lesson: Lesson; userId: string; tenantId: string } | string> {
+): Promise<{
+  lesson: Lesson;
+  userId: string;
+  tenantId: string;
+  roles: readonly MemberRole[];
+  isPlatformAdmin: boolean;
+} | string> {
   if (!lessonId) return "lesson_id ontbreekt";
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -47,7 +61,48 @@ async function loadOwnedLesson(
   if (!isAdmin && lesson.instructor_id !== user.id) {
     return "Niet geautoriseerd voor deze les";
   }
-  return { lesson, userId: user.id, tenantId: tenant.id };
+  return {
+    lesson,
+    userId: user.id,
+    tenantId: tenant.id,
+    roles,
+    isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+  };
+}
+
+function planningActorForOwnedMutation(ctx: {
+  userId: string;
+  tenantId: string;
+  roles: readonly string[];
+  isPlatformAdmin: boolean;
+}): PlanningActorAccess {
+  const canManageTenant = ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
+  return {
+    userId: ctx.userId,
+    roles: ctx.roles as PlanningActorAccess["roles"],
+    isPlatformAdmin: ctx.isPlatformAdmin,
+    tenantIds: canManageTenant ? [ctx.tenantId] : [],
+    branchAccess: canManageTenant
+      ? [{ tenantId: ctx.tenantId, branchIds: "all" }]
+      : [{ tenantId: ctx.tenantId, branchIds: "all" }],
+  };
+}
+
+function planningScopeForTenantBranch(
+  tenantId: string,
+  branchId: string | null | undefined,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningErrorMessage(error: unknown): string {
+  if (error instanceof PlanningValidationError) {
+    return error.validation.blockingReasons[0]?.message ?? error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Planningvalidatie is mislukt.";
 }
 
 export async function moveOwnedLessonAction(input: {
@@ -68,16 +123,37 @@ export async function moveOwnedLessonAction(input: {
   }
 
   const service = createServiceRoleClient();
-  const { error } = await service
-    .from("lessons")
-    .update({
-      starts_at: startsAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-    })
-    .eq("id", input.lessonId)
-    .eq("tenant_id", ctx.tenantId);
+  const planningInput = {
+    actor: planningActorForOwnedMutation(ctx),
+    scope: planningScopeForTenantBranch(ctx.tenantId, ctx.lesson.branch_id),
+    entityType: "lesson" as const,
+    entityId: input.lessonId,
+    tenantId: ctx.tenantId,
+    branchId: ctx.lesson.branch_id,
+    instructorId: ctx.lesson.instructor_id,
+    vehicleId: ctx.lesson.vehicle_id,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: ctx.lesson.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
 
-  if (error) return { error: error.message };
+  try {
+    await rescheduleAppointment(planningInput, kernelData, async () => {
+      const { error } = await service
+        .from("lessons")
+        .update({
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+        })
+        .eq("id", input.lessonId)
+        .eq("tenant_id", ctx.tenantId);
+      if (error) throw new Error(error.message);
+      return true;
+    });
+  } catch (error) {
+    return { error: planningErrorMessage(error) };
+  }
 
   revalidatePath("/instructor");
   revalidatePath("/instructor/week");
@@ -97,6 +173,7 @@ export async function moveOwnedAppointmentAction(input: {
     "manage",
   );
   if (!access.appointment) return { error: "Niet geautoriseerd voor deze afspraak." };
+  const appointment = access.appointment;
 
   const startsAt = new Date(input.startsAt);
   const endsAt = new Date(input.endsAt);
@@ -107,19 +184,59 @@ export async function moveOwnedAppointmentAction(input: {
     return { error: "De eindtijd moet na de starttijd liggen." };
   }
 
-  const { error } = await service.rpc("update_agenda_appointment", {
-    p_appointment_id: input.appointmentId,
-    p_tenant_id: access.context.organization.id,
-    p_actor: access.context.user.id,
-    p_starts_at: startsAt.toISOString(),
-    p_duration_min: durationMinutes(startsAt.toISOString(), endsAt.toISOString()),
-    p_student_id: access.appointment.student_id,
-    p_branch_id: access.appointmentBranchId,
-    p_title: access.appointment.title,
-    p_location: access.appointment.location,
-    p_notes: access.appointment.notes,
-  });
-  if (error) return { error: error.message };
+  const tenantId = access.context.organization.id;
+  const planningInput = {
+    actor: {
+      userId: access.context.user.id,
+      roles: access.context.roles,
+      isPlatformAdmin: Boolean(access.context.user.profile?.is_platform_admin),
+      tenantIds:
+        access.context.user.profile?.is_platform_admin ||
+        access.context.roles.includes("tenant_admin")
+          ? [tenantId]
+          : [],
+      branchAccess: [
+        {
+          tenantId,
+          branchIds: access.branchScope.scope_type === "all"
+            ? ("all" as const)
+            : access.branchScope.branch_ids ?? [],
+        },
+      ],
+    },
+    scope: planningScopeForTenantBranch(tenantId, access.appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: input.appointmentId,
+    tenantId,
+    branchId: access.appointmentBranchId,
+    instructorId: appointment.instructor_id,
+    vehicleId: appointment.vehicle_id,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: appointment.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+
+  try {
+    await rescheduleAppointment(planningInput, kernelData, async () => {
+      const { error } = await service.rpc("update_agenda_appointment", {
+        p_appointment_id: input.appointmentId,
+        p_tenant_id: tenantId,
+        p_actor: access.context.user.id,
+        p_starts_at: startsAt.toISOString(),
+        p_duration_min: durationMinutes(startsAt.toISOString(), endsAt.toISOString()),
+        p_student_id: appointment.student_id,
+        p_branch_id: access.appointmentBranchId,
+        p_title: appointment.title,
+        p_location: appointment.location,
+        p_notes: appointment.notes,
+      });
+      if (error) throw new Error(error.message);
+      return true;
+    });
+  } catch (error) {
+    return { error: planningErrorMessage(error) };
+  }
 
   revalidatePath("/instructor");
   revalidatePath("/instructor/week");
