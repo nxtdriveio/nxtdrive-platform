@@ -41,6 +41,7 @@ function data(overrides: Partial<PlanningKernelData> = {}): PlanningKernelData {
         {
           id: "rule-1",
           tenant_id: "tenant-1",
+          branch_id: null,
           instructor_id: "instructor-1",
           weekday: 1,
           start_min: 540,
@@ -94,6 +95,41 @@ describe("validateScheduleCandidate", () => {
         endAt: "2026-06-15T19:00:00.000Z",
       }),
       data(),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("INSTRUCTOR_NOT_AVAILABLE"));
+  });
+
+  it("keeps branch-specific availability inside its branch", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        branchId: "branch-a",
+        scope: { type: "branch", tenantId: "tenant-1", branchId: "branch-a" },
+      }),
+      data({
+        instructor: {
+          id: "instructor-1",
+          tenantId: "tenant-1",
+          branchIds: ["branch-a", "branch-b"],
+          serviceAreaIds: ["area-a"],
+          capabilityIds: ["manual", "anxiety"],
+          availabilityRules: [
+            {
+              id: "rule-branch-b",
+              tenant_id: "tenant-1",
+              branch_id: "branch-b",
+              instructor_id: "instructor-1",
+              weekday: 1,
+              start_min: 540,
+              end_min: 1080,
+              created_at: "2026-01-01T00:00:00.000Z",
+              updated_at: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          availabilityExceptions: [],
+        },
+      }),
     );
 
     assert.equal(result.allowed, false);

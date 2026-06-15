@@ -49,7 +49,7 @@ export default async function InstructorAvailabilityPage({
       <PWAPageHeader
         eyebrow="Planning"
         title="Mijn beschikbaarheid"
-        description="Stel je wekelijkse beschikbaarheid in en beheer uitzonderingen voor specifieke datums. Tijden zijn in UTC."
+        description="Stel je wekelijkse beschikbaarheid in en beheer uitzonderingen voor specifieke datums. Tijden worden gebruikt in Europe/Amsterdam."
         align="left"
         actions={
           <Link
@@ -98,6 +98,7 @@ export default async function InstructorAvailabilityPage({
             <WeeklyEditor
               initial={weekly}
               instructorId={user.id}
+              branchId={null}
               redirectTo={REDIRECT}
               action={saveWeeklyAvailability}
             />
@@ -125,6 +126,7 @@ export default async function InstructorAvailabilityPage({
               <ExceptionsManager
                 exceptions={exceptions}
                 instructorId={user.id}
+                branchId={null}
                 redirectTo={REDIRECT}
                 addAction={addAvailabilityException}
                 deleteAction={deleteAvailabilityException}

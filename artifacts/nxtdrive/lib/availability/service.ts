@@ -16,6 +16,15 @@ type ServerSupabase = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 export type TenantInstructor = { id: string; full_name: string };
 
+export type AvailabilitySummary = {
+  blockCount: number;
+  activeWeekdays: number;
+  weeklyMinutes: number;
+  exceptionCount: number;
+  extraOpenings: number;
+  blockedExceptions: number;
+};
+
 type InstructorMembershipRow = {
   id: string;
   user_id: string;
@@ -90,14 +99,22 @@ export async function loadWeeklyAvailability(
   supabase: ServerSupabase,
   tenantId: string,
   instructorId: string,
+  opts: { branchId?: string | null } = {},
 ): Promise<WeeklyAvailability[]> {
-  const { data } = await supabase
+  let query = supabase
     .from("instructor_availability")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("instructor_id", instructorId)
     .order("weekday", { ascending: true })
     .order("start_min", { ascending: true });
+
+  query =
+    opts.branchId === undefined || opts.branchId === null
+      ? query.is("branch_id", null)
+      : query.eq("branch_id", opts.branchId);
+
+  const { data } = await query;
   return (data ?? []) as WeeklyAvailability[];
 }
 
@@ -105,7 +122,7 @@ export async function loadExceptions(
   supabase: ServerSupabase,
   tenantId: string,
   instructorId: string,
-  opts?: { from?: Date; to?: Date },
+  opts?: { from?: Date; to?: Date; branchId?: string | null },
 ): Promise<AvailabilityException[]> {
   let query = supabase
     .from("instructor_availability_exception")
@@ -114,10 +131,32 @@ export async function loadExceptions(
     .eq("instructor_id", instructorId)
     .order("exception_date", { ascending: true })
     .order("start_min", { ascending: true });
+  query =
+    opts?.branchId === undefined || opts.branchId === null
+      ? query.is("branch_id", null)
+      : query.eq("branch_id", opts.branchId);
   if (opts?.from) query = query.gte("exception_date", dateKey(opts.from));
   if (opts?.to) query = query.lte("exception_date", dateKey(opts.to));
   const { data } = await query;
   return (data ?? []) as AvailabilityException[];
+}
+
+export function summarizeAvailability(
+  weekly: readonly WeeklyAvailability[],
+  exceptions: readonly AvailabilityException[],
+): AvailabilitySummary {
+  const weekdays = new Set(weekly.map((block) => block.weekday));
+  return {
+    blockCount: weekly.length,
+    activeWeekdays: weekdays.size,
+    weeklyMinutes: weekly.reduce(
+      (sum, block) => sum + Math.max(0, block.end_min - block.start_min),
+      0,
+    ),
+    exceptionCount: exceptions.length,
+    extraOpenings: exceptions.filter((row) => row.kind === "available").length,
+    blockedExceptions: exceptions.filter((row) => row.kind === "blocked").length,
+  };
 }
 
 // Free-space (background availability) for an agenda range, keyed by UTC date.
@@ -132,6 +171,7 @@ export async function loadFreeSpaceForRange(
     to: Date;
     instructorId?: string;
     instructorIds?: readonly string[];
+    branchIds?: readonly string[] | null;
   },
 ): Promise<Map<string, Interval[]>> {
   const fromKey = dateKey(opts.from);
@@ -152,6 +192,11 @@ export async function loadFreeSpaceForRange(
   } else if (instructorIds) {
     weeklyQuery = weeklyQuery.in("instructor_id", instructorIds);
   }
+  if (opts.branchIds) {
+    const branchIds = uniqueStrings(opts.branchIds);
+    if (branchIds.length === 0) return new Map();
+    weeklyQuery = weeklyQuery.or(`branch_id.is.null,branch_id.in.(${branchIds.join(",")})`);
+  }
 
   let excQuery = supabase
     .from("instructor_availability_exception")
@@ -163,6 +208,11 @@ export async function loadFreeSpaceForRange(
     excQuery = excQuery.eq("instructor_id", opts.instructorId);
   } else if (instructorIds) {
     excQuery = excQuery.in("instructor_id", instructorIds);
+  }
+  if (opts.branchIds) {
+    const branchIds = uniqueStrings(opts.branchIds);
+    if (branchIds.length === 0) return new Map();
+    excQuery = excQuery.or(`branch_id.is.null,branch_id.in.(${branchIds.join(",")})`);
   }
 
   const [{ data: weeklyRaw }, { data: excRaw }] = await Promise.all([

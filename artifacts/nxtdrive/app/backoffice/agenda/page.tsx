@@ -187,6 +187,7 @@ export default async function AgendaPage({
     from: weekStart,
     to: weekEnd,
     instructorIds: availabilityInstructors.map((i) => i.id),
+    branchIds: branchFilterIds,
   });
 
   // Pull display names for students (RLS-scoped to this tenant).

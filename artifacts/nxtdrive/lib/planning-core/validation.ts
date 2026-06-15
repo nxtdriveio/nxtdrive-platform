@@ -156,11 +156,15 @@ function validateAvailability(
   }
 
   const weekday = weekdayForYmd(startParts.ymd);
+  const appliesToBranch = (row: { branch_id?: string | null }) => {
+    if (!row.branch_id) return true;
+    return Boolean(input.branchId && row.branch_id === input.branchId);
+  };
   const rules = (instructor.availabilityRules ?? []).filter(
-    (row) => row.weekday === weekday,
+    (row) => row.weekday === weekday && appliesToBranch(row),
   );
   const exceptions = (instructor.availabilityExceptions ?? []).filter(
-    (row) => row.exception_date === startParts.ymd,
+    (row) => row.exception_date === startParts.ymd && appliesToBranch(row),
   );
   const free = computeFreeIntervals([...rules], [...exceptions]);
   const inside = free.some(

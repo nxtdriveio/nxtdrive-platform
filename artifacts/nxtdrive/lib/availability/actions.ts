@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { loadTenantInstructors } from "@/lib/availability/service";
+import { loadOrganizationBranchScope } from "@/lib/organization/branch-scope";
+import { canAccessBranch, type BranchAccessScope } from "@/lib/permissions";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import {
   STUDENT_DAYPARTS,
   type WeeklyBlockInput,
 } from "@/lib/availability/types";
+import type { ActiveOrganizationContext } from "@/lib/organization/context";
+import type { MemberRole } from "@/lib/types";
 
 // Allowed pages an action may redirect back to (prevents open-redirect abuse).
 function safeRedirect(value: FormDataEntryValue | null): string {
@@ -18,30 +23,91 @@ function safeRedirect(value: FormDataEntryValue | null): string {
   return "/backoffice/beschikbaarheid";
 }
 
+function parseBranchId(value: FormDataEntryValue | null): string | null {
+  const branchId = String(value ?? "").trim();
+  return branchId.length > 0 ? branchId : null;
+}
+
 // Resolve which instructor this action targets. Non-admins may only ever touch
 // their own availability; admins may target any instructor in the tenant.
 function resolveInstructorId(
-  roles: string[],
+  roles: readonly MemberRole[],
   userId: string,
   requested: FormDataEntryValue | null,
 ): string {
-  const isAdmin = roles.includes("tenant_admin");
+  const canTargetOther =
+    roles.includes("tenant_admin") ||
+    roles.includes("franchise_admin") ||
+    roles.includes("branch_manager") ||
+    roles.includes("planner");
   const requestedId = String(requested ?? "").trim();
-  if (isAdmin && requestedId) return requestedId;
+  if (canTargetOther && requestedId) return requestedId;
   return userId;
+}
+
+function branchScopeError(back: string): never {
+  redirect(`${back}?error=${encodeURIComponent("Geen toegang tot deze vestiging.")}`);
+}
+
+async function assertAvailabilityWriteScope(input: {
+  context: ActiveOrganizationContext;
+  branchScope: BranchAccessScope;
+  instructorId: string;
+  branchId: string | null;
+  back: string;
+}) {
+  const { context, branchScope, branchId, instructorId, back } = input;
+  const tenantId = context.organization.id;
+  const isOwnInstructor = instructorId === context.user.id;
+  const canManageOthers =
+    context.user.profile?.is_platform_admin ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin") ||
+    context.roles.includes("branch_manager") ||
+    context.roles.includes("planner");
+
+  if (!isOwnInstructor && !canManageOthers) {
+    redirect(`${back}?error=${encodeURIComponent("Je mag alleen je eigen beschikbaarheid beheren.")}`);
+  }
+
+  if (branchId && !canAccessBranch(branchScope, branchId)) {
+    branchScopeError(back);
+  }
+
+  if (!branchId && branchScope.scope_type === "branches" && !isOwnInstructor) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        "Kies een vestiging voordat je beschikbaarheid voor een andere instructeur beheert.",
+      )}`,
+    );
+  }
+
+  if (!isOwnInstructor) {
+    const instructors = await loadTenantInstructors(tenantId, {
+      branchIds: branchId ? [branchId] : null,
+    });
+    if (!instructors.some((instructor) => instructor.id === instructorId)) {
+      redirect(`${back}?error=${encodeURIComponent("Deze instructeur valt buiten je scope.")}`);
+    }
+  }
 }
 
 export async function saveWeeklyAvailability(formData: FormData) {
   const { tenant, user, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
   ]);
+  const context = { user, tenant, organization: tenant, roles };
   const instructorId = resolveInstructorId(
     roles,
     user.id,
     formData.get("instructor_id"),
   );
   const back = safeRedirect(formData.get("redirect_to"));
+  const branchId = parseBranchId(formData.get("branch_id"));
 
   let blocks: WeeklyBlockInput[] = [];
   try {
@@ -70,10 +136,20 @@ export async function saveWeeklyAvailability(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  await assertAvailabilityWriteScope({
+    context,
+    branchScope,
+    instructorId,
+    branchId,
+    back,
+  });
+
   const { error } = await service.rpc("set_instructor_weekly_availability", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
     p_instructor_id: instructorId,
+    p_branch_id: branchId,
     p_blocks: blocks,
   });
   if (error) {
@@ -88,13 +164,18 @@ export async function addAvailabilityException(formData: FormData) {
   const { tenant, user, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
   ]);
+  const context = { user, tenant, organization: tenant, roles };
   const instructorId = resolveInstructorId(
     roles,
     user.id,
     formData.get("instructor_id"),
   );
   const back = safeRedirect(formData.get("redirect_to"));
+  const branchId = parseBranchId(formData.get("branch_id"));
 
   const date = String(formData.get("exception_date") ?? "").trim();
   const kind = String(formData.get("kind") ?? "").trim();
@@ -118,11 +199,21 @@ export async function addAvailabilityException(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const branchScope = await loadOrganizationBranchScope(service, context);
+  await assertAvailabilityWriteScope({
+    context,
+    branchScope,
+    instructorId,
+    branchId,
+    back,
+  });
+
   const { error } = await service.rpc("upsert_availability_exception", {
     p_tenant_id: tenant.id,
     p_actor: user.id,
     p_instructor_id: instructorId,
     p_id: null,
+    p_branch_id: branchId,
     p_exception_date: date,
     p_kind: kind,
     p_start_min: startMin,
@@ -141,6 +232,9 @@ export async function deleteAvailabilityException(formData: FormData) {
   const { tenant, user } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
   ]);
   const back = safeRedirect(formData.get("redirect_to"));
   const id = String(formData.get("exception_id") ?? "").trim();
