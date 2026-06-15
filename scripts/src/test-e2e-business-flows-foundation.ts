@@ -35,6 +35,7 @@ check(
 check(
   "runner covers the critical browser-driven business flows",
   runner.includes('login + session persistence') &&
+    runner.includes("session retention") &&
     runner.includes("verifyLeadToTrialToStudent") &&
     runner.includes("verifyLessonPlanningAndCompletion") &&
     runner.includes("verifyMessaging") &&
@@ -59,12 +60,14 @@ check(
   "runbook documents how to execute business-flow E2E checks",
   runbook.includes("E2E business flows") &&
     runbook.includes("e2e:business-flows") &&
+    runbook.includes("session retention") &&
     runbook.includes("E2E_ENABLE_PAYMENT_REDIRECT"),
 );
 
 check(
   "readiness checklist records the browser-driven E2E foundation",
   readiness.includes("browser-driven E2E business-flow runner") &&
+    readiness.includes("session retention") &&
     readiness.includes("lead to trial lesson to student conversion") &&
     readiness.includes("white-label host resolution and themed shells"),
 );

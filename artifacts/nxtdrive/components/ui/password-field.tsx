@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Eye, EyeOff } from "lucide-react";
-import zxcvbn from "zxcvbn";
 import { cn } from "@/lib/utils";
 import { Input, Label } from "@/components/ui/input";
 
@@ -12,12 +11,27 @@ export type PasswordStrength = {
   color: string;
 };
 
-export function getPasswordStrength(password: string): PasswordStrength {
-  if (!password) {
-    return { score: 0, label: "Zwak", color: "bg-danger" };
+type ZxcvbnResult = { score: 0 | 1 | 2 | 3 | 4 };
+type ZxcvbnFn = (password: string, userInputs?: string[]) => ZxcvbnResult;
+
+const FALLBACK_STRENGTH: PasswordStrength = {
+  score: 0,
+  label: "Controle...",
+  color: "bg-muted",
+};
+
+let zxcvbnPromise: Promise<ZxcvbnFn> | null = null;
+
+async function loadZxcvbn(): Promise<ZxcvbnFn> {
+  if (!zxcvbnPromise) {
+    zxcvbnPromise = import("zxcvbn").then(
+      (mod) => ((mod as { default?: ZxcvbnFn }).default ?? (mod as unknown as ZxcvbnFn)),
+    );
   }
-  const result = zxcvbn(password);
-  const score = result.score as 0 | 1 | 2 | 3 | 4;
+  return zxcvbnPromise;
+}
+
+function mapPasswordStrength(score: 0 | 1 | 2 | 3 | 4): PasswordStrength {
   const labels: Record<number, string> = {
     0: "Zwak",
     1: "Zwak",
@@ -35,6 +49,16 @@ export function getPasswordStrength(password: string): PasswordStrength {
   return { score, label: labels[score], color: colors[score] };
 }
 
+export async function getPasswordStrength(password: string): Promise<PasswordStrength> {
+  if (!password) {
+    return { score: 0, label: "Zwak", color: "bg-danger" };
+  }
+  const zxcvbn = await loadZxcvbn();
+  const result = zxcvbn(password);
+  const score = result.score as 0 | 1 | 2 | 3 | 4;
+  return mapPasswordStrength(score);
+}
+
 type PasswordFieldProps = {
   id: string;
   name: string;
@@ -44,6 +68,7 @@ type PasswordFieldProps = {
   showStrength?: boolean;
   minScore?: 0 | 1 | 2 | 3 | 4;
   error?: string | null;
+  onStrengthChange?: (strength: PasswordStrength | null) => void;
   autoComplete?: string;
   placeholder?: string;
   required?: boolean;
@@ -58,12 +83,48 @@ export function PasswordField({
   showStrength = false,
   minScore = 0,
   error,
+  onStrengthChange,
   autoComplete,
   placeholder,
   required,
 }: PasswordFieldProps) {
   const [show, setShow] = React.useState(false);
-  const strength = showStrength && value ? getPasswordStrength(value) : null;
+  const deferredValue = React.useDeferredValue(value);
+  const [strength, setStrength] = React.useState<PasswordStrength | null>(null);
+  const [strengthPending, setStrengthPending] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!showStrength || !deferredValue) {
+      setStrength(null);
+      setStrengthPending(false);
+      return;
+    }
+
+    let cancelled = false;
+    setStrengthPending(true);
+    void getPasswordStrength(deferredValue)
+      .then((nextStrength) => {
+        if (cancelled) return;
+        setStrength(nextStrength);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStrength(FALLBACK_STRENGTH);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setStrengthPending(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deferredValue, showStrength]);
+
+  React.useEffect(() => {
+    onStrengthChange?.(showStrength && value ? strength : null);
+  }, [onStrengthChange, showStrength, strength, value]);
+
   const tooWeak =
     showStrength && value && strength && minScore > 0
       ? strength.score < minScore
@@ -124,7 +185,7 @@ export function PasswordField({
               tooWeak ? "text-danger" : "text-muted-foreground",
             )}
           >
-            {strength?.label}
+            {strengthPending ? "Controle..." : strength?.label}
             {tooWeak ? " \u2014 minimaal \u201cMatig\u201d vereist" : ""}
           </p>
         </div>

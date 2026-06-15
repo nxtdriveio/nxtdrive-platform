@@ -4,7 +4,7 @@ import { getPlatformNotificationConfig } from "@/lib/notifications/platform-noti
 import { getShortcodesForKey } from "@/lib/notifications/shortcodes";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Badge } from "@/components/ui/badge";
-import { TemplateEditorClient } from "./editor-client";
+import { TemplateEditorShell } from "./editor-shell";
 import { savePlatformTemplate } from "../../../actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -97,7 +97,7 @@ export default async function TemplateEditorPage({
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
-          <TemplateEditorClient
+          <TemplateEditorShell
             eventKey={key}
             channel={channel}
             labelNl={config.labelNl}

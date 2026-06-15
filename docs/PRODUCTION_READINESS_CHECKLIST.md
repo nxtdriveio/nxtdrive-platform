@@ -86,13 +86,20 @@ This is useful progress, but it is not yet the full performance or production ha
 - a browser-driven E2E business-flow runner now covers seeded login/session
   reuse, lead to trial lesson to student conversion, lesson scheduling and
   completion, student/instructor messaging, branch isolation, white-label host
-  shells and the student payment entrypoint,
+  shells, the student payment entrypoint and persistent auth cookies /
+  session retention,
 - a scheduled GitHub smoke monitor now runs against staging and production and
   uses issue-based alerting when public smoke checks fail,
 - route-level loading states were added for the student, instructor and
   backoffice shells to improve perceived navigation speed,
+- route performance budgets can now be checked with
+  `pnpm --filter @workspace/scripts run check-route-performance`,
+- the heaviest route outlier `/account/wachtwoord-wijzigen` dropped from
+  `570 kB` to `180 kB` first load, and notification template editors dropped
+  from `256 kB` to `108 kB`,
 - `docs/PRODUCTION_RUNBOOK.md` now documents deploy verification, smoke tests,
-  incident triage, rollback and the initial performance budget.
+  incident triage, rollback, route performance budgets and session retention
+  verification.
 ## Hard Go-Live Requirements
 
 These are the items that should be completed before production rollout is treated as stable.
@@ -118,7 +125,7 @@ Required:
 - continue reducing unnecessary `force-dynamic` usage,
 - add route-level loading states and skeletons for the heaviest surfaces,
 - keep auditing repeated bootstrap queries across layouts and dashboards,
-- shrink obvious bundle outliers such as `/account/wachtwoord-wijzigen`,
+- keep route performance budgets green in `check-route-performance`,
 - review expensive pages for server-render cost and over-invalidation,
 - measure cold and warm navigation on student / instructor / backoffice.
 

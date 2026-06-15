@@ -6,7 +6,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { KeyRound, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PasswordField, getPasswordStrength } from "@/components/ui/password-field";
+import { PasswordField, type PasswordStrength } from "@/components/ui/password-field";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 
 export function WachtwoordWijzigenForm({
@@ -24,11 +24,17 @@ export function WachtwoordWijzigenForm({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
+  const [strength, setStrength] = React.useState<PasswordStrength | null>(null);
 
-  const strength = wachtwoord ? getPasswordStrength(wachtwoord) : null;
   const tooWeak = wachtwoord ? (strength?.score ?? 0) < 2 : false;
   const mismatch = bevestig.length > 0 && bevestig !== wachtwoord;
-  const canSubmit = wachtwoord.length > 0 && bevestig.length > 0 && !tooWeak && !mismatch;
+  const strengthReady = wachtwoord.length === 0 || strength !== null;
+  const canSubmit =
+    wachtwoord.length > 0 &&
+    bevestig.length > 0 &&
+    strengthReady &&
+    !tooWeak &&
+    !mismatch;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +101,7 @@ export function WachtwoordWijzigenForm({
               onChange={setWachtwoord}
               showStrength
               minScore={2}
+              onStrengthChange={setStrength}
               autoComplete="new-password"
               required
             />
