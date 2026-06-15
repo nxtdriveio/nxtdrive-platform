@@ -208,7 +208,23 @@ function validateVehicle(
 ): { blockers: PlanningReason[]; warnings: PlanningReason[] } {
   const blockers: PlanningReason[] = [];
   const warnings: PlanningReason[] = [];
-  if (!input.vehicleId) return { blockers, warnings };
+  const requiredVehicleCapabilityIds = [
+    ...(input.requiredVehicleCapabilityIds ?? []),
+    ...(data.requirements?.requiredVehicleCapabilityIds ?? []),
+  ];
+  if (!input.vehicleId) {
+    if (requiredVehicleCapabilityIds.length > 0) {
+      blockers.push(
+        reason(
+          "MISSING_REQUIRED_VEHICLE_CAPABILITY",
+          "Deze planning vereist een voertuig met verplichte eigenschappen.",
+          "blocking",
+          { missingCapabilityIds: requiredVehicleCapabilityIds },
+        ),
+      );
+    }
+    return { blockers, warnings };
+  }
   const vehicle = data.vehicle;
   if (!vehicle || vehicle.id !== input.vehicleId) {
     return {
@@ -350,10 +366,7 @@ function validateVehicle(
 
   const missingVehicleCapabilities = includesAll(
     vehicle.capabilityIds,
-    [
-      ...(input.requiredVehicleCapabilityIds ?? []),
-      ...(data.requirements?.requiredVehicleCapabilityIds ?? []),
-    ],
+    requiredVehicleCapabilityIds,
   );
   if (missingVehicleCapabilities.length > 0) {
     blockers.push(
@@ -415,7 +428,10 @@ function validateTravel(
       data,
       settings,
     );
-    if (!travel.known && settings.unknownTravelTimePolicy === "fallback_warning") {
+    if (
+      !travel.known &&
+      settings.unknownTravelTimePolicy === "fallback_warning"
+    ) {
       warnings.push(
         reason(
           "UNKNOWN_SERVICE_AREA_TRAVEL_TIME",
@@ -454,7 +470,10 @@ function validateTravel(
       data,
       settings,
     );
-    if (!travel.known && settings.unknownTravelTimePolicy === "fallback_warning") {
+    if (
+      !travel.known &&
+      settings.unknownTravelTimePolicy === "fallback_warning"
+    ) {
       warnings.push(
         reason(
           "UNKNOWN_SERVICE_AREA_TRAVEL_TIME",

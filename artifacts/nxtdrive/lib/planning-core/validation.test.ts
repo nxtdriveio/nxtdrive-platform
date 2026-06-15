@@ -222,7 +222,9 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, true);
     assert.ok(!codes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
-    assert.ok(!warningCodes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
+    assert.ok(
+      !warningCodes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"),
+    );
   });
 
   it("allows active vehicles", () => {
@@ -378,6 +380,18 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("MISSING_REQUIRED_VEHICLE_CAPABILITY"));
   });
 
+  it("blocks required vehicle capabilities without a selected vehicle", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        requiredVehicleCapabilityIds: ["dual_controls"],
+      }),
+      data(),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("MISSING_REQUIRED_VEHICLE_CAPABILITY"));
+  });
+
   it("blocks branch mismatch", () => {
     const result = validateScheduleCandidate(
       candidate({ vehicleId: "vehicle-1", branchId: "branch-a" }),
@@ -497,7 +511,9 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
-    assert.ok(warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"));
+    assert.ok(
+      warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"),
+    );
   });
 
   it("uses travel matrix override", () => {
@@ -526,7 +542,9 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, true);
     assert.ok(!codes(result).includes("INSUFFICIENT_TRAVEL_TIME_BEFORE"));
-    assert.ok(!warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"));
+    assert.ok(
+      !warningCodes(result).includes("UNKNOWN_SERVICE_AREA_TRAVEL_TIME"),
+    );
   });
 
   it("blocks branch-scoped actors outside their branch", () => {
