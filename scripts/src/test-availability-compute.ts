@@ -60,6 +60,7 @@ function weekly(
   return {
     id: `${instructor_id}-${weekday}-${start_min}`,
     tenant_id: "t",
+    branch_id: null,
     instructor_id,
     weekday,
     start_min,
@@ -77,6 +78,7 @@ function exception(
   return {
     id: `${instructor_id}-${kind}-${start_min}`,
     tenant_id: "t",
+    branch_id: null,
     instructor_id,
     exception_date: "2026-06-03",
     kind,

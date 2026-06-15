@@ -14,6 +14,7 @@ type IdRow = { id: string };
 type AvailabilityRuleRow = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   weekday: number;
   start_min: number;
@@ -25,6 +26,7 @@ type AvailabilityRuleRow = {
 type AvailabilityExceptionRow = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   exception_date: string;
   kind: "available" | "blocked";
