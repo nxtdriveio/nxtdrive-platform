@@ -27,6 +27,7 @@ const scriptsPackage = source("scripts/package.json");
 const runbook = source("docs/PRODUCTION_RUNBOOK.md");
 const infraDocs = source("docs/INFRA_DEPLOYMENT.md");
 const readinessDocs = source("docs/PRODUCTION_READINESS_CHECKLIST.md");
+const wildcardEnableScript = source("infra/enable-wildcard-tls.sh");
 
 check(
   "readiness endpoint checks runtime env and database without caching",
@@ -42,8 +43,10 @@ check(
 );
 
 check(
-  "production smoke runner covers health, readiness, manifests and login flows",
+  "production smoke runner covers health, readiness, manifests, login flows and optional host-shell checks",
   smokeRunner.includes('SMOKE_BASE_URL') &&
+    smokeRunner.includes("SMOKE_TENANT_HOST") &&
+    smokeRunner.includes("SMOKE_CUSTOM_DOMAIN_HOST") &&
     smokeRunner.includes("/api/health/ready") &&
     smokeRunner.includes("/student/manifest.webmanifest") &&
     smokeRunner.includes("/instructor/manifest.webmanifest") &&
@@ -79,6 +82,16 @@ check(
   infraDocs.includes("/api/health/ready") &&
     infraDocs.includes("readiness") &&
     infraDocs.includes("smoke:production"),
+);
+
+check(
+  "wildcard TLS helper exists and validates the expected Caddy prerequisites",
+  wildcardEnableScript.includes("dns.providers.cloudflare") &&
+    wildcardEnableScript.includes("CLOUDFLARE_API_TOKEN") &&
+    wildcardEnableScript.includes("infra/Caddyfile.wildcard") &&
+    wildcardEnableScript.includes("caddy validate") &&
+    wildcardEnableScript.includes("systemctl restart caddy") &&
+    wildcardEnableScript.includes('https://${WILDCARD_TEST_HOST}/login'),
 );
 
 check(

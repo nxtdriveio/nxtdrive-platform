@@ -82,6 +82,18 @@ SMOKE_INSTRUCTOR_PASSWORD="..." \
 Gebruik `SMOKE_ALLOW_DEGRADED_READY=1` alleen lokaal of in tijdelijke staging
 waar runtime secrets bewust incompleet zijn. Niet gebruiken als productie-gate.
 
+Wanneer subdomain/custom-domain login shells expliciet mee moeten in de smoke:
+
+```bash
+SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_TENANT_HOST=https://test.nxtdrive.io \
+SMOKE_CUSTOM_DOMAIN_HOST=https://rijschool.example.nl \
+  pnpm --filter @workspace/scripts run smoke:production
+```
+
+`SMOKE_TENANT_HOST` en `SMOKE_CUSTOM_DOMAIN_HOST` controleren alleen of de
+hosted `/login` shell via HTTPS laadt en de auth-form rendert.
+
 ## E2E business flows
 
 De smoke-runner is bewust licht. Voor echte regressiedekking op de kritieke
@@ -120,6 +132,31 @@ Huidige bekende productieblokkade:
 - `https://test.nxtdrive.io/login` geeft op dit moment een TLS-handshakefout.
   Zie `docs/INFRA_ROADMAP.md` voor de verplichte wildcard-Caddy/Cloudflare
   setup (`infra/Caddyfile.wildcard`, DNS plugin en `CLOUDFLARE_API_TOKEN`).
+
+## Wildcard TLS enablement op de VPS
+
+Voor `*.nxtdrive.io` is naast DNS ook een expliciete Caddy one-time setup nodig.
+Gebruik op de VPS bij voorkeur het meegeleverde script:
+
+```bash
+cd /root/nxtdrive-platform
+sudo WILDCARD_TEST_HOST=test.nxtdrive.io ./infra/enable-wildcard-tls.sh
+```
+
+Dit script:
+
+- controleert of de Caddy binary de `dns.providers.cloudflare` module bevat;
+- controleert of `CLOUDFLARE_API_TOKEN` in `/etc/caddy/caddy.env` staat;
+- installeert `infra/Caddyfile.wildcard` naar `/etc/caddy/sites-enabled/wildcard`;
+- valideert de Caddy-config;
+- herstart Caddy;
+- verifieert `https://<subdomain>.nxtdrive.io/login`.
+
+Als de Cloudflare DNS plugin ontbreekt, voer eerst uit:
+
+```bash
+sudo caddy add-package github.com/caddy-dns/cloudflare
+```
 
 ## Monitoring
 
