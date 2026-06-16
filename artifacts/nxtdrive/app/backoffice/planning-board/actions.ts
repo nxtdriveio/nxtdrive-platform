@@ -67,11 +67,24 @@ function validationMessage(validation: PlanningValidationResult): string {
   const reasons = validation.blockingReasons.length
     ? validation.blockingReasons
     : validation.warnings;
-  return reasons.map((reason) => reason.message).join("; ") || "Geen details.";
+  return (
+    reasons.map((reason) => humanizePlanningBoardError(reason.message)).join("; ") ||
+    "Geen details."
+  );
 }
 
 function parseStart(value: string): Date | null {
   return parseAmsterdamDateTime(value);
+}
+
+function humanizePlanningBoardError(message: string): string {
+  if (message.includes("student branch does not match planning queue item branch")) {
+    return "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+  }
+  if (message.includes("Cannot access") && message.includes("before initialization")) {
+    return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
+  }
+  return message;
 }
 
 function agendaPlanningActor(
@@ -330,7 +343,10 @@ export async function scheduleQueueDropAction(
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Plannen mislukt.",
+      message:
+        error instanceof Error
+          ? humanizePlanningBoardError(error.message)
+          : "Plannen mislukt.",
     };
   }
 }
@@ -364,7 +380,9 @@ export async function previewBoardEventMoveAction(
     return {
       ok: false,
       message:
-        error instanceof Error ? error.message : "Verplaatspreview mislukt.",
+        error instanceof Error
+          ? humanizePlanningBoardError(error.message)
+          : "Verplaatspreview mislukt.",
     };
   }
 }
@@ -420,7 +438,10 @@ export async function rescheduleBoardEventAction(
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Verplaatsen mislukt.",
+      message:
+        error instanceof Error
+          ? humanizePlanningBoardError(error.message)
+          : "Verplaatsen mislukt.",
     };
   }
 }
