@@ -18,6 +18,7 @@ import {
   APPOINTMENT_DURATIONS,
   type AgendaAppointmentType,
 } from "@/lib/agenda/types";
+import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +82,7 @@ export default async function NewAppointmentPage({
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
   const { user, organization: tenant, roles } = context;
+  const planningSettings = await loadTenantPlanningSettings(service, tenant.id);
   const canSelectInstructor =
     !!user.profile?.is_platform_admin ||
     rolesGrantPermission(roles, "planning:manage");

@@ -15,7 +15,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { updateAppointment, deleteAppointment } from "@/lib/agenda/actions";
 import {
   APPOINTMENT_TYPE_LABEL,
-  durationMinutes,
+  appointmentBufferMinutes,
+  appointmentDurationMinutes,
   type AgendaAppointment,
 } from "@/lib/agenda/types";
 import type { Student } from "@/lib/students/types";
@@ -133,7 +134,8 @@ export default async function EditInstructorAppointmentPage({
               studentId: appt!.student_id,
               date: appt!.starts_at.slice(0, 10),
               time: appt!.starts_at.slice(11, 16),
-              durationMin: durationMinutes(appt!.starts_at, appt!.ends_at),
+              durationMin: appointmentDurationMinutes(appt!),
+              bufferMin: appointmentBufferMinutes(appt!),
               title: appt!.title,
               location: appt!.location,
               notes: appt!.notes,
