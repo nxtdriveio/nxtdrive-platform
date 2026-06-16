@@ -232,8 +232,18 @@ function dateShort(day: string): string {
 function reasonText(validation: PlanningValidationResult | null): string[] {
   if (!validation) return [];
   return [...validation.blockingReasons, ...validation.warnings].map(
-    (reason) => reason.message,
+    (reason) => humanizePlanningMessage(reason.message),
   );
+}
+
+function humanizePlanningMessage(message: string): string {
+  if (message.includes("student branch does not match planning queue item branch")) {
+    return "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+  }
+  if (message.includes("Cannot access") && message.includes("before initialization")) {
+    return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
+  }
+  return message;
 }
 
 function eventDetailHref(event: PlanningBoardEvent): string {
@@ -252,6 +262,42 @@ function eventRelatedHref(event: PlanningBoardEvent): string | null {
 
 function eventRelatedLabel(event: PlanningBoardEvent): string {
   return event.studentId ? "Open leerling" : "Open lead";
+}
+
+function queueScheduledHref(item: PlanningQueueListItem): string | null {
+  if (!item.scheduled_entity_id || !item.scheduled_entity_type) return null;
+  if (item.scheduled_entity_type === "lesson") {
+    return `/backoffice/agenda/${item.scheduled_entity_id}`;
+  }
+  if (item.scheduled_entity_type === "agenda_appointment") {
+    return `/backoffice/agenda/afspraak/${item.scheduled_entity_id}`;
+  }
+  return item.lead_id ? `/backoffice/leads/${item.lead_id}` : null;
+}
+
+function eventMatchesQueueItem(
+  event: PlanningBoardEvent,
+  item: PlanningQueueListItem,
+): boolean {
+  if (
+    item.scheduled_entity_id &&
+    item.scheduled_entity_type &&
+    event.id === item.scheduled_entity_id &&
+    event.entityType === item.scheduled_entity_type
+  ) {
+    return true;
+  }
+  if (item.student_id && event.studentId !== item.student_id) return false;
+  if (item.lead_id && event.leadId !== item.lead_id) return false;
+  if (!item.student_id && !item.lead_id) return false;
+  if (item.appointment_type === "lesson") return event.entityType === "lesson";
+  if (item.appointment_type === "trial_lesson") {
+    return event.entityType === "trial_lesson";
+  }
+  return (
+    event.entityType === "agenda_appointment" &&
+    event.appointmentType === item.appointment_type
+  );
 }
 
 function eventTone(event: PlanningBoardEvent): string {
@@ -371,9 +417,13 @@ function AvailabilityBands({
 function QueueCard({
   item,
   compact = false,
+  href,
+  relatedLabel,
 }: {
   item: PlanningQueueListItem;
   compact?: boolean;
+  href?: string | null;
+  relatedLabel?: string | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -384,6 +434,27 @@ function QueueCard({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
   const title = item.student_name ?? item.lead_name ?? item.appointment_type;
+  const content = (
+    <>
+      <p className="truncate font-medium text-foreground">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {item.duration_minutes} min
+        {item.required_transmission ? ` - ${item.required_transmission}` : ""}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1">
+        <Badge variant={item.priority === "urgent" ? "danger" : "outline"}>
+          {item.priority}
+        </Badge>
+        {item.service_area_name ? (
+          <Badge variant="outline">{item.service_area_name}</Badge>
+        ) : null}
+        {href ? (
+          <Badge variant="outline">{relatedLabel ?? "Open afspraak"}</Badge>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
     <div
       ref={setNodeRef}
@@ -404,23 +475,16 @@ function QueueCard({
         >
           <GripVertical className="h-4 w-4" aria-hidden />
         </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-foreground">{title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {item.duration_minutes} min
-            {item.required_transmission
-              ? ` · ${item.required_transmission}`
-              : ""}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            <Badge variant={item.priority === "urgent" ? "danger" : "outline"}>
-              {item.priority}
-            </Badge>
-            {item.service_area_name ? (
-              <Badge variant="outline">{item.service_area_name}</Badge>
-            ) : null}
-          </div>
-        </div>
+        {href ? (
+          <Link
+            href={href}
+            className="min-w-0 flex-1 rounded-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {content}
+          </Link>
+        ) : (
+          <div className="min-w-0 flex-1">{content}</div>
+        )}
       </div>
     </div>
   );
@@ -645,6 +709,26 @@ export function PlanningBoardWorkspace({
     }
     return map;
   }, [events]);
+  const queueEventLinks = useMemo(() => {
+    const map = new Map<string, { href: string; label: string }>();
+    for (const item of queueItems) {
+      const scheduledHref = queueScheduledHref(item);
+      if (scheduledHref) {
+        map.set(item.id, { href: scheduledHref, label: "Open afspraak" });
+        continue;
+      }
+      const relatedEvent = events.find((event) =>
+        eventMatchesQueueItem(event, item),
+      );
+      if (relatedEvent) {
+        map.set(item.id, {
+          href: eventDetailHref(relatedEvent),
+          label: "Bestaande afspraak",
+        });
+      }
+    }
+    return map;
+  }, [events, queueItems]);
   const availabilityByInstructor = useMemo(() => {
     const map = new Map<string, PlanningBoardAvailability[]>();
     for (const block of data.availability) {
@@ -692,27 +776,42 @@ export function PlanningBoardWorkspace({
     previewTimer.current = setTimeout(() => {
       previewTimer.current = null;
       startTransition(async () => {
-        const result =
-          payload.kind === "queue"
-            ? await previewQueueDropAction({
-                queueItemId: payload.id,
-                instructorId: target.instructorId,
-                startsAt: target.startsAt,
-                vehicleId: selectedVehicleId || null,
-              })
-            : await previewBoardEventMoveAction({
-                entityType: payload.entityType,
-                entityId: payload.id,
-                instructorId: target.instructorId,
-                startsAt: target.startsAt,
-                vehicleId: selectedVehicleId || null,
-              });
-        if (previewRequest.current !== requestId) return;
-        setPreview({
-          target: targetId,
-          validation: result.validation ?? null,
-          message: result.message ?? null,
-        });
+        try {
+          const result =
+            payload.kind === "queue"
+              ? await previewQueueDropAction({
+                  queueItemId: payload.id,
+                  instructorId: target.instructorId,
+                  startsAt: target.startsAt,
+                  vehicleId: selectedVehicleId || null,
+                })
+              : await previewBoardEventMoveAction({
+                  entityType: payload.entityType,
+                  entityId: payload.id,
+                  instructorId: target.instructorId,
+                  startsAt: target.startsAt,
+                  vehicleId: selectedVehicleId || null,
+                });
+          if (previewRequest.current !== requestId) return;
+          setPreview({
+            target: targetId,
+            validation: result.validation ?? null,
+            message: result.message
+              ? humanizePlanningMessage(result.message)
+              : null,
+          });
+        } catch (error) {
+          if (previewRequest.current !== requestId) return;
+          setPreview({
+            target: targetId,
+            validation: null,
+            message: humanizePlanningMessage(
+              error instanceof Error
+                ? error.message
+                : "Preview kon niet worden berekend.",
+            ),
+          });
+        }
       });
     }, PREVIEW_DEBOUNCE_MS);
   }
@@ -762,11 +861,17 @@ export function PlanningBoardWorkspace({
               vehicleId: selectedVehicleId || null,
             });
       if (!result.ok) {
-        setStatus(result.message ?? "Planning geblokkeerd.");
+        setStatus(
+          result.message
+            ? humanizePlanningMessage(result.message)
+            : "Planning geblokkeerd.",
+        );
         setPreview({
           target: slotId(target),
           validation: result.validation ?? null,
-          message: result.message ?? null,
+          message: result.message
+            ? humanizePlanningMessage(result.message)
+            : null,
         });
         return;
       }
@@ -819,11 +924,17 @@ export function PlanningBoardWorkspace({
         );
         setStatus("Planning opgeslagen.");
       } else {
-        setStatus(result.message ?? "Planning geblokkeerd.");
+        setStatus(
+          result.message
+            ? humanizePlanningMessage(result.message)
+            : "Planning geblokkeerd.",
+        );
         setPreview({
           target: queueItemId,
           validation: result.validation ?? null,
-          message: result.message ?? null,
+          message: result.message
+            ? humanizePlanningMessage(result.message)
+            : null,
         });
       }
     });
@@ -1003,9 +1114,15 @@ export function PlanningBoardWorkspace({
                   Geen open items.
                 </p>
               ) : (
-                queueItems.map((item) => (
+                queueItems.map((item) => {
+                  const linkedEvent = queueEventLinks.get(item.id);
+                  return (
                   <div key={item.id} className="space-y-2">
-                    <QueueCard item={item} />
+                    <QueueCard
+                      item={item}
+                      href={linkedEvent?.href}
+                      relatedLabel={linkedEvent?.label}
+                    />
                     <form
                       action={planFromFallback}
                       className="grid gap-2 rounded-md border border-border p-2 md:hidden"
@@ -1038,7 +1155,8 @@ export function PlanningBoardWorkspace({
                       </Button>
                     </form>
                   </div>
-                ))
+                );
+                })
               )}
             </CardContent>
           </Card>
