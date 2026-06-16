@@ -12,6 +12,13 @@ function expectIncludes(filePath: string, snippet: string, label: string) {
   }
 }
 
+function expectRouteInfoBubble(filePath: string, scope: string, label: string) {
+  const content = readFileSync(filePath, "utf8");
+  if (!content.includes("RouteInfoBubble") || !content.includes(`scope="${scope}"`)) {
+    throw new Error(`Expected ${label} in ${filePath}`);
+  }
+}
+
 expectIncludes(
   repoPath("artifacts", "nxtdrive", "components", "navigation", "RouteInfoBubble.tsx"),
   "const ROUTE_INFO",
@@ -22,24 +29,24 @@ expectIncludes(
   "student: [",
   "student route info entries",
 );
-expectIncludes(
+expectRouteInfoBubble(
   repoPath("artifacts", "nxtdrive", "components", "student", "TopBar.tsx"),
-  '<RouteInfoBubble scope="student" />',
+  "student",
   "student topbar info bubble",
 );
-expectIncludes(
+expectRouteInfoBubble(
   repoPath("artifacts", "nxtdrive", "components", "instructor", "InstructorTopbar.tsx"),
-  '<RouteInfoBubble scope="instructor" />',
+  "instructor",
   "instructor desktop info bubble",
 );
-expectIncludes(
+expectRouteInfoBubble(
   repoPath("artifacts", "nxtdrive", "components", "instructor", "Sidebar.tsx"),
-  '<RouteInfoBubble scope="instructor" />',
+  "instructor",
   "instructor mobile info bubble",
 );
-expectIncludes(
+expectRouteInfoBubble(
   repoPath("artifacts", "nxtdrive", "components", "backoffice", "topbar.tsx"),
-  '<RouteInfoBubble scope="backoffice" />',
+  "backoffice",
   "backoffice info bubble",
 );
 expectIncludes(

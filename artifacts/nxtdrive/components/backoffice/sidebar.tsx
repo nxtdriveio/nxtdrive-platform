@@ -85,6 +85,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
       { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
       { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap, adminOnly: false },
+      { href: "/backoffice/ris", label: "RIS-leskaart", icon: BookOpenCheck, adminOnly: false },
       { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck, adminOnly: false },
       { href: "/backoffice/packages", label: "Pakketten", icon: Package, adminOnly: false },
       { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car, adminOnly: false },

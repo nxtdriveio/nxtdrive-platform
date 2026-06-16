@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { MessageCircle } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Avatar } from "@/components/ui/avatar";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 
 export function StudentTopBar({
   tenantName,
@@ -31,6 +32,7 @@ export function StudentTopBar({
 
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
           {notifications}
+          <RouteInfoBubble scope="student" />
           <Link
             href="/student/berichten"
             aria-label="Berichten"

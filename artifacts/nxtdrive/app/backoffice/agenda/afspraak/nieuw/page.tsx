@@ -13,16 +13,66 @@ import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { createAppointment } from "@/lib/agenda/actions";
+import {
+  AGENDA_APPOINTMENT_TYPES,
+  APPOINTMENT_DURATIONS,
+  type AgendaAppointmentType,
+} from "@/lib/agenda/types";
 import type { Student } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
 
 const FORM_PATH = "/backoffice/agenda/afspraak/nieuw";
 
+type NewAppointmentSearchParams = {
+  error?: string;
+  type?: string;
+  student_id?: string;
+  instructor_id?: string;
+  branch_id?: string;
+  vehicle_id?: string;
+  pickup_service_area_id?: string;
+  date?: string;
+  time?: string;
+  duration_min?: string;
+  title?: string;
+  location?: string;
+  notes?: string;
+};
+
+function param(value: string | undefined, maxLength = 1000): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
+}
+
+function appointmentType(value: string | undefined): AgendaAppointmentType | undefined {
+  const raw = param(value, 80);
+  return raw && (AGENDA_APPOINTMENT_TYPES as readonly string[]).includes(raw)
+    ? (raw as AgendaAppointmentType)
+    : undefined;
+}
+
+function dateParam(value: string | undefined): string | undefined {
+  const raw = param(value, 10);
+  return raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : undefined;
+}
+
+function timeParam(value: string | undefined): string | undefined {
+  const raw = param(value, 5);
+  return raw && /^\d{2}:\d{2}$/.test(raw) ? raw : undefined;
+}
+
+function durationParam(value: string | undefined): number | undefined {
+  const parsed = Number(value);
+  return (APPOINTMENT_DURATIONS as readonly number[]).includes(parsed)
+    ? parsed
+    : undefined;
+}
+
 export default async function NewAppointmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<NewAppointmentSearchParams>;
 }) {
   const sp = await searchParams;
   const service = createServiceRoleClient();
@@ -92,6 +142,28 @@ export default async function NewAppointmentPage({
   const now = new Date();
   now.setMinutes(0, 0, 0);
   now.setHours(now.getHours() + 1);
+  const defaultType = appointmentType(sp.type);
+  const defaultBranchId =
+    param(sp.branch_id, 80) && branches.some((branch) => branch.id === sp.branch_id)
+      ? sp.branch_id
+      : branches[0]?.id ?? null;
+  const defaultInstructorId =
+    param(sp.instructor_id, 80) && instructors?.some((i) => i.id === sp.instructor_id)
+      ? sp.instructor_id
+      : undefined;
+  const defaultStudentId =
+    param(sp.student_id, 80) && students.some((student) => student.id === sp.student_id)
+      ? sp.student_id
+      : undefined;
+  const defaultVehicleId =
+    param(sp.vehicle_id, 80) && vehicles.some((vehicle) => vehicle.id === sp.vehicle_id)
+      ? sp.vehicle_id
+      : undefined;
+  const defaultServiceAreaId =
+    param(sp.pickup_service_area_id, 80) &&
+    (serviceAreasRes.data ?? []).some((area) => area.id === sp.pickup_service_area_id)
+      ? sp.pickup_service_area_id
+      : undefined;
 
   return (
     <div className="space-y-6">
@@ -140,9 +212,18 @@ export default async function NewAppointmentPage({
             vehicles={vehicles}
             serviceAreas={serviceAreasRes.data ?? []}
             defaults={{
-              branchId: branches[0]?.id ?? null,
-              date: now.toISOString().slice(0, 10),
-              time: now.toISOString().slice(11, 16),
+              type: defaultType,
+              branchId: defaultBranchId,
+              instructorId: defaultInstructorId,
+              studentId: defaultStudentId,
+              vehicleId: defaultVehicleId,
+              pickupServiceAreaId: defaultServiceAreaId,
+              date: dateParam(sp.date) ?? now.toISOString().slice(0, 10),
+              time: timeParam(sp.time) ?? now.toISOString().slice(11, 16),
+              durationMin: durationParam(sp.duration_min),
+              title: param(sp.title, 200) ?? null,
+              location: param(sp.location, 200) ?? null,
+              notes: param(sp.notes, 1000) ?? null,
             }}
             submitLabel="Afspraak inplannen"
           />

@@ -15,6 +15,8 @@ import { getActiveStudent } from "@/lib/students/access";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
 import { loadStudentLeskaart } from "@/lib/skills/student-leskaart-data";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
+import { loadStudentRisProgress } from "@/lib/ris/data";
+import { StudentRisProgressView } from "@/components/ris/StudentRisProgressView";
 import {
   StudentChecklist,
   StudentListRow,
@@ -44,9 +46,14 @@ const historyTimeFmt = createNlDateTimeFormatter({
 });
 
 type ProgressTab = "roadmap" | "onderdelen" | "geschiedenis";
+type RisProgressTab = "roadmap" | "modules" | "feedback";
 
-function progressTabFrom(value: string | undefined): ProgressTab {
+function legacyProgressTabFrom(value: string | undefined): ProgressTab {
   return value === "onderdelen" || value === "geschiedenis" ? value : "roadmap";
+}
+
+function risProgressTabFrom(value: string | undefined): RisProgressTab {
+  return value === "modules" || value === "feedback" ? value : "roadmap";
 }
 
 export default async function StudentVoortgangPage({
@@ -55,9 +62,7 @@ export default async function StudentVoortgangPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const activeTab = progressTabFrom(
-    typeof params.tab === "string" ? params.tab : undefined,
-  );
+  const rawTab = typeof params.tab === "string" ? params.tab : undefined;
 
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
@@ -74,6 +79,27 @@ export default async function StudentVoortgangPage({
   }
 
   const supabase = await createServerSupabaseClient();
+  const risProgress = await loadStudentRisProgress(supabase, tenant.id, student.id);
+
+  if (risProgress.settings.lessonCardMode === "ris") {
+    return (
+      <PWAPage app="student" contentClassName="space-y-3.5">
+        <PWAPageHeader
+          eyebrow="Mijn RIS-reis"
+          title="Voortgang"
+          subtitle="Bekijk je moduleprogressie, laatst geoefende scripts en de feedback die je instructeur met jou heeft gedeeld."
+          icon={<TrendingUp className="h-4 w-4" aria-hidden />}
+        />
+
+        <StudentRisProgressView
+          ris={risProgress}
+          activeTab={risProgressTabFrom(rawTab)}
+        />
+      </PWAPage>
+    );
+  }
+
+  const activeTab = legacyProgressTabFrom(rawTab);
   const [readiness, leskaart, cbrSummary, appointmentsRes] = await Promise.all([
     loadStudentReadiness(supabase, tenant.id, student.id),
     loadStudentLeskaart(supabase, tenant.id, student.id),

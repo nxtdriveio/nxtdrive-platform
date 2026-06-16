@@ -411,6 +411,13 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Volg CBR-gerelateerde voortgang en openstaande acties per leerling.",
     },
     {
+      href: "/backoffice/ris",
+      match: "prefix",
+      title: "RIS-leskaart",
+      description:
+        "Volg RIS-moduleprogressie, aandachtspunten, toetsklaar-status en ongepubliceerde leskaarten.",
+    },
+    {
       href: "/backoffice/facturen/termijn",
       match: "prefix",
       title: "Factuurtermijn",
