@@ -204,7 +204,10 @@ pnpm --filter @workspace/scripts run check-route-performance
 Minimale handmatige RIS-smoke na deploy:
 
 1. Open `/backoffice/ris` als tenant admin.
-2. Controleer de migratiepreflight en activeer RIS alleen als de checklist groen is.
+2. Controleer de migratiepreflight. Activeer echte historische data alleen als
+   de checklist groen is. Gaat het aantoonbaar om mock-data, gebruik dan
+   `SCHOON STARTEN` om alleen legacy scoretabellen te wissen en RIS te
+   activeren.
 3. Open een instructeurles en bevestig dat RIS-scorekaart zichtbaar is voor een
    RIS-tenant en legacy scoring zichtbaar blijft voor een legacy-tenant.
 4. Leg minimaal een conceptscore en begeleide reflectie vast.

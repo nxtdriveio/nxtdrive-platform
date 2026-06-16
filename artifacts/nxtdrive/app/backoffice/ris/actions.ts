@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import {
+  activateRisCleanStartAction,
   activateRisAfterMigrationCheckAction,
   setRisModuleTestAction,
   type RisModuleTestResult,
@@ -101,4 +102,23 @@ export async function activateRisAfterMigrationCheckFromFormAction(formData: For
     redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
   }
   redirect(`${redirectTo}?ris_saved=activated`);
+}
+
+export async function activateRisCleanStartFromFormAction(formData: FormData) {
+  const redirectTo = redirectPath(formData.get("redirect_to"));
+  const confirmation = text(formData.get("confirm_clean_start"), 40);
+  if (confirmation !== "SCHOON STARTEN") {
+    redirect(
+      `${redirectTo}?ris_error=${encodeURIComponent(
+        "Typ SCHOON STARTEN om legacy mock-scores te wissen en RIS te activeren.",
+      )}`,
+    );
+  }
+
+  const result = await activateRisCleanStartAction();
+
+  if (result.error) {
+    redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`${redirectTo}?ris_saved=clean-start`);
 }
