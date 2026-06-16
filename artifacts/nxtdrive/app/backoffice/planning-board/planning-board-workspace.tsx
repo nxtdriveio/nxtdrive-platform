@@ -15,10 +15,13 @@ import {
 } from "@dnd-kit/core";
 import {
   AlertCircle,
+  Ban,
   Car,
   CheckCircle2,
   Clock3,
+  ExternalLink,
   GripVertical,
+  Pencil,
   X,
 } from "lucide-react";
 
@@ -31,6 +34,7 @@ import {
   startOfAmsterdamDayUtc,
 } from "@/lib/datetime";
 import {
+  planningBoardEventCanMove,
   planningBoardEventLabel,
   planningBoardEventTone,
   planningBoardLayoutMode,
@@ -47,9 +51,9 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  previewAppointmentMoveAction,
+  previewBoardEventMoveAction,
   previewQueueDropAction,
-  rescheduleBoardAppointmentAction,
+  rescheduleBoardEventAction,
   scheduleQueueDropAction,
 } from "./actions";
 
@@ -81,12 +85,22 @@ const EVENT_LEGEND = [
 
 type DragPayload =
   | { kind: "queue"; id: string }
-  | { kind: "appointment"; id: string };
+  | {
+      kind: "event";
+      id: string;
+      entityType: PlanningBoardEvent["entityType"];
+    };
 
 type SlotTarget = {
   instructorId: string;
   day: string;
   startsAt: string;
+};
+
+type PositionedEvent = {
+  event: PlanningBoardEvent;
+  lane: number;
+  laneCount: number;
 };
 
 function timeLabel(slot: number): string {
@@ -146,6 +160,57 @@ function eventWidth(event: PlanningBoardEvent): number {
   );
 }
 
+function eventLaneStyle(lane: number, laneCount: number) {
+  const availableHeight = RESOURCE_ROW_HEIGHT - 12;
+  const laneHeight = availableHeight / Math.max(1, laneCount);
+  return {
+    top: 6 + lane * laneHeight,
+    height: Math.max(22, laneHeight - 4),
+  };
+}
+
+function layoutEventGroup(
+  group: readonly PlanningBoardEvent[],
+): PositionedEvent[] {
+  const laneEnds: number[] = [];
+  const positioned = group.map((event) => {
+    const start = Date.parse(event.startsAt);
+    const end = Date.parse(event.endsAt);
+    let lane = laneEnds.findIndex((laneEnd) => start >= laneEnd);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = end;
+    return { event, lane, laneCount: 1 };
+  });
+  const laneCount = Math.max(1, laneEnds.length);
+  return positioned.map((item) => ({ ...item, laneCount }));
+}
+
+function layoutOverlappingEvents(
+  events: readonly PlanningBoardEvent[],
+): PositionedEvent[] {
+  const sorted = [...events].sort((left, right) =>
+    left.startsAt.localeCompare(right.startsAt),
+  );
+  const result: PositionedEvent[] = [];
+  let group: PlanningBoardEvent[] = [];
+  let groupEnd = 0;
+
+  for (const event of sorted) {
+    const start = Date.parse(event.startsAt);
+    const end = Date.parse(event.endsAt);
+    if (group.length > 0 && start >= groupEnd) {
+      result.push(...layoutEventGroup(group));
+      group = [];
+      groupEnd = 0;
+    }
+    group.push(event);
+    groupEnd = Math.max(groupEnd, end);
+  }
+
+  if (group.length > 0) result.push(...layoutEventGroup(group));
+  return result;
+}
+
 function dateShort(day: string): string {
   return dateShortFormatter.format(startOfAmsterdamDayUtc(day));
 }
@@ -155,6 +220,24 @@ function reasonText(validation: PlanningValidationResult | null): string[] {
   return [...validation.blockingReasons, ...validation.warnings].map(
     (reason) => reason.message,
   );
+}
+
+function eventDetailHref(event: PlanningBoardEvent): string {
+  if (event.entityType === "lesson") return `/backoffice/agenda/${event.id}`;
+  if (event.entityType === "trial_lesson" && event.leadId) {
+    return `/backoffice/leads/${event.leadId}`;
+  }
+  return `/backoffice/agenda/afspraak/${event.id}`;
+}
+
+function eventRelatedHref(event: PlanningBoardEvent): string | null {
+  if (event.studentId) return `/backoffice/leerlingen/${event.studentId}`;
+  if (event.leadId) return `/backoffice/leads/${event.leadId}`;
+  return null;
+}
+
+function eventRelatedLabel(event: PlanningBoardEvent): string {
+  return event.studentId ? "Open leerling" : "Open lead";
 }
 
 function eventTone(event: PlanningBoardEvent): string {
@@ -264,18 +347,26 @@ function EventCard({
   event,
   detailed = false,
   layout = "calendar",
+  lane = 0,
+  laneCount = 1,
   onOpen,
 }: {
   event: PlanningBoardEvent;
   detailed?: boolean;
   layout?: "calendar" | "timeline";
+  lane?: number;
+  laneCount?: number;
   onOpen?: (event: PlanningBoardEvent) => void;
 }) {
-  const draggable = event.entityType === "agenda_appointment";
+  const draggable = planningBoardEventCanMove(event);
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
-      id: `appointment|${event.id}`,
-      data: { kind: "appointment", id: event.id } satisfies DragPayload,
+      id: `event|${event.entityType}|${event.id}`,
+      data: {
+        kind: "event",
+        id: event.id,
+        entityType: event.entityType,
+      } satisfies DragPayload,
       disabled: !draggable,
     });
   const style =
@@ -283,8 +374,7 @@ function EventCard({
       ? {
           left: eventLeft(event),
           width: eventWidth(event),
-          top: 8,
-          bottom: 8,
+          ...eventLaneStyle(lane, laneCount),
         }
       : {
           top: eventTop(event),
@@ -479,9 +569,17 @@ export function PlanningBoardWorkspace({
   }, [data.availability]);
 
   function activePayload(id: string): DragPayload | null {
-    const [kind, itemId] = id.split("|");
-    if (kind === "queue" && itemId) return { kind, id: itemId };
-    if (kind === "appointment" && itemId) return { kind, id: itemId };
+    const [kind, first, second] = id.split("|");
+    if (kind === "queue" && first) return { kind, id: first };
+    if (
+      kind === "event" &&
+      second &&
+      (first === "lesson" ||
+        first === "trial_lesson" ||
+        first === "agenda_appointment")
+    ) {
+      return { kind, id: second, entityType: first };
+    }
     return null;
   }
 
@@ -507,8 +605,9 @@ export function PlanningBoardWorkspace({
               startsAt: target.startsAt,
               vehicleId: selectedVehicleId || null,
             })
-          : await previewAppointmentMoveAction({
-              appointmentId: payload.id,
+          : await previewBoardEventMoveAction({
+              entityType: payload.entityType,
+              entityId: payload.id,
               instructorId: target.instructorId,
               startsAt: target.startsAt,
               vehicleId: selectedVehicleId || null,
@@ -536,8 +635,9 @@ export function PlanningBoardWorkspace({
               startsAt: target.startsAt,
               vehicleId: selectedVehicleId || null,
             })
-          : await rescheduleBoardAppointmentAction({
-              appointmentId: payload.id,
+          : await rescheduleBoardEventAction({
+              entityType: payload.entityType,
+              entityId: payload.id,
               instructorId: target.instructorId,
               startsAt: target.startsAt,
               vehicleId: selectedVehicleId || null,
@@ -558,7 +658,7 @@ export function PlanningBoardWorkspace({
       } else {
         setEvents((previous) =>
           previous.map((item) =>
-            item.id === payload.id
+            item.id === payload.id && item.entityType === payload.entityType
               ? {
                   ...item,
                   instructorId: target.instructorId,
@@ -679,7 +779,9 @@ export function PlanningBoardWorkspace({
                 </div>
               </div>
               {rows.map((row) => {
-                const rowEvents = eventsByColumn.get(row.key) ?? [];
+                const rowEvents = layoutOverlappingEvents(
+                  eventsByColumn.get(row.key) ?? [],
+                );
                 const blocks =
                   availabilityByInstructor.get(row.instructor.id) ?? [];
                 return (
@@ -720,10 +822,12 @@ export function PlanningBoardWorkspace({
                           />
                         );
                       })}
-                      {rowEvents.map((event) => (
+                      {rowEvents.map(({ event, lane, laneCount }) => (
                         <EventCard
                           key={`${event.entityType}:${event.id}`}
                           event={event}
+                          lane={lane}
+                          laneCount={laneCount}
                           detailed={detailMode}
                           layout="timeline"
                           onOpen={setSelectedEvent}
@@ -848,6 +952,38 @@ export function PlanningBoardWorkspace({
             >
               <X className="h-5 w-5" aria-hidden />
             </button>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <Link
+              href={eventDetailHref(selectedEvent)}
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Open
+            </Link>
+            {eventRelatedHref(selectedEvent) ? (
+              <Link
+                href={eventRelatedHref(selectedEvent) ?? "#"}
+                className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden />
+                {eventRelatedLabel(selectedEvent)}
+              </Link>
+            ) : null}
+            <Link
+              href={eventDetailHref(selectedEvent)}
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md bg-muted px-3 text-sm font-medium text-foreground hover:bg-muted/70"
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              Wijzigen
+            </Link>
+            <Link
+              href={eventDetailHref(selectedEvent)}
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md bg-danger px-3 text-sm font-medium text-white hover:opacity-90"
+            >
+              <Ban className="h-4 w-4" aria-hidden />
+              Annuleren
+            </Link>
           </div>
           <dl className="mt-5 grid gap-3 text-sm">
             <div>

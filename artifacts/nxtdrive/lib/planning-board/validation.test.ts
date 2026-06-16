@@ -12,6 +12,7 @@ import type {
 } from "@/lib/planning-core";
 import { validateScheduleCandidate } from "@/lib/planning-core/validation";
 import {
+  planningBoardEventCanMove,
   planningBoardEventLabel,
   planningBoardEventTone,
   planningBoardLayoutMode,
@@ -299,5 +300,17 @@ describe("planning board drop validation", () => {
   it("uses resource timeline for the main board and instructor timeline for drilldown", () => {
     assert.equal(planningBoardLayoutMode(false), "resource_timeline");
     assert.equal(planningBoardLayoutMode(true), "instructor_timeline");
+  });
+
+  it("allows all operational board events to be moved", () => {
+    assert.equal(planningBoardEventCanMove({ entityType: "lesson" }), true);
+    assert.equal(
+      planningBoardEventCanMove({ entityType: "trial_lesson" }),
+      true,
+    );
+    assert.equal(
+      planningBoardEventCanMove({ entityType: "agenda_appointment" }),
+      true,
+    );
   });
 });
