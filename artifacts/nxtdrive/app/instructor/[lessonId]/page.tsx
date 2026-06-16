@@ -33,6 +33,8 @@ import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
 import { AiInternalAttention } from "@/components/instructor/AiInternalAttention";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
+import { RisScriptScoring } from "@/components/ris/RisScriptScoring";
+import { RisLessonPublicationPanel } from "@/components/ris/RisLessonPublicationPanel";
 import {
   loadVehicles,
   loadLocations,
@@ -49,6 +51,7 @@ import type { Student, StudentBalance } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import { loadInstructorRisLessonCard } from "@/lib/ris/data";
 import type { MachtigingStatus } from "@/lib/cbr/types";
 import {
   loadCockpitProgress,
@@ -169,6 +172,7 @@ export default async function InstructorLessonPage({
   const [
     readiness,
     leskaart,
+    risLessonCard,
     vehicles,
     locations,
     lessonContext,
@@ -177,6 +181,7 @@ export default async function InstructorLessonPage({
   ] = await Promise.all([
     loadStudentReadiness(supabase, tenant.id, lesson.student_id),
     loadInstructorLeskaart(supabase, tenant.id, lesson.student_id, lesson.id),
+    loadInstructorRisLessonCard(supabase, tenant.id, lesson.id),
     loadVehicles(supabase, tenant.id, { activeOnly: true }),
     loadLocations(supabase, tenant.id, { activeOnly: true }),
     loadLessonContext(supabase, tenant.id, lesson.id),
@@ -217,6 +222,8 @@ export default async function InstructorLessonPage({
   );
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
+  const isRisLessonMode = risLessonCard.settings.lessonCardMode === "ris";
+  const risPublished = risLessonCard.card?.publicationStatus === "published";
 
   return (
     <PWAPage app="instructor" contentClassName="flex flex-col gap-4">
@@ -275,6 +282,8 @@ export default async function InstructorLessonPage({
         currentScore={lesson.progress_score}
         currentSummary={lesson.progress_summary}
         leskaart={leskaart}
+        risMode={isRisLessonMode}
+        risPublished={risPublished}
       />
 
       <LessonContextPanel
@@ -409,11 +418,27 @@ export default async function InstructorLessonPage({
         </div>
       </PWACard>
 
-      <SkillScoring
-        lessonId={lesson.id}
-        studentName={student?.full_name ?? "Leerling"}
-        leskaart={leskaart}
-      />
+      {isRisLessonMode ? (
+        <>
+          <RisScriptScoring
+            lessonId={lesson.id}
+            studentName={student?.full_name ?? "Leerling"}
+            ris={risLessonCard}
+          />
+          <RisLessonPublicationPanel
+            lessonId={lesson.id}
+            studentId={lesson.student_id}
+            studentName={student?.full_name ?? "Leerling"}
+            ris={risLessonCard}
+          />
+        </>
+      ) : (
+        <SkillScoring
+          lessonId={lesson.id}
+          studentName={student?.full_name ?? "Leerling"}
+          leskaart={leskaart}
+        />
+      )}
     </PWAPage>
   );
 }

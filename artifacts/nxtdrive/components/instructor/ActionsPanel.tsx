@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   PlayCircle,
+  CheckCircle2,
   StickyNote,
   TrendingUp,
   XCircle,
@@ -29,6 +30,7 @@ import { FinishLessonFlow } from "@/components/instructor/FinishLessonFlow";
 import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 import {
   startLessonAction,
+  completeLessonAction,
   cancelLessonAction,
   markNoShowAction,
   addLessonNoteAction,
@@ -61,6 +63,8 @@ export function InstructorActionsPanel({
   currentScore,
   currentSummary,
   leskaart,
+  risMode = false,
+  risPublished = false,
 }: {
   lessonId: string;
   studentId: string;
@@ -72,6 +76,8 @@ export function InstructorActionsPanel({
   currentScore: number | null;
   currentSummary: string | null;
   leskaart: InstructorLeskaart;
+  risMode?: boolean;
+  risPublished?: boolean;
 }) {
   const [open, setOpen] = useState<Panel>(null);
   const [pending, startTransition] = useTransition();
@@ -113,7 +119,57 @@ export function InstructorActionsPanel({
         </div>
 
         {/* Two-step primary flow: Start les -> begeleide "Les afronden"-flow */}
-        {canComplete ? (
+        {canComplete && risMode ? (
+          <div className="grid gap-2 sm:grid-cols-4">
+            {isPlanned ? (
+              <form action={startLessonAction}>
+                <input type="hidden" name="lesson_id" value={lessonId} />
+                <Button
+                  type="submit"
+                  size="lg"
+                  variant="primary"
+                  className="h-12 w-full text-base font-bold"
+                  disabled={pending}
+                >
+                  <PlayCircle className="h-5 w-5" aria-hidden />
+                  Start les
+                </Button>
+              </form>
+            ) : null}
+            <a
+              href="#ris-leskaart"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary-soft px-4 text-sm font-bold text-primary transition-colors hover:bg-primary/15"
+            >
+              <ClipboardCheck className="h-5 w-5" aria-hidden />
+              RIS scorekaart
+            </a>
+            <a
+              href="#ris-publicatie"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-primary/40 bg-card px-4 text-sm font-bold text-primary transition-colors hover:bg-primary-soft/60"
+            >
+              <CheckCircle2 className="h-5 w-5" aria-hidden />
+              Publicatie
+            </a>
+            <form action={completeLessonAction}>
+              <input type="hidden" name="lesson_id" value={lessonId} />
+              <Button
+                type="submit"
+                size="lg"
+                variant="outline"
+                className="h-12 w-full text-base font-bold"
+                disabled={pending || !risPublished}
+              >
+                <CheckCircle2 className="h-5 w-5" aria-hidden />
+                {risPublished ? "Les afronden" : "Publiceer eerst"}
+              </Button>
+            </form>
+            <div className="rounded-xl border border-primary/20 bg-primary-soft/30 p-3 text-xs leading-5 text-muted-foreground sm:col-span-4">
+              RIS is actief voor deze tenant. Conceptscores worden hieronder per
+              script vastgelegd en blijven intern tot publicatie. Publiceer de
+              RIS-leskaart voordat je de les definitief afrondt.
+            </div>
+          </div>
+        ) : canComplete ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             {isPlanned ? (
               <form action={startLessonAction} className="flex-1">
