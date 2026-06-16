@@ -251,6 +251,7 @@ export async function getReport(
 
 export type TodayLesson = {
   id: string;
+  studentId: string | null;
   startsAt: string;
   endsAt: string;
   status: string;
@@ -293,6 +294,7 @@ export async function getTodayLessons(
 
   return rows.map((r) => ({
     id: r.id as string,
+    studentId: (r.student_id as string | null) ?? null,
     startsAt: r.starts_at as string,
     endsAt: r.ends_at as string,
     status: r.status as string,

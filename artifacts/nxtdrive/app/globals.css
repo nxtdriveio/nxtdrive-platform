@@ -46,13 +46,13 @@
 :root {
   color-scheme: light;
 
-  --platform-background: #fafafb;
+  --platform-background: #f4f5f8;
   --platform-foreground: #0b0b14;
-  --platform-card: #ffffff;
+  --platform-card: #fbfbfd;
   --platform-card-foreground: #0b0b14;
-  --platform-muted: #f3f3f7;
-  --platform-muted-foreground: #6b6b7b;
-  --platform-border: #e5e5ec;
+  --platform-muted: #eceef3;
+  --platform-muted-foreground: #62687a;
+  --platform-border: #d9dde7;
   --platform-input: #ffffff;
   --platform-ring: #7c5cff;
   --platform-primary: #6b4eff;
@@ -66,13 +66,13 @@
   --platform-danger: #dc2626;
   --platform-info: #2563eb;
 
-  --background: #fafafb;
+  --background: #f4f5f8;
   --foreground: #0b0b14;
-  --card: #ffffff;
+  --card: #fbfbfd;
   --card-foreground: #0b0b14;
-  --muted: #f3f3f7;
-  --muted-foreground: #6b6b7b;
-  --border: #e5e5ec;
+  --muted: #eceef3;
+  --muted-foreground: #62687a;
+  --border: #d9dde7;
   --input: #ffffff;
   --ring: #7c5cff;
 
@@ -90,10 +90,20 @@
   --danger: #dc2626;
   --info: #2563eb;
 
-  --shell-glow-strong: color-mix(in oklab, var(--primary) 18%, transparent);
-  --shell-glow-medium: color-mix(in oklab, var(--primary) 12%, transparent);
-  --shell-glow-soft: color-mix(in oklab, var(--primary) 10%, transparent);
-  --shell-glow-faint: color-mix(in oklab, var(--primary) 8%, transparent);
+  --surface-canvas: #eef1f6;
+  --surface-1: #fbfbfd;
+  --surface-2: #f5f6fa;
+  --surface-3: #edf0f6;
+  --surface-raised: #ffffff;
+  --admin-header: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  --admin-sidebar: #f7f8fb;
+  --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 8%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 4%, transparent);
 
   --hero-accent-soft: color-mix(in oklab, var(--primary) 18%, transparent);
   --hero-surface-start: color-mix(in oklab, var(--primary) 88%, #0f172a);
@@ -108,14 +118,14 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --platform-background: #08080f;
+  --platform-background: #101218;
   --platform-foreground: #ececf2;
-  --platform-card: #11111d;
+  --platform-card: #181b24;
   --platform-card-foreground: #ececf2;
-  --platform-muted: #1a1a28;
-  --platform-muted-foreground: #9a9ab0;
-  --platform-border: #25253a;
-  --platform-input: #14141f;
+  --platform-muted: #202431;
+  --platform-muted-foreground: #a3a8b8;
+  --platform-border: #2e3442;
+  --platform-input: #171a23;
   --platform-ring: #8b6fff;
   --platform-primary: #8b6fff;
   --platform-primary-foreground: #ffffff;
@@ -128,14 +138,14 @@
   --platform-danger: #f87171;
   --platform-info: #60a5fa;
 
-  --background: #08080f;
+  --background: #101218;
   --foreground: #ececf2;
-  --card: #11111d;
+  --card: #181b24;
   --card-foreground: #ececf2;
-  --muted: #1a1a28;
-  --muted-foreground: #9a9ab0;
-  --border: #25253a;
-  --input: #14141f;
+  --muted: #202431;
+  --muted-foreground: #a3a8b8;
+  --border: #2e3442;
+  --input: #171a23;
   --ring: #8b6fff;
 
   --primary: #8b6fff;
@@ -152,10 +162,20 @@
   --danger: #f87171;
   --info: #60a5fa;
 
-  --shell-glow-strong: color-mix(in oklab, var(--primary) 14%, transparent);
-  --shell-glow-medium: color-mix(in oklab, var(--primary) 10%, transparent);
-  --shell-glow-soft: color-mix(in oklab, var(--primary) 8%, transparent);
-  --shell-glow-faint: color-mix(in oklab, var(--primary) 6%, transparent);
+  --surface-canvas: #0f1118;
+  --surface-1: #171a23;
+  --surface-2: #1d212c;
+  --surface-3: #252b38;
+  --surface-raised: #202431;
+  --admin-header: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  --admin-sidebar: #12141c;
+  --admin-row-hover: color-mix(in oklab, var(--primary) 8%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 13%, var(--surface-1));
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 8%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 4%, transparent);
 
   --hero-accent-soft: color-mix(in oklab, var(--primary) 18%, transparent);
   --hero-surface-start: color-mix(in oklab, var(--primary) 22%, #10131d);
@@ -189,10 +209,20 @@
   --info: var(--tenant-light-info, var(--platform-info));
   --primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
 
-  --shell-glow-strong: color-mix(in oklab, var(--primary) 14%, transparent);
-  --shell-glow-medium: color-mix(in oklab, var(--primary) 10%, transparent);
-  --shell-glow-soft: color-mix(in oklab, var(--primary) 8%, transparent);
-  --shell-glow-faint: color-mix(in oklab, var(--primary) 6%, transparent);
+  --surface-canvas: color-mix(in oklab, var(--background) 88%, var(--muted));
+  --surface-1: var(--card);
+  --surface-2: color-mix(in oklab, var(--card) 86%, var(--muted));
+  --surface-3: color-mix(in oklab, var(--card) 72%, var(--muted));
+  --surface-raised: color-mix(in oklab, var(--card) 94%, white);
+  --admin-header: color-mix(in oklab, var(--card) 92%, transparent);
+  --admin-sidebar: color-mix(in oklab, var(--background) 82%, var(--card));
+  --admin-row-hover: color-mix(in oklab, var(--primary) 6%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 9%, var(--surface-1));
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 7%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 4%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 3%, transparent);
 
   --hero-accent-soft: color-mix(in oklab, var(--primary) 14%, transparent);
   --hero-surface-start: color-mix(in oklab, var(--primary) 10%, var(--card));
@@ -226,10 +256,20 @@
   --info: var(--tenant-dark-info, var(--platform-info));
   --primary-soft: color-mix(in oklab, var(--primary) 12%, var(--card));
 
-  --shell-glow-strong: color-mix(in oklab, var(--primary) 10%, transparent);
-  --shell-glow-medium: color-mix(in oklab, var(--primary) 7%, transparent);
-  --shell-glow-soft: color-mix(in oklab, var(--primary) 5.5%, transparent);
-  --shell-glow-faint: color-mix(in oklab, var(--primary) 4%, transparent);
+  --surface-canvas: color-mix(in oklab, var(--background) 92%, black);
+  --surface-1: var(--card);
+  --surface-2: color-mix(in oklab, var(--card) 82%, var(--muted));
+  --surface-3: color-mix(in oklab, var(--card) 68%, var(--muted));
+  --surface-raised: color-mix(in oklab, var(--card) 88%, white);
+  --admin-header: color-mix(in oklab, var(--card) 88%, transparent);
+  --admin-sidebar: color-mix(in oklab, var(--background) 88%, black);
+  --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 4%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 3%, transparent);
 
   --hero-accent-soft: color-mix(in oklab, var(--primary) 11%, transparent);
   --hero-surface-start: color-mix(in oklab, var(--primary) 12%, var(--card));

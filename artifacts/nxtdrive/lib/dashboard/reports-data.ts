@@ -141,6 +141,7 @@ export type SmartAlert = {
   description: string;
   severity: "high" | "medium" | "low";
   timeAgo: string;
+  href: string;
 };
 
 // ── Data functions ────────────────────────────────────────────────────────────
@@ -543,6 +544,7 @@ export async function getSmartAlerts(
       description: `${(lead.full_name as string) ?? "Nieuwe lead"} wacht al meer dan 24 uur`,
       severity: "high",
       timeAgo: _timeAgo(lead.created_at as string),
+      href: `/backoffice/leads/${lead.id as string}`,
     });
   }
 
@@ -564,6 +566,7 @@ export async function getSmartAlerts(
       description: `${(s.full_name as string) ?? "Leerling"} heeft < 2 lessen tegoed${extra}`,
       severity: "medium",
       timeAgo: "nu",
+      href: `/backoffice/leerlingen/${s.id as string}`,
     });
   }
 
@@ -577,6 +580,7 @@ export async function getSmartAlerts(
       description: `Rijexamen gepland op ${dateFmt.format(new Date(exam.starts_at as string))}`,
       severity: "low",
       timeAgo: _timeAgo(exam.starts_at as string),
+      href: `/backoffice/agenda/${exam.id as string}`,
     });
   }
 
@@ -588,9 +592,10 @@ export async function getSmartAlerts(
       id: `invoice_${inv.id as string}`,
       type: "overdue_invoice",
       title: "Factuur te laat betaald",
-      description: `€${euros} — verlopen op ${inv.due_date ?? "onbekend"}`,
+      description: `€${euros} - verlopen op ${inv.due_date ?? "onbekend"}`,
       severity: "medium",
-      timeAgo: inv.due_date ? _timeAgo(`${String(inv.due_date)}T12:00:00Z`) : "—",
+      timeAgo: inv.due_date ? _timeAgo(`${String(inv.due_date)}T12:00:00Z`) : "-",
+      href: `/backoffice/facturen/${inv.id as string}`,
     });
   }
 
