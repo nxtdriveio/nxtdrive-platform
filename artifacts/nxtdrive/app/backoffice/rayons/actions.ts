@@ -72,6 +72,14 @@ export async function savePlanningSettings(formData: FormData) {
       formData.get("different_area_travel_minutes"),
       30,
     ),
+    p_default_lesson_duration_minutes: int(
+      formData.get("default_lesson_duration_minutes"),
+      50,
+    ),
+    p_default_lesson_buffer_minutes: int(
+      formData.get("default_lesson_buffer_minutes"),
+      0,
+    ),
   });
   if (error) throw new Error(`Planninginstellingen opslaan mislukt: ${error.message}`);
   revalidatePath(PAGE);

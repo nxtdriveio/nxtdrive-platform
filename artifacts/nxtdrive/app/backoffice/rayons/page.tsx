@@ -31,6 +31,8 @@ type PlanningSettingsRow = {
   default_travel_buffer_minutes: number;
   same_area_travel_minutes: number;
   different_area_travel_minutes: number;
+  default_lesson_duration_minutes: number;
+  default_lesson_buffer_minutes: number;
 };
 
 type ServiceArea = {
@@ -67,6 +69,8 @@ const DEFAULT_SETTINGS: PlanningSettingsRow = {
   default_travel_buffer_minutes: 15,
   same_area_travel_minutes: 10,
   different_area_travel_minutes: 30,
+  default_lesson_duration_minutes: 50,
+  default_lesson_buffer_minutes: 0,
 };
 
 const RAYON_POLICY_LABEL = {
@@ -155,7 +159,7 @@ export default async function RayonsPage({
       service
         .from("planning_settings")
         .select(
-          "rayon_policy, default_travel_buffer_minutes, same_area_travel_minutes, different_area_travel_minutes",
+          "rayon_policy, default_travel_buffer_minutes, same_area_travel_minutes, different_area_travel_minutes, default_lesson_duration_minutes, default_lesson_buffer_minutes",
         )
         .eq("tenant_id", tenant.id)
         .maybeSingle(),
@@ -402,7 +406,29 @@ export default async function RayonsPage({
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
                     <div className="space-y-1.5">
-                      <Label>Standaard buffer</Label>
+                      <Label>Standaard lesduur</Label>
+                      <Input
+                        name="default_lesson_duration_minutes"
+                        type="number"
+                        min={10}
+                        max={240}
+                        step={10}
+                        defaultValue={settings.default_lesson_duration_minutes}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Standaard lesbuffer</Label>
+                      <Input
+                        name="default_lesson_buffer_minutes"
+                        type="number"
+                        min={0}
+                        max={240}
+                        step={10}
+                        defaultValue={settings.default_lesson_buffer_minutes}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Standaard reisbuffer</Label>
                       <Input
                         name="default_travel_buffer_minutes"
                         type="number"
@@ -446,9 +472,19 @@ export default async function RayonsPage({
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <Metric
-                      label="Standaard"
+                      label="Les"
+                      value={`${settings.default_lesson_duration_minutes} min`}
+                    />
+                    <Metric
+                      label="Buffer"
+                      value={`${settings.default_lesson_buffer_minutes} min`}
+                    />
+                    <Metric
+                      label="Reis"
                       value={`${settings.default_travel_buffer_minutes} min`}
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                     <Metric
                       label="Zelfde"
                       value={`${settings.same_area_travel_minutes} min`}

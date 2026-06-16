@@ -46,6 +46,8 @@ export type Lesson = {
   student_id: string;
   starts_at: string;
   ends_at: string;
+  duration_min: number | null;
+  buffer_min: number | null;
   status: LessonStatus;
   location: string | null;
   notes: string | null;

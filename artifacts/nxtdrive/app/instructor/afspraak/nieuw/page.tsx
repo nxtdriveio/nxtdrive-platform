@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { createAppointment } from "@/lib/agenda/actions";
+import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export default async function NewInstructorAppointmentPage({
     roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
 
   const supabase = await createServerSupabaseClient();
+  const planningSettings = await loadTenantPlanningSettings(supabase, tenant.id);
   // Admins may pick any instructor; instructors are pinned to themselves.
   const instructors = isAdmin
     ? await loadTenantInstructors(tenant.id)
@@ -129,6 +131,8 @@ export default async function NewInstructorAppointmentPage({
             defaults={{
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),
+              durationMin: planningSettings.defaultLessonDurationMinutes,
+              bufferMin: planningSettings.defaultLessonBufferMinutes,
             }}
             submitLabel="Afspraak inplannen"
           />

@@ -83,12 +83,14 @@ export default async function LessonDetailPage({
 
   // Task #92 — only surface "slim herbezetten" when this freed slot is still in
   // the future. The duration is derived from the cancelled lesson's window.
-  const durationMin = Math.max(
+  const occupiedMin = Math.max(
     0,
     Math.round(
       (new Date(lesson.ends_at).getTime() - startsAt.getTime()) / (1000 * 60),
     ),
   );
+  const bufferMin = Math.max(0, lesson.buffer_min ?? 0);
+  const durationMin = lesson.duration_min ?? Math.max(0, occupiedMin - bufferMin);
   const isCancelled =
     lesson.status === "cancelled_with_refund" ||
     lesson.status === "cancelled_no_refund";
@@ -147,6 +149,9 @@ export default async function LessonDetailPage({
                 label="Einde"
                 value={dtFmt.format(new Date(lesson.ends_at))}
               />
+              <Field label="Lestijd" value={`${durationMin} min`} />
+              <Field label="Buffer" value={`${bufferMin} min`} />
+              <Field label="Bezet" value={`${occupiedMin} min totaal`} />
               <Field
                 label="Locatie"
                 value={lesson.location ?? "—"}

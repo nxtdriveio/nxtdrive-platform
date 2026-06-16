@@ -154,6 +154,7 @@ export async function createAppointment(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
   const title = String(formData.get("title") ?? "")
     .trim()
     .slice(0, 200);
@@ -170,6 +171,9 @@ export async function createAppointment(formData: FormData) {
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
     redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
@@ -220,7 +224,8 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
   const planningInput = {
     actor: agendaPlanningActor(context, branchScope),
     scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
@@ -252,7 +257,7 @@ export async function createAppointment(formData: FormData) {
       p_instructor_id: instructorId,
       p_type: type,
       p_starts_at: startsAt.toISOString(),
-      p_duration_min: duration,
+      p_duration_min: occupied,
       p_student_id: studentId,
       p_branch_id: appointmentBranchId,
       p_title: title || null,
@@ -264,6 +269,16 @@ export async function createAppointment(formData: FormData) {
   );
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  if (newId) {
+    const { error: metadataError } = await service
+      .from("agenda_appointments")
+      .update({ duration_min: duration, buffer_min: buffer })
+      .eq("id", String(newId))
+      .eq("tenant_id", context.organization.id);
+    if (metadataError) {
+      redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
+    }
   }
 
   // White-label-aware "exam scheduled" mail to the student. Idempotent per
@@ -336,6 +351,7 @@ export async function updateAppointment(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
   const title = String(formData.get("title") ?? "")
     .trim()
     .slice(0, 200);
@@ -352,6 +368,9 @@ export async function updateAppointment(formData: FormData) {
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
     redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
@@ -404,7 +423,8 @@ export async function updateAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
   const planningInput = {
     actor: agendaPlanningActor(context, branchScope),
     scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
@@ -433,7 +453,7 @@ export async function updateAppointment(formData: FormData) {
     p_tenant_id: context.organization.id,
     p_actor: context.user.id,
     p_starts_at: startsAt.toISOString(),
-    p_duration_min: duration,
+    p_duration_min: occupied,
     p_student_id: studentId,
     p_branch_id: appointmentBranchId,
     p_title: title || null,
@@ -444,6 +464,14 @@ export async function updateAppointment(formData: FormData) {
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  const { error: metadataError } = await service
+    .from("agenda_appointments")
+    .update({ duration_min: duration, buffer_min: buffer })
+    .eq("id", appointmentId)
+    .eq("tenant_id", context.organization.id);
+  if (metadataError) {
+    redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
   }
 
   // Idempotent per appointment: later edits never re-send with the same dedupe

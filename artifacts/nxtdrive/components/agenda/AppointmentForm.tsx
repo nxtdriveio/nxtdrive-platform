@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AGENDA_APPOINTMENT_TYPES,
+  APPOINTMENT_BUFFER_OPTIONS,
   APPOINTMENT_DURATIONS,
   APPOINTMENT_TYPE_LABEL,
   isStudentLinkedType,
@@ -37,6 +38,7 @@ export type AppointmentFormDefaults = {
   date?: string;
   time?: string;
   durationMin?: number;
+  bufferMin?: number;
   title?: string | null;
   location?: string | null;
   notes?: string | null;
@@ -262,18 +264,36 @@ export function AppointmentForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="duration_min">Duur (minuten)</Label>
+          <Label htmlFor="duration_min">Lestijd / duur</Label>
           <Select
             id="duration_min"
             name="duration_min"
-            defaultValue={String(defaults?.durationMin ?? 60)}
+            defaultValue={String(defaults?.durationMin ?? 50)}
           >
             {APPOINTMENT_DURATIONS.map((d) => (
               <option key={d} value={d}>
-                {d}
+                {d} min
               </option>
             ))}
           </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="buffer_min">Buffer na afloop</Label>
+          <Select
+            id="buffer_min"
+            name="buffer_min"
+            defaultValue={String(defaults?.bufferMin ?? 0)}
+          >
+            {APPOINTMENT_BUFFER_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {d} min
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Bezet in agenda: duur + buffer.
+          </p>
         </div>
 
         <div className="space-y-1.5">
