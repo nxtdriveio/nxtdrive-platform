@@ -241,19 +241,42 @@ rollout en transparantie. Automatische scoreconversie kan later als aparte,
 tenant-specifieke migratie plaatsvinden zodra mappingregels inhoudelijk zijn
 goedgekeurd.
 
-## Nog niet geimplementeerd
-
-De bestaande legacy-leskaart blijft zichtbaar voor tenants met
-`lesson_card_mode = legacy`. De volgende sprints sluiten hierop aan:
-
 ### RIS-10: Hardening en release
 
-- RLS-tests
-- E2E instructor/student/backoffice flows
-- performancecheck
-- regressietest voor legacy-leskaart
-- handleiding voor instructeur en tenant admin
-- productie-runbook
+RIS heeft nu een expliciete release gate voor productieactivatie.
+
+Geimplementeerd:
+
+- RLS-releaseguard voor gepubliceerde RIS-leskaarten, scriptassessments,
+  studentprogress en begeleide reflectie;
+- aparte migration die gepubliceerde begeleide reflectie zichtbaar maakt voor
+  de gekoppelde leerling/ouder, terwijl interne observaties staff-only blijven;
+- legacy-regressieguard: instructeur- en studentroutes moeten per tenantmodus
+  blijven schakelen tussen legacy en RIS;
+- E2E-releaseguard die bevestigt dat de bestaande business-flow suite tenant
+  admin, instructeur, leerling, lesafronding, branch isolation en session
+  retention blijft dekken;
+- performance-releaseguard die `check-route-performance` als livegangbudget
+  bewaakt voor student, instructor en backoffice shells;
+- productie-runbook met RIS release gate, minimale handmatige RIS-smoke en RIS
+  rollback via `lesson_card_mode = legacy`;
+- `test-ris-release-hardening` als samengevoegde statische guard voor de
+  release-eisen.
+
+De bestaande legacy-leskaart blijft zichtbaar voor tenants met
+`lesson_card_mode = legacy`. RIS wordt per tenant pas zichtbaar na expliciete
+activatie en een groene migratiepreflight.
+
+## Nog niet geimplementeerd
+
+De RIS-basis is functioneel afgerond tot en met release-hardening. Resterende
+toekomstige uitbreidingen zijn bewust buiten deze release gehouden:
+
+- automatische historische scoreconversie naar definitieve RIS-progress;
+- volledige RIS-boekcontent of commerciele lesstof;
+- CBR-export of externe CBR-koppeling;
+- tenant-specifieke handmatige mapping-editor voor unmapped legacy-items;
+- extra E2E scenario's met echte live RIS-publicatie op productieaccounts.
 
 ## Test
 
@@ -263,6 +286,7 @@ De statische guard-test staat in:
 pnpm --filter @workspace/scripts run test-ris-foundation
 pnpm --filter @workspace/scripts run test-ris-ai-reporting
 pnpm --filter @workspace/scripts run test-ris-migration-rollout
+pnpm --filter @workspace/scripts run test-ris-release-hardening
 ```
 
 Deze test bewaakt:
