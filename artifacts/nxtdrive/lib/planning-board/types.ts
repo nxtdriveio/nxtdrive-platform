@@ -54,6 +54,8 @@ export type PlanningBoardEvent = {
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
+  bufferMinutes?: number | null;
+  occupiedMinutes?: number;
   appointmentType?: string | null;
   status?: string | null;
   vehicleId?: string | null;

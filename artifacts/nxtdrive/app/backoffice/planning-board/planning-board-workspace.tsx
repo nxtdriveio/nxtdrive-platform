@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -62,8 +62,10 @@ const START_HOUR = 7;
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 34;
-const SLOT_WIDTH = 76;
-const RESOURCE_ROW_HEIGHT = 76;
+const SLOT_WIDTH = 52;
+const RESOURCE_ROW_HEIGHT = 56;
+const RESOURCE_COLUMN_WIDTH = 176;
+const PREVIEW_DEBOUNCE_MS = 180;
 const dateShortFormatter = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
@@ -82,6 +84,17 @@ const EVENT_LEGEND = [
   { key: "admin", label: "Administratie", className: "bg-slate-500" },
   { key: "theory_guidance", label: "Theorie", className: "bg-pink-500" },
   { key: "block", label: "Prive/pauze/blok", className: "bg-zinc-700" },
+] as const;
+
+const AVAILABILITY_LEGEND = [
+  { key: "available", label: "Beschikbaar", className: "bg-emerald-500/35" },
+  {
+    key: "blocked",
+    label: "Geblokkeerd",
+    className:
+      "bg-red-500/20 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]",
+  },
+  { key: "closed", label: "Gesloten", className: "bg-muted/60" },
 ] as const;
 
 type DragPayload =
@@ -128,7 +141,7 @@ function parseSlotId(value: string): SlotTarget | null {
 }
 
 function eventDurationMinutes(event: PlanningBoardEvent): number {
-  return Math.max(SLOT_MINUTES, event.durationMinutes);
+  return Math.max(SLOT_MINUTES, event.occupiedMinutes ?? event.durationMinutes);
 }
 
 function eventTop(event: PlanningBoardEvent): number {
@@ -219,8 +232,18 @@ function dateShort(day: string): string {
 function reasonText(validation: PlanningValidationResult | null): string[] {
   if (!validation) return [];
   return [...validation.blockingReasons, ...validation.warnings].map(
-    (reason) => reason.message,
+    (reason) => humanizePlanningMessage(reason.message),
   );
+}
+
+function humanizePlanningMessage(message: string): string {
+  if (message.includes("student branch does not match planning queue item branch")) {
+    return "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+  }
+  if (message.includes("Cannot access") && message.includes("before initialization")) {
+    return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
+  }
+  return message;
 }
 
 function eventDetailHref(event: PlanningBoardEvent): string {
@@ -239,6 +262,42 @@ function eventRelatedHref(event: PlanningBoardEvent): string | null {
 
 function eventRelatedLabel(event: PlanningBoardEvent): string {
   return event.studentId ? "Open leerling" : "Open lead";
+}
+
+function queueScheduledHref(item: PlanningQueueListItem): string | null {
+  if (!item.scheduled_entity_id || !item.scheduled_entity_type) return null;
+  if (item.scheduled_entity_type === "lesson") {
+    return `/backoffice/agenda/${item.scheduled_entity_id}`;
+  }
+  if (item.scheduled_entity_type === "agenda_appointment") {
+    return `/backoffice/agenda/afspraak/${item.scheduled_entity_id}`;
+  }
+  return item.lead_id ? `/backoffice/leads/${item.lead_id}` : null;
+}
+
+function eventMatchesQueueItem(
+  event: PlanningBoardEvent,
+  item: PlanningQueueListItem,
+): boolean {
+  if (
+    item.scheduled_entity_id &&
+    item.scheduled_entity_type &&
+    event.id === item.scheduled_entity_id &&
+    event.entityType === item.scheduled_entity_type
+  ) {
+    return true;
+  }
+  if (item.student_id && event.studentId !== item.student_id) return false;
+  if (item.lead_id && event.leadId !== item.lead_id) return false;
+  if (!item.student_id && !item.lead_id) return false;
+  if (item.appointment_type === "lesson") return event.entityType === "lesson";
+  if (item.appointment_type === "trial_lesson") {
+    return event.entityType === "trial_lesson";
+  }
+  return (
+    event.entityType === "agenda_appointment" &&
+    event.appointmentType === item.appointment_type
+  );
 }
 
 function eventTone(event: PlanningBoardEvent): string {
@@ -286,12 +345,85 @@ function slotAvailability(
   return weekly ? "available" : "closed";
 }
 
+function availabilityLabel(
+  availability: "available" | "blocked" | "closed",
+): string {
+  if (availability === "available") return "Beschikbaar";
+  if (availability === "blocked") return "Geblokkeerd";
+  return "Gesloten";
+}
+
+function availabilitySegmentStyle(startMinute: number, endMinute: number) {
+  const timelineStart = START_HOUR * 60;
+  const timelineEnd = END_HOUR * 60;
+  const start = Math.max(timelineStart, startMinute);
+  const end = Math.min(timelineEnd, endMinute);
+  if (end <= start) return null;
+  return {
+    left: ((start - timelineStart) / SLOT_MINUTES) * SLOT_WIDTH,
+    width: ((end - start) / SLOT_MINUTES) * SLOT_WIDTH,
+  };
+}
+
+function AvailabilityBands({
+  blocks,
+  day,
+  availabilityFilter,
+}: {
+  blocks: readonly PlanningBoardAvailability[];
+  day: string;
+  availabilityFilter?: "available" | "blocked" | null;
+}) {
+  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const dayBlocks = blocks.filter(
+    (block) => block.date === day || block.weekday === weekday,
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      <div
+        className={cn(
+          "absolute inset-0 bg-muted/45",
+          availabilityFilter && availabilityFilter !== "blocked" && "opacity-40",
+        )}
+      />
+      {dayBlocks.map((block, index) => {
+        const style = availabilitySegmentStyle(
+          block.startMinute,
+          block.endMinute,
+        );
+        if (!style) return null;
+        const isBlocked = block.kind === "blocked";
+        return (
+          <div
+            key={`${block.instructorId}:${block.date ?? block.weekday}:${block.startMinute}:${index}`}
+            className={cn(
+              "absolute inset-y-0",
+              isBlocked
+                ? "bg-red-500/18 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]"
+                : "bg-emerald-500/14",
+              availabilityFilter &&
+                ((availabilityFilter === "available" && isBlocked) ||
+                  (availabilityFilter === "blocked" && !isBlocked)) &&
+                "opacity-25",
+            )}
+            style={style}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function QueueCard({
   item,
   compact = false,
+  href,
+  relatedLabel,
 }: {
   item: PlanningQueueListItem;
   compact?: boolean;
+  href?: string | null;
+  relatedLabel?: string | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -302,6 +434,27 @@ function QueueCard({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
   const title = item.student_name ?? item.lead_name ?? item.appointment_type;
+  const content = (
+    <>
+      <p className="truncate font-medium text-foreground">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {item.duration_minutes} min
+        {item.required_transmission ? ` - ${item.required_transmission}` : ""}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1">
+        <Badge variant={item.priority === "urgent" ? "danger" : "outline"}>
+          {item.priority}
+        </Badge>
+        {item.service_area_name ? (
+          <Badge variant="outline">{item.service_area_name}</Badge>
+        ) : null}
+        {href ? (
+          <Badge variant="outline">{relatedLabel ?? "Open afspraak"}</Badge>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
     <div
       ref={setNodeRef}
@@ -322,23 +475,16 @@ function QueueCard({
         >
           <GripVertical className="h-4 w-4" aria-hidden />
         </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-foreground">{title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {item.duration_minutes} min
-            {item.required_transmission
-              ? ` · ${item.required_transmission}`
-              : ""}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            <Badge variant={item.priority === "urgent" ? "danger" : "outline"}>
-              {item.priority}
-            </Badge>
-            {item.service_area_name ? (
-              <Badge variant="outline">{item.service_area_name}</Badge>
-            ) : null}
-          </div>
-        </div>
+        {href ? (
+          <Link
+            href={href}
+            className="min-w-0 flex-1 rounded-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {content}
+          </Link>
+        ) : (
+          <div className="min-w-0 flex-1">{content}</div>
+        )}
       </div>
     </div>
   );
@@ -422,7 +568,8 @@ function EventCard({
       ) : null}
       {detailed ? (
         <p className="truncate text-muted-foreground">
-          {event.durationMinutes} min
+          {event.durationMinutes} min lestijd
+          {event.bufferMinutes ? ` + ${event.bufferMinutes} buffer` : ""}
           {event.status ? ` - ${event.status}` : ""}
         </p>
       ) : null}
@@ -460,6 +607,9 @@ function DroppableSlot({
     preview?.validation?.blockingReasons[0]?.message ??
     preview?.validation?.warnings[0]?.message ??
     preview?.message;
+  const title = previewText
+    ? `${availabilityLabel(availability)} - ${previewText}`
+    : availabilityLabel(availability);
   return (
     <div
       ref={setNodeRef}
@@ -467,9 +617,6 @@ function DroppableSlot({
         "relative shrink-0",
         layout === "calendar" && "border-b border-border/60",
         layout === "timeline" && "border-r border-border/60",
-        availability === "available" && "bg-emerald-500/5",
-        availability === "blocked" && "bg-danger/10",
-        availability === "closed" && "bg-muted/30",
         availabilityFilter &&
           availability !== availabilityFilter &&
           "opacity-30",
@@ -485,7 +632,8 @@ function DroppableSlot({
           ? { width: SLOT_WIDTH, height: "100%" }
           : { height: SLOT_HEIGHT }
       }
-      title={previewText ?? undefined}
+      title={title}
+      aria-label={title}
     >
       {previewText ? (
         <span
@@ -528,6 +676,8 @@ export function PlanningBoardWorkspace({
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const lastPreviewTarget = useRef<string | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewRequest = useRef(0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -559,6 +709,26 @@ export function PlanningBoardWorkspace({
     }
     return map;
   }, [events]);
+  const queueEventLinks = useMemo(() => {
+    const map = new Map<string, { href: string; label: string }>();
+    for (const item of queueItems) {
+      const scheduledHref = queueScheduledHref(item);
+      if (scheduledHref) {
+        map.set(item.id, { href: scheduledHref, label: "Open afspraak" });
+        continue;
+      }
+      const relatedEvent = events.find((event) =>
+        eventMatchesQueueItem(event, item),
+      );
+      if (relatedEvent) {
+        map.set(item.id, {
+          href: eventDetailHref(relatedEvent),
+          label: "Bestaande afspraak",
+        });
+      }
+    }
+    return map;
+  }, [events, queueItems]);
   const availabilityByInstructor = useMemo(() => {
     const map = new Map<string, PlanningBoardAvailability[]>();
     for (const block of data.availability) {
@@ -568,6 +738,16 @@ export function PlanningBoardWorkspace({
     }
     return map;
   }, [data.availability]);
+
+  function clearPreviewTimer() {
+    if (!previewTimer.current) return;
+    clearTimeout(previewTimer.current);
+    previewTimer.current = null;
+  }
+
+  useEffect(() => {
+    return () => clearPreviewTimer();
+  }, []);
 
   function activePayload(id: string): DragPayload | null {
     const [kind, first, second] = id.split("|");
@@ -584,6 +764,58 @@ export function PlanningBoardWorkspace({
     return null;
   }
 
+  function schedulePreview(
+    payload: DragPayload,
+    target: SlotTarget,
+    targetId: string,
+    activeKey: string,
+  ) {
+    lastPreviewTarget.current = activeKey;
+    clearPreviewTimer();
+    const requestId = ++previewRequest.current;
+    previewTimer.current = setTimeout(() => {
+      previewTimer.current = null;
+      startTransition(async () => {
+        try {
+          const result =
+            payload.kind === "queue"
+              ? await previewQueueDropAction({
+                  queueItemId: payload.id,
+                  instructorId: target.instructorId,
+                  startsAt: target.startsAt,
+                  vehicleId: selectedVehicleId || null,
+                })
+              : await previewBoardEventMoveAction({
+                  entityType: payload.entityType,
+                  entityId: payload.id,
+                  instructorId: target.instructorId,
+                  startsAt: target.startsAt,
+                  vehicleId: selectedVehicleId || null,
+                });
+          if (previewRequest.current !== requestId) return;
+          setPreview({
+            target: targetId,
+            validation: result.validation ?? null,
+            message: result.message
+              ? humanizePlanningMessage(result.message)
+              : null,
+          });
+        } catch (error) {
+          if (previewRequest.current !== requestId) return;
+          setPreview({
+            target: targetId,
+            validation: null,
+            message: humanizePlanningMessage(
+              error instanceof Error
+                ? error.message
+                : "Preview kon niet worden berekend.",
+            ),
+          });
+        }
+      });
+    }, PREVIEW_DEBOUNCE_MS);
+  }
+
   function handleDragOver(event: DragOverEvent) {
     const overId = event.over?.id ? String(event.over.id) : null;
     const payload = activePayload(String(event.active.id));
@@ -596,34 +828,19 @@ export function PlanningBoardWorkspace({
       return;
     const targetId = overId ?? "";
     if (!targetId) return;
-    lastPreviewTarget.current = `${event.active.id}:${targetId}`;
-    startTransition(async () => {
-      const result =
-        payload.kind === "queue"
-          ? await previewQueueDropAction({
-              queueItemId: payload.id,
-              instructorId: target.instructorId,
-              startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
-            })
-          : await previewBoardEventMoveAction({
-              entityType: payload.entityType,
-              entityId: payload.id,
-              instructorId: target.instructorId,
-              startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
-            });
-      setPreview({
-        target: targetId,
-        validation: result.validation ?? null,
-        message: result.message ?? null,
-      });
-    });
+    schedulePreview(
+      payload,
+      target,
+      targetId,
+      `${event.active.id}:${targetId}`,
+    );
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const payload = activePayload(String(event.active.id));
     const target = event.over?.id ? parseSlotId(String(event.over.id)) : null;
+    clearPreviewTimer();
+    previewRequest.current += 1;
     setActiveQueue(null);
     if (!payload || !target) return;
     startTransition(async () => {
@@ -644,11 +861,17 @@ export function PlanningBoardWorkspace({
               vehicleId: selectedVehicleId || null,
             });
       if (!result.ok) {
-        setStatus(result.message ?? "Planning geblokkeerd.");
+        setStatus(
+          result.message
+            ? humanizePlanningMessage(result.message)
+            : "Planning geblokkeerd.",
+        );
         setPreview({
           target: slotId(target),
           validation: result.validation ?? null,
-          message: result.message ?? null,
+          message: result.message
+            ? humanizePlanningMessage(result.message)
+            : null,
         });
         return;
       }
@@ -701,11 +924,17 @@ export function PlanningBoardWorkspace({
         );
         setStatus("Planning opgeslagen.");
       } else {
-        setStatus(result.message ?? "Planning geblokkeerd.");
+        setStatus(
+          result.message
+            ? humanizePlanningMessage(result.message)
+            : "Planning geblokkeerd.",
+        );
         setPreview({
           target: queueItemId,
           validation: result.validation ?? null,
-          message: result.message ?? null,
+          message: result.message
+            ? humanizePlanningMessage(result.message)
+            : null,
         });
       }
     });
@@ -724,19 +953,41 @@ export function PlanningBoardWorkspace({
       }}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveQueue(null)}
+      onDragCancel={() => {
+        clearPreviewTimer();
+        previewRequest.current += 1;
+        setActiveQueue(null);
+      }}
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
+                {dateShort(data.filters.date)}
+              </span>
               {EVENT_LEGEND.map((item) => (
                 <span
                   key={item.key}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
                 >
                   <span
-                    className={cn("h-2.5 w-2.5 rounded-sm", item.className)}
+                    className={cn("h-2 w-2 rounded-sm", item.className)}
+                  />
+                  {item.label}
+                </span>
+              ))}
+              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              {AVAILABILITY_LEGEND.map((item) => (
+                <span
+                  key={item.key}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                >
+                  <span
+                    className={cn(
+                      "h-2.5 w-4 rounded-sm border border-border/60",
+                      item.className,
+                    )}
                   />
                   {item.label}
                 </span>
@@ -758,20 +1009,20 @@ export function PlanningBoardWorkspace({
               </Select>
             </label>
           </div>
-          <div className="max-h-[72vh] overflow-auto">
+          <div className="max-h-[76vh] overflow-auto">
             <div
               className="min-w-max"
-              style={{ width: 224 + slotCount * SLOT_WIDTH }}
+              style={{ width: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH }}
             >
-              <div className="sticky top-0 z-20 grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border bg-muted/40">
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-20 grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border bg-muted/40">
+                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   Instructeur
                 </div>
                 <div className="flex">
                   {Array.from({ length: slotCount }, (_, slot) => (
                     <div
                       key={slot}
-                      className="shrink-0 border-l border-border/60 px-2 py-2 text-xs font-medium text-muted-foreground"
+                      className="shrink-0 border-l border-border/60 px-1.5 py-1.5 text-xs font-medium text-muted-foreground"
                       style={{ width: SLOT_WIDTH }}
                     >
                       {slot % 2 === 0 ? timeLabel(slot) : ""}
@@ -788,21 +1039,28 @@ export function PlanningBoardWorkspace({
                 return (
                   <div
                     key={row.key}
-                    className="grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border/70"
+                    className="grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border/70"
                     style={{ height: RESOURCE_ROW_HEIGHT }}
                   >
-                    <div className="flex min-w-0 flex-col justify-center gap-1 border-r border-border bg-card px-3">
+                    <div className="flex min-w-0 flex-col justify-center border-r border-border bg-card px-3">
                       <Link
                         href={`/backoffice/planning-board/instructors/${row.instructor.id}?date=${row.day}&view=${detailMode ? data.filters.view : "day"}`}
                         className="truncate text-sm font-semibold text-foreground hover:text-primary"
                       >
                         {row.instructor.name}
                       </Link>
-                      <span className="text-xs text-muted-foreground">
-                        {dateShort(row.day)}
-                      </span>
+                      {detailMode ? (
+                        <span className="text-xs text-muted-foreground">
+                          {dateShort(row.day)}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="relative flex">
+                      <AvailabilityBands
+                        blocks={blocks}
+                        day={row.day}
+                        availabilityFilter={data.filters.availability}
+                      />
                       {Array.from({ length: slotCount }, (_, slot) => {
                         const target = {
                           day: row.day,
@@ -842,23 +1100,29 @@ export function PlanningBoardWorkspace({
           </div>
         </section>
 
-        <aside className="space-y-4">
+        <aside className="space-y-3">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Clock3 className="h-4 w-4" aria-hidden />
                 Planning queue
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               {queueItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Geen open items.
                 </p>
               ) : (
-                queueItems.map((item) => (
+                queueItems.map((item) => {
+                  const linkedEvent = queueEventLinks.get(item.id);
+                  return (
                   <div key={item.id} className="space-y-2">
-                    <QueueCard item={item} />
+                    <QueueCard
+                      item={item}
+                      href={linkedEvent?.href}
+                      relatedLabel={linkedEvent?.label}
+                    />
                     <form
                       action={planFromFallback}
                       className="grid gap-2 rounded-md border border-border p-2 md:hidden"
@@ -891,13 +1155,14 @@ export function PlanningBoardWorkspace({
                       </Button>
                     </form>
                   </div>
-                ))
+                );
+                })
               )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-base">Preview</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -994,7 +1259,11 @@ export function PlanningBoardWorkspace({
               <dd className="text-foreground">
                 {timeFormatter.format(new Date(selectedEvent.startsAt))} -{" "}
                 {timeFormatter.format(new Date(selectedEvent.endsAt))} (
-                {selectedEvent.durationMinutes} min)
+                {selectedEvent.durationMinutes} min lestijd
+                {selectedEvent.bufferMinutes
+                  ? ` + ${selectedEvent.bufferMinutes} min buffer`
+                  : ""}
+                )
               </dd>
             </div>
             <div>

@@ -102,11 +102,20 @@ export default async function PlanningBoardPage({
           <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-[12rem_minmax(10rem,1fr)_minmax(10rem,1fr)_12rem_auto]">
             <div className="space-y-1.5">
               <Label>Datum</Label>
-              <Input name="date" type="date" defaultValue={filters.date} />
+              <Input
+                name="date"
+                type="date"
+                defaultValue={filters.date}
+                className="h-9"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Vestiging</Label>
-              <Select name="branch" defaultValue={filters.branchId ?? ""}>
+              <Select
+                name="branch"
+                defaultValue={filters.branchId ?? ""}
+                className="h-9"
+              >
                 <option value="all">Alle vestigingen</option>
                 {data.branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -120,6 +129,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="instructor"
                 defaultValue={filters.instructorId ?? ""}
+                className="h-9"
               >
                 <option value="">Alle instructeurs</option>
                 {data.instructors.map((instructor) => (
@@ -131,14 +141,18 @@ export default async function PlanningBoardPage({
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select name="status" defaultValue={filters.status ?? "all"}>
+              <Select
+                name="status"
+                defaultValue={filters.status ?? "all"}
+                className="h-9"
+              >
                 <option value="open">Open</option>
                 <option value="suggested">Suggesties</option>
                 <option value="all">Alle</option>
               </Select>
             </div>
             <div className="flex items-end">
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="h-9 w-full">
                 <Filter className="h-4 w-4" aria-hidden />
                 Filter
               </Button>
