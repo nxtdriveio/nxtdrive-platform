@@ -21,6 +21,10 @@ import {
   type InstructorRisLessonCard,
   type LessonCardMode,
 } from "./data";
+import {
+  canActivateRisAfterMigration,
+  loadRisLegacyMigrationReport,
+} from "./migration";
 
 type ActionResult<T = undefined> =
   | (T extends undefined ? { error?: string } : { error?: string } & T)
@@ -96,6 +100,42 @@ export async function setTenantRisSettingsAction(input: {
       p_ai_assist_enabled: input.aiAssistEnabled ?? true,
     });
     if (error) return { error: error.message };
+    revalidatePath("/backoffice/instellingen");
+    revalidatePath("/backoffice/leerlingen");
+    return {};
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function activateRisAfterMigrationCheckAction(): Promise<ActionResult> {
+  try {
+    const { tenant } = await requireActiveTenant(["tenant_admin"]);
+    const service = createServiceRoleClient();
+    const report = await loadRisLegacyMigrationReport(service, tenant.id);
+
+    if (!canActivateRisAfterMigration(report)) {
+      return {
+        error:
+          report.blockingReasons[0] ??
+          "RIS kan nog niet worden geactiveerd. Controleer de migratiepreflight.",
+      };
+    }
+    if (!report.risVersionId) {
+      return { error: "Geen actieve RIS-versie gevonden." };
+    }
+    if (report.lessonCardMode === "ris") {
+      return {};
+    }
+
+    const result = await setTenantRisSettingsAction({
+      lessonCardMode: "ris",
+      activeRisVersionId: report.risVersionId,
+      aiAssistEnabled: true,
+    });
+    if (result.error) return result;
+
+    revalidatePath("/backoffice/ris");
     revalidatePath("/backoffice/instellingen");
     revalidatePath("/backoffice/leerlingen");
     return {};
