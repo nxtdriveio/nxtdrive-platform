@@ -14,6 +14,7 @@ import { validateScheduleCandidate } from "@/lib/planning-core/validation";
 import {
   planningBoardEventLabel,
   planningBoardEventTone,
+  planningBoardLayoutMode,
 } from "@/lib/planning-board/presentation";
 import type { PlanningQueueItem } from "@/lib/planning-queue/types";
 import {
@@ -293,5 +294,10 @@ describe("planning board drop validation", () => {
       ),
       true,
     );
+  });
+
+  it("uses resource timeline for the main board and instructor timeline for drilldown", () => {
+    assert.equal(planningBoardLayoutMode(false), "resource_timeline");
+    assert.equal(planningBoardLayoutMode(true), "instructor_timeline");
   });
 });

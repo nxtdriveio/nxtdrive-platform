@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Clock3,
   GripVertical,
+  X,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ import {
 import {
   planningBoardEventLabel,
   planningBoardEventTone,
+  planningBoardLayoutMode,
   type PlanningBoardAvailability,
   type PlanningBoardData,
   type PlanningBoardEvent,
@@ -55,10 +57,16 @@ const START_HOUR = 7;
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 34;
+const SLOT_WIDTH = 76;
+const RESOURCE_ROW_HEIGHT = 76;
 const dateShortFormatter = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
   month: "2-digit",
+});
+const timeFormatter = createNlDateTimeFormatter({
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 const EVENT_LEGEND = [
@@ -116,10 +124,25 @@ function eventTop(event: PlanningBoardEvent): number {
   );
 }
 
+function eventLeft(event: PlanningBoardEvent): number {
+  const minutes = amsterdamMinuteOfDay(new Date(event.startsAt));
+  return Math.max(
+    0,
+    ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_WIDTH,
+  );
+}
+
 function eventHeight(event: PlanningBoardEvent): number {
   return Math.max(
     28,
     (eventDurationMinutes(event) / SLOT_MINUTES) * SLOT_HEIGHT - 4,
+  );
+}
+
+function eventWidth(event: PlanningBoardEvent): number {
+  return Math.max(
+    44,
+    (eventDurationMinutes(event) / SLOT_MINUTES) * SLOT_WIDTH - 4,
   );
 }
 
@@ -240,9 +263,13 @@ function QueueCard({
 function EventCard({
   event,
   detailed = false,
+  layout = "calendar",
+  onOpen,
 }: {
   event: PlanningBoardEvent;
   detailed?: boolean;
+  layout?: "calendar" | "timeline";
+  onOpen?: (event: PlanningBoardEvent) => void;
 }) {
   const draggable = event.entityType === "agenda_appointment";
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -251,9 +278,19 @@ function EventCard({
       data: { kind: "appointment", id: event.id } satisfies DragPayload,
       disabled: !draggable,
     });
-  const style = {
-    top: eventTop(event),
-    height: eventHeight(event),
+  const style =
+    layout === "timeline"
+      ? {
+          left: eventLeft(event),
+          width: eventWidth(event),
+          top: 8,
+          bottom: 8,
+        }
+      : {
+          top: eventTop(event),
+          height: eventHeight(event),
+        };
+  const transformStyle = {
     transform: transform
       ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
       : undefined,
@@ -261,14 +298,24 @@ function EventCard({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, ...transformStyle }}
       className={cn(
-        "absolute left-1 right-1 overflow-hidden rounded-md border px-2 py-1 text-xs shadow-sm",
+        "absolute overflow-hidden rounded-md border px-2 py-1 text-xs shadow-sm",
+        layout === "calendar" && "left-1 right-1",
         eventTone(event),
         detailed && "px-3 py-2",
+        onOpen && "cursor-pointer",
         draggable && "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50",
       )}
+      onClick={() => onOpen?.(event)}
+      onKeyDown={(keyboardEvent) => {
+        if (!onOpen) return;
+        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+          keyboardEvent.preventDefault();
+          onOpen(event);
+        }
+      }}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
     >
@@ -301,11 +348,13 @@ function DroppableSlot({
   target,
   availability,
   availabilityFilter,
+  layout = "calendar",
   preview,
 }: {
   target: SlotTarget;
   availability: "available" | "blocked" | "closed";
   availabilityFilter?: "available" | "blocked" | null;
+  layout?: "calendar" | "timeline";
   preview?: {
     validation: PlanningValidationResult | null;
     message: string | null;
@@ -324,7 +373,9 @@ function DroppableSlot({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative border-b border-border/60",
+        "relative shrink-0",
+        layout === "calendar" && "border-b border-border/60",
+        layout === "timeline" && "border-r border-border/60",
         availability === "available" && "bg-emerald-500/5",
         availability === "blocked" && "bg-danger/10",
         availability === "closed" && "bg-muted/30",
@@ -338,7 +389,11 @@ function DroppableSlot({
           !isWarningPreview &&
           "bg-success/10 ring-1 ring-inset ring-success",
       )}
-      style={{ height: SLOT_HEIGHT }}
+      style={
+        layout === "timeline"
+          ? { width: SLOT_WIDTH, height: "100%" }
+          : { height: SLOT_HEIGHT }
+      }
       title={previewText ?? undefined}
     >
       {previewText ? (
@@ -377,6 +432,8 @@ export function PlanningBoardWorkspace({
     validation: PlanningValidationResult | null;
     message: string | null;
   } | null>(null);
+  const [selectedEvent, setSelectedEvent] =
+    useState<PlanningBoardEvent | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const lastPreviewTarget = useRef<string | null>(null);
@@ -384,16 +441,21 @@ export function PlanningBoardWorkspace({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
   const slotCount = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
-  const columns = useMemo(
+  const layoutMode = planningBoardLayoutMode(detailMode);
+  const visibleDays = useMemo(() => {
+    if (layoutMode === "instructor_timeline") return data.days;
+    return [data.filters.date];
+  }, [data.days, data.filters.date, layoutMode]);
+  const rows = useMemo(
     () =>
-      data.days.flatMap((day) =>
+      visibleDays.flatMap((day) =>
         data.instructors.map((instructor) => ({
           day,
           instructor,
           key: columnKey(day, instructor.id),
         })),
       ),
-    [data.days, data.instructors],
+    [visibleDays, data.instructors],
   );
   const eventsByColumn = useMemo(() => {
     const map = new Map<string, PlanningBoardEvent[]>();
@@ -595,96 +657,82 @@ export function PlanningBoardWorkspace({
               </Select>
             </label>
           </div>
-          <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] border-b border-border bg-muted/30">
-            <div className="px-3 py-3 text-xs font-medium text-muted-foreground">
-              Tijd
-            </div>
-            <div
-              className="grid min-w-[54rem]"
-              style={{
-                gridTemplateColumns: `repeat(${columns.length}, minmax(10rem, 1fr))`,
-              }}
-            >
-              {columns.map((column) => (
-                <div
-                  key={column.key}
-                  className="border-l border-border px-3 py-3"
-                >
-                  <p className="truncate text-xs font-medium text-muted-foreground">
-                    {dateShort(column.day)}
-                  </p>
-                  <Link
-                    href={`/backoffice/planning-board/instructors/${column.instructor.id}?date=${column.day}&view=${data.filters.view}`}
-                    className="block truncate text-sm font-semibold text-foreground hover:text-primary"
-                  >
-                    {column.instructor.name}
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
           <div className="max-h-[72vh] overflow-auto">
-            <div className="grid grid-cols-[4.5rem_minmax(54rem,1fr)]">
-              <div>
-                {Array.from({ length: slotCount }, (_, slot) => (
-                  <div
-                    key={slot}
-                    className="border-b border-border/60 px-3 text-xs text-muted-foreground"
-                    style={{ height: SLOT_HEIGHT }}
-                  >
-                    {slot % 2 === 0 ? timeLabel(slot) : ""}
-                  </div>
-                ))}
-              </div>
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: `repeat(${columns.length}, minmax(10rem, 1fr))`,
-                }}
-              >
-                {columns.map((column) => {
-                  const columnEvents = eventsByColumn.get(column.key) ?? [];
-                  const blocks =
-                    availabilityByInstructor.get(column.instructor.id) ?? [];
-                  return (
+            <div
+              className="min-w-max"
+              style={{ width: 224 + slotCount * SLOT_WIDTH }}
+            >
+              <div className="sticky top-0 z-20 grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border bg-muted/40">
+                <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                  Instructeur
+                </div>
+                <div className="flex">
+                  {Array.from({ length: slotCount }, (_, slot) => (
                     <div
-                      key={column.key}
-                      className="relative border-l border-border"
+                      key={slot}
+                      className="shrink-0 border-l border-border/60 px-2 py-2 text-xs font-medium text-muted-foreground"
+                      style={{ width: SLOT_WIDTH }}
                     >
+                      {slot % 2 === 0 ? timeLabel(slot) : ""}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {rows.map((row) => {
+                const rowEvents = eventsByColumn.get(row.key) ?? [];
+                const blocks =
+                  availabilityByInstructor.get(row.instructor.id) ?? [];
+                return (
+                  <div
+                    key={row.key}
+                    className="grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border/70"
+                    style={{ height: RESOURCE_ROW_HEIGHT }}
+                  >
+                    <div className="flex min-w-0 flex-col justify-center gap-1 border-r border-border bg-card px-3">
+                      <Link
+                        href={`/backoffice/planning-board/instructors/${row.instructor.id}?date=${row.day}&view=${detailMode ? data.filters.view : "day"}`}
+                        className="truncate text-sm font-semibold text-foreground hover:text-primary"
+                      >
+                        {row.instructor.name}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {dateShort(row.day)}
+                      </span>
+                    </div>
+                    <div className="relative flex">
                       {Array.from({ length: slotCount }, (_, slot) => {
                         const target = {
-                          day: column.day,
-                          instructorId: column.instructor.id,
-                          startsAt: localSlotIso(column.day, slot),
+                          day: row.day,
+                          instructorId: row.instructor.id,
+                          startsAt: localSlotIso(row.day, slot),
                         };
                         const targetId = slotId(target);
                         return (
                           <DroppableSlot
                             key={slot}
                             target={target}
-                            availability={slotAvailability(
-                              blocks,
-                              column.day,
-                              slot,
-                            )}
+                            availability={slotAvailability(blocks, row.day, slot)}
                             availabilityFilter={data.filters.availability}
+                            layout="timeline"
                             preview={
                               preview?.target === targetId ? preview : null
                             }
                           />
                         );
                       })}
-                      {columnEvents.map((event) => (
+                      {rowEvents.map((event) => (
                         <EventCard
                           key={`${event.entityType}:${event.id}`}
                           event={event}
                           detailed={detailMode}
+                          layout="timeline"
+                          onOpen={setSelectedEvent}
                         />
                       ))}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -781,6 +829,79 @@ export function PlanningBoardWorkspace({
           </Card>
         </aside>
       </div>
+      {selectedEvent ? (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-border bg-background p-5 shadow-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                {planningBoardEventLabel(selectedEvent)}
+              </p>
+              <h2 className="mt-1 truncate text-lg font-semibold text-foreground">
+                {selectedEvent.title}
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Sluit afspraakdetails"
+              onClick={() => setSelectedEvent(null)}
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+          <dl className="mt-5 grid gap-3 text-sm">
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Tijd
+              </dt>
+              <dd className="text-foreground">
+                {timeFormatter.format(new Date(selectedEvent.startsAt))} -{" "}
+                {timeFormatter.format(new Date(selectedEvent.endsAt))} (
+                {selectedEvent.durationMinutes} min)
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Voertuig
+              </dt>
+              <dd className="text-foreground">
+                {selectedEvent.vehicleLabel ?? "Geen voertuig"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Rayon
+              </dt>
+              <dd className="text-foreground">
+                {selectedEvent.serviceAreaName ?? "Geen rayon"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Status
+              </dt>
+              <dd className="text-foreground">
+                {selectedEvent.status ?? "Onbekend"}
+              </dd>
+            </div>
+          </dl>
+          {(selectedEvent.warnings?.length ?? 0) > 0 ? (
+            <div className="mt-5 space-y-2">
+              <p className="text-xs font-medium uppercase text-warning">
+                Waarschuwingen
+              </p>
+              {selectedEvent.warnings?.map((warning) => (
+                <p
+                  key={`${warning.code}:${warning.message}`}
+                  className="rounded-md bg-warning/10 px-3 py-2 text-sm text-warning"
+                >
+                  {warning.message}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <DragOverlay>
         {activeQueue ? <QueueCard item={activeQueue} compact /> : null}
       </DragOverlay>
