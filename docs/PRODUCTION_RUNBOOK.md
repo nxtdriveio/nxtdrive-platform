@@ -183,6 +183,52 @@ Actuele winst uit deze pass:
 Gebruik deze budgetcheck vóór brede productie-livegang en na iedere grotere
 frontend-sprint die student, instructor, admin of backoffice shells raakt.
 
+## RIS release gate
+
+Voordat RIS voor een tenant op productie wordt geactiveerd, moet deze release
+gate groen zijn:
+
+```bash
+pnpm --filter @workspace/scripts run test-ris-foundation
+pnpm --filter @workspace/scripts run test-ris-instructor-mode
+pnpm --filter @workspace/scripts run test-ris-publication-flow
+pnpm --filter @workspace/scripts run test-ris-student-view
+pnpm --filter @workspace/scripts run test-ris-backoffice-overview
+pnpm --filter @workspace/scripts run test-ris-module-tests-cbr
+pnpm --filter @workspace/scripts run test-ris-ai-reporting
+pnpm --filter @workspace/scripts run test-ris-migration-rollout
+pnpm --filter @workspace/scripts run test-ris-release-hardening
+pnpm --filter @workspace/scripts run check-route-performance
+```
+
+Minimale handmatige RIS-smoke na deploy:
+
+1. Open `/backoffice/ris` als tenant admin.
+2. Controleer de migratiepreflight en activeer RIS alleen als de checklist groen is.
+3. Open een instructeurles en bevestig dat RIS-scorekaart zichtbaar is voor een
+   RIS-tenant en legacy scoring zichtbaar blijft voor een legacy-tenant.
+4. Leg minimaal een conceptscore en begeleide reflectie vast.
+5. Publiceer de RIS-leskaart.
+6. Rond de les af.
+7. Open `/student/voortgang` als leerling en controleer dat alleen
+   gepubliceerde, leerlingvriendelijke RIS-feedback zichtbaar is.
+8. Open `/backoffice/ris` en controleer aandachtspunten, conceptkaarten,
+   moduletoetsen en rapportagesignalen.
+
+RIS rollback:
+
+- Zet de tenant terug naar legacy door `lesson_card_mode = legacy` via de
+  RIS-instellingen/RPC te herstellen.
+- Bestaande RIS-publicaties blijven in de database bewaard, maar de student- en
+  instructeurflows vallen terug op de legacy-leskaart.
+- Maak geen handmatige deletes op `ris_lesson_cards`,
+  `ris_script_assessments` of `student_ris_progress` tijdens rollback; dat
+  maakt audit en support lastiger.
+- Bij RLS-incidenten: controleer eerst `ris_lesson_cards`,
+  `ris_script_assessments`, `student_ris_progress` en
+  `ris_guided_reflections` policies. Concepts en interne observaties mogen
+  nooit zichtbaar zijn voor leerlingen.
+
 ## Wildcard TLS enablement op de VPS
 
 Voor `*.nxtdrive.io` is naast DNS ook een expliciete Caddy one-time setup nodig.
