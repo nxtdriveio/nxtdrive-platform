@@ -191,7 +191,7 @@ export default async function InstructorPlanningBoardPage({
               <Select name="status" defaultValue={filters.status ?? "all"}>
                 <option value="open">Open</option>
                 <option value="suggested">Suggesties</option>
-                <option value="">Alle</option>
+                <option value="all">Alle</option>
               </Select>
             </div>
             <label className="flex items-end gap-2 pb-2 text-sm text-muted-foreground">

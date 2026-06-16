@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import {
   AGENDA_BACKOFFICE_MANAGE_ROLES,
+  canManageAgendaRow,
   requireAgendaAccessContext,
   requireAgendaAppointmentAccess,
+  requireAgendaLessonAccess,
 } from "@/lib/agenda/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { parseAmsterdamDateTime } from "@/lib/datetime";
@@ -14,6 +16,7 @@ import {
   loadPlanningKernelData,
   rescheduleAppointment,
   type PlanningActorAccess,
+  type PlanningCandidateInput,
   type PlanningScope,
   type PlanningValidationResult,
 } from "@/lib/planning-core";
@@ -23,6 +26,7 @@ import {
   loadPlanningQueueItem,
   planningActorForQueue,
   scheduleQueueItem,
+  validationToJson,
 } from "@/lib/planning-queue";
 import type {
   PlanningBoardDropResult,
@@ -36,11 +40,27 @@ type QueueDropInput = {
   vehicleId?: string | null;
 };
 
-type AppointmentMoveInput = {
-  appointmentId: string;
+type BoardEventEntityType = "lesson" | "trial_lesson" | "agenda_appointment";
+
+type BoardEventMoveInput = {
+  entityType: BoardEventEntityType;
+  entityId: string;
   instructorId: string;
   startsAt: string;
   vehicleId?: string | null;
+};
+
+type TrialLessonMoveRow = {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  lead_id: string;
+  instructor_id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  vehicle_id: string | null;
+  pickup_service_area_id: string | null;
 };
 
 function validationMessage(validation: PlanningValidationResult): string {
@@ -87,6 +107,154 @@ function agendaPlanningScope(
   return branchId
     ? { type: "branch", tenantId, branchId }
     : { type: "tenant", tenantId };
+}
+
+function durationBetween(startsAt: string, endsAt: string): number {
+  return Math.max(5, new Date(endsAt).getTime() - new Date(startsAt).getTime());
+}
+
+async function loadTrialLessonForMove(
+  service: ReturnType<typeof createServiceRoleClient>,
+  input: BoardEventMoveInput,
+): Promise<{
+  context: Awaited<ReturnType<typeof requireAgendaAccessContext>>["context"];
+  branchScope: Awaited<
+    ReturnType<typeof requireAgendaAccessContext>
+  >["branchScope"];
+  trial: TrialLessonMoveRow | null;
+}> {
+  const { context, branchScope } = await requireAgendaAccessContext(
+    service,
+    AGENDA_BACKOFFICE_MANAGE_ROLES,
+  );
+  const { data, error } = await service
+    .from("trial_lessons")
+    .select(
+      "id, tenant_id, branch_id, lead_id, instructor_id, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
+    )
+    .eq("id", input.entityId)
+    .eq("tenant_id", context.organization.id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Proefles laden mislukt: ${error.message}`);
+
+  const trial = (data ?? null) as TrialLessonMoveRow | null;
+  if (!trial || !canManageAgendaRow(context, branchScope, trial)) {
+    return { context, branchScope, trial: null };
+  }
+  return { context, branchScope, trial };
+}
+
+async function buildBoardEventMoveCandidate(
+  service: ReturnType<typeof createServiceRoleClient>,
+  input: BoardEventMoveInput,
+  startsAt: Date,
+): Promise<{
+  candidate: PlanningCandidateInput;
+  context: Awaited<ReturnType<typeof requireAgendaAccessContext>>["context"];
+  previousInstructorId: string;
+}> {
+  if (input.entityType === "lesson") {
+    const access = await requireAgendaLessonAccess(
+      service,
+      input.entityId,
+      "manage",
+    );
+    if (!access.lesson) {
+      throw new Error("Geen toegang tot deze rijles.");
+    }
+    const endsAt = new Date(
+      startsAt.getTime() +
+        durationBetween(access.lesson.starts_at, access.lesson.ends_at),
+    );
+    return {
+      context: access.context,
+      previousInstructorId: access.lesson.instructor_id,
+      candidate: {
+        actor: agendaPlanningActor(access.context, access.branchScope),
+        scope: agendaPlanningScope(
+          access.context.organization.id,
+          access.lesson.branch_id,
+        ),
+        entityType: "lesson",
+        entityId: access.lesson.id,
+        tenantId: access.context.organization.id,
+        branchId: access.lesson.branch_id,
+        studentId: access.lesson.student_id,
+        instructorId: input.instructorId,
+        vehicleId: input.vehicleId ?? access.lesson.vehicle_id ?? null,
+        startAt: startsAt,
+        endAt: endsAt,
+        pickupServiceAreaId: access.lesson.pickup_service_area_id,
+      },
+    };
+  }
+
+  if (input.entityType === "trial_lesson") {
+    const access = await loadTrialLessonForMove(service, input);
+    if (!access.trial) {
+      throw new Error("Geen toegang tot deze proefles.");
+    }
+    const endsAt = new Date(
+      startsAt.getTime() +
+        durationBetween(access.trial.starts_at, access.trial.ends_at),
+    );
+    return {
+      context: access.context,
+      previousInstructorId: access.trial.instructor_id,
+      candidate: {
+        actor: agendaPlanningActor(access.context, access.branchScope),
+        scope: agendaPlanningScope(
+          access.context.organization.id,
+          access.trial.branch_id,
+        ),
+        entityType: "trial_lesson",
+        entityId: access.trial.id,
+        tenantId: access.context.organization.id,
+        branchId: access.trial.branch_id,
+        studentId: null,
+        instructorId: input.instructorId,
+        vehicleId: input.vehicleId ?? access.trial.vehicle_id ?? null,
+        startAt: startsAt,
+        endAt: endsAt,
+        pickupServiceAreaId: access.trial.pickup_service_area_id,
+      },
+    };
+  }
+
+  const access = await requireAgendaAppointmentAccess(
+    service,
+    input.entityId,
+    "manage",
+  );
+  if (!access.appointment) {
+    throw new Error("Geen toegang tot deze afspraak.");
+  }
+  const endsAt = new Date(
+    startsAt.getTime() +
+      durationBetween(access.appointment.starts_at, access.appointment.ends_at),
+  );
+  return {
+    context: access.context,
+    previousInstructorId: access.appointment.instructor_id,
+    candidate: {
+      actor: agendaPlanningActor(access.context, access.branchScope),
+      scope: agendaPlanningScope(
+        access.context.organization.id,
+        access.appointmentBranchId,
+      ),
+      entityType: "agenda_appointment",
+      entityId: access.appointment.id,
+      tenantId: access.context.organization.id,
+      branchId: access.appointmentBranchId,
+      studentId: access.appointment.student_id,
+      instructorId: input.instructorId,
+      vehicleId: input.vehicleId ?? access.appointment.vehicle_id ?? null,
+      startAt: startsAt,
+      endAt: endsAt,
+      pickupServiceAreaId: access.appointment.pickup_service_area_id,
+    },
+  };
 }
 
 export async function previewQueueDropAction(
@@ -167,11 +335,11 @@ export async function scheduleQueueDropAction(
   }
 }
 
-export async function previewAppointmentMoveAction(
-  input: AppointmentMoveInput,
+export async function previewBoardEventMoveAction(
+  input: BoardEventMoveInput,
 ): Promise<PlanningBoardPreviewResult> {
   const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.appointmentId || !input.instructorId) {
+  if (!startsAt || !input.entityId || !input.entityType || !input.instructorId) {
     return {
       ok: false,
       message: "Ontbrekende of ongeldige verplaatsgegevens.",
@@ -179,57 +347,33 @@ export async function previewAppointmentMoveAction(
   }
 
   const service = createServiceRoleClient();
-  const access = await requireAgendaAppointmentAccess(
-    service,
-    input.appointmentId,
-    "manage",
-  );
-  if (!access.appointment) {
-    return { ok: false, message: "Geen toegang tot deze afspraak." };
-  }
-  if (input.instructorId !== access.appointment.instructor_id) {
+  try {
+    const { candidate } = await buildBoardEventMoveCandidate(
+      service,
+      input,
+      startsAt,
+    );
+    const data = await loadPlanningKernelData(service, candidate);
+    const validation = await getPlanningPreview(candidate, data);
+    return {
+      ok: validation.allowed,
+      validation,
+      message: validation.allowed ? undefined : validationMessage(validation),
+    };
+  } catch (error) {
     return {
       ok: false,
       message:
-        "Bestaande afspraken kunnen in deze versie alleen binnen dezelfde instructeurkolom worden verplaatst.",
+        error instanceof Error ? error.message : "Verplaatspreview mislukt.",
     };
   }
-
-  const duration =
-    new Date(access.appointment.ends_at).getTime() -
-    new Date(access.appointment.starts_at).getTime();
-  const endsAt = new Date(startsAt.getTime() + duration);
-  const candidate = {
-    actor: agendaPlanningActor(access.context, access.branchScope),
-    scope: agendaPlanningScope(
-      access.context.organization.id,
-      access.appointmentBranchId,
-    ),
-    entityType: "agenda_appointment" as const,
-    entityId: access.appointment.id,
-    tenantId: access.context.organization.id,
-    branchId: access.appointmentBranchId,
-    studentId: access.appointment.student_id,
-    instructorId: access.appointment.instructor_id,
-    vehicleId: input.vehicleId ?? access.appointment.vehicle_id ?? null,
-    startAt: startsAt,
-    endAt: endsAt,
-    pickupServiceAreaId: access.appointment.pickup_service_area_id,
-  };
-  const data = await loadPlanningKernelData(service, candidate);
-  const validation = await getPlanningPreview(candidate, data);
-  return {
-    ok: validation.allowed,
-    validation,
-    message: validation.allowed ? undefined : validationMessage(validation),
-  };
 }
 
-export async function rescheduleBoardAppointmentAction(
-  input: AppointmentMoveInput,
+export async function rescheduleBoardEventAction(
+  input: BoardEventMoveInput,
 ): Promise<PlanningBoardDropResult> {
   const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.appointmentId || !input.instructorId) {
+  if (!startsAt || !input.entityId || !input.entityType || !input.instructorId) {
     return {
       ok: false,
       message: "Ontbrekende of ongeldige verplaatsgegevens.",
@@ -237,65 +381,23 @@ export async function rescheduleBoardAppointmentAction(
   }
 
   const service = createServiceRoleClient();
-  const access = await requireAgendaAppointmentAccess(
-    service,
-    input.appointmentId,
-    "manage",
-  );
-  if (!access.appointment) {
-    return { ok: false, message: "Geen toegang tot deze afspraak." };
-  }
-  if (input.instructorId !== access.appointment.instructor_id) {
-    return {
-      ok: false,
-      message:
-        "Bestaande afspraken kunnen in deze versie alleen binnen dezelfde instructeurkolom worden verplaatst.",
-    };
-  }
-
-  const duration =
-    new Date(access.appointment.ends_at).getTime() -
-    new Date(access.appointment.starts_at).getTime();
-  const durationMin = Math.round(duration / 60000);
-  const endsAt = new Date(startsAt.getTime() + duration);
-  const candidate = {
-    actor: agendaPlanningActor(access.context, access.branchScope),
-    scope: agendaPlanningScope(
-      access.context.organization.id,
-      access.appointmentBranchId,
-    ),
-    entityType: "agenda_appointment" as const,
-    entityId: access.appointment.id,
-    tenantId: access.context.organization.id,
-    branchId: access.appointmentBranchId,
-    studentId: access.appointment.student_id,
-    instructorId: access.appointment.instructor_id,
-    vehicleId: input.vehicleId ?? access.appointment.vehicle_id ?? null,
-    startAt: startsAt,
-    endAt: endsAt,
-    pickupServiceAreaId: access.appointment.pickup_service_area_id,
-  };
-  const data = await loadPlanningKernelData(service, candidate);
-
   try {
+    const { candidate, context, previousInstructorId } =
+      await buildBoardEventMoveCandidate(service, input, startsAt);
+    const data = await loadPlanningKernelData(service, candidate);
     const { validation } = await rescheduleAppointment(
       candidate,
       data,
       async () => {
-        const { error } = await service.rpc("update_agenda_appointment", {
-          p_appointment_id: access.appointment!.id,
-          p_tenant_id: access.context.organization.id,
-          p_actor: access.context.user.id,
+        const { error } = await service.rpc("reschedule_planning_board_event", {
+          p_tenant_id: context.organization.id,
+          p_actor: context.user.id,
+          p_entity_type: input.entityType,
+          p_entity_id: input.entityId,
+          p_instructor_id: input.instructorId,
           p_starts_at: startsAt.toISOString(),
-          p_duration_min: durationMin,
-          p_student_id: access.appointment!.student_id,
-          p_title: access.appointment!.title,
-          p_location: access.appointment!.location,
-          p_notes: access.appointment!.notes,
-          p_branch_id: access.appointmentBranchId,
-          p_vehicle_id:
-            input.vehicleId ?? access.appointment!.vehicle_id ?? null,
-          p_pickup_service_area_id: access.appointment!.pickup_service_area_id,
+          p_vehicle_id: candidate.vehicleId ?? null,
+          p_validation: validationToJson(validation),
         });
         if (error) throw new Error(error.message);
         return true;
@@ -303,13 +405,16 @@ export async function rescheduleBoardAppointmentAction(
     );
     revalidatePath("/backoffice/planning-board");
     revalidatePath(
-      `/backoffice/planning-board/instructors/${access.appointment.instructor_id}`,
+      `/backoffice/planning-board/instructors/${previousInstructorId}`,
+    );
+    revalidatePath(
+      `/backoffice/planning-board/instructors/${input.instructorId}`,
     );
     revalidatePath("/backoffice/agenda");
     return {
       ok: true,
       scheduled: true,
-      entityId: access.appointment.id,
+      entityId: input.entityId,
       validation,
     };
   } catch (error) {

@@ -46,3 +46,13 @@ export function planningBoardEventLabel(
     ? APPOINTMENT_TYPE_SHORT[type]
     : event.subtitle;
 }
+
+export function planningBoardEventCanMove(
+  event: Pick<PlanningBoardEvent, "entityType">,
+): boolean {
+  return (
+    event.entityType === "lesson" ||
+    event.entityType === "trial_lesson" ||
+    event.entityType === "agenda_appointment"
+  );
+}

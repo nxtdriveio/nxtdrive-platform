@@ -9,10 +9,7 @@ import {
   APPOINTMENT_TYPE_SHORT,
 } from "@/lib/agenda/types";
 import { amsterdamYmd } from "@/lib/datetime";
-import {
-  loadPlanningBoardData,
-  type PlanningBoardView,
-} from "@/lib/planning-board";
+import { loadPlanningBoardData } from "@/lib/planning-board";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,10 +39,6 @@ function todayYmd(): string {
   return amsterdamYmd(new Date());
 }
 
-function viewParam(value: string | null): PlanningBoardView {
-  return value === "week" ? "week" : "day";
-}
-
 export default async function PlanningBoardPage({
   searchParams,
 }: {
@@ -60,7 +53,7 @@ export default async function PlanningBoardPage({
   const status = rawParam(sp, "status");
   const filters = {
     date: param(sp, "date") ?? todayYmd(),
-    view: viewParam(param(sp, "view")),
+    view: "day" as const,
     branchId: param(sp, "branch"),
     appointmentType: param(sp, "appointment_type"),
     serviceAreaId: param(sp, "rayon"),
@@ -104,13 +97,6 @@ export default async function PlanningBoardPage({
             <div className="space-y-1.5">
               <Label>Datum</Label>
               <Input name="date" type="date" defaultValue={filters.date} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>View</Label>
-              <Select name="view" defaultValue={filters.view}>
-                <option value="day">Dag</option>
-                <option value="week">Week</option>
-              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Vestiging</Label>
@@ -216,7 +202,7 @@ export default async function PlanningBoardPage({
               <Select name="status" defaultValue={filters.status ?? "all"}>
                 <option value="open">Open</option>
                 <option value="suggested">Suggesties</option>
-                <option value="">Alle</option>
+                <option value="all">Alle</option>
               </Select>
             </div>
             <label className="flex items-end gap-2 pb-2 text-sm text-muted-foreground">
