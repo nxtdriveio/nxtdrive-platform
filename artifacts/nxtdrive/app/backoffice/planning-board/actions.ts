@@ -8,6 +8,7 @@ import {
   requireAgendaAppointmentAccess,
 } from "@/lib/agenda/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { parseAmsterdamDateTime } from "@/lib/datetime";
 import {
   getPlanningPreview,
   loadPlanningKernelData,
@@ -50,8 +51,7 @@ function validationMessage(validation: PlanningValidationResult): string {
 }
 
 function parseStart(value: string): Date | null {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseAmsterdamDateTime(value);
 }
 
 function agendaPlanningActor(
@@ -149,6 +149,7 @@ export async function scheduleQueueDropAction(
       vehicleId: input.vehicleId ?? null,
     });
     revalidatePath("/backoffice/planning-board");
+    revalidatePath(`/backoffice/planning-board/instructors/${input.instructorId}`);
     revalidatePath("/backoffice/planning-queue");
     revalidatePath("/backoffice/agenda");
     return {
@@ -301,6 +302,9 @@ export async function rescheduleBoardAppointmentAction(
       },
     );
     revalidatePath("/backoffice/planning-board");
+    revalidatePath(
+      `/backoffice/planning-board/instructors/${access.appointment.instructor_id}`,
+    );
     revalidatePath("/backoffice/agenda");
     return {
       ok: true,

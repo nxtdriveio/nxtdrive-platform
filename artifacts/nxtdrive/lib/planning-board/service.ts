@@ -8,9 +8,16 @@ import { listBranches } from "@/lib/branches/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import {
+  addDaysYmd,
+  amsterdamYmd,
+  amsterdamWeekdayIndex,
+  startOfAmsterdamDayUtc,
+} from "@/lib/datetime";
+import {
   loadPlanningQueueItems,
   type PlanningQueueListItem,
 } from "@/lib/planning-queue";
+import type { PlanningReason } from "@/lib/planning-core";
 import type {
   PlanningBoardAvailability,
   PlanningBoardData,
@@ -54,45 +61,32 @@ type AvailabilityExceptionRow = {
   note: string | null;
 };
 
-const DAY_MS = 86_400_000;
-
-function ymd(date: Date): string {
-  return date.toISOString().slice(0, 10);
+function cleanYmd(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : amsterdamYmd(new Date());
 }
 
-function startOfDay(value: string): Date {
-  const parsed = new Date(`${value}T00:00:00`);
-  const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function startOfWeek(date: Date): Date {
-  const value = new Date(date);
-  const day = (value.getDay() + 6) % 7;
-  value.setDate(value.getDate() - day);
-  value.setHours(0, 0, 0, 0);
-  return value;
+function startOfWeekYmd(value: string): string {
+  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(value));
+  return addDaysYmd(value, -weekday);
 }
 
 function rangeFor(
   date: string,
   view: PlanningBoardView,
 ): { from: Date; to: Date } {
-  const anchor = startOfDay(date);
-  const from = view === "week" ? startOfWeek(anchor) : anchor;
-  const to = new Date(from.getTime() + (view === "week" ? 7 : 1) * DAY_MS);
+  const anchor = cleanYmd(date);
+  const fromYmd = view === "week" ? startOfWeekYmd(anchor) : anchor;
+  const toYmd = addDaysYmd(fromYmd, view === "week" ? 7 : 1);
+  const from = startOfAmsterdamDayUtc(fromYmd);
+  const to = startOfAmsterdamDayUtc(toYmd);
   return { from, to };
 }
 
 function daysBetween(from: Date, to: Date): string[] {
   const days: string[] = [];
-  for (
-    let date = new Date(from);
-    date < to;
-    date = new Date(date.getTime() + DAY_MS)
-  ) {
-    days.push(ymd(date));
+  for (let day = amsterdamYmd(from); startOfAmsterdamDayUtc(day) < to; ) {
+    days.push(day);
+    day = addDaysYmd(day, 1);
   }
   return days;
 }
@@ -139,7 +133,7 @@ async function loadEvents(
     branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
   if (branchIds && branchIds.length === 0) return [];
 
-  const applyEventFilters = (query: any) => {
+  const applyEventFilters = (query: any, kind: string) => {
     let next = query
       .eq("tenant_id", tenantId)
       .in("instructor_id", [...instructorIds])
@@ -151,34 +145,53 @@ async function loadEvents(
       next = next.eq("pickup_service_area_id", filters.serviceAreaId);
     }
     if (filters.vehicleId) next = next.eq("vehicle_id", filters.vehicleId);
+    if (
+      filters.appointmentType &&
+      kind === "agenda_appointment" &&
+      filters.appointmentType !== "lesson" &&
+      filters.appointmentType !== "trial_lesson"
+    ) {
+      next = next.eq("type", filters.appointmentType);
+    }
     return next.order("starts_at", { ascending: true });
   };
 
   const [lessons, trials, appointments] = await Promise.all([
-    applyEventFilters(
+    filters.appointmentType && filters.appointmentType !== "lesson"
+      ? Promise.resolve({ data: [], error: null })
+      : applyEventFilters(
       client
         .from("lessons")
         .select(
           "id, tenant_id, branch_id, instructor_id, student_id, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
         )
         .eq("status", "planned"),
-    ),
-    applyEventFilters(
+        "lesson",
+      ),
+    filters.appointmentType && filters.appointmentType !== "trial_lesson"
+      ? Promise.resolve({ data: [], error: null })
+      : applyEventFilters(
       client
         .from("trial_lessons")
         .select(
           "id, tenant_id, branch_id, instructor_id, lead_id, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
         )
         .in("status", ["provisional", "confirmed"]),
-    ),
-    applyEventFilters(
+        "trial_lesson",
+      ),
+    filters.appointmentType &&
+    (filters.appointmentType === "lesson" ||
+      filters.appointmentType === "trial_lesson")
+      ? Promise.resolve({ data: [], error: null })
+      : applyEventFilters(
       client
         .from("agenda_appointments")
         .select(
           "id, tenant_id, branch_id, instructor_id, student_id, type, title, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
         )
         .eq("status", "planned"),
-    ),
+        "agenda_appointment",
+      ),
   ]);
 
   for (const result of [lessons, trials, appointments]) {
@@ -238,7 +251,12 @@ async function loadEvents(
       subtitle: typeLabel,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
+      durationMinutes: Math.round(
+        (new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) /
+          60000,
+      ),
       appointmentType: row.type ?? null,
+      status: row.status ?? null,
       vehicleId: row.vehicle_id ?? null,
       vehicleLabel: row.vehicle_id
         ? (vehicleNames.get(row.vehicle_id) ?? null)
@@ -250,11 +268,65 @@ async function loadEvents(
     };
   };
 
-  return [
+  const events = [
     ...lessonRows.map((row) => mapEvent(row, "lesson")),
     ...trialRows.map((row) => mapEvent(row, "trial_lesson")),
     ...appointmentRows.map((row) => mapEvent(row, "agenda_appointment")),
   ].sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+  const withWarnings = addEventConflictWarnings(events);
+  return filters.conflictsOnly
+    ? withWarnings.filter((event) => (event.warnings?.length ?? 0) > 0)
+    : withWarnings;
+}
+
+function addEventConflictWarnings(
+  events: readonly PlanningBoardEvent[],
+): PlanningBoardEvent[] {
+  return events.map((event, index) => {
+    const warnings: PlanningReason[] = [];
+    const start = Date.parse(event.startsAt);
+    const end = Date.parse(event.endsAt);
+    const overlaps = events.some((other, otherIndex) => {
+      if (index === otherIndex) return false;
+      const otherStart = Date.parse(other.startsAt);
+      const otherEnd = Date.parse(other.endsAt);
+      if (!(start < otherEnd && end > otherStart)) return false;
+      return (
+        other.instructorId === event.instructorId ||
+        (Boolean(event.vehicleId) && other.vehicleId === event.vehicleId)
+      );
+    });
+    if (overlaps) {
+      warnings.push({
+        code:
+          otherConflictType(events, index, event) === "vehicle"
+            ? "VEHICLE_HAS_OVERLAP"
+            : "INSTRUCTOR_HAS_OVERLAP",
+        severity: "warning",
+        message: "Deze afspraak overlapt met een andere planning.",
+      });
+    }
+    return warnings.length ? { ...event, warnings } : event;
+  });
+}
+
+function otherConflictType(
+  events: readonly PlanningBoardEvent[],
+  index: number,
+  event: PlanningBoardEvent,
+): "vehicle" | "instructor" {
+  const start = Date.parse(event.startsAt);
+  const end = Date.parse(event.endsAt);
+  for (const [otherIndex, other] of events.entries()) {
+    if (index === otherIndex) continue;
+    const otherStart = Date.parse(other.startsAt);
+    const otherEnd = Date.parse(other.endsAt);
+    if (!(start < otherEnd && end > otherStart)) continue;
+    if (Boolean(event.vehicleId) && other.vehicleId === event.vehicleId) {
+      return "vehicle";
+    }
+  }
+  return "instructor";
 }
 
 async function loadAvailabilityBlocks(
@@ -278,8 +350,8 @@ async function loadAvailabilityBlocks(
       )
       .eq("tenant_id", tenantId)
       .in("instructor_id", [...instructorIds])
-      .gte("exception_date", ymd(from))
-      .lt("exception_date", ymd(to)),
+      .gte("exception_date", amsterdamYmd(from))
+      .lt("exception_date", amsterdamYmd(to)),
   ]);
 
   const ruleBlocks = ((rules.data ?? []) as AvailabilityRuleRow[]).map(
@@ -394,6 +466,7 @@ export async function loadPlanningBoardData(
     branchScope,
     {
       branchId: filters.branchId,
+      appointmentType: filters.appointmentType,
       serviceAreaId: filters.serviceAreaId,
       transmission: filters.transmission,
       status: filters.status ?? "open",
@@ -408,6 +481,15 @@ export async function loadPlanningBoardData(
         item.preferred_vehicle_capability_ids.includes(filters.capabilityId);
       if (!hasCapability) return false;
     }
+    if (filters.conflictsOnly) {
+      const validation = item.last_validation as
+        | { blockingReasons?: unknown[]; warnings?: unknown[] }
+        | null;
+      const hasConflict =
+        (validation?.blockingReasons?.length ?? 0) > 0 ||
+        (validation?.warnings?.length ?? 0) > 0;
+      if (!hasConflict) return false;
+    }
     return true;
   });
 
@@ -419,8 +501,10 @@ export async function loadPlanningBoardData(
 
   return {
     tenantId,
+    filters,
     rangeStart: from.toISOString(),
     rangeEnd: to.toISOString(),
+    defaultVehicleId: filters.vehicleId ?? null,
     days: daysBetween(from, to),
     instructors,
     events,

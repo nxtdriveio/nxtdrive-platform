@@ -10,11 +10,14 @@ export type PlanningBoardFilters = {
   date: string;
   view: PlanningBoardView;
   branchId?: string | null;
+  appointmentType?: string | null;
   serviceAreaId?: string | null;
   instructorId?: string | null;
   transmission?: string | null;
   capabilityId?: string | null;
   vehicleId?: string | null;
+  availability?: "available" | "blocked" | null;
+  conflictsOnly?: boolean;
   status?: string | null;
 };
 
@@ -48,7 +51,9 @@ export type PlanningBoardEvent = {
   subtitle: string;
   startsAt: string;
   endsAt: string;
+  durationMinutes: number;
   appointmentType?: string | null;
+  status?: string | null;
   vehicleId?: string | null;
   vehicleLabel?: string | null;
   serviceAreaId?: string | null;
@@ -58,8 +63,10 @@ export type PlanningBoardEvent = {
 
 export type PlanningBoardData = {
   tenantId: string;
+  filters: PlanningBoardFilters;
   rangeStart: string;
   rangeEnd: string;
+  defaultVehicleId: string | null;
   days: string[];
   instructors: PlanningBoardInstructor[];
   events: PlanningBoardEvent[];

@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import type { AuthorizedOrganizationContext } from "@/lib/organization";
 import type { BranchAccessScope } from "@/lib/permissions";
+import { parseAmsterdamDateTime } from "@/lib/datetime";
 import type {
   PlanningCandidateInput,
   PlanningKernelData,
 } from "@/lib/planning-core";
 import { validateScheduleCandidate } from "@/lib/planning-core/validation";
+import {
+  planningBoardEventLabel,
+  planningBoardEventTone,
+} from "@/lib/planning-board/presentation";
 import type { PlanningQueueItem } from "@/lib/planning-queue/types";
 import {
   buildQueueCandidateInput,
@@ -212,5 +219,79 @@ describe("planning board drop validation", () => {
     );
 
     assert.equal(result.allowed, true);
+  });
+
+  it("keeps Amsterdam wall-clock slots stable when parsing board drops", () => {
+    assert.equal(
+      parseAmsterdamDateTime("2026-01-15T08:00:00")?.toISOString(),
+      "2026-01-15T07:00:00.000Z",
+    );
+    assert.equal(
+      parseAmsterdamDateTime("2026-06-15T08:00:00")?.toISOString(),
+      "2026-06-15T06:00:00.000Z",
+    );
+  });
+
+  it("labels appointment types with the board color categories", () => {
+    const base = {
+      id: "event-1",
+      instructorId: "instructor-1",
+      branchId: "branch-a",
+      title: "Titel",
+      subtitle: "Fallback",
+      startsAt: "2026-06-15T08:00:00.000Z",
+      endsAt: "2026-06-15T09:00:00.000Z",
+      durationMinutes: 60,
+    };
+
+    assert.equal(
+      planningBoardEventTone({ ...base, entityType: "lesson" }),
+      "lesson",
+    );
+    assert.equal(
+      planningBoardEventLabel({ ...base, entityType: "trial_lesson" }),
+      "Proefles",
+    );
+    assert.equal(
+      planningBoardEventTone({
+        ...base,
+        entityType: "agenda_appointment",
+        appointmentType: "interim_test",
+      }),
+      "interim_test",
+    );
+    assert.equal(
+      planningBoardEventLabel({
+        ...base,
+        entityType: "agenda_appointment",
+        appointmentType: "exam",
+      }),
+      "Examen",
+    );
+    assert.equal(
+      planningBoardEventTone({
+        ...base,
+        entityType: "agenda_appointment",
+        appointmentType: "theory_guidance",
+      }),
+      "theory",
+    );
+  });
+
+  it("has an instructor drilldown route", () => {
+    assert.equal(
+      existsSync(
+        join(
+          process.cwd(),
+          "app",
+          "backoffice",
+          "planning-board",
+          "instructors",
+          "[instructorId]",
+          "page.tsx",
+        ),
+      ),
+      true,
+    );
   });
 });
