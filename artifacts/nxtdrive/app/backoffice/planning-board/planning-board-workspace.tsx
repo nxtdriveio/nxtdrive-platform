@@ -37,10 +37,12 @@ import {
   planningBoardEventLabel,
   planningBoardEventTone,
   planningBoardLayoutMode,
-  type PlanningBoardAvailability,
-  type PlanningBoardData,
-  type PlanningBoardEvent,
-} from "@/lib/planning-board";
+} from "@/lib/planning-board/presentation";
+import type {
+  PlanningBoardAvailability,
+  PlanningBoardData,
+  PlanningBoardEvent,
+} from "@/lib/planning-board/types";
 import type { PlanningQueueListItem } from "@/lib/planning-queue";
 import type { PlanningValidationResult } from "@/lib/planning-core";
 import { Badge } from "@/components/ui/badge";
