@@ -10,6 +10,8 @@ import {
   FileWarning,
   GraduationCap,
   ListChecks,
+  Sparkles,
+  Target,
   UserRoundCheck,
 } from "lucide-react";
 import {
@@ -255,6 +257,129 @@ export default async function BackofficeRisPage({
           icon={ListChecks}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+                <Sparkles className="h-4 w-4" aria-hidden />
+                RIS-rapportage & AI-signalen
+              </div>
+              <CardTitle className="text-foreground">
+                Focus voor opvolging
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Deterministische RIS-signalen voor zwakke scripts, moduleadvies
+                en interne opvolging. AI gebruikt dezelfde data alleen als
+                bewerkbaar advies, nooit als automatische publicatie.
+              </p>
+            </div>
+            <InfoBubble className="mt-1 h-4 w-4 text-muted-foreground">
+              Deze rapportage gebruikt gepubliceerde RIS-voortgang en open
+              conceptkaarten. Conceptscores blijven staff-only.
+            </InfoBubble>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 xl:grid-cols-3">
+          <section className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center gap-2 font-semibold text-foreground">
+              <GraduationCap className="h-4 w-4 text-primary" aria-hidden />
+              Moduleadvies
+            </div>
+            <div className="space-y-2">
+              {overview.report.moduleAdvice.map((module) => (
+                <div
+                  key={module.moduleNumber}
+                  className="rounded-xl border border-border bg-background/40 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-foreground">{module.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {module.attentionPoints} aandacht - {module.readyForTest} toetsklaar
+                      </p>
+                    </div>
+                    <Badge variant={module.attentionPoints > 0 ? "warning" : "outline"}>
+                      {module.progressPct}%
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{module.advice}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center gap-2 font-semibold text-foreground">
+              <Target className="h-4 w-4 text-primary" aria-hidden />
+              Zwakke scripts
+            </div>
+            {overview.report.weakScripts.length === 0 ? (
+              <EmptyState message="Nog geen zwakke RIS-scripts op basis van gepubliceerde scores." />
+            ) : (
+              <div className="space-y-2">
+                {overview.report.weakScripts.slice(0, 5).map((script) => (
+                  <Link
+                    key={`${script.studentId}-${script.scriptId}`}
+                    href={`/backoffice/leerlingen/${script.studentId}`}
+                    className="block rounded-xl border border-border bg-background/40 p-3 transition-colors hover:border-primary/50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {script.studentName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          M{script.moduleNumber} - {script.scriptTitle}
+                        </p>
+                      </div>
+                      <Badge variant="warning">{script.reason}</Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {script.studentLabel}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center gap-2 font-semibold text-foreground">
+              <FileWarning className="h-4 w-4 text-primary" aria-hidden />
+              Interne opvolging
+            </div>
+            {overview.report.internalAttentionPoints.length === 0 &&
+            overview.report.nextActions.length === 0 ? (
+              <EmptyState message="Geen directe RIS-opvolging nodig." />
+            ) : (
+              <div className="space-y-3">
+                {overview.report.internalAttentionPoints.map((item) => (
+                  <p
+                    key={item}
+                    className="rounded-xl border border-border bg-background/40 p-3 text-sm text-muted-foreground"
+                  >
+                    {item}
+                  </p>
+                ))}
+                {overview.report.nextActions.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Volgende acties
+                    </p>
+                    {overview.report.nextActions.map((item) => (
+                      <p key={item} className="text-sm text-foreground">
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

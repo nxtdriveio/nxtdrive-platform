@@ -115,11 +115,39 @@ export type BackofficeRisOverview = {
   attentionPoints: number;
   readyForModuleTest: number;
   moduleTestsPlanned: number;
+  report: BackofficeRisReport;
   students: BackofficeRisStudentSummary[];
   attentionRows: BackofficeRisAttentionRow[];
   draftCards: BackofficeRisDraftCard[];
   moduleTests: BackofficeRisModuleTest[];
   instructorFollowups: BackofficeRisInstructorFollowup[];
+};
+
+export type BackofficeRisReport = {
+  weakScripts: BackofficeRisWeakScript[];
+  moduleAdvice: BackofficeRisModuleAdvice[];
+  internalAttentionPoints: string[];
+  nextActions: string[];
+};
+
+export type BackofficeRisWeakScript = {
+  studentId: string;
+  studentName: string;
+  scriptId: string;
+  scriptTitle: string;
+  moduleNumber: number;
+  currentFinalStep: RISStepValue | null;
+  studentLabel: string;
+  reason: string;
+};
+
+export type BackofficeRisModuleAdvice = {
+  moduleNumber: number;
+  label: string;
+  progressPct: number;
+  attentionPoints: number;
+  readyForTest: number;
+  advice: string;
 };
 
 export type BackofficeRisStudentSummary = {
@@ -647,6 +675,14 @@ export async function loadBackofficeRisOverview(
     instructorNames,
     instructorByLessonId,
   });
+  const report = buildBackofficeRisReport({
+    students,
+    progressRows,
+    catalog,
+    studentNameById,
+    instructorFollowups,
+    draftCards,
+  });
 
   return {
     settings,
@@ -655,6 +691,7 @@ export async function loadBackofficeRisOverview(
     attentionPoints: progressRows.filter((row) => row.is_attention_point).length,
     readyForModuleTest: progressRows.filter((row) => row.ready_for_module_test).length,
     moduleTestsPlanned: testRows.filter((test) => test.result === "planned").length,
+    report,
     students,
     attentionRows,
     draftCards,
@@ -707,6 +744,12 @@ function emptyBackofficeRisOverview(settings: TenantRisSettings): BackofficeRisO
     attentionPoints: 0,
     readyForModuleTest: 0,
     moduleTestsPlanned: 0,
+    report: {
+      weakScripts: [],
+      moduleAdvice: [],
+      internalAttentionPoints: [],
+      nextActions: [],
+    },
     students: [],
     attentionRows: [],
     draftCards: [],
@@ -735,6 +778,22 @@ function scriptTitleForCatalog(catalog: RisCatalog, scriptId: string): string {
     }
   }
   return "RIS-script";
+}
+
+function scriptModuleForCatalog(catalog: RisCatalog, scriptId: string): number {
+  for (const module of catalog.tree) {
+    for (const category of module.categories) {
+      if (category.scripts.some((candidate) => candidate.id === scriptId)) {
+        return module.moduleNumber;
+      }
+    }
+  }
+  return 0;
+}
+
+function risStepRank(step: RISStepValue | null): number {
+  if (step == null || step === "N") return 0;
+  return typeof step === "number" ? step : Number(step) || 0;
 }
 
 function groupBy<T>(items: readonly T[], keyFor: (item: T) => string): Map<string, T[]> {
@@ -819,6 +878,126 @@ function buildInstructorFollowups({
         left.instructorName.localeCompare(right.instructorName),
     )
     .slice(0, 8);
+}
+
+function buildBackofficeRisReport({
+  students,
+  progressRows,
+  catalog,
+  studentNameById,
+  instructorFollowups,
+  draftCards,
+}: {
+  students: readonly BackofficeRisStudentSummary[];
+  progressRows: readonly RisProgressDbRow[];
+  catalog: RisCatalog;
+  studentNameById: Map<string, string>;
+  instructorFollowups: readonly BackofficeRisInstructorFollowup[];
+  draftCards: readonly BackofficeRisDraftCard[];
+}): BackofficeRisReport {
+  const weakScripts = progressRows
+    .filter(
+      (row) =>
+        row.is_attention_point || risStepRank(row.current_final_step) <= 3,
+    )
+    .sort((left, right) => {
+      const rankDiff =
+        risStepRank(left.current_final_step) - risStepRank(right.current_final_step);
+      if (rankDiff !== 0) return rankDiff;
+      return Number(right.is_attention_point) - Number(left.is_attention_point);
+    })
+    .slice(0, 10)
+    .map((row) => {
+      const step = (row.current_final_step as RISStepValue | null | undefined) ?? null;
+      const definition = translateRisStepForStudent(step, catalog.steps);
+      return {
+        studentId: row.student_id,
+        studentName: studentNameById.get(row.student_id) ?? "Leerling",
+        scriptId: row.script_id,
+        scriptTitle: scriptTitleForCatalog(catalog, row.script_id),
+        moduleNumber: scriptModuleForCatalog(catalog, row.script_id),
+        currentFinalStep: step,
+        studentLabel: definition.studentLabel,
+        reason: row.is_attention_point
+          ? "Aandachtspunt"
+          : "Lage RIS-stap",
+      };
+    });
+
+  const moduleAdvice: BackofficeRisModuleAdvice[] = [1, 2, 3, 4].map(
+    (moduleNumber) => {
+      const moduleRows = students
+        .map((student) =>
+          student.moduleProgress.find((item) => item.moduleNumber === moduleNumber),
+        )
+        .filter((item): item is RISModuleProgress => Boolean(item));
+      const progressPct =
+        moduleRows.length === 0
+          ? 0
+          : Math.round(
+              moduleRows.reduce((sum, item) => sum + item.progressPct, 0) /
+                moduleRows.length,
+            );
+      const attentionPoints = moduleRows.reduce(
+        (sum, item) => sum + item.attentionPoints,
+        0,
+      );
+      const readyForTest = moduleRows.filter((item) => item.readyForModuleTest).length;
+      const advice =
+        attentionPoints > 0
+          ? "Plan gerichte herhaling voordat je toetsmomenten opschaalt."
+          : readyForTest > 0
+            ? "Controleer planning en CBR-momenten voor toetsklare leerlingen."
+            : progressPct >= 70
+              ? "Module loopt goed. Blijf publiceren zodat voortgang actueel blijft."
+              : "Nog weinig gepubliceerde RIS-data. Rond conceptkaarten af.";
+
+      return {
+        moduleNumber,
+        label: `Module ${moduleNumber}`,
+        progressPct,
+        attentionPoints,
+        readyForTest,
+        advice,
+      };
+    },
+  );
+
+  const internalAttentionPoints = [
+    ...instructorFollowups
+      .filter((row) => row.draftLessonCards > 0)
+      .slice(0, 3)
+      .map(
+        (row) =>
+          `${row.instructorName}: ${row.draftLessonCards} RIS-leskaart(en) nog publiceren.`,
+      ),
+    ...instructorFollowups
+      .filter((row) => row.attentionPoints > 0)
+      .slice(0, 3)
+      .map(
+        (row) =>
+          `${row.instructorName}: ${row.attentionPoints} aandachtspunt(en) vragen opvolging.`,
+      ),
+  ].slice(0, 6);
+
+  const nextActions = [
+    draftCards.length > 0
+      ? "Publiceer openstaande conceptleskaarten zodat leerlingen actuele RIS-voortgang zien."
+      : "",
+    weakScripts.length > 0
+      ? "Gebruik zwakke scripts als focuslijst voor komende lessen."
+      : "",
+    moduleAdvice.some((module) => module.readyForTest > 0)
+      ? "Plan of bevestig toetsmomenten voor leerlingen die toetsklaar staan."
+      : "",
+  ].filter(Boolean);
+
+  return {
+    weakScripts,
+    moduleAdvice,
+    internalAttentionPoints,
+    nextActions,
+  };
 }
 
 async function countRows(
