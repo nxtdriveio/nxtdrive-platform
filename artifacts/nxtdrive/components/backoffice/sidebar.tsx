@@ -69,6 +69,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Operationeel",
     items: [
       { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays, adminOnly: false },
+      {
+        href: "/backoffice/planning-queue",
+        label: "Planning queue",
+        icon: ClipboardList,
+        adminOnly: false,
+      },
       { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX, adminOnly: false },
       { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
       { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
