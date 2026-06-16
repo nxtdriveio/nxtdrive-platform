@@ -1,4 +1,5 @@
-import { CalendarDays, Filter } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, CalendarDays, Filter } from "lucide-react";
 
 import {
   AGENDA_BACKOFFICE_READ_ROLES,
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { PlanningBoardWorkspace } from "./planning-board-workspace";
+import { PlanningBoardWorkspace } from "../../planning-board-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +39,17 @@ function viewParam(value: string | null): PlanningBoardView {
   return value === "week" ? "week" : "day";
 }
 
-export default async function PlanningBoardPage({
+export default async function InstructorPlanningBoardPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ instructorId: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const sp = searchParams ? await searchParams : {};
+  const [{ instructorId }, sp] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve({}),
+  ]);
   const service = createServiceRoleClient();
   const { context, branchScope } = await requireAgendaAccessContext(
     service,
@@ -55,7 +61,7 @@ export default async function PlanningBoardPage({
     branchId: param(sp, "branch"),
     appointmentType: param(sp, "appointment_type"),
     serviceAreaId: param(sp, "rayon"),
-    instructorId: param(sp, "instructor"),
+    instructorId,
     transmission: param(sp, "transmission"),
     capabilityId: param(sp, "capability"),
     vehicleId: param(sp, "vehicle"),
@@ -74,18 +80,26 @@ export default async function PlanningBoardPage({
     branchScope,
     filters,
   );
+  const instructor = data.instructors[0];
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
+          <Link
+            href={`/backoffice/planning-board?date=${filters.date}&view=${filters.view}`}
+            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Planning board
+          </Link>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
             <CalendarDays className="h-6 w-6" aria-hidden />
-            Planning board
+            {instructor?.name ?? "Instructeur"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sleep queue-items naar een instructeur/tijdslot; de planning-core
-            blijft de harde waarheid.
+            Detailplanning met meer ruimte voor afspraakdetails, rayon,
+            voertuig, duur, status en waarschuwingen.
           </p>
         </div>
       </div>
@@ -143,45 +157,6 @@ export default async function PlanningBoardPage({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Instructeur</Label>
-              <Select
-                name="instructor"
-                defaultValue={filters.instructorId ?? ""}
-              >
-                <option value="">Alle</option>
-                {data.instructors.map((instructor) => (
-                  <option key={instructor.id} value={instructor.id}>
-                    {instructor.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Transmissie</Label>
-              <Select
-                name="transmission"
-                defaultValue={filters.transmission ?? ""}
-              >
-                <option value="">Alle</option>
-                <option value="schakel">Schakel</option>
-                <option value="automaat">Automaat</option>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Capability</Label>
-              <Select
-                name="capability"
-                defaultValue={filters.capabilityId ?? ""}
-              >
-                <option value="">Alle</option>
-                {data.capabilities.map((capability) => (
-                  <option key={capability.id} value={capability.id}>
-                    {capability.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
               <Label>Voertuig</Label>
               <Select name="vehicle" defaultValue={filters.vehicleId ?? ""}>
                 <option value="">Alle</option>
@@ -230,7 +205,7 @@ export default async function PlanningBoardPage({
         </CardContent>
       </Card>
 
-      <PlanningBoardWorkspace data={data} />
+      <PlanningBoardWorkspace data={data} detailMode />
     </div>
   );
 }
