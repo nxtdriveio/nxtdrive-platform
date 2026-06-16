@@ -2,11 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  generateRisLessonPublicationDraft,
+  type RisLessonPublicationDraft,
+} from "@/lib/ai/leskaart-advisor";
+import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import type { MemberRole } from "@/lib/types";
-import { normalizeRisStep, type RISStepValue } from "@workspace/leskaart";
-import type { LessonCardMode } from "./data";
+import {
+  normalizeRisStep,
+  translateRisStepForStudent,
+  type RISStepValue,
+} from "@workspace/leskaart";
+import {
+  loadInstructorRisLessonCard,
+  type InstructorRisLessonCard,
+  type LessonCardMode,
+} from "./data";
 
 type ActionResult<T = undefined> =
   | (T extends undefined ? { error?: string } : { error?: string } & T)
@@ -47,6 +61,16 @@ const RIS_MODULE_TEST_WRITE_ROLES = [
 
 function err(error: unknown): string {
   return error instanceof Error ? error.message : "RIS actie is mislukt.";
+}
+
+function aiErr(error: unknown): string {
+  if (error instanceof Error) {
+    console.error(`[RIS AI] ${error.name}: ${error.message.slice(0, 200)}`);
+    if (error.message && error.message.length < 160) return error.message;
+  } else {
+    console.error("[RIS AI] onbekende fout");
+  }
+  return "De RIS AI-functie is momenteel niet beschikbaar. Probeer het later opnieuw.";
 }
 
 function requiredId(value: string, label: string): string {
@@ -247,5 +271,124 @@ export async function setRisModuleTestAction(input: {
     return { moduleTestId: typeof data === "string" ? data : undefined };
   } catch (error) {
     return { error: err(error) };
+  }
+}
+
+function buildRisAiSignals(ris: InstructorRisLessonCard) {
+  const scriptMeta = new Map<
+    string,
+    { code: string; title: string; moduleNumber: number }
+  >();
+  for (const module of ris.catalog.tree) {
+    for (const category of module.categories) {
+      for (const script of category.scripts) {
+        scriptMeta.set(script.id, {
+          code: script.code,
+          title: script.title,
+          moduleNumber: module.moduleNumber,
+        });
+      }
+    }
+  }
+
+  return ris.assessments
+    .filter((assessment) => assessment.conceptRisStep != null || assessment.finalRisStep != null)
+    .map((assessment) => {
+      const meta = scriptMeta.get(assessment.scriptId);
+      const step = assessment.conceptRisStep ?? assessment.finalRisStep;
+      const translation = translateRisStepForStudent(step, ris.catalog.steps);
+      return {
+        code: meta?.code ?? "RIS",
+        title: meta?.title ?? "RIS-script",
+        moduleNumber: meta?.moduleNumber ?? 0,
+        risStep: step,
+        studentLabel: translation.studentLabel,
+        isAttentionPoint: assessment.isAttentionPoint,
+        isFeaturedForLesson: assessment.isFeaturedForLesson,
+        shouldRepeat: assessment.shouldRepeat,
+        readyForTest: assessment.readyForTest,
+        instructorNote: assessment.instructorNote,
+        studentVisibleNote: assessment.studentVisibleNote,
+      };
+    });
+}
+
+export async function generateRisLessonAiDraftAction(input: {
+  lessonId: string;
+}): Promise<ActionResult<{ draft?: RisLessonPublicationDraft }>> {
+  try {
+    const { tenant, user, roles } = await requireActiveTenant([
+      "instructor",
+      "tenant_admin",
+    ]);
+    const lessonId = requiredId(input.lessonId, "Les");
+    const service = createServiceRoleClient();
+
+    const { data: lessonRaw, error: lessonError } = await service
+      .from("lessons")
+      .select("id, student_id, instructor_id")
+      .eq("id", lessonId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (lessonError) return { error: lessonError.message };
+    if (!lessonRaw) return { error: "Les niet gevonden." };
+
+    const lesson = lessonRaw as {
+      id: string;
+      student_id: string;
+      instructor_id: string;
+    };
+    const isAdmin = roles.includes("tenant_admin");
+    if (!isAdmin && lesson.instructor_id !== user.id) {
+      return { error: "Niet geautoriseerd voor deze RIS-les." };
+    }
+
+    const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+    if (!snapshot.featureAccess.ai_features.allowed) {
+      return { error: "AI-functies vereisen het Elite-abonnement." };
+    }
+
+    const ris = await loadInstructorRisLessonCard(service, tenant.id, lessonId);
+    if (ris.settings.lessonCardMode !== "ris") {
+      return { error: "RIS AI is alleen beschikbaar voor RIS-leskaarten." };
+    }
+    if (!ris.settings.aiAssistEnabled) {
+      return { error: "AI-assistentie staat uit voor deze RIS-leskaart." };
+    }
+    if (!ris.card) {
+      return { error: "Maak eerst minimaal een RIS-conceptscore aan." };
+    }
+
+    const signals = buildRisAiSignals(ris);
+    if (signals.length === 0) {
+      return { error: "Beoordeel eerst minimaal een RIS-script." };
+    }
+
+    const { data: studentRaw } = await service
+      .from("students")
+      .select("full_name")
+      .eq("id", lesson.student_id)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    const studentName =
+      (studentRaw?.full_name as string | undefined) ?? "de leerling";
+
+    await primeAiClientIfNeeded(service);
+    const draft = await generateRisLessonPublicationDraft({
+      studentName,
+      assessments: signals,
+      reflection: ris.reflection
+        ? {
+            wentWellText: ris.reflection.wentWellText,
+            difficultText: ris.reflection.difficultText,
+            nextLessonWish: ris.reflection.nextLessonWish,
+            instructorContextNote: ris.reflection.instructorContextNote,
+          }
+        : undefined,
+    });
+
+    return { draft };
+  } catch (error) {
+    return { error: aiErr(error) };
   }
 }

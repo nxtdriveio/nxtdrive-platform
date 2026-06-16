@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  generateRisLessonAiDraftAction,
   publishRisLessonCardAction,
   setGuidedReflectionAction,
 } from "@/lib/ris/actions";
@@ -114,8 +115,10 @@ export function RisLessonPublicationPanel({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isAiPending, startAiTransition] = useTransition();
 
   const scriptMap = useMemo(() => buildScriptMap(ris), [ris]);
   const conceptAssessments = useMemo(
@@ -212,6 +215,30 @@ export function RisLessonPublicationPanel({
 
       setSuccess("RIS-leskaart is gepubliceerd naar de leerlingvoortgang.");
       router.refresh();
+    });
+  }
+
+  function generateAiDraft() {
+    setAiError(null);
+    setSuccess(null);
+    startAiTransition(async () => {
+      const result = await generateRisLessonAiDraftAction({ lessonId });
+      if ("error" in result && result.error) {
+        setAiError(result.error);
+        return;
+      }
+      const draft = "draft" in result ? result.draft : undefined;
+      if (!draft) {
+        setAiError("De AI gaf geen bruikbaar RIS-voorstel terug.");
+        return;
+      }
+      setStudentFriendlySummary(draft.studentSummary || suggestion.studentSummary);
+      setHomeworkOrNextFocus(draft.homeworkOrNextFocus || suggestion.homework);
+      setInternalSummary(draft.internalSummary || suggestion.internalSummary);
+      if (draft.internalAttentionPoints.length > 0) {
+        setInstructorContextNote(draft.internalAttentionPoints.join("\n"));
+      }
+      setSuccess("AI-voorstel geladen. Controleer en pas aan voordat je publiceert.");
     });
   }
 
@@ -385,12 +412,37 @@ export function RisLessonPublicationPanel({
               </div>
 
               <div className="space-y-4 rounded-2xl border border-border bg-card/70 p-4">
-                <div>
-                  <h3 className="font-black text-foreground">Publicatietekst</h3>
-                  <p className="text-sm text-muted-foreground">
-                    AI-assisted voorstel, maar de instructeur bevestigt en publiceert.
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-black text-foreground">Publicatietekst</h3>
+                    <p className="text-sm text-muted-foreground">
+                      AI-assisted voorstel, maar de instructeur bevestigt en publiceert.
+                    </p>
+                  </div>
+                  {ris.settings.aiAssistEnabled ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={generateAiDraft}
+                      disabled={isAiPending || conceptAssessments.length === 0}
+                      className="shrink-0"
+                    >
+                      {isAiPending ? (
+                        <Loader2 className="h-4 w-4" aria-hidden />
+                      ) : (
+                        <Sparkles className="h-4 w-4" aria-hidden />
+                      )}
+                      {isAiPending ? "AI denkt mee..." : "Genereer AI-voorstel"}
+                    </Button>
+                  ) : null}
                 </div>
+
+                {aiError ? (
+                  <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm text-warning">
+                    {aiError}
+                  </div>
+                ) : null}
 
                 <LabeledTextarea
                   label="Leerlingvriendelijke samenvatting"
