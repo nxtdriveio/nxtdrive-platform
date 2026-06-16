@@ -83,6 +83,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX, adminOnly: false },
       { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
+      { href: "/backoffice/instructeurs", label: "Instructeurs", icon: Users, adminOnly: false },
       { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
       { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap, adminOnly: false },
       { href: "/backoffice/ris", label: "RIS-leskaart", icon: BookOpenCheck, adminOnly: false },
