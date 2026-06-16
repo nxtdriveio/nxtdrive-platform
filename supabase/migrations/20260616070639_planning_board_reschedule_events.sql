@@ -349,8 +349,7 @@ begin
          starts_at = p_starts_at,
          ends_at = v_ends_at,
          duration_min = v_duration_min,
-         vehicle_id = v_vehicle_id,
-         status = 'provisional'
+         vehicle_id = v_vehicle_id
    where id = p_entity_id and tenant_id = p_tenant_id;
 
   insert into public.lead_events (lead_id, tenant_id, actor_user_id, event_type, payload)

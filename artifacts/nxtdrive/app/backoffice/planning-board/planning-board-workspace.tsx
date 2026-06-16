@@ -15,7 +15,6 @@ import {
 } from "@dnd-kit/core";
 import {
   AlertCircle,
-  Ban,
   Car,
   CheckCircle2,
   Clock3,
@@ -979,10 +978,10 @@ export function PlanningBoardWorkspace({
             </Link>
             <Link
               href={eventDetailHref(selectedEvent)}
-              className="inline-flex h-8 items-center justify-center gap-2 rounded-md bg-danger px-3 text-sm font-medium text-white hover:opacity-90"
+              className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-sm font-medium text-foreground hover:bg-muted"
             >
-              <Ban className="h-4 w-4" aria-hidden />
-              Annuleren
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Acties
             </Link>
           </div>
           <dl className="mt-5 grid gap-3 text-sm">
