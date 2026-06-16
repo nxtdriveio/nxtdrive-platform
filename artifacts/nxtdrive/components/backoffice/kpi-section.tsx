@@ -131,7 +131,7 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         <StatCard
           label="Actieve leerlingen"
           value={data.activeStudents.toLocaleString("nl-NL")}

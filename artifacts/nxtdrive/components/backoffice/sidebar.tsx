@@ -59,19 +59,12 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Acquisitie",
-    items: [
-      { href: "/backoffice/leads", label: "Leads", icon: Inbox, adminOnly: false },
-      { href: "/backoffice/referrals", label: "Referrals", icon: Gift, adminOnly: false },
-    ],
-  },
-  {
-    label: "Operationeel",
+    label: "Planning",
     items: [
       { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays, adminOnly: false },
       {
         href: "/backoffice/planning-board",
-        label: "Planning board",
+        label: "Planboard",
         icon: CalendarClock,
         adminOnly: false,
       },
@@ -82,14 +75,31 @@ const NAV_SECTIONS: NavSection[] = [
         adminOnly: false,
       },
       { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX, adminOnly: false },
-      { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
+    ],
+  },
+  {
+    label: "Relaties",
+    items: [
       { href: "/backoffice/instructeurs", label: "Instructeurs", icon: Users, adminOnly: false },
-      { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
       { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap, adminOnly: false },
+      { href: "/backoffice/leads", label: "Leads", icon: Inbox, adminOnly: false },
+      { href: "/backoffice/referrals", label: "Referrals", icon: Gift, adminOnly: false },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car, adminOnly: false },
+      { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
+      { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
+      { href: "/backoffice/packages", label: "Pakketten", icon: Package, adminOnly: false },
+    ],
+  },
+  {
+    label: "Leskaart",
+    items: [
       { href: "/backoffice/ris", label: "RIS-leskaart", icon: BookOpenCheck, adminOnly: false },
       { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck, adminOnly: false },
-      { href: "/backoffice/packages", label: "Pakketten", icon: Package, adminOnly: false },
-      { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car, adminOnly: false },
       { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen, adminOnly: false },
       { href: "/backoffice/taken", label: "Taken", icon: ClipboardList, adminOnly: false },
     ],
@@ -218,7 +228,7 @@ export function BackofficeSidebar({
         />
       </div>
 
-      <div className="px-4 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+      <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
         {tenantName}
       </div>
 
@@ -272,12 +282,12 @@ export function BackofficeSidebar({
                       <Link
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                          "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
                           active
-                            ? "border-l-2 border-primary bg-primary-soft pl-[10px] font-medium text-primary"
+                            ? "bg-[var(--admin-active)] font-medium text-primary shadow-sm"
                             : item.muted
-                              ? "text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              ? "text-muted-foreground/80 hover:bg-[var(--surface-2)] hover:text-foreground"
+                              : "text-muted-foreground hover:bg-[var(--surface-2)] hover:text-foreground",
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -297,17 +307,17 @@ export function BackofficeSidebar({
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-border p-3 space-y-2">
+      <div className="shrink-0 space-y-2 border-t border-border p-3">
         <Link
           href="/backoffice/abonnement"
-          className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm transition-colors hover:bg-muted"
+          className="flex items-center justify-between rounded-xl border border-border bg-[var(--surface-1)] px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-2)]"
         >
           <span className="flex items-center gap-2 text-foreground">
             <Wallet className="h-4 w-4 shrink-0" aria-hidden />
             Abonnement
           </span>
           <span className="flex items-center gap-2">
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            <span className="rounded-full bg-[color-mix(in_oklab,var(--primary)_10%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               {planLabel}
             </span>
             {entitlementAlertCount > 0 ? (
