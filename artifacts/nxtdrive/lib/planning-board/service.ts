@@ -247,6 +247,8 @@ async function loadEvents(
       entityType,
       instructorId: row.instructor_id,
       branchId: row.branch_id,
+      studentId: row.student_id ?? null,
+      leadId: row.lead_id ?? null,
       title: target ?? typeLabel,
       subtitle: typeLabel,
       startsAt: row.starts_at,

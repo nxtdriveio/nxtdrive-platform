@@ -47,6 +47,8 @@ export type PlanningBoardEvent = {
   entityType: "lesson" | "trial_lesson" | "agenda_appointment";
   instructorId: string;
   branchId: string | null;
+  studentId?: string | null;
+  leadId?: string | null;
   title: string;
   subtitle: string;
   startsAt: string;
