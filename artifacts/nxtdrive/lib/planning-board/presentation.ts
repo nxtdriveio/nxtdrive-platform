@@ -13,6 +13,14 @@ export type PlanningBoardEventTone =
   | "theory"
   | "block";
 
+export type PlanningBoardLayoutMode =
+  | "resource_timeline"
+  | "instructor_timeline";
+
+export function planningBoardLayoutMode(detailMode: boolean): PlanningBoardLayoutMode {
+  return detailMode ? "instructor_timeline" : "resource_timeline";
+}
+
 export function planningBoardEventTone(
   event: Pick<PlanningBoardEvent, "entityType" | "appointmentType">,
 ): PlanningBoardEventTone {

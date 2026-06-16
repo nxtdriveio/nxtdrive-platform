@@ -39,6 +39,8 @@ type QueueFilters = {
   status?: string | null;
   serviceAreaId?: string | null;
   transmission?: string | null;
+  capabilityId?: string | null;
+  conflictsOnly?: boolean;
 };
 
 type QueueRow = Omit<
@@ -90,6 +92,23 @@ function matchesFilters(
     item.required_transmission !== filters.transmission
   )
     return false;
+  if (filters.capabilityId) {
+    const hasCapability =
+      item.required_capabilities.includes(filters.capabilityId) ||
+      item.preferred_capabilities.includes(filters.capabilityId) ||
+      item.required_vehicle_capability_ids.includes(filters.capabilityId) ||
+      item.preferred_vehicle_capability_ids.includes(filters.capabilityId);
+    if (!hasCapability) return false;
+  }
+  if (filters.conflictsOnly) {
+    const validation = item.last_validation as
+      | { blockingReasons?: unknown[]; warnings?: unknown[] }
+      | null;
+    const hasConflict =
+      (validation?.blockingReasons?.length ?? 0) > 0 ||
+      (validation?.warnings?.length ?? 0) > 0;
+    if (!hasConflict) return false;
+  }
   return true;
 }
 
@@ -138,6 +157,20 @@ export async function loadPlanningQueueItems(
   }
   if (filters.transmission) {
     query = query.eq("required_transmission", filters.transmission);
+  }
+  if (filters.capabilityId) {
+    const capabilityJson = JSON.stringify([filters.capabilityId]);
+    query = query.or(
+      [
+        `required_capabilities.cs.${capabilityJson}`,
+        `preferred_capabilities.cs.${capabilityJson}`,
+        `required_vehicle_capability_ids.cs.${capabilityJson}`,
+        `preferred_vehicle_capability_ids.cs.${capabilityJson}`,
+      ].join(","),
+    );
+  }
+  if (filters.conflictsOnly) {
+    query = query.not("last_validation", "is", null);
   }
 
   const { data, error } = await query

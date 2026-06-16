@@ -469,7 +469,9 @@ export async function loadPlanningBoardData(
       appointmentType: filters.appointmentType,
       serviceAreaId: filters.serviceAreaId,
       transmission: filters.transmission,
-      status: filters.status ?? "open",
+      status: filters.status === null ? null : (filters.status ?? "open"),
+      capabilityId: filters.capabilityId,
+      conflictsOnly: filters.conflictsOnly,
     },
   );
   const filteredQueue = queueItems.filter((item) => {

@@ -30,6 +30,14 @@ function param(
   return typeof value === "string" && value && value !== "all" ? value : null;
 }
 
+function rawParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string,
+): string | null {
+  const value = searchParams[key];
+  return typeof value === "string" && value ? value : null;
+}
+
 function todayYmd(): string {
   return amsterdamYmd(new Date());
 }
@@ -49,6 +57,7 @@ export default async function PlanningBoardPage({
     service,
     AGENDA_BACKOFFICE_READ_ROLES,
   );
+  const status = rawParam(sp, "status");
   const filters = {
     date: param(sp, "date") ?? todayYmd(),
     view: viewParam(param(sp, "view")),
@@ -65,8 +74,7 @@ export default async function PlanningBoardPage({
         ? (param(sp, "availability") as "available" | "blocked")
         : null,
     conflictsOnly: param(sp, "conflicts") === "1",
-    status:
-      param(sp, "status") === "all" ? null : (param(sp, "status") ?? "open"),
+    status: status === "all" ? null : (status ?? "open"),
   };
   const data = await loadPlanningBoardData(
     service,
@@ -107,7 +115,7 @@ export default async function PlanningBoardPage({
             <div className="space-y-1.5">
               <Label>Vestiging</Label>
               <Select name="branch" defaultValue={filters.branchId ?? ""}>
-                <option value="">Alle</option>
+                <option value="all">Alle</option>
                 {data.branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.label}
