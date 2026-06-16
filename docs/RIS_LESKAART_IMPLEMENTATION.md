@@ -193,22 +193,29 @@ Geimplementeerd:
 - RIS-toets/TTT-momenten linken naar `interim_test`;
 - RIS-examen CBR linkt naar `exam`.
 
+### RIS-8: AI en rapportage
+
+AI werkt bovenop gestructureerde RIS-data en blijft adviserend.
+
+Geimplementeerd:
+
+- on-demand RIS AI-voorstel in het instructeur-publicatiepaneel;
+- leerlingvriendelijke samenvatting in tweede persoon;
+- huiswerk/volgende-les focus;
+- interne staff-only samenvatting en aandachtspunten;
+- AI is entitlement-gated via `ai_features`;
+- AI gebruikt server-side RIS-data, niet client-input als bron van waarheid;
+- de instructeur controleert, past aan en publiceert handmatig;
+- backoffice RIS-rapportage met zwakke scripts, moduleadvies en interne
+  opvolgpunten;
+- deterministische rapportage blijft beschikbaar zonder AI-configuratie.
+
+AI publiceert nooit zelfstandig.
+
 ## Nog niet geimplementeerd
 
 De bestaande legacy-leskaart blijft zichtbaar voor tenants met
 `lesson_card_mode = legacy`. De volgende sprints sluiten hierop aan:
-
-### RIS-8: AI en rapportage
-
-AI werkt bovenop gestructureerde RIS-data:
-
-- leerlingvriendelijke samenvatting
-- volgende-les focus
-- zwakke scripts
-- moduleadvies
-- interne aandachtspunten
-
-AI publiceert nooit zelfstandig.
 
 ### RIS-9: Migratie en rollout
 
@@ -233,6 +240,7 @@ De statische guard-test staat in:
 
 ```bash
 pnpm --filter @workspace/scripts run test-ris-foundation
+pnpm --filter @workspace/scripts run test-ris-ai-reporting
 ```
 
 Deze test bewaakt:
