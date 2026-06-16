@@ -11,7 +11,9 @@ export type {
 } from "./types";
 export { loadPlanningBoardData } from "./service";
 export {
+  planningBoardLayoutMode,
   planningBoardEventLabel,
   planningBoardEventTone,
+  type PlanningBoardLayoutMode,
   type PlanningBoardEventTone,
 } from "./presentation";
