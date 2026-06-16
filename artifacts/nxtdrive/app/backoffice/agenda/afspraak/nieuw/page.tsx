@@ -13,6 +13,7 @@ import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { createAppointment } from "@/lib/agenda/actions";
+import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function NewAppointmentPage({
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
   const { user, organization: tenant, roles } = context;
+  const planningSettings = await loadTenantPlanningSettings(service, tenant.id);
   const canSelectInstructor =
     !!user.profile?.is_platform_admin ||
     rolesGrantPermission(roles, "planning:manage");
@@ -143,6 +145,8 @@ export default async function NewAppointmentPage({
               branchId: branches[0]?.id ?? null,
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),
+              durationMin: planningSettings.defaultLessonDurationMinutes,
+              bufferMin: planningSettings.defaultLessonBufferMinutes,
             }}
             submitLabel="Afspraak inplannen"
           />

@@ -12,6 +12,11 @@ import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { loadInstructorAccessibleStudentIds } from "@/lib/students/access";
+import {
+  LESSON_BUFFER_OPTIONS,
+  LESSON_DURATION_OPTIONS,
+  loadTenantPlanningSettings,
+} from "@/lib/planning-settings/service";
 import { scheduleLesson } from "@/app/backoffice/agenda/actions";
 import { LessonLocationField } from "@/app/backoffice/agenda/nieuw/location-field";
 
@@ -36,6 +41,7 @@ export default async function NewInstructorLessonPage({
 
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const planningSettings = await loadTenantPlanningSettings(service, tenant.id);
 
   const instructors: Instructor[] = isAdmin
     ? await loadTenantInstructors(tenant.id)
@@ -88,10 +94,11 @@ export default async function NewInstructorLessonPage({
   const defaultTime = /^\d{2}:\d{2}$/.test(sp.time ?? "")
     ? sp.time!
     : now.toISOString().slice(11, 16);
-  const durationOptions = ["45", "60", "90", "120"];
+  const durationOptions = LESSON_DURATION_OPTIONS.map(String);
   const defaultDuration = durationOptions.includes(sp.duration_min ?? "")
     ? sp.duration_min!
-    : "60";
+    : String(planningSettings.defaultLessonDurationMinutes);
+  const defaultBuffer = String(planningSettings.defaultLessonBufferMinutes);
   const defaultStudentId =
     sp.student_id && students.some((student) => student.id === sp.student_id)
       ? sp.student_id
@@ -186,16 +193,30 @@ export default async function NewInstructorLessonPage({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="duration_min">Duur (minuten)</Label>
+                  <Label htmlFor="duration_min">Lestijd</Label>
                   <Select id="duration_min" name="duration_min" defaultValue={defaultDuration}>
-                    {durationOptions.map((duration) => (
+                    {LESSON_DURATION_OPTIONS.map((duration) => (
                       <option key={duration} value={duration}>
-                        {duration}
+                        {duration} min
                       </option>
                     ))}
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     Het tegoed wordt automatisch met de lesduur verrekend.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="buffer_min">Buffer na afloop</Label>
+                  <Select id="buffer_min" name="buffer_min" defaultValue={defaultBuffer}>
+                    {LESSON_BUFFER_OPTIONS.map((buffer) => (
+                      <option key={buffer} value={buffer}>
+                        {buffer} min
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Agenda bezet: lestijd + buffer.
                   </p>
                 </div>
               </div>

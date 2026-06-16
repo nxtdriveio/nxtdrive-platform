@@ -26,6 +26,8 @@ import {
 import {
   APPOINTMENT_TYPE_LABEL,
   APPOINTMENT_RESULT_LABEL,
+  appointmentBufferMinutes,
+  appointmentDurationMinutes,
   durationMinutes,
   isStudentLinkedType,
   isResultableType,
@@ -296,7 +298,8 @@ export default async function EditAppointmentPage({
                 studentId: appt.student_id,
                 date: appt.starts_at.slice(0, 10),
                 time: appt.starts_at.slice(11, 16),
-                durationMin: durationMinutes(appt.starts_at, appt.ends_at),
+                durationMin: appointmentDurationMinutes(appt),
+                bufferMin: appointmentBufferMinutes(appt),
                 title: appt.title,
                 location: appt.location,
                 notes: appt.notes,

@@ -128,6 +128,8 @@ export type AgendaAppointment = {
   status: AgendaAppointmentStatus;
   starts_at: string;
   ends_at: string;
+  duration_min: number | null;
+  buffer_min: number | null;
   title: string | null;
   location: string | null;
   notes: string | null;
@@ -145,10 +147,28 @@ export type AgendaAppointment = {
 };
 
 // Common duration presets (minutes) offered in the appointment form.
-export const APPOINTMENT_DURATIONS = [15, 30, 45, 60, 90, 120, 240, 480] as const;
+export const APPOINTMENT_DURATIONS = [
+  10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 180, 240, 480,
+] as const;
+export const APPOINTMENT_BUFFER_OPTIONS = [0, 10, 20, 30, 40, 50, 60] as const;
 
 export function durationMinutes(startsAt: string, endsAt: string): number {
   return Math.round(
     (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000,
   );
+}
+
+export function appointmentDurationMinutes(
+  appointment: Pick<AgendaAppointment, "starts_at" | "ends_at" | "duration_min" | "buffer_min">,
+): number {
+  return (
+    appointment.duration_min ??
+    Math.max(1, durationMinutes(appointment.starts_at, appointment.ends_at) - (appointment.buffer_min ?? 0))
+  );
+}
+
+export function appointmentBufferMinutes(
+  appointment: Pick<AgendaAppointment, "buffer_min">,
+): number {
+  return Math.max(0, appointment.buffer_min ?? 0);
 }

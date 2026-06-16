@@ -77,7 +77,7 @@ export default async function PlanningBoardPage({
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
@@ -92,15 +92,24 @@ export default async function PlanningBoardPage({
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <form className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+        <CardContent className="pt-4">
+          <form className="grid gap-2 md:grid-cols-4 xl:grid-cols-10">
             <div className="space-y-1.5">
               <Label>Datum</Label>
-              <Input name="date" type="date" defaultValue={filters.date} />
+              <Input
+                name="date"
+                type="date"
+                defaultValue={filters.date}
+                className="h-9"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Vestiging</Label>
-              <Select name="branch" defaultValue={filters.branchId ?? ""}>
+              <Select
+                name="branch"
+                defaultValue={filters.branchId ?? ""}
+                className="h-9"
+              >
                 <option value="all">Alle</option>
                 {data.branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -114,6 +123,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="appointment_type"
                 defaultValue={filters.appointmentType ?? ""}
+                className="h-9"
               >
                 <option value="">Alle</option>
                 <option value="lesson">Rijles</option>
@@ -127,7 +137,11 @@ export default async function PlanningBoardPage({
             </div>
             <div className="space-y-1.5">
               <Label>Rayon</Label>
-              <Select name="rayon" defaultValue={filters.serviceAreaId ?? ""}>
+              <Select
+                name="rayon"
+                defaultValue={filters.serviceAreaId ?? ""}
+                className="h-9"
+              >
                 <option value="">Alle</option>
                 {data.serviceAreas.map((area) => (
                   <option key={area.id} value={area.id}>
@@ -141,6 +155,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="instructor"
                 defaultValue={filters.instructorId ?? ""}
+                className="h-9"
               >
                 <option value="">Alle</option>
                 {data.instructors.map((instructor) => (
@@ -155,6 +170,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="transmission"
                 defaultValue={filters.transmission ?? ""}
+                className="h-9"
               >
                 <option value="">Alle</option>
                 <option value="schakel">Schakel</option>
@@ -166,6 +182,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="capability"
                 defaultValue={filters.capabilityId ?? ""}
+                className="h-9"
               >
                 <option value="">Alle</option>
                 {data.capabilities.map((capability) => (
@@ -177,7 +194,11 @@ export default async function PlanningBoardPage({
             </div>
             <div className="space-y-1.5">
               <Label>Voertuig</Label>
-              <Select name="vehicle" defaultValue={filters.vehicleId ?? ""}>
+              <Select
+                name="vehicle"
+                defaultValue={filters.vehicleId ?? ""}
+                className="h-9"
+              >
                 <option value="">Alle</option>
                 {data.vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
@@ -191,6 +212,7 @@ export default async function PlanningBoardPage({
               <Select
                 name="availability"
                 defaultValue={filters.availability ?? ""}
+                className="h-9"
               >
                 <option value="">Alle</option>
                 <option value="available">Beschikbaar</option>
@@ -199,13 +221,17 @@ export default async function PlanningBoardPage({
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select name="status" defaultValue={filters.status ?? "all"}>
+              <Select
+                name="status"
+                defaultValue={filters.status ?? "all"}
+                className="h-9"
+              >
                 <option value="open">Open</option>
                 <option value="suggested">Suggesties</option>
                 <option value="all">Alle</option>
               </Select>
             </div>
-            <label className="flex items-end gap-2 pb-2 text-sm text-muted-foreground">
+            <label className="flex items-end gap-2 pb-1.5 text-sm text-muted-foreground">
               <input
                 type="checkbox"
                 name="conflicts"
@@ -215,7 +241,7 @@ export default async function PlanningBoardPage({
               Alleen conflicten
             </label>
             <div className="flex items-end">
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="h-9 w-full">
                 <Filter className="h-4 w-4" aria-hidden />
                 Filter
               </Button>

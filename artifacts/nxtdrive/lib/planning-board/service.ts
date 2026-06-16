@@ -39,6 +39,8 @@ type EventRow = {
   status?: string | null;
   starts_at: string;
   ends_at: string;
+  duration_min?: number | null;
+  buffer_min?: number | null;
   vehicle_id?: string | null;
   pickup_service_area_id?: string | null;
 };
@@ -163,7 +165,7 @@ async function loadEvents(
       client
         .from("lessons")
         .select(
-          "id, tenant_id, branch_id, instructor_id, student_id, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
+          "id, tenant_id, branch_id, instructor_id, student_id, starts_at, ends_at, duration_min, buffer_min, status, vehicle_id, pickup_service_area_id",
         )
         .eq("status", "planned"),
         "lesson",
@@ -174,7 +176,7 @@ async function loadEvents(
       client
         .from("trial_lessons")
         .select(
-          "id, tenant_id, branch_id, instructor_id, lead_id, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
+          "id, tenant_id, branch_id, instructor_id, lead_id, starts_at, ends_at, duration_min, status, vehicle_id, pickup_service_area_id",
         )
         .in("status", ["provisional", "confirmed"]),
         "trial_lesson",
@@ -187,7 +189,7 @@ async function loadEvents(
       client
         .from("agenda_appointments")
         .select(
-          "id, tenant_id, branch_id, instructor_id, student_id, type, title, starts_at, ends_at, status, vehicle_id, pickup_service_area_id",
+          "id, tenant_id, branch_id, instructor_id, student_id, type, title, starts_at, ends_at, duration_min, buffer_min, status, vehicle_id, pickup_service_area_id",
         )
         .eq("status", "planned"),
         "agenda_appointment",
@@ -242,6 +244,12 @@ async function loadEvents(
         : entityType === "trial_lesson"
           ? "Proefles"
           : (row.type ?? "Afspraak");
+    const occupied = Math.round(
+      (new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) /
+        60000,
+    );
+    const buffer = Math.max(0, row.buffer_min ?? 0);
+    const duration = row.duration_min ?? Math.max(1, occupied - buffer);
     return {
       id: row.id,
       entityType,
@@ -253,10 +261,9 @@ async function loadEvents(
       subtitle: typeLabel,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
-      durationMinutes: Math.round(
-        (new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) /
-          60000,
-      ),
+      durationMinutes: duration,
+      bufferMinutes: buffer,
+      occupiedMinutes: occupied,
       appointmentType: row.type ?? null,
       status: row.status ?? null,
       vehicleId: row.vehicle_id ?? null,

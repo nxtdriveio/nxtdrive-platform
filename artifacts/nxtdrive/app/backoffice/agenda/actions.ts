@@ -84,6 +84,7 @@ export async function scheduleLesson(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
 
@@ -108,6 +109,9 @@ export async function scheduleLesson(formData: FormData) {
   }
   if (!Number.isFinite(duration) || duration < 15) {
     redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
 
   // Combine local datetime as ISO string. Browser submits date as YYYY-MM-DD
@@ -160,7 +164,8 @@ export async function scheduleLesson(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const endsAt = new Date(startsAt.getTime() + duration * 60000);
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
   const planningInput = {
     actor: actorForPlanningContext(context, studentAccess.branchScope),
     scope: scopeForTenantBranch(
@@ -203,6 +208,18 @@ export async function scheduleLesson(formData: FormData) {
   if (error || !lessonId) {
     const code = encodeURIComponent(error?.message ?? "unknown");
     redirect(`${errorTo}?error=${code}`);
+  }
+  const { error: metadataError } = await service
+    .from("lessons")
+    .update({
+      ends_at: endsAt.toISOString(),
+      duration_min: duration,
+      buffer_min: buffer,
+    })
+    .eq("id", lessonId as string)
+    .eq("tenant_id", context.organization.id);
+  if (metadataError) {
+    redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
   }
 
   // Task #131 - notify linked guardians that a driving lesson was scheduled.

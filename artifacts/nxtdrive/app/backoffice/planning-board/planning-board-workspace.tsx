@@ -62,8 +62,9 @@ const START_HOUR = 7;
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 34;
-const SLOT_WIDTH = 76;
-const RESOURCE_ROW_HEIGHT = 76;
+const SLOT_WIDTH = 52;
+const RESOURCE_ROW_HEIGHT = 56;
+const RESOURCE_COLUMN_WIDTH = 176;
 const dateShortFormatter = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
@@ -128,7 +129,7 @@ function parseSlotId(value: string): SlotTarget | null {
 }
 
 function eventDurationMinutes(event: PlanningBoardEvent): number {
-  return Math.max(SLOT_MINUTES, event.durationMinutes);
+  return Math.max(SLOT_MINUTES, event.occupiedMinutes ?? event.durationMinutes);
 }
 
 function eventTop(event: PlanningBoardEvent): number {
@@ -422,7 +423,8 @@ function EventCard({
       ) : null}
       {detailed ? (
         <p className="truncate text-muted-foreground">
-          {event.durationMinutes} min
+          {event.durationMinutes} min lestijd
+          {event.bufferMinutes ? ` + ${event.bufferMinutes} buffer` : ""}
           {event.status ? ` - ${event.status}` : ""}
         </p>
       ) : null}
@@ -726,17 +728,20 @@ export function PlanningBoardWorkspace({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveQueue(null)}
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
+                {dateShort(data.filters.date)}
+              </span>
               {EVENT_LEGEND.map((item) => (
                 <span
                   key={item.key}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
                 >
                   <span
-                    className={cn("h-2.5 w-2.5 rounded-sm", item.className)}
+                    className={cn("h-2 w-2 rounded-sm", item.className)}
                   />
                   {item.label}
                 </span>
@@ -758,20 +763,20 @@ export function PlanningBoardWorkspace({
               </Select>
             </label>
           </div>
-          <div className="max-h-[72vh] overflow-auto">
+          <div className="max-h-[76vh] overflow-auto">
             <div
               className="min-w-max"
-              style={{ width: 224 + slotCount * SLOT_WIDTH }}
+              style={{ width: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH }}
             >
-              <div className="sticky top-0 z-20 grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border bg-muted/40">
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-20 grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border bg-muted/40">
+                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   Instructeur
                 </div>
                 <div className="flex">
                   {Array.from({ length: slotCount }, (_, slot) => (
                     <div
                       key={slot}
-                      className="shrink-0 border-l border-border/60 px-2 py-2 text-xs font-medium text-muted-foreground"
+                      className="shrink-0 border-l border-border/60 px-1.5 py-1.5 text-xs font-medium text-muted-foreground"
                       style={{ width: SLOT_WIDTH }}
                     >
                       {slot % 2 === 0 ? timeLabel(slot) : ""}
@@ -788,19 +793,21 @@ export function PlanningBoardWorkspace({
                 return (
                   <div
                     key={row.key}
-                    className="grid grid-cols-[14rem_minmax(0,1fr)] border-b border-border/70"
+                    className="grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border/70"
                     style={{ height: RESOURCE_ROW_HEIGHT }}
                   >
-                    <div className="flex min-w-0 flex-col justify-center gap-1 border-r border-border bg-card px-3">
+                    <div className="flex min-w-0 flex-col justify-center border-r border-border bg-card px-3">
                       <Link
                         href={`/backoffice/planning-board/instructors/${row.instructor.id}?date=${row.day}&view=${detailMode ? data.filters.view : "day"}`}
                         className="truncate text-sm font-semibold text-foreground hover:text-primary"
                       >
                         {row.instructor.name}
                       </Link>
-                      <span className="text-xs text-muted-foreground">
-                        {dateShort(row.day)}
-                      </span>
+                      {detailMode ? (
+                        <span className="text-xs text-muted-foreground">
+                          {dateShort(row.day)}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="relative flex">
                       {Array.from({ length: slotCount }, (_, slot) => {
@@ -842,15 +849,15 @@ export function PlanningBoardWorkspace({
           </div>
         </section>
 
-        <aside className="space-y-4">
+        <aside className="space-y-3">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Clock3 className="h-4 w-4" aria-hidden />
                 Planning queue
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               {queueItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Geen open items.
@@ -897,7 +904,7 @@ export function PlanningBoardWorkspace({
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-base">Preview</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -994,7 +1001,11 @@ export function PlanningBoardWorkspace({
               <dd className="text-foreground">
                 {timeFormatter.format(new Date(selectedEvent.startsAt))} -{" "}
                 {timeFormatter.format(new Date(selectedEvent.endsAt))} (
-                {selectedEvent.durationMinutes} min)
+                {selectedEvent.durationMinutes} min lestijd
+                {selectedEvent.bufferMinutes
+                  ? ` + ${selectedEvent.bufferMinutes} min buffer`
+                  : ""}
+                )
               </dd>
             </div>
             <div>
