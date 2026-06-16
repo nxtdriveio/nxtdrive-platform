@@ -45,6 +45,28 @@ ok(
     actions.includes("setTenantRisSettingsAction"),
   "RIS activation action is guarded by the migration preflight",
 );
+ok(
+  actions.includes("activateRisCleanStartAction") &&
+    actions.includes('requireActiveTenant(["tenant_admin"])') &&
+    actions.includes('service.rpc("activate_ris_clean_start"') &&
+    actions.includes("p_tenant_id: tenant.id") &&
+    actions.includes("p_actor: user.id"),
+  "RIS clean-start action calls the transactional database clean-start RPC",
+);
+
+const cleanStartMigration = read(
+  "supabase",
+  "migrations",
+  "20260616181232_ris_clean_start_default.sql",
+);
+ok(
+  cleanStartMigration.includes("function public.activate_ris_clean_start") &&
+    cleanStartMigration.includes("delete from public.lesson_skill_scores") &&
+    cleanStartMigration.includes("delete from public.student_skill_scores") &&
+    cleanStartMigration.includes("'ris.clean_start_activated'") &&
+    cleanStartMigration.includes("grant execute on function public.activate_ris_clean_start"),
+  "RIS clean-start RPC clears only legacy score tables, activates RIS and audits",
+);
 
 const pageActions = read("artifacts", "nxtdrive", "app", "backoffice", "ris", "actions.ts");
 ok(
@@ -52,13 +74,21 @@ ok(
     pageActions.includes("ris_saved=activated"),
   "RIS backoffice form action redirects after guarded activation",
 );
+ok(
+  pageActions.includes("activateRisCleanStartFromFormAction") &&
+    pageActions.includes("SCHOON STARTEN") &&
+    pageActions.includes("ris_saved=clean-start"),
+  "RIS backoffice form action requires explicit clean-start confirmation",
+);
 
 const page = read("artifacts", "nxtdrive", "app", "backoffice", "ris", "page.tsx");
 ok(
   page.includes("RIS-9 migratie & rollout") &&
     page.includes("Legacy-leskaart naar RIS preflight") &&
     page.includes("Mappingrapport") &&
-    page.includes("RIS activeren"),
+    page.includes("RIS activeren") &&
+    page.includes("Schoon starten met RIS") &&
+    page.includes("Wis legacy scores en activeer RIS"),
   "RIS backoffice page renders migration preflight, mapping report and activation CTA",
 );
 
@@ -66,7 +96,7 @@ const docs = read("docs", "RIS_LESKAART_IMPLEMENTATION.md");
 ok(
   docs.includes("RIS-9: Migratie en rollout") &&
     docs.includes("Geimplementeerd") &&
-    docs.includes("RIS per tenant pas geactiveerd na een groene preflight"),
+    docs.includes("clean-start"),
   "RIS documentation marks migration and rollout sprint as implemented",
 );
 

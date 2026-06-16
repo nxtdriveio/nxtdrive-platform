@@ -24,6 +24,9 @@ function check(name: string, ok: boolean): void {
 const migration = source(
   "supabase/migrations/20260616104647_ris_lesson_card_foundation.sql",
 );
+const cleanStartMigration = source(
+  "supabase/migrations/20260616181232_ris_clean_start_default.sql",
+);
 const leskaartIndex = source("lib/leskaart/src/index.ts");
 const risEngine = source("lib/leskaart/src/ris.ts");
 const risData = source("artifacts/nxtdrive/lib/ris/data.ts");
@@ -69,8 +72,11 @@ for (const rpc of [
 }
 
 check(
-  "RIS mode is opt-in and legacy stays default",
+  "RIS mode starts as default while legacy remains fallback",
   /lesson_card_mode\s+text\s+not null default 'legacy'/.test(migration) &&
+    cleanStartMigration.includes("alter column lesson_card_mode set default 'ris'") &&
+    cleanStartMigration.includes("values (new.id, 'ris', v_version_id)") &&
+    cleanStartMigration.includes("coalesce(v_settings.lesson_card_mode, 'ris') <> 'ris'") &&
     migration.includes("RIS lesson card mode is not enabled"),
 );
 check(
