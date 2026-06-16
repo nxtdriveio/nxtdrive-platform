@@ -241,7 +241,7 @@ export async function loadFranchiseOverview(
       0,
     );
 
-    const passed = tenantExams.filter((e) => e.result === "geslaagd").length;
+    const passed = tenantExams.filter((e) => e.result === "passed").length;
     const examPassRate =
       tenantExams.length > 0
         ? Math.round((passed / tenantExams.length) * 100)

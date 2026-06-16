@@ -79,13 +79,61 @@ function AttentionCard({
   );
 }
 
+function AttentionUnavailableCard({ message }: { message: string }) {
+  return (
+    <Card className="border-danger/30 bg-danger/5">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-danger">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          Franchise-aandacht tijdelijk niet beschikbaar
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <p>
+          De franchise cockpit kon de prestatie- en aandachtssignalen niet
+          volledig laden. De toegang tot de stuurlaag is actief, maar een
+          onderliggende databron gaf een fout terug.
+        </p>
+        <p className="rounded-md border border-danger/20 bg-background px-3 py-2 text-danger">
+          {message}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/backoffice/franchise">
+            <Button variant="outline" size="sm">
+              Terug naar dashboard
+            </Button>
+          </Link>
+          <Link href="/backoffice/franchise/planning">
+            <Button variant="outline" size="sm">
+              Centrale planning
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function FranchiseAttentionPage() {
   const { tenant, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
-  const overview = await loadFranchisePerformanceOverview(tenant.id);
+  let overview: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>> | null = null;
+  let loadError: string | null = null;
 
-  const mediumPriority = overview.franchisees.filter((item) => item.attention_priority === "middel");
-  const lowPriority = overview.franchisees.filter((item) => item.attention_priority === "laag");
+  try {
+    overview = await loadFranchisePerformanceOverview(tenant.id);
+  } catch (error) {
+    loadError =
+      error instanceof Error
+        ? error.message
+        : "Onbekende fout bij het laden van franchise-aandacht.";
+    console.error("[franchise/aandacht] load failed", error);
+  }
+
+  const mediumPriority =
+    overview?.franchisees.filter((item) => item.attention_priority === "middel") ?? [];
+  const lowPriority =
+    overview?.franchisees.filter((item) => item.attention_priority === "laag") ?? [];
 
   return (
     <div className="space-y-6">
@@ -101,8 +149,8 @@ export default async function FranchiseAttentionPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{overview.network.attention_count} actieve signalen</Badge>
-            <Badge variant="outline">{overview.network.high_priority_count} hoog</Badge>
+            <Badge variant="primary">{overview?.network.attention_count ?? 0} actieve signalen</Badge>
+            <Badge variant="outline">{overview?.network.high_priority_count ?? 0} hoog</Badge>
             <Badge variant="outline">Read-only governance</Badge>
           </div>
         </div>
@@ -124,6 +172,13 @@ export default async function FranchiseAttentionPage() {
           planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
         />
       ) : null}
+
+      {!overview ? (
+        <AttentionUnavailableCard
+          message={loadError ?? "Franchise-aandacht laden mislukt."}
+        />
+      ) : (
+        <>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -283,6 +338,8 @@ export default async function FranchiseAttentionPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
