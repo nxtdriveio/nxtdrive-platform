@@ -4,11 +4,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AuthorizedOrganizationContext } from "@/lib/organization";
 import type { BranchAccessScope } from "@/lib/permissions";
-import {
-  AGENDA_APPOINTMENT_TYPES,
-  isStudentLinkedType,
-  type AgendaAppointmentType,
-} from "@/lib/agenda/types";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import {
@@ -23,6 +18,7 @@ import type {
   PlanningQueueListItem,
   PlanningQueueScheduleInput,
   PlanningQueueScheduleResult,
+  PlanningQueueScheduledEntityType,
   PlanningQueueUpsertInput,
 } from "@/lib/planning-queue/types";
 import {
@@ -109,10 +105,42 @@ export async function loadPlanningQueueItems(
   branchScope: BranchAccessScope,
   filters: QueueFilters = {},
 ): Promise<PlanningQueueListItem[]> {
-  const { data, error } = await client
+  if (
+    branchScope.scope_type === "branches" &&
+    branchScope.branch_ids.length === 0
+  ) {
+    return [];
+  }
+  if (
+    branchScope.scope_type === "branches" &&
+    filters.branchId &&
+    !branchScope.branch_ids.includes(filters.branchId)
+  ) {
+    return [];
+  }
+
+  let query = client
     .from("planning_queue_items")
     .select("*")
-    .eq("tenant_id", context.organization.id)
+    .eq("tenant_id", context.organization.id);
+
+  if (branchScope.scope_type === "branches") {
+    query = query.in("branch_id", branchScope.branch_ids);
+  }
+  if (filters.branchId) query = query.eq("branch_id", filters.branchId);
+  if (filters.appointmentType) {
+    query = query.eq("appointment_type", filters.appointmentType);
+  }
+  if (filters.priority) query = query.eq("priority", filters.priority);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.serviceAreaId) {
+    query = query.eq("pickup_service_area_id", filters.serviceAreaId);
+  }
+  if (filters.transmission) {
+    query = query.eq("required_transmission", filters.transmission);
+  }
+
+  const { data, error } = await query
     .order("priority", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(250);
@@ -479,100 +507,42 @@ export async function scheduleQueueItem(
   if (!validation.allowed) return validationErrorResult(validation);
 
   const entityType = scheduledEntityTypeForQueueItem(item);
-  const notes = item.notes ? `Planning queue: ${item.notes}` : "Planning queue";
-  let entityId: string | null = null;
-
-  if (entityType === "lesson") {
-    if (!item.student_id) throw new Error("Les queue item mist een leerling.");
-    const { data, error } = await client.rpc("schedule_lesson", {
-      p_tenant_id: item.tenant_id,
-      p_actor: context.user.id,
-      p_instructor_id: input.instructorId,
-      p_student_id: item.student_id,
-      p_starts_at: input.startAt.toISOString(),
-      p_duration_min: item.duration_minutes,
-      p_location: item.pickup_address_id,
-      p_notes: notes,
-      p_location_lat: null,
-      p_location_lng: null,
-      p_location_place_id: null,
-    });
-    if (error || !data)
-      throw new Error(`Les plannen mislukt: ${error?.message ?? "geen id"}`);
-    entityId = String(data);
-  } else if (entityType === "trial_lesson") {
+  if (entityType === "lesson" && !item.student_id) {
+    throw new Error("Les queue item mist een leerling.");
+  }
+  if (entityType === "trial_lesson") {
     if (!item.lead_id) throw new Error("Proefles queue item mist een lead.");
     if (![60, 90, 120].includes(item.duration_minutes)) {
       throw new Error(
         "Proeflessen kunnen alleen met 60, 90 of 120 minuten worden gepland.",
       );
     }
-    const { error } = await client.rpc("book_trial_lesson", {
-      p_lead_id: item.lead_id,
-      p_tenant_id: item.tenant_id,
-      p_instructor_id: input.instructorId,
-      p_starts_at: input.startAt.toISOString(),
-      p_duration_min: item.duration_minutes,
-      p_pickup_location: item.pickup_address_id,
-      p_score: 0,
-      p_reason: "Planning queue",
-    });
-    if (error) throw new Error(`Proefles plannen mislukt: ${error.message}`);
-    const { data: trial } = await client
-      .from("trial_lessons")
-      .select("id")
-      .eq("tenant_id", item.tenant_id)
-      .eq("lead_id", item.lead_id)
-      .eq("instructor_id", input.instructorId)
-      .eq("starts_at", input.startAt.toISOString())
-      .maybeSingle();
-    entityId = (trial as { id?: string } | null)?.id ?? item.id;
-  } else {
-    const appointmentType = item.appointment_type as AgendaAppointmentType;
-    if (
-      !(AGENDA_APPOINTMENT_TYPES as readonly string[]).includes(appointmentType)
-    ) {
-      throw new Error(`Onbekend afspraaktype: ${item.appointment_type}`);
-    }
-    const { data, error } = await client.rpc("create_agenda_appointment", {
-      p_tenant_id: item.tenant_id,
-      p_actor: context.user.id,
-      p_instructor_id: input.instructorId,
-      p_type: appointmentType,
-      p_starts_at: input.startAt.toISOString(),
-      p_duration_min: item.duration_minutes,
-      p_student_id: isStudentLinkedType(appointmentType)
-        ? item.student_id
-        : null,
-      p_branch_id: item.branch_id,
-      p_title: item.lead_id ? "Planbare lead-afspraak" : "Planbare afspraak",
-      p_location: item.pickup_address_id,
-      p_notes: notes,
-      p_vehicle_id: input.vehicleId ?? null,
-      p_pickup_service_area_id: item.pickup_service_area_id,
-    });
-    if (error || !data) {
-      throw new Error(
-        `Afspraak plannen mislukt: ${error?.message ?? "geen id"}`,
-      );
-    }
-    entityId = String(data);
   }
 
-  const { error: markError } = await client.rpc(
-    "mark_planning_queue_item_scheduled",
-    {
-      p_tenant_id: item.tenant_id,
-      p_actor: context.user.id,
-      p_id: item.id,
-      p_scheduled_entity_type: entityType,
-      p_scheduled_entity_id: entityId,
-      p_validation: validationToJson(validation),
-    },
-  );
-  if (markError) {
-    throw new Error(`Queue afronden mislukt: ${markError.message}`);
+  const { data, error } = await client.rpc("schedule_planning_queue_item", {
+    p_tenant_id: item.tenant_id,
+    p_actor: context.user.id,
+    p_queue_item_id: item.id,
+    p_instructor_id: input.instructorId,
+    p_starts_at: input.startAt.toISOString(),
+    p_vehicle_id: input.vehicleId ?? null,
+    p_validation: validationToJson(validation),
+  });
+  if (error || !data) {
+    throw new Error(
+      `Queue item plannen mislukt: ${error?.message ?? "geen resultaat"}`,
+    );
   }
 
-  return { ok: true, entityType, entityId, validation };
+  const result = data as {
+    entity_type?: PlanningQueueScheduledEntityType;
+    entity_id?: string;
+  };
+
+  return {
+    ok: true,
+    entityType: result.entity_type ?? entityType,
+    entityId: result.entity_id ?? item.id,
+    validation,
+  };
 }

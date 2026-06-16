@@ -70,6 +70,12 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays, adminOnly: false },
       {
+        href: "/backoffice/planning-board",
+        label: "Planning board",
+        icon: CalendarClock,
+        adminOnly: false,
+      },
+      {
         href: "/backoffice/planning-queue",
         label: "Planning queue",
         icon: ClipboardList,
