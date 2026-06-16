@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -65,6 +65,7 @@ const SLOT_HEIGHT = 34;
 const SLOT_WIDTH = 52;
 const RESOURCE_ROW_HEIGHT = 56;
 const RESOURCE_COLUMN_WIDTH = 176;
+const PREVIEW_DEBOUNCE_MS = 180;
 const dateShortFormatter = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
@@ -83,6 +84,17 @@ const EVENT_LEGEND = [
   { key: "admin", label: "Administratie", className: "bg-slate-500" },
   { key: "theory_guidance", label: "Theorie", className: "bg-pink-500" },
   { key: "block", label: "Prive/pauze/blok", className: "bg-zinc-700" },
+] as const;
+
+const AVAILABILITY_LEGEND = [
+  { key: "available", label: "Beschikbaar", className: "bg-emerald-500/35" },
+  {
+    key: "blocked",
+    label: "Geblokkeerd",
+    className:
+      "bg-red-500/20 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]",
+  },
+  { key: "closed", label: "Gesloten", className: "bg-muted/60" },
 ] as const;
 
 type DragPayload =
@@ -287,6 +299,75 @@ function slotAvailability(
   return weekly ? "available" : "closed";
 }
 
+function availabilityLabel(
+  availability: "available" | "blocked" | "closed",
+): string {
+  if (availability === "available") return "Beschikbaar";
+  if (availability === "blocked") return "Geblokkeerd";
+  return "Gesloten";
+}
+
+function availabilitySegmentStyle(startMinute: number, endMinute: number) {
+  const timelineStart = START_HOUR * 60;
+  const timelineEnd = END_HOUR * 60;
+  const start = Math.max(timelineStart, startMinute);
+  const end = Math.min(timelineEnd, endMinute);
+  if (end <= start) return null;
+  return {
+    left: ((start - timelineStart) / SLOT_MINUTES) * SLOT_WIDTH,
+    width: ((end - start) / SLOT_MINUTES) * SLOT_WIDTH,
+  };
+}
+
+function AvailabilityBands({
+  blocks,
+  day,
+  availabilityFilter,
+}: {
+  blocks: readonly PlanningBoardAvailability[];
+  day: string;
+  availabilityFilter?: "available" | "blocked" | null;
+}) {
+  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const dayBlocks = blocks.filter(
+    (block) => block.date === day || block.weekday === weekday,
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      <div
+        className={cn(
+          "absolute inset-0 bg-muted/45",
+          availabilityFilter && availabilityFilter !== "blocked" && "opacity-40",
+        )}
+      />
+      {dayBlocks.map((block, index) => {
+        const style = availabilitySegmentStyle(
+          block.startMinute,
+          block.endMinute,
+        );
+        if (!style) return null;
+        const isBlocked = block.kind === "blocked";
+        return (
+          <div
+            key={`${block.instructorId}:${block.date ?? block.weekday}:${block.startMinute}:${index}`}
+            className={cn(
+              "absolute inset-y-0",
+              isBlocked
+                ? "bg-red-500/18 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]"
+                : "bg-emerald-500/14",
+              availabilityFilter &&
+                ((availabilityFilter === "available" && isBlocked) ||
+                  (availabilityFilter === "blocked" && !isBlocked)) &&
+                "opacity-25",
+            )}
+            style={style}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function QueueCard({
   item,
   compact = false,
@@ -462,6 +543,9 @@ function DroppableSlot({
     preview?.validation?.blockingReasons[0]?.message ??
     preview?.validation?.warnings[0]?.message ??
     preview?.message;
+  const title = previewText
+    ? `${availabilityLabel(availability)} - ${previewText}`
+    : availabilityLabel(availability);
   return (
     <div
       ref={setNodeRef}
@@ -469,9 +553,6 @@ function DroppableSlot({
         "relative shrink-0",
         layout === "calendar" && "border-b border-border/60",
         layout === "timeline" && "border-r border-border/60",
-        availability === "available" && "bg-emerald-500/5",
-        availability === "blocked" && "bg-danger/10",
-        availability === "closed" && "bg-muted/30",
         availabilityFilter &&
           availability !== availabilityFilter &&
           "opacity-30",
@@ -487,7 +568,8 @@ function DroppableSlot({
           ? { width: SLOT_WIDTH, height: "100%" }
           : { height: SLOT_HEIGHT }
       }
-      title={previewText ?? undefined}
+      title={title}
+      aria-label={title}
     >
       {previewText ? (
         <span
@@ -530,6 +612,8 @@ export function PlanningBoardWorkspace({
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const lastPreviewTarget = useRef<string | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewRequest = useRef(0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -571,6 +655,16 @@ export function PlanningBoardWorkspace({
     return map;
   }, [data.availability]);
 
+  function clearPreviewTimer() {
+    if (!previewTimer.current) return;
+    clearTimeout(previewTimer.current);
+    previewTimer.current = null;
+  }
+
+  useEffect(() => {
+    return () => clearPreviewTimer();
+  }, []);
+
   function activePayload(id: string): DragPayload | null {
     const [kind, first, second] = id.split("|");
     if (kind === "queue" && first) return { kind, id: first };
@@ -586,6 +680,43 @@ export function PlanningBoardWorkspace({
     return null;
   }
 
+  function schedulePreview(
+    payload: DragPayload,
+    target: SlotTarget,
+    targetId: string,
+    activeKey: string,
+  ) {
+    lastPreviewTarget.current = activeKey;
+    clearPreviewTimer();
+    const requestId = ++previewRequest.current;
+    previewTimer.current = setTimeout(() => {
+      previewTimer.current = null;
+      startTransition(async () => {
+        const result =
+          payload.kind === "queue"
+            ? await previewQueueDropAction({
+                queueItemId: payload.id,
+                instructorId: target.instructorId,
+                startsAt: target.startsAt,
+                vehicleId: selectedVehicleId || null,
+              })
+            : await previewBoardEventMoveAction({
+                entityType: payload.entityType,
+                entityId: payload.id,
+                instructorId: target.instructorId,
+                startsAt: target.startsAt,
+                vehicleId: selectedVehicleId || null,
+              });
+        if (previewRequest.current !== requestId) return;
+        setPreview({
+          target: targetId,
+          validation: result.validation ?? null,
+          message: result.message ?? null,
+        });
+      });
+    }, PREVIEW_DEBOUNCE_MS);
+  }
+
   function handleDragOver(event: DragOverEvent) {
     const overId = event.over?.id ? String(event.over.id) : null;
     const payload = activePayload(String(event.active.id));
@@ -598,34 +729,19 @@ export function PlanningBoardWorkspace({
       return;
     const targetId = overId ?? "";
     if (!targetId) return;
-    lastPreviewTarget.current = `${event.active.id}:${targetId}`;
-    startTransition(async () => {
-      const result =
-        payload.kind === "queue"
-          ? await previewQueueDropAction({
-              queueItemId: payload.id,
-              instructorId: target.instructorId,
-              startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
-            })
-          : await previewBoardEventMoveAction({
-              entityType: payload.entityType,
-              entityId: payload.id,
-              instructorId: target.instructorId,
-              startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
-            });
-      setPreview({
-        target: targetId,
-        validation: result.validation ?? null,
-        message: result.message ?? null,
-      });
-    });
+    schedulePreview(
+      payload,
+      target,
+      targetId,
+      `${event.active.id}:${targetId}`,
+    );
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const payload = activePayload(String(event.active.id));
     const target = event.over?.id ? parseSlotId(String(event.over.id)) : null;
+    clearPreviewTimer();
+    previewRequest.current += 1;
     setActiveQueue(null);
     if (!payload || !target) return;
     startTransition(async () => {
@@ -726,7 +842,11 @@ export function PlanningBoardWorkspace({
       }}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveQueue(null)}
+      onDragCancel={() => {
+        clearPreviewTimer();
+        previewRequest.current += 1;
+        setActiveQueue(null);
+      }}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
@@ -742,6 +862,21 @@ export function PlanningBoardWorkspace({
                 >
                   <span
                     className={cn("h-2 w-2 rounded-sm", item.className)}
+                  />
+                  {item.label}
+                </span>
+              ))}
+              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              {AVAILABILITY_LEGEND.map((item) => (
+                <span
+                  key={item.key}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                >
+                  <span
+                    className={cn(
+                      "h-2.5 w-4 rounded-sm border border-border/60",
+                      item.className,
+                    )}
                   />
                   {item.label}
                 </span>
@@ -810,6 +945,11 @@ export function PlanningBoardWorkspace({
                       ) : null}
                     </div>
                     <div className="relative flex">
+                      <AvailabilityBands
+                        blocks={blocks}
+                        day={row.day}
+                        availabilityFilter={data.filters.availability}
+                      />
                       {Array.from({ length: slotCount }, (_, slot) => {
                         const target = {
                           day: row.day,
