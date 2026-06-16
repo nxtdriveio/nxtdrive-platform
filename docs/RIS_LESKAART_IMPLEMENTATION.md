@@ -212,18 +212,39 @@ Geimplementeerd:
 
 AI publiceert nooit zelfstandig.
 
+### RIS-9: Migratie en rollout
+
+RIS kan per tenant gecontroleerd worden aangezet met een migratiepreflight op
+`/backoffice/ris`.
+
+Geimplementeerd:
+
+- migratierapport dat bestaande `skill_taxonomy` leaf-skills vergelijkt met de
+  actieve RIS-catalogus;
+- analyse van `student_skill_scores` om alleen gescoorde legacy-onderdelen als
+  migratiekritiek te behandelen;
+- heuristische mapping-suggesties met confidence: high, medium of none;
+- unmapped gescoorde onderdelen worden zichtbaar gerapporteerd;
+- verweesde legacy-scores blokkeren activatie;
+- RIS per tenant pas geactiveerd na een groene preflight;
+- activatie blijft tenant-admin-only en loopt via de bestaande
+  `set_tenant_ris_settings` RPC;
+- de preflight toont checklist, scorecounts, mapped/unmapped aantallen,
+  RIS-catalogusstatus en bestaande RIS-publicaties;
+- tenants zonder legacy-scores kunnen schoon starten met RIS;
+- tenants met `lesson_card_mode = legacy` blijven veilig op de bestaande
+  1-10 leskaart totdat activatie expliciet gebeurt.
+
+RIS-9 migreert nog geen historische scores naar nieuwe definitieve
+`student_ris_progress` rows. De eerste release kiest bewust voor gecontroleerde
+rollout en transparantie. Automatische scoreconversie kan later als aparte,
+tenant-specifieke migratie plaatsvinden zodra mappingregels inhoudelijk zijn
+goedgekeurd.
+
 ## Nog niet geimplementeerd
 
 De bestaande legacy-leskaart blijft zichtbaar voor tenants met
 `lesson_card_mode = legacy`. De volgende sprints sluiten hierop aan:
-
-### RIS-9: Migratie en rollout
-
-Optionele mapping van bestaande `skill_taxonomy` en scores naar RIS-scripts:
-
-- mapped items automatisch voorstellen
-- unmapped items rapporteren
-- RIS per tenant pas aanzetten na migratiecheck
 
 ### RIS-10: Hardening en release
 
@@ -241,6 +262,7 @@ De statische guard-test staat in:
 ```bash
 pnpm --filter @workspace/scripts run test-ris-foundation
 pnpm --filter @workspace/scripts run test-ris-ai-reporting
+pnpm --filter @workspace/scripts run test-ris-migration-rollout
 ```
 
 Deze test bewaakt:

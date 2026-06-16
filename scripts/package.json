@@ -89,6 +89,7 @@
     "test-ris-backoffice-overview": "tsx ./src/test-ris-backoffice-overview.ts",
     "test-ris-module-tests-cbr": "tsx ./src/test-ris-module-tests-cbr.ts",
     "test-ris-ai-reporting": "tsx ./src/test-ris-ai-reporting.ts",
+    "test-ris-migration-rollout": "tsx ./src/test-ris-migration-rollout.ts",
     "test-route-info-bubbles": "tsx ./src/test-route-info-bubbles.ts",
     "test-instructor-ui-polish": "tsx ./src/test-instructor-ui-polish.ts",
     "smoke:production": "tsx ./src/smoke-production.ts",

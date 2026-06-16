@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import {
+  activateRisAfterMigrationCheckAction,
   setRisModuleTestAction,
   type RisModuleTestResult,
   type RisModuleTestType,
@@ -90,4 +91,14 @@ export async function upsertRisModuleTestFromFormAction(formData: FormData) {
     redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
   }
   redirect(`${redirectTo}?ris_saved=module-test`);
+}
+
+export async function activateRisAfterMigrationCheckFromFormAction(formData: FormData) {
+  const redirectTo = redirectPath(formData.get("redirect_to"));
+  const result = await activateRisAfterMigrationCheckAction();
+
+  if (result.error) {
+    redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`${redirectTo}?ris_saved=activated`);
 }
