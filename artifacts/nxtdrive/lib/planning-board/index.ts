@@ -10,3 +10,8 @@ export type {
   PlanningBoardView,
 } from "./types";
 export { loadPlanningBoardData } from "./service";
+export {
+  planningBoardEventLabel,
+  planningBoardEventTone,
+  type PlanningBoardEventTone,
+} from "./presentation";

@@ -47,6 +47,20 @@ export function amsterdamHour(date: Date): number {
   return Number(parts["hour"] === "24" ? "0" : parts["hour"] ?? "0");
 }
 
+export function amsterdamMinuteOfDay(date: Date): number {
+  const parts = formatterParts(date, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const hour = Number(parts["hour"] === "24" ? "0" : parts["hour"] ?? "0");
+  return hour * 60 + Number(parts["minute"] ?? "0");
+}
+
+export function amsterdamWeekdayIndex(date: Date): number {
+  const day = new Date(`${amsterdamYmd(date)}T00:00:00Z`).getUTCDay();
+  return (day + 6) % 7;
+}
+
 /**
  * Milliseconds to add to a UTC instant so that, when read in Amsterdam time,
  * it shows the same wall-clock time. Used to derive DST-safe local midnights.
@@ -77,6 +91,43 @@ function amsterdamOffsetMs(date: Date): number {
 export function startOfAmsterdamDayUtc(ymd: string): Date {
   const guess = new Date(`${ymd}T00:00:00Z`);
   return new Date(guess.getTime() - amsterdamOffsetMs(guess));
+}
+
+export function amsterdamWallTimeToUtc(
+  ymd: string,
+  hour: number,
+  minute = 0,
+  second = 0,
+): Date {
+  const [year, month, day] = ymd.split("-").map(Number);
+  if (!year || !month || !day) return new Date(Number.NaN);
+  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  let instant = new Date(wallClockUtc);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    instant = new Date(wallClockUtc - amsterdamOffsetMs(instant));
+  }
+  return instant;
+}
+
+export function parseAmsterdamDateTime(value: string): Date | null {
+  const match = value.match(
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (!match) {
+    if (/[zZ]|[+-]\d{2}:\d{2}$/.test(value)) {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
+  }
+  const [, date, hour, minute, second] = match;
+  const parsed = amsterdamWallTimeToUtc(
+    date,
+    Number(hour),
+    Number(minute),
+    second ? Number(second) : 0,
+  );
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function addDaysYmd(ymd: string, days: number): string {
