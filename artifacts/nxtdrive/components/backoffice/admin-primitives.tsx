@@ -107,7 +107,7 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-sm",
+        "overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
@@ -133,6 +133,106 @@ export function AdminPanel({
       </div>
       <div className={cn("p-4", contentClassName)}>{children}</div>
     </section>
+  );
+}
+
+export function AdminSectionHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
+        {description ? (
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+    </div>
+  );
+}
+
+export function AdminMetricStrip({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; hint?: ReactNode }>;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="rounded-2xl border border-border bg-[var(--surface-1)] px-4 py-3 shadow-[var(--admin-card-shadow)]"
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            {item.label}
+          </p>
+          <div className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            {item.value}
+          </div>
+          {item.hint ? (
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {item.hint}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AdminTable({
+  columns,
+  children,
+  empty,
+}: {
+  columns: string[];
+  children: ReactNode;
+  empty?: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="border-b border-border bg-[var(--surface-2)] text-left text-muted-foreground">
+            <tr>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em]"
+                >
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">{children}</tbody>
+        </table>
+      </div>
+      {empty ? <div className="p-8 text-center text-sm text-muted-foreground">{empty}</div> : null}
+    </div>
+  );
+}
+
+export function AdminTableRow({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <tr className="group transition-colors hover:bg-[var(--admin-row-hover)]">
+      {children}
+    </tr>
   );
 }
 

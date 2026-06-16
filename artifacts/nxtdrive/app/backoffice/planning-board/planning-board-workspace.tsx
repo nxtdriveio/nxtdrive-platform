@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -61,10 +61,10 @@ import {
 const START_HOUR = 7;
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 34;
-const SLOT_WIDTH = 52;
-const RESOURCE_ROW_HEIGHT = 56;
-const RESOURCE_COLUMN_WIDTH = 176;
+const SLOT_HEIGHT = 30;
+const SLOT_WIDTH = 42;
+const RESOURCE_ROW_HEIGHT = 48;
+const RESOURCE_COLUMN_WIDTH = 152;
 const PREVIEW_DEBOUNCE_MS = 180;
 const dateShortFormatter = createNlDateTimeFormatter({
   weekday: "short",
@@ -537,10 +537,10 @@ function EventCard({
       ref={setNodeRef}
       style={{ ...style, ...transformStyle }}
       className={cn(
-        "absolute overflow-hidden rounded-md border px-2 py-1 text-xs shadow-sm",
+        "absolute overflow-hidden rounded-md border px-1.5 py-0.5 text-[11px] shadow-sm",
         layout === "calendar" && "left-1 right-1",
         eventTone(event),
-        detailed && "px-3 py-2",
+        detailed && "px-2.5 py-1.5 text-xs",
         onOpen && "cursor-pointer",
         draggable && "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50",
@@ -654,9 +654,11 @@ function DroppableSlot({
 export function PlanningBoardWorkspace({
   data,
   detailMode = false,
+  filterForm,
 }: {
   data: PlanningBoardData;
   detailMode?: boolean;
+  filterForm?: ReactNode;
 }) {
   const [queueItems, setQueueItems] = useState(data.queueItems);
   const [events, setEvents] = useState(data.events);
@@ -959,8 +961,8 @@ export function PlanningBoardWorkspace({
         setActiveQueue(null);
       }}
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
-        <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
@@ -1009,20 +1011,20 @@ export function PlanningBoardWorkspace({
               </Select>
             </label>
           </div>
-          <div className="max-h-[76vh] overflow-auto">
+          <div className="max-h-[72vh] overflow-auto">
             <div
               className="min-w-max"
               style={{ width: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH }}
             >
-              <div className="sticky top-0 z-20 grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border bg-muted/40">
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-20 grid grid-cols-[9.5rem_minmax(0,1fr)] border-b border-border bg-[var(--surface-2)]">
+                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Instructeur
                 </div>
                 <div className="flex">
                   {Array.from({ length: slotCount }, (_, slot) => (
                     <div
                       key={slot}
-                      className="shrink-0 border-l border-border/60 px-1.5 py-1.5 text-xs font-medium text-muted-foreground"
+                      className="shrink-0 border-l border-[var(--admin-grid-line)] px-1 py-1.5 text-[11px] font-medium text-muted-foreground"
                       style={{ width: SLOT_WIDTH }}
                     >
                       {slot % 2 === 0 ? timeLabel(slot) : ""}
@@ -1039,13 +1041,13 @@ export function PlanningBoardWorkspace({
                 return (
                   <div
                     key={row.key}
-                    className="grid grid-cols-[11rem_minmax(0,1fr)] border-b border-border/70"
+                    className="grid grid-cols-[9.5rem_minmax(0,1fr)] border-b border-[var(--admin-grid-line)]"
                     style={{ height: RESOURCE_ROW_HEIGHT }}
                   >
-                    <div className="flex min-w-0 flex-col justify-center border-r border-border bg-card px-3">
+                    <div className="flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-3">
                       <Link
                         href={`/backoffice/planning-board/instructors/${row.instructor.id}?date=${row.day}&view=${detailMode ? data.filters.view : "day"}`}
-                        className="truncate text-sm font-semibold text-foreground hover:text-primary"
+                        className="truncate text-xs font-semibold text-foreground hover:text-primary"
                       >
                         {row.instructor.name}
                       </Link>
@@ -1101,7 +1103,7 @@ export function PlanningBoardWorkspace({
         </section>
 
         <aside className="space-y-3">
-          <Card>
+          <Card className="shadow-[var(--admin-card-shadow)]">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Clock3 className="h-4 w-4" aria-hidden />
@@ -1161,7 +1163,16 @@ export function PlanningBoardWorkspace({
             </CardContent>
           </Card>
 
-          <Card>
+          {filterForm ? (
+            <Card className="shadow-[var(--admin-card-shadow)]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Filters</CardTitle>
+              </CardHeader>
+              <CardContent>{filterForm}</CardContent>
+            </Card>
+          ) : null}
+
+          <Card className="shadow-[var(--admin-card-shadow)]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Preview</CardTitle>
             </CardHeader>

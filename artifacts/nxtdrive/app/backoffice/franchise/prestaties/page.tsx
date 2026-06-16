@@ -117,7 +117,39 @@ function WatchlistCard({
 export default async function FranchisePerformancePage() {
   const { tenant, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
-  const overview = await loadFranchisePerformanceOverview(tenant.id);
+  let overview: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>> | null = null;
+  try {
+    overview = await loadFranchisePerformanceOverview(tenant.id);
+  } catch (error) {
+    console.error("[franchise/prestaties] load failed", error);
+  }
+
+  if (!overview) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Link
+            href="/backoffice/franchise"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Terug naar franchise dashboard
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Franchiseprestaties
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            De prestatiegegevens konden nog niet worden geladen voor {tenant.name}.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Controleer of deze tenant franchisees heeft en of de benodigde
+            rapportagetabellen beschikbaar zijn.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

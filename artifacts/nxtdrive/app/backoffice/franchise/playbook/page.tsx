@@ -51,7 +51,39 @@ function StatCard({
 export default async function FranchisePlaybookPage() {
   const { tenant, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
-  const governance = await loadFranchiseGovernanceOverview(tenant.id);
+  let governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>> | null = null;
+  try {
+    governance = await loadFranchiseGovernanceOverview(tenant.id);
+  } catch (error) {
+    console.error("[franchise/playbook] load failed", error);
+  }
+
+  if (!governance) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Link
+            href="/backoffice/franchise"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Terug naar franchise dashboard
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Franchise playbook
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Geen franchisecontext beschikbaar voor {tenant.name}.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Richt deze tenant eerst in als franchisegever of controleer of alle
+            franchise-migraties zijn uitgevoerd.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
