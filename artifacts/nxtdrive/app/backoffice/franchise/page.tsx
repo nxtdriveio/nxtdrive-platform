@@ -151,11 +151,46 @@ function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
 export default async function FranchiseDashboardPage() {
   const { tenant, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
-  const [overview, performance, governance] = await Promise.all([
-    loadFranchiseOverview(tenant.id),
-    loadFranchisePerformanceOverview(tenant.id),
-    loadFranchiseGovernanceOverview(tenant.id),
-  ]);
+  let overview: Awaited<ReturnType<typeof loadFranchiseOverview>> | null = null;
+  let performance: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>> | null = null;
+  let governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>> | null = null;
+  try {
+    [overview, performance, governance] = await Promise.all([
+      loadFranchiseOverview(tenant.id),
+      loadFranchisePerformanceOverview(tenant.id),
+      loadFranchiseGovernanceOverview(tenant.id),
+    ]);
+  } catch (error) {
+    console.error("[franchise] dashboard load failed", error);
+  }
+  if (!overview || !performance || !governance) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Franchise Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            De franchisegegevens konden nog niet worden geladen voor {tenant.name}.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex items-start gap-3 p-6">
+            <AlertTriangle className="h-5 w-5 text-warning" aria-hidden />
+            <div>
+              <p className="font-medium text-foreground">
+                Geen franchisecontext beschikbaar
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Controleer of deze tenant als franchisegever is ingericht en of
+                de franchise-tabellen/migraties actief zijn.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const hasFranchisees = overview.locations.length > 0;
 
   return (

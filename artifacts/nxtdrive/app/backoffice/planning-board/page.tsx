@@ -1,4 +1,4 @@
-import { CalendarDays, Filter } from "lucide-react";
+import { Filter } from "lucide-react";
 
 import {
   AGENDA_BACKOFFICE_READ_ROLES,
@@ -16,8 +16,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   AdminPage,
-  AdminPageHeader,
-  AdminPanel,
+  AdminSectionHeader,
 } from "@/components/backoffice/admin-primitives";
 import { PlanningBoardWorkspace } from "./planning-board-workspace";
 
@@ -41,6 +40,139 @@ function rawParam(
 
 function todayYmd(): string {
   return amsterdamYmd(new Date());
+}
+
+function PlanboardFilterForm({
+  filters,
+  data,
+}: {
+  filters: Awaited<ReturnType<typeof loadPlanningBoardData>>["filters"] & {
+    status: string | null;
+  };
+  data: Awaited<ReturnType<typeof loadPlanningBoardData>>;
+}) {
+  return (
+    <form className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Datum</Label>
+        <Input name="date" type="date" defaultValue={filters.date} className="h-9" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Vestiging</Label>
+        <Select name="branch" defaultValue={filters.branchId ?? ""} className="h-9">
+          <option value="all">Alle vestigingen</option>
+          {data.branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Instructeur</Label>
+        <Select name="instructor" defaultValue={filters.instructorId ?? ""} className="h-9">
+          <option value="">Alle instructeurs</option>
+          {data.instructors.map((instructor) => (
+            <option key={instructor.id} value={instructor.id}>
+              {instructor.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label>Status</Label>
+          <Select name="status" defaultValue={filters.status ?? "all"} className="h-9">
+            <option value="open">Open</option>
+            <option value="suggested">Suggesties</option>
+            <option value="all">Alle</option>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Type</Label>
+          <Select name="appointment_type" defaultValue={filters.appointmentType ?? ""} className="h-9">
+            <option value="">Alle</option>
+            <option value="lesson">Rijles</option>
+            <option value="trial_lesson">Proefles</option>
+            {AGENDA_APPOINTMENT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {APPOINTMENT_TYPE_SHORT[type]}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <details className="rounded-xl border border-border bg-[var(--surface-2)]">
+        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-foreground">
+          Geavanceerd
+        </summary>
+        <div className="space-y-3 border-t border-border p-3">
+          <div className="space-y-1.5">
+            <Label>Rayon</Label>
+            <Select name="rayon" defaultValue={filters.serviceAreaId ?? ""}>
+              <option value="">Alle</option>
+              {data.serviceAreas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Transmissie</Label>
+            <Select name="transmission" defaultValue={filters.transmission ?? ""}>
+              <option value="">Alle</option>
+              <option value="schakel">Schakel</option>
+              <option value="automaat">Automaat</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Eigenschap</Label>
+            <Select name="capability" defaultValue={filters.capabilityId ?? ""}>
+              <option value="">Alle</option>
+              {data.capabilities.map((capability) => (
+                <option key={capability.id} value={capability.id}>
+                  {capability.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Voertuig</Label>
+            <Select name="vehicle" defaultValue={filters.vehicleId ?? ""}>
+              <option value="">Alle</option>
+              {data.vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Beschikbaarheid</Label>
+            <Select name="availability" defaultValue={filters.availability ?? ""}>
+              <option value="">Alle</option>
+              <option value="available">Beschikbaar</option>
+              <option value="blocked">Geblokkeerd</option>
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              name="conflicts"
+              value="1"
+              defaultChecked={filters.conflictsOnly}
+            />
+            Alleen conflicten
+          </label>
+        </div>
+      </details>
+      <Button type="submit" className="h-9 w-full">
+        <Filter className="h-4 w-4" aria-hidden />
+        Filter toepassen
+      </Button>
+    </form>
+  );
 }
 
 export default async function PlanningBoardPage({
@@ -82,177 +214,15 @@ export default async function PlanningBoardPage({
 
   return (
     <AdminPage>
-      <AdminPageHeader
-        eyebrow="Planning"
-        title={
-          <span className="inline-flex items-center gap-2">
-            <CalendarDays className="h-6 w-6" aria-hidden />
-            Planboard
-          </span>
-        }
-        description="Sleep queue-items naar een instructeur/tijdslot. De planning-core valideert beschikbaarheid, voertuig, rayon, overlap en rechten."
+      <AdminSectionHeader
+        title="Planboard"
+        description="Sleep queue-items naar een instructeur en tijdslot. De planning-core blijft leidend voor beschikbaarheid, voertuig, rayon, overlap en rechten."
       />
 
-      <AdminPanel
-        title="Planner filters"
-        info="Gebruik de basisfilters direct. Open geavanceerde filters alleen wanneer je gericht wilt zoeken op voertuig, rayon, capability of conflict."
-        contentClassName="space-y-4"
-      >
-        <form className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-[12rem_minmax(10rem,1fr)_minmax(10rem,1fr)_12rem_auto]">
-            <div className="space-y-1.5">
-              <Label>Datum</Label>
-              <Input
-                name="date"
-                type="date"
-                defaultValue={filters.date}
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Vestiging</Label>
-              <Select
-                name="branch"
-                defaultValue={filters.branchId ?? ""}
-                className="h-9"
-              >
-                <option value="all">Alle vestigingen</option>
-                {data.branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Instructeur</Label>
-              <Select
-                name="instructor"
-                defaultValue={filters.instructorId ?? ""}
-                className="h-9"
-              >
-                <option value="">Alle instructeurs</option>
-                {data.instructors.map((instructor) => (
-                  <option key={instructor.id} value={instructor.id}>
-                    {instructor.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select
-                name="status"
-                defaultValue={filters.status ?? "all"}
-                className="h-9"
-              >
-                <option value="open">Open</option>
-                <option value="suggested">Suggesties</option>
-                <option value="all">Alle</option>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button type="submit" className="h-9 w-full">
-                <Filter className="h-4 w-4" aria-hidden />
-                Filter
-              </Button>
-            </div>
-          </div>
-
-          <details className="rounded-2xl border border-border bg-[var(--surface-2)]">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
-              Geavanceerde filters
-            </summary>
-            <div className="grid gap-3 border-t border-border p-4 md:grid-cols-3 xl:grid-cols-6">
-              <div className="space-y-1.5">
-                <Label>Afspraaktype</Label>
-                <Select
-                  name="appointment_type"
-                  defaultValue={filters.appointmentType ?? ""}
-                >
-                  <option value="">Alle</option>
-                  <option value="lesson">Rijles</option>
-                  <option value="trial_lesson">Proefles</option>
-                  {AGENDA_APPOINTMENT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {APPOINTMENT_TYPE_SHORT[type]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Rayon</Label>
-                <Select name="rayon" defaultValue={filters.serviceAreaId ?? ""}>
-                  <option value="">Alle</option>
-                  {data.serviceAreas.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Transmissie</Label>
-                <Select
-                  name="transmission"
-                  defaultValue={filters.transmission ?? ""}
-                >
-                  <option value="">Alle</option>
-                  <option value="schakel">Schakel</option>
-                  <option value="automaat">Automaat</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Eigenschap</Label>
-                <Select
-                  name="capability"
-                  defaultValue={filters.capabilityId ?? ""}
-                >
-                  <option value="">Alle</option>
-                  {data.capabilities.map((capability) => (
-                    <option key={capability.id} value={capability.id}>
-                      {capability.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Voertuig</Label>
-                <Select name="vehicle" defaultValue={filters.vehicleId ?? ""}>
-                  <option value="">Alle</option>
-                  {data.vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Beschikbaarheid</Label>
-                <Select
-                  name="availability"
-                  defaultValue={filters.availability ?? ""}
-                >
-                  <option value="">Alle</option>
-                  <option value="available">Beschikbaar</option>
-                  <option value="blocked">Geblokkeerd</option>
-                </Select>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  name="conflicts"
-                  value="1"
-                  defaultChecked={filters.conflictsOnly}
-                />
-                Alleen conflicten tonen
-              </label>
-            </div>
-          </details>
-        </form>
-      </AdminPanel>
-
-      <PlanningBoardWorkspace data={data} />
+      <PlanningBoardWorkspace
+        data={data}
+        filterForm={<PlanboardFilterForm filters={filters} data={data} />}
+      />
     </AdminPage>
   );
 }
