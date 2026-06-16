@@ -3,13 +3,15 @@
 ## Doel
 
 NXTDRIVE ondersteunt met deze foundation een RIS-native digitale leskaart naast
-de bestaande legacy-leskaart. De huidige 1-10 CBR-aligned leskaart blijft
-bestaan totdat een tenant expliciet overstapt naar RIS.
+de bestaande legacy-leskaart. RIS is de standaard voor nieuwe tenants; de
+huidige 1-10 CBR-aligned leskaart blijft beschikbaar als expliciete fallback
+voor tenants die nog niet willen overstappen.
 
 De kernkeuze is bewust niet-destructief:
 
-- `lesson_card_mode = legacy` blijft de default.
-- `lesson_card_mode = ris` activeert RIS per tenant.
+- `lesson_card_mode = ris` is de default voor nieuwe tenants.
+- `lesson_card_mode = legacy` houdt de bestaande 1-10 leskaart beschikbaar als
+  fallback.
 - AI mag voorstellen doen, maar de instructeur bevestigt en publiceert.
 - Conceptscores zijn staff-only.
 - Leerlingen zien alleen gepubliceerde, leerlingvriendelijke voortgang.
@@ -226,14 +228,18 @@ Geimplementeerd:
 - heuristische mapping-suggesties met confidence: high, medium of none;
 - unmapped gescoorde onderdelen worden zichtbaar gerapporteerd;
 - verweesde legacy-scores blokkeren activatie;
-- RIS per tenant pas geactiveerd na een groene preflight;
+- veilige migratie-activatie na een groene preflight voor tenants met echte
+  historische scoredata;
 - activatie blijft tenant-admin-only en loopt via de bestaande
   `set_tenant_ris_settings` RPC;
 - de preflight toont checklist, scorecounts, mapped/unmapped aantallen,
   RIS-catalogusstatus en bestaande RIS-publicaties;
-- tenants zonder legacy-scores kunnen schoon starten met RIS;
+- expliciete clean-start route voor mock-data: tenant admin typt
+  `SCHOON STARTEN`, waarna alleen `lesson_skill_scores` en
+  `student_skill_scores` voor die tenant worden gewist en RIS wordt
+  geactiveerd;
 - tenants met `lesson_card_mode = legacy` blijven veilig op de bestaande
-  1-10 leskaart totdat activatie expliciet gebeurt.
+  1-10 leskaart als fallbackmodus.
 
 RIS-9 migreert nog geen historische scores naar nieuwe definitieve
 `student_ris_progress` rows. De eerste release kiest bewust voor gecontroleerde
@@ -263,9 +269,10 @@ Geimplementeerd:
 - `test-ris-release-hardening` als samengevoegde statische guard voor de
   release-eisen.
 
-De bestaande legacy-leskaart blijft zichtbaar voor tenants met
-`lesson_card_mode = legacy`. RIS wordt per tenant pas zichtbaar na expliciete
-activatie en een groene migratiepreflight.
+RIS is de standaard voor nieuwe tenants. De bestaande legacy-leskaart blijft
+zichtbaar voor tenants met `lesson_card_mode = legacy`. Tenant admins kunnen
+mock-scoredata schoon verwijderen en daarna RIS activeren zonder mapping; echte
+historische klantdata hoort via de preflight/mapping route te gaan.
 
 ## Nog niet geimplementeerd
 

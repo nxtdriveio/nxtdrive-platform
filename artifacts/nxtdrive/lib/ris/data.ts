@@ -228,7 +228,7 @@ export async function loadTenantRisSettings(
     lessonCardMode:
       data?.lesson_card_mode === "ris" || data?.lesson_card_mode === "legacy"
         ? data.lesson_card_mode
-        : "legacy",
+        : "ris",
     activeRisVersionId: (data?.active_ris_version_id as string | null | undefined) ?? null,
     aiAssistEnabled: data?.ai_assist_enabled !== false,
   };

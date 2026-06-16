@@ -144,6 +144,26 @@ export async function activateRisAfterMigrationCheckAction(): Promise<ActionResu
   }
 }
 
+export async function activateRisCleanStartAction(): Promise<ActionResult> {
+  try {
+    const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
+    const service = createServiceRoleClient();
+    const { error } = await service.rpc("activate_ris_clean_start", {
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/backoffice/ris");
+    revalidatePath("/backoffice/instellingen");
+    revalidatePath("/backoffice/leerlingen");
+    revalidatePath("/student/voortgang");
+    return {};
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
 export async function setRisConceptScoreAction(input: {
   lessonId: string;
   scriptId: string;

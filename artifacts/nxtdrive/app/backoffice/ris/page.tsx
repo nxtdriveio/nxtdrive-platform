@@ -37,6 +37,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   activateRisAfterMigrationCheckFromFormAction,
+  activateRisCleanStartFromFormAction,
   upsertRisModuleTestFromFormAction,
 } from "./actions";
 
@@ -235,6 +236,15 @@ export default async function BackofficeRisPage({
         </Card>
       ) : null}
 
+      {sp.ris_saved === "clean-start" ? (
+        <Card className="border-success/40 bg-success/5 p-4 text-sm text-success">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            Legacy mock-scores zijn gewist en RIS is geactiveerd.
+          </div>
+        </Card>
+      ) : null}
+
       {sp.ris_error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
           RIS-actie mislukt: {decodeURIComponent(sp.ris_error)}
@@ -289,7 +299,8 @@ export default async function BackofficeRisPage({
                 Deze check vergelijkt bestaande 1-10 leskaartdata met de
                 RIS-catalogus. RIS wordt pas geactiveerd als gescoorde legacy
                 onderdelen een betrouwbare RIS-match hebben of als er geen
-                legacy-scores zijn.
+                legacy-scores zijn. Gaat het om mock-data? Gebruik dan de
+                clean-start optie onderaan deze kaart.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -459,6 +470,44 @@ export default async function BackofficeRisPage({
               )}
             </section>
           </div>
+
+          {!migrationAlreadyActive && migrationReport.totalLegacyScores > 0 ? (
+            <section className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="max-w-3xl space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-warning">
+                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                    Schoon starten met RIS
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Gebruik dit alleen als de bestaande 1-10 leskaartscores mock-data
+                    zijn. Deze actie wist legacy scores en rollups voor deze tenant,
+                    activeert RIS en laat leerlingen, lessen, facturen en RIS-data
+                    ongemoeid. Legacy blijft beschikbaar als fallbackmodus, maar
+                    zonder oude mock-scorehistorie.
+                  </p>
+                </div>
+                <form
+                  action={activateRisCleanStartFromFormAction}
+                  className="flex w-full flex-col gap-2 xl:max-w-sm"
+                >
+                  <input type="hidden" name="redirect_to" value="/backoffice/ris" />
+                  <Label htmlFor="confirm_clean_start" className="text-xs text-warning">
+                    Typ SCHOON STARTEN om te bevestigen
+                  </Label>
+                  <Input
+                    id="confirm_clean_start"
+                    name="confirm_clean_start"
+                    placeholder="SCHOON STARTEN"
+                    autoComplete="off"
+                  />
+                  <Button type="submit" variant="danger">
+                    Wis legacy scores en activeer RIS
+                  </Button>
+                </form>
+              </div>
+            </section>
+          ) : null}
         </CardContent>
       </Card>
 
