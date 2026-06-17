@@ -15,7 +15,7 @@ export function StudentBottomNav() {
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 xl:hidden"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.7rem)" }}
     >
-      <ul className="pointer-events-auto mx-auto grid max-w-[28rem] grid-cols-5 rounded-[1.55rem] border border-brand-border/80 bg-white/92 p-1.5 shadow-brand-floating backdrop-blur-2xl">
+      <ul className="pointer-events-auto mx-auto grid max-w-[430px] grid-cols-5 rounded-[1.45rem] border border-brand-border/80 bg-white/94 p-1.5 shadow-brand-floating backdrop-blur-2xl">
         {STUDENT_BOTTOM_NAV_ITEMS.map((item) => {
           const active = isNavItemActive(item, pathname);
           const Icon = item.icon;

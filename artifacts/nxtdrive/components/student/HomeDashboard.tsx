@@ -249,11 +249,11 @@ function NextStepHero({ coach }: { coach: StudentCoachSummary }) {
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
-        <div className="hidden shrink-0 flex-col items-center gap-1 rounded-full border border-white/20 bg-white/10 p-2 backdrop-blur sm:flex">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-cyan-300/70 text-lg font-black text-white">
+        <div className="flex shrink-0 flex-col items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1.5 backdrop-blur sm:p-2">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-cyan-300/70 text-base font-black text-white sm:h-16 sm:w-16 sm:text-lg">
             2/3
           </div>
-          <span className="text-[10px] font-semibold text-white/70">Deze week</span>
+          <span className="text-[9px] font-semibold text-white/70 sm:text-[10px]">Deze week</span>
         </div>
       </div>
     </section>

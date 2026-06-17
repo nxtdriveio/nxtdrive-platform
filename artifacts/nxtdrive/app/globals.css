@@ -516,6 +516,54 @@ body {
     linear-gradient(180deg, #fbfcff 0%, var(--brand-background) 52%, #f3f5fb 100%);
 }
 
+[data-student-app-theme="light"] {
+  --background: #f7f8fc !important;
+  --foreground: #101323 !important;
+  --card: #ffffff !important;
+  --card-foreground: #101323 !important;
+  --muted: #f1f3f8 !important;
+  --muted-foreground: #667085 !important;
+  --border: #e3e7f0 !important;
+  --input: #ffffff !important;
+  --primary: var(--tenant-light-primary, #5a4bff) !important;
+  --primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
+  --accent: #f0edff !important;
+  --accent-foreground: #33257f !important;
+  --brand-background: #f7f8fc !important;
+  --brand-foreground: #101323 !important;
+  --brand-primary: var(--tenant-light-primary, #5a4bff) !important;
+  --brand-primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
+  --brand-secondary: #2fb7ff !important;
+  --brand-accent: color-mix(in oklab, var(--brand-primary) 12%, white) !important;
+  --brand-accent-foreground: #33257f !important;
+  --brand-muted: #f1f3f8 !important;
+  --brand-muted-foreground: #667085 !important;
+  --brand-border: #e3e7f0 !important;
+  --brand-ring: var(--brand-primary) !important;
+  --brand-sidebar-background: rgba(255, 255, 255, 0.86) !important;
+  --brand-sidebar-foreground: #344054 !important;
+  --brand-sidebar-active: color-mix(in oklab, var(--brand-primary) 13%, white) !important;
+  --brand-sidebar-active-foreground: var(--brand-primary) !important;
+  --shadow-card: 0 16px 42px rgba(15, 23, 42, 0.08) !important;
+  --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.07) !important;
+  --shadow-floating: 0 24px 64px rgba(15, 23, 42, 0.16) !important;
+}
+
+[data-student-app-theme="light"] [class~="text-brand-foreground"],
+[data-student-app-theme="light"] [class~="text-foreground"] {
+  color: #101323 !important;
+}
+
+[data-student-app-theme="light"] [class~="text-brand-muted-foreground"],
+[data-student-app-theme="light"] [class~="text-muted-foreground"] {
+  color: #667085 !important;
+}
+
+[data-student-app-theme="light"] [class~="border-brand-border"],
+[data-student-app-theme="light"] [class~="border-border"] {
+  border-color: #e3e7f0 !important;
+}
+
 [data-student-app-theme="light"] [class~="text-white"] {
   color: var(--brand-foreground) !important;
 }
