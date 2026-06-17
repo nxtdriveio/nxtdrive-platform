@@ -886,19 +886,19 @@ export function StudentRISReflectionCard({
         <Badge variant="success">Gepubliceerd</Badge>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl bg-brand-muted/70 p-3">
+        <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
           <p className="text-xs font-extrabold text-brand-muted-foreground">Wat ging goed?</p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.whatWentWell}
           </p>
         </div>
-        <div className="rounded-2xl bg-brand-muted/70 p-3">
+        <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
           <p className="text-xs font-extrabold text-brand-muted-foreground">Waar werken we aan?</p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.workingOn}
           </p>
         </div>
-        <div className="rounded-2xl bg-brand-muted/70 p-3">
+        <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
           <p className="text-xs font-extrabold text-brand-muted-foreground">Volgende focus</p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.nextFocus}
@@ -924,14 +924,14 @@ export function StudentReflectionForm() {
           <button
             key={chip}
             type="button"
-            className="rounded-full border border-brand-border bg-card px-3 py-1.5 text-xs font-extrabold text-brand-foreground"
+            className="rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs font-extrabold text-brand-foreground shadow-sm transition hover:bg-brand-accent hover:text-brand-primary"
           >
             {chip}
           </button>
         ))}
       </div>
       <Textarea
-        className="mt-3 min-h-28"
+        className="mt-3 min-h-28 border-brand-border bg-white text-brand-foreground placeholder:text-brand-muted-foreground"
         placeholder="Schrijf kort hoe de les voor jou ging..."
       />
       <Button className="mt-3">Reflectie opslaan</Button>

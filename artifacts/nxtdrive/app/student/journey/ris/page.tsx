@@ -62,7 +62,7 @@ export default async function StudentRisPage() {
         <div className="space-y-4">
           <StudentReflectionForm />
           <StudentSection title="Vraag aan je instructeur" icon={MessageCircle}>
-            <div className="rounded-[var(--radius-card)] border border-brand-border bg-card/90 p-4 shadow-brand-card">
+            <div className="rounded-[var(--radius-card)] border border-brand-border bg-white/90 p-4 shadow-brand-card">
               <p className="text-sm leading-6 text-brand-muted-foreground">
                 Heb je een vraag over je focuspunten? Stuur je instructeur een
                 bericht vanuit je leerlingomgeving.

@@ -526,9 +526,12 @@ body {
   --muted-foreground: #667085 !important;
   --border: #e3e7f0 !important;
   --input: #ffffff !important;
+  --popover: #ffffff !important;
+  --popover-foreground: #101323 !important;
   --primary: var(--tenant-light-primary, #5a4bff) !important;
   --primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
   --primary-soft: color-mix(in oklab, var(--primary) 12%, white) !important;
+  --ring: var(--primary) !important;
   --accent: #f0edff !important;
   --accent-foreground: #33257f !important;
   --brand-background: #f7f8fc !important;
@@ -549,6 +552,37 @@ body {
   --shadow-card: 0 16px 42px rgba(15, 23, 42, 0.08) !important;
   --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.07) !important;
   --shadow-floating: 0 24px 64px rgba(15, 23, 42, 0.16) !important;
+  --color-background: var(--background) !important;
+  --color-foreground: var(--foreground) !important;
+  --color-card: var(--card) !important;
+  --color-card-foreground: var(--card-foreground) !important;
+  --color-popover: var(--popover) !important;
+  --color-popover-foreground: var(--popover-foreground) !important;
+  --color-primary: var(--primary) !important;
+  --color-primary-foreground: var(--primary-foreground) !important;
+  --color-primary-soft: var(--primary-soft) !important;
+  --color-muted: var(--muted) !important;
+  --color-muted-foreground: var(--muted-foreground) !important;
+  --color-accent: var(--accent) !important;
+  --color-accent-foreground: var(--accent-foreground) !important;
+  --color-border: var(--border) !important;
+  --color-input: var(--input) !important;
+  --color-ring: var(--ring) !important;
+  --color-brand-background: var(--brand-background) !important;
+  --color-brand-foreground: var(--brand-foreground) !important;
+  --color-brand-primary: var(--brand-primary) !important;
+  --color-brand-primary-foreground: var(--brand-primary-foreground) !important;
+  --color-brand-secondary: var(--brand-secondary) !important;
+  --color-brand-accent: var(--brand-accent) !important;
+  --color-brand-accent-foreground: var(--brand-accent-foreground) !important;
+  --color-brand-muted: var(--brand-muted) !important;
+  --color-brand-muted-foreground: var(--brand-muted-foreground) !important;
+  --color-brand-border: var(--brand-border) !important;
+  --color-brand-ring: var(--brand-ring) !important;
+  --color-brand-sidebar-background: var(--brand-sidebar-background) !important;
+  --color-brand-sidebar-foreground: var(--brand-sidebar-foreground) !important;
+  --color-brand-sidebar-active: var(--brand-sidebar-active) !important;
+  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground) !important;
 }
 
 [data-student-app-theme="light"] [class~="text-brand-foreground"],
@@ -557,13 +591,53 @@ body {
 }
 
 [data-student-app-theme="light"] [class~="text-brand-muted-foreground"],
-[data-student-app-theme="light"] [class~="text-muted-foreground"] {
+[data-student-app-theme="light"] [class~="text-muted-foreground"],
+[data-student-app-theme="light"] [class~="text-brand-sidebar-foreground"] {
   color: #667085 !important;
 }
 
 [data-student-app-theme="light"] [class~="border-brand-border"],
 [data-student-app-theme="light"] [class~="border-border"] {
   border-color: #e3e7f0 !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-card"],
+[data-student-app-theme="light"] [class~="bg-card/95"],
+[data-student-app-theme="light"] [class~="bg-card/90"],
+[data-student-app-theme="light"] [class~="bg-card/85"],
+[data-student-app-theme="light"] [class~="bg-card/80"],
+[data-student-app-theme="light"] [class~="bg-card/75"],
+[data-student-app-theme="light"] [class~="bg-card/70"],
+[data-student-app-theme="light"] [class~="bg-card/60"] {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-input"] {
+  background-color: #ffffff !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-muted"],
+[data-student-app-theme="light"] [class~="bg-muted/80"],
+[data-student-app-theme="light"] [class~="bg-muted/70"],
+[data-student-app-theme="light"] [class~="bg-muted/60"],
+[data-student-app-theme="light"] [class~="bg-muted/50"],
+[data-student-app-theme="light"] [class~="bg-muted/40"],
+[data-student-app-theme="light"] [class~="bg-brand-muted"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/80"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/70"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/60"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/55"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/50"],
+[data-student-app-theme="light"] [class~="bg-brand-muted/40"] {
+  background-color: color-mix(in oklab, #f1f3f8 76%, #ffffff) !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-brand-sidebar-background"] {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-brand-sidebar-active"] {
+  background-color: color-mix(in oklab, var(--brand-primary) 13%, #ffffff) !important;
 }
 
 [data-student-app-theme="light"] [class~="text-white"] {
