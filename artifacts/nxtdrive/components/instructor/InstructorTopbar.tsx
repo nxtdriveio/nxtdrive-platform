@@ -2,22 +2,17 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  CarFront,
-  CalendarClock,
+  Bell,
   CalendarPlus,
   ChevronDown,
-  ClipboardList,
-  FileText,
-  ListTodo,
-  LogOut,
   MessageCircle,
+  Moon,
+  Search,
   Settings,
-  Users,
+  User,
 } from "lucide-react";
-import { InstructorQuickSearch } from "@/components/instructor/InstructorQuickSearch";
-import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
+import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -29,113 +24,93 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const BUTTON_CLASS =
-  "inline-flex h-[2.375rem] shrink-0 items-center gap-2 rounded-[0.95rem] border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:rounded-xl";
-
-const ICON_BUTTON_CLASS =
-  "inline-flex h-[2.375rem] w-[2.375rem] shrink-0 items-center justify-center rounded-[0.95rem] border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:w-10 xl:rounded-xl";
-
-const ACTIES_INSTRUCTOR = [
-  { href: "/instructor/week", icon: ClipboardList, label: "Agenda" },
-  { href: "/instructor/beschikbaarheid", icon: CalendarClock, label: "Beschikbaarheid" },
-  { href: "/instructor/berichten", icon: MessageCircle, label: "Berichten" },
-  { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
-  { href: "/instructor/taken", icon: ListTodo, label: "Taken" },
-  { href: "/instructor/les-evaluaties", icon: FileText, label: "Les evaluaties" },
-  { href: "/instructor/voertuigen", icon: CarFront, label: "Voertuigen" },
-];
-
-const ACTIES_BACKOFFICE = [
-  { href: "/instructor/afspraak/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
-  { href: "/instructor/intake", icon: FileText, label: "Intakeformulier" },
-  { href: "/instructor/instellingen", icon: Settings, label: "Instellingen" },
-];
-
 export function InstructorTopbar({
   notifications,
   theme,
+  userLabel,
 }: {
   notifications?: ReactNode;
   theme: Theme;
+  userLabel: string;
 }) {
-  const pathname = usePathname() ?? "";
-  const messagesActive =
-    pathname === "/instructor/berichten" || pathname.startsWith("/instructor/berichten/");
-
   return (
-    <header className="hidden h-[3.75rem] shrink-0 items-center gap-3 border-b border-border/80 bg-card px-4 lg:flex xl:h-16 xl:px-5">
-      <div className="flex flex-1 items-center justify-center">
-        <div className="w-full max-w-2xl">
-          <InstructorQuickSearch />
-        </div>
+    <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl lg:flex xl:px-6">
+      <div className="relative max-w-3xl flex-1">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <input
+          className="h-10 w-full rounded-[1rem] border border-brand-border bg-white pl-10 pr-14 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15"
+          placeholder="Zoek leerling, afspraak, voertuig, bericht..."
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-brand-border bg-brand-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+          CTRL K
+        </span>
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
         <Link
-          href="/instructor/berichten"
-          aria-current={messagesActive ? "page" : undefined}
-          className={cn(
-            ICON_BUTTON_CLASS,
-            messagesActive ? "border-primary/20 bg-primary-soft text-primary" : "",
-          )}
+          href="/instructor/messages"
+          aria-label="Berichten"
+          className="relative grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm transition hover:bg-brand-muted"
         >
           <MessageCircle className="h-4 w-4" aria-hidden />
+          <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-primary px-1 text-[10px] font-black text-white">
+            2
+          </span>
         </Link>
-        {notifications}
-        <ThemeToggle
-          current={theme}
-          className="h-10 w-10 rounded-xl border-border/80"
-        />
-
+        <div className="relative">
+          {notifications ?? (
+            <span className="grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm">
+              <Bell className="h-4 w-4" aria-hidden />
+            </span>
+          )}
+        </div>
+        <ThemeToggle current={theme} className="h-10 w-10 rounded-full border-brand-border bg-white" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className={cn(
-                BUTTON_CLASS,
-                "font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground",
-              )}
+              className="flex h-11 items-center gap-3 rounded-full border border-brand-border bg-white py-1 pl-1 pr-3 shadow-sm transition hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
             >
-              Acties
-              <ChevronDown
-                className="h-4 w-4 shrink-0 transition-transform duration-150 [[data-state=open]_&]:rotate-180"
-                aria-hidden
-              />
+              <Avatar name={userLabel} className="h-9 w-9 text-xs" />
+              <span className="hidden min-w-0 text-left xl:block">
+                <span className="block truncate text-sm font-black text-foreground">{userLabel}</span>
+                <span className="block truncate text-xs text-muted-foreground">Instructeur</span>
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {ACTIES_INSTRUCTOR.map((action) => {
-              const Icon = action.icon;
-              return (
-                <DropdownMenuItem key={action.href} asChild>
-                  <Link href={action.href} className="flex items-center gap-2.5">
-                    <Icon aria-hidden />
-                    {action.label}
-                  </Link>
-                </DropdownMenuItem>
-              );
-            })}
-            <DropdownMenuSeparator />
-            {ACTIES_BACKOFFICE.map((action) => {
-              const Icon = action.icon;
-              return (
-                <DropdownMenuItem key={action.href} asChild>
-                  <Link href={action.href} className="flex items-center gap-2.5">
-                    <Icon aria-hidden />
-                    {action.label}
-                  </Link>
-                </DropdownMenuItem>
-              );
-            })}
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuItem asChild>
+              <Link href="/instructor/agenda/new" className="flex items-center gap-2">
+                <CalendarPlus aria-hidden />
+                Nieuwe afspraak
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/instructor/availability" className="flex items-center gap-2">
+                <Moon aria-hidden />
+                Beschikbaarheid aanpassen
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/instructor/profile" className="flex items-center gap-2">
+                <User aria-hidden />
+                Profiel
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/instructor/settings" className="flex items-center gap-2">
+                <Settings aria-hidden />
+                Instellingen
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <form method="post" action="/auth/logout" className="w-full">
                 <button
                   type="submit"
-                  className="flex w-full items-center gap-2.5 text-left"
+                  className={cn("flex w-full items-center gap-2 text-left text-danger")}
                 >
-                  <LogOut aria-hidden />
                   Uitloggen
                 </button>
               </form>
