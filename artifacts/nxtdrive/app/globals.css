@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *):not([data-theme="light"], [data-theme="light"] *));
 
 @theme {
   --font-sans: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -372,7 +372,7 @@
   --cta-shadow-color: color-mix(in oklab, var(--primary) 20%, transparent);
 }
 
-[data-theme="dark"] [data-white-label-theme="true"] {
+[data-theme="dark"] [data-white-label-theme="true"]:not([data-theme="light"]) {
   --background: var(--tenant-dark-background, var(--platform-background));
   --foreground: var(--tenant-dark-foreground, var(--platform-foreground));
   --card: var(--tenant-dark-card, var(--platform-card));
@@ -517,6 +517,7 @@ body {
 }
 
 [data-student-app-theme="light"] {
+  color-scheme: light;
   --background: #f7f8fc !important;
   --foreground: #101323 !important;
   --card: #ffffff !important;
@@ -527,6 +528,7 @@ body {
   --input: #ffffff !important;
   --primary: var(--tenant-light-primary, #5a4bff) !important;
   --primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
+  --primary-soft: color-mix(in oklab, var(--primary) 12%, white) !important;
   --accent: #f0edff !important;
   --accent-foreground: #33257f !important;
   --brand-background: #f7f8fc !important;
