@@ -103,7 +103,7 @@ export function TenantThemeOverridesForm({
           <input type="hidden" name="tenant_id" value={tenantId} />
           <Button type="submit" variant="outline" size="sm">
             <RotateCcw className="h-4 w-4" aria-hidden />
-            Overrides wissen
+            Alleen overrides wissen
           </Button>
         </form>
 

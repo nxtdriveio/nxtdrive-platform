@@ -12,6 +12,7 @@ import {
   createTenantAdminAccount,
   assignTenantThemePresetAction,
   resetTenantThemeOverridesAction,
+  resetTenantThemeToNxtdriveDefaultsAction,
   saveTenantThemeOverridesAction,
   setFranchiseeParentAction,
   updateTenantIdentityAction,
@@ -517,6 +518,24 @@ export default async function TenantDetailPage({
             </div>
           </Alert>
         )}
+        {sp.theme_reset && (
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Theme teruggezet naar NXTDRIVE standaard</AlertTitle>
+              <AlertDescription>
+                Preset, tenant-overrides en legacy primaire kleuren zijn gewist.
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_reset_error && (
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Theme reset mislukt</AlertTitle>
+              <AlertDescription>{decodeURIComponent(sp.theme_reset_error)}</AlertDescription>
+            </div>
+          </Alert>
+        )}
         {sp.theme_overrides_saved && (
           <Alert variant="success">
             <div>
@@ -742,6 +761,26 @@ export default async function TenantDetailPage({
                   Theme preset opslaan
                 </Button>
               </form>
+            </div>
+
+            <div className="rounded-xl border border-border bg-background px-4 py-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Reset naar NXTDRIVE standaard
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Wist de gekoppelde preset, alle tenant-overrides en legacy primaire kleuren.
+                    Logo, domein en welkomsttekst blijven behouden.
+                  </p>
+                </div>
+                <form action={resetTenantThemeToNxtdriveDefaultsAction} className="shrink-0">
+                  <input type="hidden" name="tenant_id" value={id} />
+                  <Button type="submit" variant="outline">
+                    Reset theme
+                  </Button>
+                </form>
+              </div>
             </div>
           </CardContent>
         </Card>
