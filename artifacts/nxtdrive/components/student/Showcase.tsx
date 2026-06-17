@@ -14,10 +14,10 @@ import {
 import { cn } from "@/lib/utils";
 
 export const STUDENT_PANEL_SURFACE =
-  "linear-gradient(180deg, color-mix(in oklab, var(--primary) 10%, #121221), color-mix(in oklab, var(--primary) 6%, #0a0a16))";
+  "linear-gradient(180deg, #ffffff, color-mix(in oklab, var(--brand-background) 62%, #ffffff))";
 
 export const STUDENT_ACCENT_SURFACE =
-  "linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, #161628), color-mix(in oklab, var(--primary) 8%, #0a0a16))";
+  "radial-gradient(circle at 12% 0%, color-mix(in oklab, var(--brand-primary) 10%, transparent), transparent 32%), linear-gradient(180deg, #ffffff, color-mix(in oklab, var(--brand-accent) 34%, #ffffff))";
 
 export type StudentTabItem = {
   key: string;
@@ -53,8 +53,8 @@ export function StudentShowcaseTabs({
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition sm:px-3.5 sm:py-2 sm:text-xs",
               active
-                ? "border-primary/50 bg-primary/18 text-primary"
-                : "border-white/10 bg-card/72 text-white/62 hover:border-white/16 hover:text-white",
+                ? "border-brand-primary/40 bg-brand-accent text-brand-primary"
+                : "border-brand-border bg-white text-brand-muted-foreground hover:border-brand-primary/30 hover:text-brand-foreground",
             )}
             style={
               active
@@ -62,7 +62,7 @@ export function StudentShowcaseTabs({
                     boxShadow: brandPrimaryGlowShadow({
                       y: 10,
                       blur: 30,
-                      strength: 22,
+                      strength: 14,
                     }),
                   }
                 : undefined
@@ -73,7 +73,9 @@ export function StudentShowcaseTabs({
               <span
                 className={cn(
                   "rounded-full px-1.5 py-0.5 text-[10px] leading-none",
-                  active ? "bg-primary/18 text-primary" : "bg-white/8 text-white/58",
+                  active
+                    ? "bg-brand-primary/10 text-brand-primary"
+                    : "bg-brand-muted text-brand-muted-foreground",
                 )}
               >
                 {item.count}
@@ -110,24 +112,24 @@ export function StudentShowcaseCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[1.55rem] border border-white/10 shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
+        "overflow-hidden rounded-[var(--radius-card)] border border-brand-border/80 bg-white shadow-brand-card",
         className,
       )}
       style={{ background: STUDENT_PANEL_SURFACE, ...style }}
     >
       {title || eyebrow || actionLabel ? (
-        <div className="flex items-center justify-between gap-3 border-b border-white/7 px-3.5 py-3 sm:px-4 sm:py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b border-brand-border/70 px-3.5 py-3 sm:px-4 sm:py-3.5">
           <div className="min-w-0">
             {eyebrow ? (
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
                 {eyebrow}
               </div>
             ) : null}
             {title ? (
-              <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm font-semibold text-brand-foreground">
                 <span className="truncate">{title}</span>
                 {info ? (
-                  <InfoBubble className="h-4 w-4 text-white/38" contentClassName="w-64">
+                  <InfoBubble className="h-4 w-4 text-brand-muted-foreground" contentClassName="w-64">
                     {info}
                   </InfoBubble>
                 ) : null}
@@ -137,7 +139,7 @@ export function StudentShowcaseCard({
           {actionLabel && actionHref ? (
             <Link
               href={actionHref}
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary transition hover:text-primary/80"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-primary transition hover:text-brand-primary/80"
             >
               {actionLabel}
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -145,7 +147,9 @@ export function StudentShowcaseCard({
           ) : null}
         </div>
       ) : null}
-      <div className={cn("px-3.5 py-3.5 sm:px-4 sm:py-4", bodyClassName)}>{children}</div>
+      <div className={cn("px-3.5 py-3.5 sm:px-4 sm:py-4", bodyClassName)}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -166,19 +170,19 @@ export function StudentShowcaseMetric({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-3.5 py-3",
+        "flex min-w-0 items-center gap-3 rounded-[1.1rem] border border-brand-border/75 bg-white px-3.5 py-3 shadow-sm",
         className,
       )}
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-primary/18 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-brand-accent text-brand-primary">
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <div className="min-w-0">
-        <div className="text-[1.65rem] font-black leading-none tracking-tight text-white">
+        <div className="text-[1.45rem] font-black leading-none tracking-tight text-brand-foreground">
           {value}
         </div>
-        <div className="truncate text-sm font-semibold text-white">{label}</div>
-        {hint ? <div className="text-xs text-white/50">{hint}</div> : null}
+        <div className="truncate text-sm font-semibold text-brand-foreground">{label}</div>
+        {hint ? <div className="text-xs text-brand-muted-foreground">{hint}</div> : null}
       </div>
     </div>
   );
@@ -207,8 +211,8 @@ export function StudentRing({
       <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id={`student-showcase-ring-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="color-mix(in oklab, var(--primary) 72%, white)" />
-            <stop offset="100%" stopColor="var(--primary)" />
+            <stop offset="0%" stopColor="color-mix(in oklab, var(--brand-secondary) 82%, white)" />
+            <stop offset="100%" stopColor="var(--brand-primary)" />
           </linearGradient>
         </defs>
         <circle
@@ -216,7 +220,7 @@ export function StudentRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="color-mix(in oklab, var(--brand-border) 80%, white)"
           strokeWidth={stroke}
         />
         <circle
@@ -231,19 +235,15 @@ export function StudentRing({
           strokeDashoffset={dash}
         />
       </svg>
-      <div
-        className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full text-center"
-        style={{
-          background:
-            "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 28%, transparent), color-mix(in oklab, var(--primary) 6%, #070811) 72%)",
-        }}
-      >
-        <div className="text-[1.9rem] font-black leading-none tracking-tight text-white">
+      <div className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
+        <div className="text-[1.75rem] font-black leading-none tracking-tight text-brand-foreground">
           {safe}%
         </div>
-        <div className="mt-0.5 text-[11px] text-white/68 sm:mt-1 sm:text-xs">{label}</div>
+        <div className="mt-0.5 text-[11px] text-brand-muted-foreground sm:mt-1 sm:text-xs">
+          {label}
+        </div>
         {caption ? (
-          <div className="mt-1 max-w-[4.75rem] text-[9px] leading-3 text-white/42 sm:max-w-none sm:text-[10px]">
+          <div className="mt-1 max-w-[4.75rem] text-[9px] leading-3 text-brand-muted-foreground sm:max-w-none sm:text-[10px]">
             {caption}
           </div>
         ) : null}
@@ -265,12 +265,14 @@ export function StudentProgressBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="truncate text-white/72">{label}</span>
+        <span className="truncate text-brand-muted-foreground">{label}</span>
         {rightLabel ? (
-          <span className="shrink-0 text-xs font-semibold text-white/58">{rightLabel}</span>
+          <span className="shrink-0 text-xs font-semibold text-brand-muted-foreground">
+            {rightLabel}
+          </span>
         ) : null}
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="h-2 overflow-hidden rounded-full bg-brand-muted">
         <div
           className="h-full rounded-full"
           style={{
@@ -288,8 +290,8 @@ export function StudentStars({ score }: { score: number | null }) {
   return (
     <div className="flex items-center gap-1 text-[0.72rem] leading-none">
       {Array.from({ length: 5 }).map((_, index) => (
-        <span key={index} className={index < filled ? "text-[#ffd54a]" : "text-white/18"}>
-          ★
+        <span key={index} className={index < filled ? "text-[#f5b942]" : "text-brand-border"}>
+          *
         </span>
       ))}
     </div>
@@ -309,18 +311,18 @@ export function StudentChecklist({
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
               item.checked
-                ? "border-emerald-400/40 bg-emerald-500/18 text-emerald-300"
-                : "border-white/14 bg-transparent text-white/24",
+                ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                : "border-brand-border bg-white text-brand-muted-foreground",
             )}
           >
             {item.checked ? <Check className="h-3 w-3" aria-hidden /> : null}
           </span>
           <div className="min-w-0">
-            <div className={cn("text-sm", item.checked ? "text-white" : "text-white/72")}>
+            <div className={cn("text-sm", item.checked ? "text-brand-foreground" : "text-brand-muted-foreground")}>
               {item.label}
             </div>
             {item.detail ? (
-              <div className="text-xs leading-5 text-white/42">{item.detail}</div>
+              <div className="text-xs leading-5 text-brand-muted-foreground">{item.detail}</div>
             ) : null}
           </div>
         </li>
@@ -351,21 +353,23 @@ export function StudentListRow({
   const inner = (
     <div
       className={cn(
-        "flex min-w-0 items-start gap-3 rounded-[1.05rem] border border-white/10 bg-white/[0.02] px-3 py-2.5 transition sm:items-center sm:rounded-[1.15rem] sm:py-3",
-        href ? "hover:border-white/14 hover:bg-white/[0.04]" : "",
+        "flex min-w-0 items-start gap-3 rounded-[1.05rem] border border-brand-border/75 bg-white px-3 py-2.5 transition sm:items-center sm:rounded-[1.15rem] sm:py-3",
+        href ? "hover:border-brand-primary/30 hover:bg-brand-accent/35" : "",
         className,
       )}
     >
       {leading ? <div className="shrink-0">{leading}</div> : null}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[0.84rem] font-semibold text-white sm:text-sm">{title}</div>
+        <div className="truncate text-[0.84rem] font-semibold text-brand-foreground sm:text-sm">
+          {title}
+        </div>
         {subtitle ? (
-          <div className="mt-0.5 line-clamp-3 text-[11px] leading-[1.05rem] text-white/50 sm:line-clamp-2 sm:text-xs sm:leading-5">
+          <div className="mt-0.5 line-clamp-3 text-[11px] leading-[1.05rem] text-brand-muted-foreground sm:line-clamp-2 sm:text-xs sm:leading-5">
             {subtitle}
           </div>
         ) : null}
         {meta || badge || href ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/42 sm:hidden">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-brand-muted-foreground sm:hidden">
             {meta ? <span>{meta}</span> : null}
             {badge ? (
               <Badge
@@ -375,12 +379,12 @@ export function StudentListRow({
                 {badge}
               </Badge>
             ) : null}
-            {href ? <ChevronRight className="h-3.5 w-3.5 text-white/26" aria-hidden /> : null}
+            {href ? <ChevronRight className="h-3.5 w-3.5 text-brand-muted-foreground" aria-hidden /> : null}
           </div>
         ) : null}
       </div>
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
-        {meta ? <div className="text-[11px] text-white/40">{meta}</div> : null}
+        {meta ? <div className="text-[11px] text-brand-muted-foreground">{meta}</div> : null}
         {badge ? (
           <Badge
             variant={badgeVariant}
@@ -389,7 +393,7 @@ export function StudentListRow({
             {badge}
           </Badge>
         ) : null}
-        {href ? <ChevronRight className="h-4 w-4 text-white/26" aria-hidden /> : null}
+        {href ? <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden /> : null}
       </div>
     </div>
   );
@@ -406,19 +410,19 @@ export function StudentInitialBadge({
 }) {
   const toneClass =
     tone === "green"
-      ? "from-emerald-500/30 to-emerald-400/12 text-emerald-200"
+      ? "bg-emerald-50 text-emerald-700"
       : tone === "orange"
-        ? "from-amber-500/28 to-amber-400/12 text-amber-200"
+        ? "bg-amber-50 text-amber-700"
         : tone === "blue"
-          ? "from-sky-500/28 to-sky-400/12 text-sky-200"
+          ? "bg-sky-50 text-sky-700"
           : tone === "pink"
-            ? "from-fuchsia-500/28 to-fuchsia-400/12 text-fuchsia-200"
-            : "from-primary/30 to-primary/12 text-primary";
+            ? "bg-fuchsia-50 text-fuchsia-700"
+            : "bg-brand-accent text-brand-primary";
 
   return (
     <span
       className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-semibold sm:h-11 sm:w-11 sm:text-sm",
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold sm:h-11 sm:w-11 sm:text-sm",
         toneClass,
       )}
     >
@@ -441,17 +445,17 @@ export function StudentShowcaseEmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center",
+        "flex flex-col items-center justify-center rounded-[1.15rem] border border-dashed border-brand-border bg-brand-muted/40 px-4 py-6 text-center",
         className,
       )}
     >
       {icon ? (
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.04] text-primary">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand-primary shadow-sm">
           {icon}
         </div>
       ) : null}
-      <div className="text-sm font-semibold text-white">{title}</div>
-      <div className="mt-1 text-sm leading-6 text-white/54">{description}</div>
+      <div className="text-sm font-semibold text-brand-foreground">{title}</div>
+      <div className="mt-1 text-sm leading-6 text-brand-muted-foreground">{description}</div>
     </div>
   );
 }
@@ -475,29 +479,29 @@ export function StudentShowcaseNotice({
 }) {
   const toneClass =
     tone === "success"
-      ? "border-emerald-400/20 bg-emerald-500/[0.08]"
+      ? "border-emerald-200 bg-emerald-50"
       : tone === "warning"
-        ? "border-amber-400/22 bg-amber-500/[0.08]"
+        ? "border-amber-200 bg-amber-50"
         : tone === "info"
-          ? "border-sky-400/18 bg-sky-500/[0.08]"
+          ? "border-sky-200 bg-sky-50"
           : tone === "danger"
-            ? "border-rose-400/22 bg-rose-500/[0.08]"
-            : "border-white/10 bg-white/[0.03]";
+            ? "border-rose-200 bg-rose-50"
+            : "border-brand-border bg-white";
   const iconClass =
     tone === "success"
-      ? "text-emerald-300"
+      ? "text-emerald-600"
       : tone === "warning"
-        ? "text-amber-300"
+        ? "text-amber-600"
         : tone === "info"
-          ? "text-sky-300"
+          ? "text-sky-600"
           : tone === "danger"
-            ? "text-rose-300"
-            : "text-primary";
+            ? "text-rose-600"
+            : "text-brand-primary";
 
   return (
     <div
       className={cn(
-        "rounded-[1.2rem] border px-4 py-3.5 shadow-[0_16px_40px_rgba(2,3,10,0.18)]",
+        "rounded-[1.15rem] border px-4 py-3.5 shadow-sm",
         toneClass,
         className,
       )}
@@ -507,7 +511,7 @@ export function StudentShowcaseNotice({
         {icon ? (
           <div
             className={cn(
-              "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/10",
+              "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white",
               iconClass,
             )}
           >
@@ -515,8 +519,10 @@ export function StudentShowcaseNotice({
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-white">{title}</div>
-          <div className="mt-1 text-sm leading-6 text-white/58">{description}</div>
+          <div className="text-sm font-semibold text-brand-foreground">{title}</div>
+          <div className="mt-1 text-sm leading-6 text-brand-muted-foreground">
+            {description}
+          </div>
           {children ? <div className="mt-3">{children}</div> : null}
         </div>
       </div>

@@ -501,6 +501,92 @@ body {
     linear-gradient(180deg, color-mix(in oklab, var(--background) 92%, #ffffff), var(--background));
 }
 
+[data-student-app-theme="light"] [data-student-shell] {
+  background:
+    radial-gradient(
+      circle at 12% 0%,
+      color-mix(in oklab, var(--brand-primary) 9%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      color-mix(in oklab, var(--brand-secondary) 8%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(180deg, #fbfcff 0%, var(--brand-background) 52%, #f3f5fb 100%);
+}
+
+[data-student-app-theme="light"] [class~="text-white"] {
+  color: var(--brand-foreground) !important;
+}
+
+[data-student-app-theme="light"] [class~="text-white/86"],
+[data-student-app-theme="light"] [class~="text-white/76"],
+[data-student-app-theme="light"] [class~="text-white/72"],
+[data-student-app-theme="light"] [class~="text-white/70"],
+[data-student-app-theme="light"] [class~="text-white/64"],
+[data-student-app-theme="light"] [class~="text-white/62"],
+[data-student-app-theme="light"] [class~="text-white/60"],
+[data-student-app-theme="light"] [class~="text-white/58"],
+[data-student-app-theme="light"] [class~="text-white/54"],
+[data-student-app-theme="light"] [class~="text-white/52"],
+[data-student-app-theme="light"] [class~="text-white/50"],
+[data-student-app-theme="light"] [class~="text-white/48"],
+[data-student-app-theme="light"] [class~="text-white/46"],
+[data-student-app-theme="light"] [class~="text-white/42"],
+[data-student-app-theme="light"] [class~="text-white/40"] {
+  color: var(--brand-muted-foreground) !important;
+}
+
+[data-student-app-theme="light"] [class~="text-white/38"],
+[data-student-app-theme="light"] [class~="text-white/32"],
+[data-student-app-theme="light"] [class~="text-white/30"],
+[data-student-app-theme="light"] [class~="text-white/26"],
+[data-student-app-theme="light"] [class~="text-white/24"],
+[data-student-app-theme="light"] [class~="text-white/18"] {
+  color: color-mix(in oklab, var(--brand-muted-foreground) 62%, transparent) !important;
+}
+
+[data-student-app-theme="light"] [class~="border-white/20"],
+[data-student-app-theme="light"] [class~="border-white/18"],
+[data-student-app-theme="light"] [class~="border-white/16"],
+[data-student-app-theme="light"] [class~="border-white/14"],
+[data-student-app-theme="light"] [class~="border-white/12"],
+[data-student-app-theme="light"] [class~="border-white/10"],
+[data-student-app-theme="light"] [class~="border-white/8"],
+[data-student-app-theme="light"] [class~="border-white/7"],
+[data-student-app-theme="light"] [class~="border-white/6"] {
+  border-color: var(--brand-border) !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-white/[0.02]"],
+[data-student-app-theme="light"] [class~="bg-white/[0.03]"],
+[data-student-app-theme="light"] [class~="bg-white/[0.04]"],
+[data-student-app-theme="light"] [class~="bg-white/[0.05]"],
+[data-student-app-theme="light"] [class~="bg-white/[0.06]"],
+[data-student-app-theme="light"] [class~="bg-white/[0.08]"] {
+  background-color: color-mix(in oklab, var(--brand-muted) 46%, white) !important;
+}
+
+[data-student-app-theme="light"] [class~="bg-black/10"],
+[data-student-app-theme="light"] [class~="bg-black/15"] {
+  background-color: color-mix(in oklab, var(--brand-primary) 8%, white) !important;
+}
+
+[data-student-hero],
+[data-student-hero] [class~="text-white"] {
+  color: white !important;
+}
+
+[data-student-hero] [class~="text-white/78"],
+[data-student-hero] [class~="text-white/74"],
+[data-student-hero] [class~="text-white/72"],
+[data-student-hero] [class~="text-white/70"],
+[data-student-hero] [class~="text-white/64"],
+[data-student-hero] [class~="text-white/60"] {
+  color: rgb(255 255 255 / 0.74) !important;
+}
+
 [data-instructor-shell] {
   background:
     radial-gradient(

@@ -2,10 +2,12 @@ import {
   BadgeCheck,
   BookOpen,
   CalendarDays,
+  FileText,
   Home,
   MessageCircle,
-  TrendingUp,
-  User,
+  MoreHorizontal,
+  Route,
+  Settings,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -14,36 +16,32 @@ export type StudentNavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Only the exact path is active (used for the Home/root entry). */
+  /** Only the exact path is active. */
   exact?: boolean;
 };
 
-/**
- * Single source of truth for the leerling-PWA hoofdnavigatie.
- * Order follows the PWA Canon: Home · Lessen · Voortgang · Theorie · Account.
- */
-export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
+export const STUDENT_BOTTOM_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student", label: "Home", icon: Home, exact: true },
-  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
-  { href: "/student/theorie", label: "Theorie", icon: BookOpen },
-  { href: "/student/profile", label: "Meer", icon: User },
+  { href: "/student/journey", label: "Mijn reis", icon: Route },
+  { href: "/student/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/student/theory", label: "Theorie", icon: BookOpen },
+  { href: "/student/more", label: "Meer", icon: MoreHorizontal },
 ];
-
-export const STUDENT_BOTTOM_NAV_ITEMS = STUDENT_NAV_ITEMS;
 
 export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student", label: "Dashboard", icon: Home, exact: true },
-  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
-  { href: "/student/theorie", label: "Theorie", icon: BookOpen },
-  { href: "/student/berichten", label: "Berichten", icon: MessageCircle },
-  { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
-  { href: "/student/cbr", label: "CBR & Examens", icon: BadgeCheck },
-  { href: "/student/profile", label: "Account", icon: User },
+  { href: "/student/journey", label: "Mijn reis", icon: Route },
+  { href: "/student/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/student/theory", label: "Theorie", icon: BookOpen },
+  { href: "/student/messages", label: "Berichten", icon: MessageCircle },
+  { href: "/student/payments", label: "Betalingen", icon: Wallet },
+  { href: "/student/cbr-exams", label: "CBR & Examens", icon: BadgeCheck },
+  { href: "/student/documents", label: "Documenten", icon: FileText },
+  { href: "/student/settings", label: "Instellingen", icon: Settings },
 ];
 
-/** Whether a nav item matches the current pathname. */
+export const STUDENT_NAV_ITEMS = STUDENT_SIDEBAR_NAV_ITEMS;
+
 export function isNavItemActive(item: StudentNavItem, pathname: string): boolean {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(item.href + "/");

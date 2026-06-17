@@ -122,7 +122,7 @@ export function NotificationBell({
         className={cn(
           "relative inline-flex items-center justify-center transition active:scale-95",
           floating
-            ? "h-8.5 w-8.5 rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90 sm:h-10 sm:w-10"
+            ? "h-[2.125rem] w-[2.125rem] rounded-full border border-border/60 bg-card/75 text-foreground shadow-2xl shadow-black/10 backdrop-blur-2xl hover:bg-card/90 sm:h-10 sm:w-10"
             : "h-10 w-10 rounded-xl border border-border/80 bg-card text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground",
         )}
       >

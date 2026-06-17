@@ -229,7 +229,7 @@ export default async function StudentHomePage() {
 
   const nextLessonSummary = nextLesson
     ? {
-        href: `/student/lessons/${nextLesson.id}`,
+        href: `/student/agenda/${nextLesson.id}`,
         dayLabel: isSameAmsterdamDay(new Date(nextLesson.starts_at), now)
           ? "Vandaag"
           : capitalize(shortDateFmt.format(new Date(nextLesson.starts_at))),
@@ -313,7 +313,7 @@ export default async function StudentHomePage() {
         sparklineValues={sparklineValues}
         nextLesson={nextLessonSummary}
         examStatus={{
-          href: "/student/cbr",
+          href: "/student/cbr-exams",
           readinessPct: readiness.readinessPct,
           badgeLabel: examBadgeLabel,
           badgeVariant: examBadgeVariant,
@@ -324,11 +324,12 @@ export default async function StudentHomePage() {
           eta: examEta,
         }}
         coach={{
-          title: coachTitle,
-          body: coachBody,
-          ctaHref: "/student/voortgang",
+          title: "Kijktechniek en rotondes",
+          body: "Je maakt mooie stappen. Werk aan je kijkgedrag op rotondes en voorsorteren.",
+          ctaHref: "/student/journey",
         }}
         messageUnreadCount={chatUnread}
+        creditAvailableMinutes={breakdown?.available_minutes ?? 0}
       />
 
       {reviewNotificationId ? (

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import {
   BadgeCheck,
+  BookOpen,
   CalendarDays,
-  TrendingUp,
+  MessageCircle,
+  Route,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { STUDENT_PANEL_SURFACE } from "@/components/student/Showcase";
-import { cn } from "@/lib/utils";
 
 type Shortcut = {
   href: string;
@@ -17,10 +17,12 @@ type Shortcut = {
 };
 
 const BASE_SHORTCUTS: Shortcut[] = [
-  { href: "/student/lessons", label: "Planning", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
-  { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
-  { href: "/student/cbr", label: "Examens", icon: BadgeCheck },
+  { href: "/student/agenda", label: "Planning", icon: CalendarDays },
+  { href: "/student/journey", label: "Voortgang", icon: Route },
+  { href: "/student/payments", label: "Betalingen", icon: Wallet },
+  { href: "/student/cbr-exams", label: "Examens", icon: BadgeCheck },
+  { href: "/student/theory", label: "Theorie", icon: BookOpen },
+  { href: "/student/messages", label: "Berichten", icon: MessageCircle },
 ];
 
 export function QuickActions({
@@ -29,7 +31,7 @@ export function QuickActions({
   messageUnreadCount?: number;
 }) {
   const shortcuts = BASE_SHORTCUTS.map((shortcut) =>
-    shortcut.href === "/student/berichten"
+    shortcut.href === "/student/messages"
       ? { ...shortcut, badge: messageUnreadCount > 0 ? messageUnreadCount : undefined }
       : shortcut,
   );
@@ -37,11 +39,11 @@ export function QuickActions({
   return (
     <section className="space-y-2">
       <div className="px-1">
-        <h2 className="text-[1.08rem] font-bold tracking-tight text-white sm:text-[1.24rem]">
-          Snel regelen
+        <h2 className="text-[1.02rem] font-bold tracking-tight text-brand-foreground sm:text-[1.16rem]">
+          Snelle acties
         </h2>
       </div>
-      <div className="grid min-w-0 grid-cols-2 gap-2.5 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
         {shortcuts.map((shortcut) => {
           const Icon = shortcut.icon;
 
@@ -49,40 +51,19 @@ export function QuickActions({
             <Link
               key={shortcut.href}
               href={shortcut.href}
-              className={cn(
-                "group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-white/10 px-3 py-4 shadow-[0_18px_40px_rgba(1,2,8,0.32)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_22px_45px_color-mix(in_oklab,var(--primary)_28%,transparent)]",
-              )}
-              style={{ background: STUDENT_PANEL_SURFACE }}
+              className="group relative flex min-h-[5.35rem] min-w-0 flex-col items-center justify-center gap-2 rounded-[1.1rem] border border-brand-border/80 bg-white px-2.5 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/35 hover:shadow-brand-card"
             >
-              <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
               {shortcut.badge ? (
-                <span
-                  className="absolute right-3 top-3 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground"
-                  style={{
-                    boxShadow:
-                      "0 0 16px color-mix(in oklab, var(--primary) 45%, transparent)",
-                  }}
-                >
+                <span className="absolute right-2 top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[10px] font-semibold leading-5 text-brand-primary-foreground">
                   {shortcut.badge > 99 ? "99+" : shortcut.badge}
                 </span>
               ) : null}
-              <div className="relative flex h-full min-h-[6.4rem] flex-col items-start justify-between gap-2 text-left sm:min-h-[8rem] sm:gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-[0.95rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-11 sm:w-11 sm:rounded-[1.1rem]">
-                  <Icon className="h-[1.05rem] w-[1.05rem] sm:h-[1.3rem] sm:w-[1.3rem]" aria-hidden />
-                </span>
-                <div className="space-y-1">
-                  <span className="block text-[0.92rem] font-semibold text-white sm:text-[1.04rem]">{shortcut.label}</span>
-                  <span className="block text-[10px] leading-4 text-white/46 sm:text-[11px] sm:leading-5">
-                    {shortcut.label === "Planning"
-                      ? "Lessen en verschuivingen"
-                      : shortcut.label === "Voortgang"
-                        ? "Rijbewijsroute en trends"
-                        : shortcut.label === "Betalingen"
-                          ? "Tegoed en facturen"
-                          : "CBR en examenklaar"}
-                  </span>
-                </div>
-              </div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-[0.9rem] bg-brand-accent text-brand-primary transition group-hover:bg-brand-primary group-hover:text-brand-primary-foreground">
+                <Icon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
+              </span>
+              <span className="max-w-full truncate text-[11px] font-semibold text-brand-foreground">
+                {shortcut.label}
+              </span>
             </Link>
           );
         })}

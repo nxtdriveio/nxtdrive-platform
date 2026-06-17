@@ -23,7 +23,7 @@ export function PWAPage({
       className={cn(
         "min-w-0 space-y-3.5 sm:space-y-[1.125rem]",
         app === "student"
-          ? "mx-auto max-w-[31rem] md:max-w-5xl 2xl:max-w-7xl"
+          ? "mx-auto max-w-[31rem] md:max-w-5xl xl:max-w-7xl"
           : "mx-auto w-full max-w-[100rem]",
         className,
       )}
