@@ -19,7 +19,6 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
-import { getInstructorExperience } from "@/lib/instructor/redesign-data";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -121,39 +120,6 @@ function NavLink({ item, mobile = false }: { item: NavItem; mobile?: boolean }) 
   );
 }
 
-function SidebarAgendaPreview() {
-  const data = getInstructorExperience();
-  return (
-    <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.045] p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black text-white">Vandaag</p>
-          <p className="text-[11px] text-white/58">23 mei 2025</p>
-        </div>
-        <Link href="/instructor/agenda" className="text-[11px] font-bold text-white/78 hover:text-white">
-          Agenda
-        </Link>
-      </div>
-      <div className="mt-3 space-y-2">
-        {data.appointments.slice(0, 5).map((appointment) => (
-          <Link
-            href={appointment.href}
-            key={appointment.id}
-            className="block rounded-xl border border-white/10 bg-white/[0.055] px-3 py-2 text-white transition hover:bg-white/10"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-black tabular-nums">{appointment.startsAt}</span>
-              <span className="text-[10px] text-white/56">{appointment.duration}</span>
-            </div>
-            <p className="mt-1 truncate text-xs font-bold">{appointment.title}</p>
-            <p className="truncate text-[11px] text-white/56">{appointment.studentName ?? appointment.location}</p>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function InstructorSidebar({
   tenantName,
   userLabel,
@@ -197,9 +163,6 @@ export function InstructorSidebar({
             </ul>
           </nav>
 
-          <div className="relative mt-4">
-            <SidebarAgendaPreview />
-          </div>
         </div>
       </aside>
 
