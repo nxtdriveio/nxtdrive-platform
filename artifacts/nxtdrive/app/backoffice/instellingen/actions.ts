@@ -82,6 +82,18 @@ function assertWhiteLabelPlanAccess(
   }
 }
 
+function revalidateBrandingSurfaces() {
+  revalidatePath("/", "layout");
+  revalidatePath("/login");
+  revalidatePath("/manifest.webmanifest");
+  revalidatePath("/backoffice", "layout");
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student", "layout");
+  revalidatePath("/student/manifest.webmanifest");
+  revalidatePath("/instructor", "layout");
+  revalidatePath("/instructor/manifest.webmanifest");
+}
+
 export async function saveBranding(formData: FormData) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
   const logoUrlRaw = String(formData.get("logo_url") ?? "").trim();
@@ -135,16 +147,53 @@ export async function saveBranding(formData: FormData) {
     );
   }
 
-  revalidatePath("/", "layout");
-  revalidatePath("/login");
-  revalidatePath("/manifest.webmanifest");
-  revalidatePath("/backoffice", "layout");
-  revalidatePath("/backoffice/instellingen");
-  revalidatePath("/student", "layout");
-  revalidatePath("/student/manifest.webmanifest");
-  revalidatePath("/instructor", "layout");
-  revalidatePath("/instructor/manifest.webmanifest");
+  revalidateBrandingSurfaces();
   redirect("/backoffice/instellingen?branding=saved");
+}
+
+export async function resetBrandingToNxtdriveDefaults(_formData: FormData) {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const service = createServiceRoleClient();
+
+  const { error } = await service.from("tenant_branding").upsert(
+    {
+      tenant_id: tenant.id,
+      logo_url: null,
+      primary_color: null,
+      primary_foreground: null,
+      welcome_message: null,
+      theme_preset_id: null,
+      theme_overrides: null,
+    },
+    { onConflict: "tenant_id" },
+  );
+
+  if (error) {
+    redirect(
+      `/backoffice/instellingen?branding=error&reason=${encodeURIComponent(
+        error.message.slice(0, 200),
+      )}`,
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.branding_reset_to_nxtdrive_defaults",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: {
+      logo_url: null,
+      primary_color: null,
+      primary_foreground: null,
+      welcome_message: null,
+      theme_preset_id: null,
+      theme_overrides: null,
+    },
+  });
+
+  revalidateBrandingSurfaces();
+  redirect("/backoffice/instellingen?branding=reset");
 }
 
 export type RuleActionResult = { ok: boolean; error?: string };

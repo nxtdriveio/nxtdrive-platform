@@ -141,7 +141,8 @@ export default async function SettingsPage({
         branding?.primary_color ||
         branding?.primary_foreground ||
         branding?.welcome_message ||
-        branding?.theme_preset_id,
+        branding?.theme_preset_id ||
+        branding?.theme_overrides,
     );
   const primaryHost =
     domainViews.find((domain) => domain.is_primary && domain.status === "active")
@@ -503,6 +504,11 @@ export default async function SettingsPage({
               Huisstijl opgeslagen.
             </p>
           ) : null}
+          {brandingResult === "reset" ? (
+            <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+              Huisstijl teruggezet naar NXTDRIVE standaard.
+            </p>
+          ) : null}
           {brandingResult === "error" ? (
             <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
               Huisstijl niet opgeslagen: {reason ?? "onbekende fout"}.
@@ -520,6 +526,7 @@ export default async function SettingsPage({
                 : branding?.primary_foreground ?? ""
             }
             initialWelcomeMessage={branding?.welcome_message ?? ""}
+            hasThemeOverrides={Boolean(branding?.theme_overrides)}
             disabled={!whiteLabelAvailable}
             colorFieldsLocked={Boolean(themePreset)}
             themePresetName={themePreset?.name ?? null}
