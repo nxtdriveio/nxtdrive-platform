@@ -112,6 +112,7 @@ export function BrandProvider({
     <div
       className={className}
       style={style as React.CSSProperties}
+      data-theme={forceLightTheme ? "light" : undefined}
       data-white-label-theme={whitelabel ? "true" : undefined}
       data-student-app-theme={forceLightTheme ? "light" : undefined}
     >
