@@ -4,13 +4,10 @@ import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
 import { homePathForRoles } from "@/lib/auth/role-routing";
-import { getTheme } from "@/lib/theme";
 import {
   getTenantBrandingBundle,
   resolveBrandAppName,
   resolveBrandDescription,
-  resolveLogoUrl,
-  resolveThemeColorForMode,
 } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
@@ -45,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: "/student/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      statusBarStyle: "black-translucent",
+      statusBarStyle: "default",
       title: brandingContext.brandTitle,
       startupImage: [
         {
@@ -66,18 +63,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateViewport(): Promise<Viewport> {
-  const [brandingContext, theme] = await Promise.all([
-    loadStudentBrandingContext(),
-    getTheme(),
-  ]);
+  await loadStudentBrandingContext();
 
   return {
-    themeColor: resolveThemeColorForMode(
-      brandingContext.tenant,
-      theme,
-      brandingContext.bundle,
-      "#0F172A",
-    ),
+    themeColor: "#f7f8fc",
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
@@ -103,7 +92,6 @@ export default async function StudentLayout({
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
   const bundle = await getTenantBrandingBundle(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   return (
@@ -111,12 +99,13 @@ export default async function StudentLayout({
       tenant={tenant}
       branding={bundle.branding}
       themeTokens={bundle.tokens}
+      forceLightTheme
       className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground"
     >
       <StudentTopBar
         tenantName={tenant.name}
         userLabel={userLabel}
-        logoUrl={logoUrl}
+        logoUrl={null}
         notifications={
           <NotificationBell
             items={items}

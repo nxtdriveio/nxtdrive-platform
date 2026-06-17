@@ -121,7 +121,7 @@ function StudentCard({ children, className }: CardProps) {
   return (
     <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-brand-border/80 bg-card/92 shadow-brand-card backdrop-blur",
+        "min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-brand-border/80 bg-white shadow-brand-card",
         className,
       )}
     >
@@ -1224,7 +1224,7 @@ export function StudentMoreMenu() {
           <Link
             key={item.href + item.label}
             href={item.href}
-            className="flex items-center gap-3 rounded-[var(--radius-card)] border border-brand-border bg-card/90 p-4 shadow-brand-card transition hover:border-brand-primary/40"
+            className="flex items-center gap-3 rounded-[var(--radius-card)] border border-brand-border bg-white p-4 shadow-brand-card transition hover:border-brand-primary/40"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
               <Icon className="h-5 w-5" aria-hidden />
