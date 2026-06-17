@@ -10,7 +10,7 @@ export function StudentSidebarNav() {
 
   return (
     <aside className="sticky top-24 hidden h-[calc(100vh-6rem)] w-[17rem] shrink-0 px-6 py-6 xl:block">
-      <div className="h-full rounded-[var(--radius-panel)] border border-brand-border/70 bg-brand-sidebar-background p-3 shadow-brand-card backdrop-blur-xl">
+      <div className="h-full rounded-[var(--radius-panel)] border border-brand-border/70 bg-white/90 p-3 shadow-brand-card backdrop-blur-xl">
         <nav aria-label="Hoofdnavigatie">
           <ul className="space-y-1.5">
             {STUDENT_SIDEBAR_NAV_ITEMS.map((item) => {
@@ -25,8 +25,8 @@ export function StudentSidebarNav() {
                     className={cn(
                       "flex items-center gap-3 rounded-[1.15rem] px-3 py-3 text-sm font-medium transition-colors",
                       active
-                        ? "bg-brand-sidebar-active text-brand-sidebar-active-foreground shadow-sm"
-                        : "text-brand-sidebar-foreground hover:bg-brand-muted/70 hover:text-brand-foreground",
+                        ? "bg-brand-accent text-brand-primary shadow-sm"
+                        : "text-brand-muted-foreground hover:bg-brand-muted/70 hover:text-brand-foreground",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
