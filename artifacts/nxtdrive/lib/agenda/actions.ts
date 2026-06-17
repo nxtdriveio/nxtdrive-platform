@@ -293,6 +293,7 @@ export async function createAppointment(formData: FormData) {
 
   revalidatePath("/backoffice/agenda");
   revalidatePath("/instructor/week");
+  revalidatePath("/instructor/agenda");
   revalidatePath("/instructor");
   if (studentId) revalidatePath(`/backoffice/leerlingen/${studentId}`);
   redirect(redirectTo);
@@ -486,6 +487,7 @@ export async function updateAppointment(formData: FormData) {
 
   revalidatePath("/backoffice/agenda");
   revalidatePath("/instructor/week");
+  revalidatePath("/instructor/agenda");
   revalidatePath("/instructor");
   if (studentId) revalidatePath(`/backoffice/leerlingen/${studentId}`);
   redirect(redirectTo);
@@ -518,6 +520,7 @@ export async function deleteAppointment(formData: FormData) {
 
   revalidatePath("/backoffice/agenda");
   revalidatePath("/instructor/week");
+  revalidatePath("/instructor/agenda");
   revalidatePath("/instructor");
   redirect(redirectTo);
 }
@@ -574,6 +577,7 @@ export async function setAppointmentResult(formData: FormData) {
   revalidatePath("/backoffice/agenda");
   revalidatePath("/backoffice/cbr");
   revalidatePath("/instructor/week");
+  revalidatePath("/instructor/agenda");
   revalidatePath("/instructor");
   revalidatePath("/student", "layout");
   redirect(redirectTo);
@@ -650,6 +654,7 @@ export async function setExamAppointmentDetails(formData: FormData) {
   revalidatePath("/backoffice/agenda");
   revalidatePath("/backoffice/cbr");
   revalidatePath("/instructor/week");
+  revalidatePath("/instructor/agenda");
   revalidatePath("/instructor");
   revalidatePath("/student", "layout");
   redirect(redirectTo);

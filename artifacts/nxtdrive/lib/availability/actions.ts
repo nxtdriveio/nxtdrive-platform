@@ -18,6 +18,7 @@ import type { MemberRole } from "@/lib/types";
 // Allowed pages an action may redirect back to (prevents open-redirect abuse).
 function safeRedirect(value: FormDataEntryValue | null): string {
   const v = String(value ?? "");
+  if (v === "/instructor/availability") return v;
   if (v === "/instructor/beschikbaarheid") return v;
   if (v.startsWith("/backoffice/beschikbaarheid")) return v;
   return "/backoffice/beschikbaarheid";

@@ -23,6 +23,8 @@ export async function getStudentPwaContext() {
     tenantName: tenant.name,
     email: student?.email ?? user.email,
     phone: student?.phone,
+    tenantId: tenant.id,
+    studentId: student?.id,
   });
 
   return {
