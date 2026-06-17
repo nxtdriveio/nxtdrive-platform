@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { roleHomePath } from "@/lib/auth/role-home";
+import { homePathForRoles } from "@/lib/auth/role-routing";
 import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
@@ -16,10 +17,6 @@ import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
 
-// Per-app PWA metadata (Task #177): the Leerling app links its OWN manifest
-// (not the generic /manifest.webmanifest) and apple-touch-icon, so installs on
-// iOS/Android use the student branding + portrait orientation. Overrides the
-// root layout's manifest/themeColor for everything under /student.
 export const metadata: Metadata = {
   title: "NXTDRIVE Leerling",
   manifest: "/student/manifest.webmanifest",
@@ -27,12 +24,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Leerling",
-    // iOS ignores the manifest for the launch splash and shows a blank white
-    // screen on "Add to Home Screen" unless apple-touch-startup-image link tags
-    // exist per device size. We ship solid navy (#0F172A) SVG splashes so the
-    // brand experience holds without generating per-device PNG artwork. Covers
-    // the highest-traffic modern iPhones; other devices fall back to the manifest
-    // background_color, which is also #0F172A.
     startupImage: [
       {
         url: "/splash/ios-splash-1170x2532.svg",
@@ -50,10 +41,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F172A",
+  themeColor: "#5A4BFF",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  maximumScale: 1,
 };
 
 export default async function StudentLayout({
@@ -61,26 +53,17 @@ export default async function StudentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Parents are admitted alongside students so a student+parent dual-role user
-  // keeps using the student PWA for their OWN student data. RLS on students /
-  // lessons / credit_ledger restricts a parent to rows linked via
-  // `student_guardians`, so they cannot see other tenant data here.
-  const { user, tenant, roles } = await requireActiveTenant([
-    "student",
-    "parent",
-  ]);
+  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
 
-  // The student PWA is NOT governed by the tenant's per-section parent-portal
-  // visibility toggles, so a non-student must never render it directly — that
-  // would let a parent bypass a section the tenant disabled in /ouder. Anyone
-  // admitted here without the student role (a pure parent, or a parent who also
-  // holds a staff role) is redirected to their proper role home (a pure parent
-  // → /ouder). A student or student+parent dual-role user stays.
-  if (!roles.includes("student")) redirect(roleHomePath(user, tenant.id));
+  if (homePathForRoles(roles) !== "/student") {
+    redirect(roleHomePath(user, tenant.id));
+  }
 
-  // Only students (incl. student+parent) reach here.
+  if (!roles.includes("student")) {
+    redirect(roleHomePath(user, tenant.id));
+  }
+
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
-
   const branding = await getTenantBranding(tenant.id);
   const logoUrl = resolveLogoUrl(tenant, branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
@@ -105,10 +88,13 @@ export default async function StudentLayout({
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
-      <div className="flex min-w-0 flex-1">
+      <div data-student-shell="" className="flex min-w-0 flex-1">
         <StudentSidebarNav />
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 lg:pb-8">
-          <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
+        <main
+          data-pwa-copy=""
+          className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 xl:px-8 xl:pb-12"
+        >
+          <div className="mx-auto w-full max-w-[31rem] md:max-w-5xl xl:max-w-7xl">
             <Suspense fallback={<StudentSplash />}>{children}</Suspense>
           </div>
         </main>
