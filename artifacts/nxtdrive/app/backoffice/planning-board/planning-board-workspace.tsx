@@ -238,7 +238,7 @@ function reasonText(validation: PlanningValidationResult | null): string[] {
 
 function humanizePlanningMessage(message: string): string {
   if (message.includes("student branch does not match planning queue item branch")) {
-    return "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+    return "Vestiging klopt niet: leerling en queue-item horen bij verschillende vestigingen.";
   }
   if (message.includes("Cannot access") && message.includes("before initialization")) {
     return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
@@ -435,24 +435,31 @@ function QueueCard({
     : undefined;
   const title = item.student_name ?? item.lead_name ?? item.appointment_type;
   const content = (
-    <>
-      <p className="truncate font-medium text-foreground">{title}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {item.duration_minutes} min
-        {item.required_transmission ? ` - ${item.required_transmission}` : ""}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-1">
-        <Badge variant={item.priority === "urgent" ? "danger" : "outline"}>
+    <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-5 text-foreground">
+            {title}
+          </p>
+          <p className="truncate text-[11px] leading-4 text-muted-foreground">
+            {item.duration_minutes} min
+            {item.required_transmission ? ` · ${item.required_transmission}` : ""}
+            {item.service_area_name ? ` · ${item.service_area_name}` : ""}
+          </p>
+        </div>
+        <Badge
+          variant={item.priority === "urgent" ? "danger" : "outline"}
+          className="shrink-0 text-[10px]"
+        >
           {item.priority}
         </Badge>
-        {item.service_area_name ? (
-          <Badge variant="outline">{item.service_area_name}</Badge>
-        ) : null}
-        {href ? (
-          <Badge variant="outline">{relatedLabel ?? "Open afspraak"}</Badge>
-        ) : null}
       </div>
-    </>
+      {href ? (
+        <p className="mt-1 truncate text-[11px] leading-4 text-primary">
+          {relatedLabel ?? "Open afspraak"}
+        </p>
+      ) : null}
+    </div>
   );
 
   return (
@@ -460,15 +467,15 @@ function QueueCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-md border border-border bg-card p-3 text-sm shadow-sm",
-        isDragging && "opacity-50",
-        compact && "w-72",
+        "rounded-xl border border-border bg-[color-mix(in_oklab,var(--surface-1)_84%,transparent)] text-sm shadow-[var(--admin-card-shadow)] backdrop-blur-sm transition-opacity",
+        compact ? "w-60 p-2 opacity-80" : "p-2.5",
+        isDragging && "opacity-25",
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="mt-0.5 text-muted-foreground"
+          className="shrink-0 text-muted-foreground"
           aria-label="Sleep queue item"
           {...listeners}
           {...attributes}
@@ -1198,7 +1205,9 @@ export function PlanningBoardWorkspace({
                   Sleep een kaart naar een slot.
                 </p>
               )}
-              {reasonText(preview?.validation ?? null).map((reason) => (
+              {reasonText(preview?.validation ?? null)
+                .filter((reason) => reason !== preview?.message)
+                .map((reason) => (
                 <p
                   key={reason}
                   className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
