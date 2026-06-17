@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, TrendingUp, TrendingDown, Users, Inbox, Wallet, CheckCircle2, XCircle, Clock, AlertCircle, Star } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ import {
 } from "@/components/backoffice/reports/quality";
 import { RevenueBarChart } from "@/components/charts/RevenueBarChart";
 import { DonutChart } from "@/components/charts/DonutChart";
+import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +103,14 @@ export default async function RapportagesPage({
 }) {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
   const supabase = await createServerSupabaseClient();
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    createServiceRoleClient(),
+    tenant.id,
+  );
+  const hasAdvancedReports =
+    entitlementSnapshot.featureAccess.advanced_reports.allowed;
+  const advancedReportsGate =
+    entitlementSnapshot.featureAccess.advanced_reports;
   const params = await searchParams;
 
   // Month selector
@@ -144,6 +155,25 @@ export default async function RapportagesPage({
   const exams = await getExamStats(supabase, tenant.id, cStart, cEnd, quality.bijnaExamenrijpCount);
 
   const selectedLabel = monthOptions.find((o) => o.value === selectedMonth)?.label ?? selectedMonth;
+  const averageRevenueCents =
+    monthlyRevenue.length > 0
+      ? Math.round(
+          monthlyRevenue.reduce((sum, point) => sum + point.cents, 0) /
+            monthlyRevenue.length,
+        )
+      : 0;
+  const topMarketingSource = sources[0] ?? null;
+  const planningFollowUpLabel =
+    studentsWithout === 1
+      ? "1 leerling wacht op een nieuwe les."
+      : `${studentsWithout.toLocaleString("nl-NL")} leerlingen wachten op een nieuwe les.`;
+  const alertInvoiceLabel =
+    openInvoices.count === 0
+      ? "Geen openstaande facturen op dit moment."
+      : `${openInvoices.count.toLocaleString("nl-NL")} facturen staan nog open.`;
+  const advancedReportsLabel = hasAdvancedReports
+    ? "Kwaliteitslaag actief"
+    : "Kwaliteitslaag vergrendeld";
 
   const kpiCards = [
     {
@@ -231,6 +261,101 @@ export default async function RapportagesPage({
       </div>
 
       {/* ── KPI cards ── */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)_minmax(0,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Managementfocus</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Planning
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{planningFollowUpLabel}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Leerlingen zonder vervolgafspraak vertragen omzet, slagingsritme en capaciteit.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Commercieel ritme
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                Gemiddeld {formatEuros(averageRevenueCents)}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                gemiddelde maandelijkse omzet op basis van de laatste zes maanden.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Aandachtspunten</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Openstaande facturen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {openInvoices.count === 0
+                  ? "Geen directe betaalachterstand."
+                  : `${formatEuros(openInvoices.totalCents)} staat nog open en vraagt opvolging.`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Bijna examenrijp</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {quality.bijnaExamenrijpCount.toLocaleString("nl-NL")} leerlingen naderen examengereedheid.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-sm font-medium text-foreground">Sterkste bron</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {topMarketingSource
+                  ? `${topMarketingSource.label} levert nu de meeste instroom op.`
+                  : "Nog geen bronverdeling beschikbaar."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Snelle routes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">{selectedLabel}</Badge>
+              <Badge variant={hasAdvancedReports ? "success" : "outline"}>
+                {advancedReportsLabel}
+              </Badge>
+              <Badge variant={openInvoices.count > 0 ? "warning" : "success"}>
+                {alertInvoiceLabel}
+              </Badge>
+            </div>
+            <Link
+              href="/backoffice/leerlingen"
+              className="block rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <p className="font-medium text-foreground">Leerlingen opvolgen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Open dossiers zonder vervolgafspraak en stuur planning direct bij.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/facturen"
+              className="block rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <p className="font-medium text-foreground">Facturen nalopen</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pak openstaande posten en betaalritme van deze maand erbij.
+              </p>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
+
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon;
@@ -639,14 +764,35 @@ export default async function RapportagesPage({
         </p>
       </div>
 
-      <QualityKpis data={quality} />
+      {hasAdvancedReports ? (
+        <>
+          <QualityKpis data={quality} />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <PhaseDistribution data={quality} />
-        <InstructorProgressTable instructors={quality.instructors} />
-      </section>
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <PhaseDistribution data={quality} />
+            <InstructorProgressTable instructors={quality.instructors} />
+          </section>
 
-      <StudentReadinessTable students={quality.students} />
+          <StudentReadinessTable students={quality.students} />
+        </>
+      ) : (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle>Uitgebreide rapportages</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Examenrijpheid, kwaliteitsmetingen en leskaart-analyses zijn
+              beschikbaar vanaf het{" "}
+              {PLAN_LABELS[advancedReportsGate.requiredPlan]}-abonnement.
+            </p>
+            <p>
+              Je basisrapportages blijven beschikbaar, maar deze verdiepende
+              kwaliteitslaag is vergrendeld op Start.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

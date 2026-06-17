@@ -1,53 +1,92 @@
 import Link from "next/link";
 import {
+  BadgeCheck,
   CalendarDays,
   TrendingUp,
   Wallet,
-  BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
-import { PWACard, PWASectionHeader } from "@/components/pwa/primitives";
+import { STUDENT_PANEL_SURFACE } from "@/components/student/Showcase";
+import { cn } from "@/lib/utils";
 
-type Shortcut = { href: string; label: string; description: string; icon: LucideIcon };
+type Shortcut = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: number;
+};
 
-/**
- * "Snel regelen" shortcut grid — large, tappable tiles with compact copy.
- * Only links to features that exist in the leerling-PWA — no dead ends.
- */
-const SHORTCUTS: Shortcut[] = [
-  { href: "/student/lessons", label: "Planning", description: "Je lessen", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", description: "Rijbewijsroute", icon: TrendingUp },
-  { href: "/student/betalingen", label: "Betalingen", description: "Tegoed en facturen", icon: Wallet },
-  { href: "/student/cbr", label: "Examens", description: "CBR status", icon: BadgeCheck },
+const BASE_SHORTCUTS: Shortcut[] = [
+  { href: "/student/lessons", label: "Planning", icon: CalendarDays },
+  { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
+  { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
+  { href: "/student/cbr", label: "Examens", icon: BadgeCheck },
 ];
 
-export function QuickActions() {
+export function QuickActions({
+  messageUnreadCount = 0,
+}: {
+  messageUnreadCount?: number;
+}) {
+  const shortcuts = BASE_SHORTCUTS.map((shortcut) =>
+    shortcut.href === "/student/berichten"
+      ? { ...shortcut, badge: messageUnreadCount > 0 ? messageUnreadCount : undefined }
+      : shortcut,
+  );
+
   return (
-    <PWACard>
-      <PWASectionHeader>Snel regelen</PWASectionHeader>
-      <div className="grid min-w-0 grid-cols-2 gap-3">
-        {SHORTCUTS.map((s) => {
-          const Icon = s.icon;
+    <section className="space-y-2">
+      <div className="px-1">
+        <h2 className="text-[1.08rem] font-bold tracking-tight text-white sm:text-[1.24rem]">
+          Snel regelen
+        </h2>
+      </div>
+      <div className="grid min-w-0 grid-cols-2 gap-2.5 sm:gap-3">
+        {shortcuts.map((shortcut) => {
+          const Icon = shortcut.icon;
+
           return (
             <Link
-              key={s.href}
-              href={s.href}
-              className="group relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card px-3 py-4 text-left transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+              key={shortcut.href}
+              href={shortcut.href}
+              className={cn(
+                "group relative min-w-0 overflow-hidden rounded-[1.45rem] border border-white/10 px-3 py-4 shadow-[0_18px_40px_rgba(1,2,8,0.32)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_22px_45px_color-mix(in_oklab,var(--primary)_28%,transparent)]",
+              )}
+              style={{ background: STUDENT_PANEL_SURFACE }}
             >
-              <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-primary/10 transition group-hover:scale-125" />
-              <span className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-soft text-primary shadow-lg shadow-primary/10">
-                <Icon className="h-5 w-5" aria-hidden />
-              </span>
-              <div className="relative mt-3 min-w-0">
-                <div className="truncate text-sm font-bold text-foreground">{s.label}</div>
-                <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                  {s.description}
+              <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/10 transition duration-300 group-hover:scale-110" />
+              {shortcut.badge ? (
+                <span
+                  className="absolute right-3 top-3 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground"
+                  style={{
+                    boxShadow:
+                      "0 0 16px color-mix(in oklab, var(--primary) 45%, transparent)",
+                  }}
+                >
+                  {shortcut.badge > 99 ? "99+" : shortcut.badge}
+                </span>
+              ) : null}
+              <div className="relative flex h-full min-h-[6.4rem] flex-col items-start justify-between gap-2 text-left sm:min-h-[8rem] sm:gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[0.95rem] bg-primary/16 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-11 sm:w-11 sm:rounded-[1.1rem]">
+                  <Icon className="h-[1.05rem] w-[1.05rem] sm:h-[1.3rem] sm:w-[1.3rem]" aria-hidden />
+                </span>
+                <div className="space-y-1">
+                  <span className="block text-[0.92rem] font-semibold text-white sm:text-[1.04rem]">{shortcut.label}</span>
+                  <span className="block text-[10px] leading-4 text-white/46 sm:text-[11px] sm:leading-5">
+                    {shortcut.label === "Planning"
+                      ? "Lessen en verschuivingen"
+                      : shortcut.label === "Voortgang"
+                        ? "Rijbewijsroute en trends"
+                        : shortcut.label === "Betalingen"
+                          ? "Tegoed en facturen"
+                          : "CBR en examenklaar"}
+                  </span>
                 </div>
               </div>
             </Link>
           );
         })}
       </div>
-    </PWACard>
+    </section>
   );
 }

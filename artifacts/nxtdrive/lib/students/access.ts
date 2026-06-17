@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireActiveTenant } from "@/lib/auth/require-role";
 import {
   loadOrganizationBranchScope,
   requireOrganizationPermission,
@@ -34,6 +35,13 @@ export type StudentBackofficeAccessMode = "read" | "admin" | "collaborate";
 export type StudentBackofficeAccess = {
   context: AuthorizedOrganizationContext;
   branchScope: BranchAccessScope;
+  student: Student | null;
+};
+
+export type InstructorStudentAccess = {
+  tenantId: string;
+  userId: string;
+  isAdmin: boolean;
   student: Student | null;
 };
 
@@ -85,6 +93,70 @@ export async function requireStudentBackofficeAccess(
   }
 
   return { context, branchScope, student };
+}
+
+export async function loadInstructorAccessibleStudentIds(
+  client: SupabaseClient,
+  tenantId: string,
+  instructorId: string,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from("lessons")
+    .select("student_id")
+    .eq("tenant_id", tenantId)
+    .eq("instructor_id", instructorId);
+
+  if (error) {
+    throw new Error(`loadInstructorAccessibleStudentIds: ${error.message}`);
+  }
+
+  return Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => row.student_id as string | null)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+}
+
+export async function requireInstructorStudentAccess(
+  client: SupabaseClient,
+  studentId: string,
+): Promise<InstructorStudentAccess> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
+  const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+
+  const { data, error } = await client
+    .from("students")
+    .select(STUDENT_SELECT)
+    .eq("id", studentId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`requireInstructorStudentAccess: ${error.message}`);
+  }
+
+  const student = (data ?? null) as Student | null;
+  if (!student) {
+    return { tenantId: tenant.id, userId: user.id, isAdmin, student: null };
+  }
+
+  if (!isAdmin) {
+    const accessibleStudentIds = await loadInstructorAccessibleStudentIds(
+      client,
+      tenant.id,
+      user.id,
+    );
+    if (!accessibleStudentIds.includes(student.id)) {
+      return { tenantId: tenant.id, userId: user.id, isAdmin, student: null };
+    }
+  }
+
+  return { tenantId: tenant.id, userId: user.id, isAdmin, student };
 }
 
 /**

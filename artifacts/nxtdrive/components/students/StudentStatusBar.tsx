@@ -104,6 +104,7 @@ function StatTile({
  */
 export function StudentStatusBar({
   studentId,
+  scope = "backoffice",
   nextLessonAt,
   balanceMinutes,
   openInvoiceCount,
@@ -116,6 +117,7 @@ export function StudentStatusBar({
   openTaskCount,
 }: {
   studentId: string;
+  scope?: "backoffice" | "instructor";
   nextLessonAt: string | null;
   balanceMinutes: number;
   openInvoiceCount: number;
@@ -152,7 +154,11 @@ export function StudentStatusBar({
         label="Volgende les"
         value={nextLessonAt ? dtFmt.format(new Date(nextLessonAt)) : "Geen"}
         tone={nextLessonAt ? "info" : "muted"}
-        href={`/backoffice/agenda/nieuw?student_id=${studentId}`}
+        href={
+          scope === "instructor"
+            ? `/instructor/les/nieuw?student_id=${studentId}`
+            : `/backoffice/agenda/nieuw?student_id=${studentId}`
+        }
       />
       <StatTile
         icon={<Wallet className="h-3.5 w-3.5" />}

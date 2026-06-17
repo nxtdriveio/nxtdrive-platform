@@ -9,12 +9,13 @@ import {
   setPlatformFromEmail,
 } from "@/lib/email/platform-config";
 import { getAiConfigStatus, setPlatformAiKey } from "@/lib/ai/platform-config";
+import { THEME_TOKEN_KEYS } from "@/lib/brand-theme";
 import {
   upsertOrganizationProfile,
   type OrganizationLifecycleStatus,
   type OrganizationOnboardingStatus,
 } from "@/lib/organization";
-import type { OrgType, TenantPlan } from "@/lib/types";
+import type { OrgType, TenantPlan, ThemeMode, ThemeTokenSet } from "@/lib/types";
 
 const VALID_PLANS: TenantPlan[] = ["start", "pro", "elite"];
 const VALID_ORG_TYPES: OrgType[] = [
@@ -37,6 +38,7 @@ const VALID_ONBOARDING_STATUSES: OrganizationOnboardingStatus[] = [
   "ready",
   "blocked",
 ];
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 function trimmed(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -44,6 +46,23 @@ function trimmed(formData: FormData, key: string): string {
 
 function normalizedSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+}
+
+function parseThemeTokenSet(
+  formData: FormData,
+  mode: ThemeMode,
+): ThemeTokenSet {
+  const tokens = {} as ThemeTokenSet;
+
+  for (const key of THEME_TOKEN_KEYS) {
+    const raw = String(formData.get(`${mode}_${key}`) ?? "").trim();
+    if (!HEX_RE.test(raw)) {
+      throw new Error(`Ongeldige kleur voor ${mode}:${key}`);
+    }
+    tokens[key] = raw;
+  }
+
+  return tokens;
 }
 
 export async function savePlatformEmailConfig(formData: FormData) {
@@ -276,4 +295,79 @@ export async function createTenantAdmin(formData: FormData) {
   if (memberError) redirect("/admin?tab=admin&error=membership_failed");
 
   redirect("/admin?tab=admin&invited=" + encodeURIComponent(email));
+}
+
+export async function upsertThemePresetAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const presetId = trimmed(formData, "preset_id");
+  const name = trimmed(formData, "name");
+  const slug = normalizedSlug(trimmed(formData, "slug"));
+  const description = trimmed(formData, "description").slice(0, 240) || null;
+
+  if (!name || !slug) {
+    redirect("/admin?tab=themes&themeError=" + encodeURIComponent("Naam en slug zijn verplicht."));
+  }
+
+  const service = createServiceRoleClient();
+
+  if (presetId) {
+    const { data: existing } = await service
+      .from("theme_presets")
+      .select("is_system")
+      .eq("id", presetId)
+      .maybeSingle();
+
+    if (existing?.is_system) {
+      redirect(
+        "/admin?tab=themes&themeError=" +
+          encodeURIComponent("Systeempresets zijn read-only. Maak eerst een custom preset."),
+      );
+    }
+  }
+
+  let tokensLight: ThemeTokenSet;
+  let tokensDark: ThemeTokenSet;
+  try {
+    tokensLight = parseThemeTokenSet(formData, "light");
+    tokensDark = parseThemeTokenSet(formData, "dark");
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Presetkleuren konden niet worden gelezen.";
+    redirect("/admin?tab=themes&themeError=" + encodeURIComponent(msg));
+  }
+
+  const payload = {
+    ...(presetId ? { id: presetId } : {}),
+    slug,
+    name,
+    description,
+    tokens_light: tokensLight!,
+    tokens_dark: tokensDark!,
+    is_active: formData.get("is_active") === null ? true : formData.get("is_active") === "on",
+  };
+
+  const { data, error } = await service
+    .from("theme_presets")
+    .upsert(payload)
+    .select("id")
+    .single();
+
+  if (error || !data?.id) {
+    redirect(
+      "/admin?tab=themes&themeError=" +
+        encodeURIComponent((error?.message ?? "Preset opslaan mislukt.").slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: null,
+    action: presetId ? "theme_preset.updated" : "theme_preset.created",
+    target_type: "theme_preset",
+    target_id: data.id,
+    payload: { slug, name, is_active: payload.is_active },
+  });
+
+  redirect("/admin?tab=themes&themeSaved=1");
 }

@@ -4,26 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
+import {
+  canManageExistingBranches,
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { formatEuros } from "@/lib/packages/types";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
-function assertFranchisegeVerEnabled(tenant: { plan: string }) {
-  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "franchise_as_franchisegever")) {
-    redirect("/backoffice/franchise?error=plan_required&plan=elite");
-  }
+function redirectPlanRequired(path: string, plan: keyof typeof PLAN_LABELS) {
+  redirect(`${path}?error=plan_required&plan=${plan}`);
 }
 
-function assertFranchiseeEnabled(tenant: { plan: string }) {
-  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "franchise_as_franchisee")) {
-    redirect("/backoffice?error=plan_required&plan=pro");
-  }
-}
-
-function assertMultiBranchEnabled(tenant: { plan: string }) {
-  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "multi_branch")) {
-    redirect("/backoffice/leads?error=plan_required&plan=pro");
-  }
+function redirectFeatureRequired(path: string, requiredPlan: keyof typeof PLAN_LABELS) {
+  redirectPlanRequired(path, requiredPlan);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +58,6 @@ export async function createFranchiseTemplate(formData: FormData) {
     "tenant_admin",
     "franchise_admin",
   ]);
-  assertFranchisegeVerEnabled(tenant);
 
   const name          = String(formData.get("name") ?? "").trim();
   const credits_total = parseInt(String(formData.get("credits_total") ?? ""), 10);
@@ -82,6 +74,13 @@ export async function createFranchiseTemplate(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.franchise_as_franchisegever.allowed) {
+    redirectFeatureRequired(
+      "/backoffice/franchise/templates",
+      snapshot.featureAccess.franchise_as_franchisegever.requiredPlan,
+    );
+  }
   const { error } = await service.rpc("create_franchise_template", {
     p_tenant_id: tenant.id,
     p_type:      "package",
@@ -108,7 +107,6 @@ export async function createFranchiseTemplate(formData: FormData) {
 
 export async function updateFranchiseTemplate(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
-  assertFranchisegeVerEnabled(tenant);
 
   const template_id  = String(formData.get("template_id") ?? "").trim();
   const name         = String(formData.get("name") ?? "").trim() || null;
@@ -118,6 +116,13 @@ export async function updateFranchiseTemplate(formData: FormData) {
   if (!template_id) redirect("/backoffice/franchise/templates?error=missing_fields");
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.franchise_as_franchisegever.allowed) {
+    redirectFeatureRequired(
+      "/backoffice/franchise/templates",
+      snapshot.featureAccess.franchise_as_franchisegever.requiredPlan,
+    );
+  }
   const { error } = await service.rpc("update_franchise_template", {
     p_template_id: template_id,
     p_name:        name,
@@ -147,7 +152,6 @@ export async function pushTemplateToFranchisee(formData: FormData) {
     "tenant_admin",
     "franchise_admin",
   ]);
-  assertFranchisegeVerEnabled(tenant);
 
   const template_id          = String(formData.get("template_id") ?? "").trim();
   const franchisee_tenant_id = String(formData.get("franchisee_tenant_id") ?? "").trim();
@@ -157,6 +161,13 @@ export async function pushTemplateToFranchisee(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.franchise_as_franchisegever.allowed) {
+    redirectFeatureRequired(
+      "/backoffice/franchise/templates",
+      snapshot.featureAccess.franchise_as_franchisegever.requiredPlan,
+    );
+  }
   const { error } = await service.rpc("distribute_franchise_template", {
     p_template_id:          template_id,
     p_franchisee_tenant_id: franchisee_tenant_id,
@@ -177,12 +188,18 @@ export async function pushTemplateToFranchisee(formData: FormData) {
 /** Franchisee: activate a template (creates a real package). */
 export async function activateFranchiseTemplateAsPackage(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertFranchiseeEnabled(tenant);
 
   const template_id = String(formData.get("template_id") ?? "").trim();
   if (!template_id) redirect("/backoffice/packages?error=missing_fields");
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.franchise_as_franchisee.allowed) {
+    redirectFeatureRequired(
+      "/backoffice/packages",
+      snapshot.featureAccess.franchise_as_franchisee.requiredPlan,
+    );
+  }
 
   // Verify template belongs to the franchisegever of this tenant.
   const { data: franchiseeRow } = await service
@@ -221,7 +238,6 @@ export async function routeLeadToBranch(formData: FormData) {
     "tenant_admin",
     "franchise_admin",
   ]);
-  assertMultiBranchEnabled(tenant);
 
   const lead_id   = String(formData.get("lead_id") ?? "").trim();
   const branch_id = String(formData.get("branch_id") ?? "").trim();
@@ -231,6 +247,13 @@ export async function routeLeadToBranch(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!canManageExistingBranches(snapshot)) {
+    redirectFeatureRequired(
+      "/backoffice/leads",
+      snapshot.featureAccess.multi_branch.requiredPlan,
+    );
+  }
   const { error } = await service.rpc("route_lead_to_branch", {
     p_lead_id:   lead_id,
     p_branch_id: branch_id,

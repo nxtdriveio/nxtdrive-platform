@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { cache } from "react";
 import { sendWebPushToUser } from "./web-push";
 import { isTenantTriggerEnabled } from "./platform-notification-config";
 import { interpolate } from "./templates";
@@ -210,11 +211,10 @@ export async function dispatchInApp(
  * no application-side recipient filter to forget. Returns the most recent N rows
  * plus an exact unread count (counted separately so it is not capped by N).
  */
-export async function loadInAppNotifications(
+const loadInAppNotificationsCached = cache(async (
   tenantId: string,
-  opts: { limit?: number } = {},
-): Promise<{ items: InAppNotification[]; unreadCount: number }> {
-  const limit = opts.limit ?? 20;
+  limit: number,
+): Promise<{ items: InAppNotification[]; unreadCount: number }> => {
   const supabase = await createServerSupabaseClient();
 
   const [{ data }, { count }] = await Promise.all([
@@ -246,6 +246,13 @@ export async function loadInAppNotifications(
   }));
 
   return { items, unreadCount: count ?? 0 };
+});
+
+export async function loadInAppNotifications(
+  tenantId: string,
+  opts: { limit?: number } = {},
+): Promise<{ items: InAppNotification[]; unreadCount: number }> {
+  return loadInAppNotificationsCached(tenantId, opts.limit ?? 20);
 }
 
 /** Compact NL date+time for in-app bodies (e.g. "ma 8 jun 14:30"). */

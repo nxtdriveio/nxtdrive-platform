@@ -6,8 +6,9 @@ import {
   isStudentLinkedType,
   type AgendaAppointmentType,
 } from "@/lib/agenda/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });

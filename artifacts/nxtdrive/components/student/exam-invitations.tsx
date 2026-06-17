@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { GraduationCap, Check, MapPin, User, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Check, GraduationCap, MapPin, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  STUDENT_ACCENT_SURFACE,
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 import { respondExamInvitation } from "@/app/student/actions";
 import type { StudentExamInvitation } from "@/lib/exam-invitations/invitations";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 
-const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateTimeFmt = createNlDateTimeFormatter({
   weekday: "long",
   day: "2-digit",
   month: "short",
@@ -16,7 +21,7 @@ const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
 });
 
 function formatExpiry(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
+  return createNlDateTimeFormatter({
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -41,75 +46,82 @@ export function ExamInvitations({
   if (invitations.length === 0) return null;
 
   function respond(id: string, response: "accept" | "decline") {
-    const fd = new FormData();
-    fd.set("invitation_id", id);
-    fd.set("response", response);
+    const formData = new FormData();
+    formData.set("invitation_id", id);
+    formData.set("response", response);
     setError(null);
     setBusyId(id);
     startTransition(async () => {
-      const res = await respondExamInvitation(fd);
+      const result = await respondExamInvitation(formData);
       setBusyId(null);
-      if (res?.error) setError(res.error);
+      if (result?.error) setError(result.error);
     });
   }
 
   return (
-    <Card className="border-primary/40 bg-primary-soft/40">
-      <CardContent className="space-y-3 pt-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
-          <GraduationCap className="h-4 w-4" aria-hidden />
-          Examenmoment{invitations.length > 1 ? "en" : ""} beschikbaar
-        </div>
-
-        <p className="text-sm text-muted-foreground">
+    <StudentShowcaseCard
+      title={`Examenmoment${invitations.length > 1 ? "en" : ""} beschikbaar`}
+      eyebrow="Examens"
+      info="Bevestig je het moment, dan word je eraan gekoppeld. Een examen kost geen lestegoed."
+      className="border-primary/20"
+      style={{
+        background: STUDENT_ACCENT_SURFACE,
+      }}
+    >
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-white/60">
           Er is een examenmoment voor jou beschikbaar. Bevestig je het moment,
-          dan word je eraan gekoppeld. Een examen kost geen lestegoed.
+          dan word je eraan gekoppeld.
         </p>
 
         {error ? (
-          <div className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-xs text-danger">
-            {error}
-          </div>
+          <StudentShowcaseNotice
+            tone="danger"
+            title="Reageren lukt nu niet"
+            description={error}
+            icon={<GraduationCap className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
 
         <ol className="space-y-2">
-          {invitations.map((inv) => {
-            const busy = pending && busyId === inv.id;
-            const noun = TYPE_NOUN[inv.appointment.type];
+          {invitations.map((invitation) => {
+            const busy = pending && busyId === invitation.id;
+            const noun = TYPE_NOUN[invitation.appointment.type];
             return (
               <li
-                key={inv.id}
-                className="rounded-md border border-border bg-card/70 p-3"
+                key={invitation.id}
+                className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3"
               >
                 <div className="space-y-1">
-                  <div className="text-xs font-medium uppercase tracking-wide text-primary">
+                  <div className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
                     {noun}
                   </div>
-                  <div className="text-sm font-medium capitalize text-foreground">
-                    {dateTimeFmt.format(new Date(inv.appointment.startsAt))}
+                  <div className="text-sm font-medium capitalize text-white">
+                    {dateTimeFmt.format(new Date(invitation.appointment.startsAt))}
                   </div>
-                  {inv.appointment.location ? (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {invitation.appointment.location ? (
+                    <div className="flex items-center gap-1.5 text-xs text-white/48">
                       <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      {inv.appointment.location}
+                      {invitation.appointment.location}
                     </div>
                   ) : null}
-                  {inv.appointment.instructorName ? (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {invitation.appointment.instructorName ? (
+                    <div className="flex items-center gap-1.5 text-xs text-white/48">
                       <User className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      {inv.appointment.instructorName}
+                      {invitation.appointment.instructorName}
                     </div>
                   ) : null}
-                  <div className="text-xs text-muted-foreground">
-                    Reageer vóór {formatExpiry(inv.expiresAt)}
+                  <div className="text-xs text-white/48">
+                    Reageer voor {formatExpiry(invitation.expiresAt)}
                   </div>
                 </div>
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     size="sm"
                     disabled={busy}
-                    onClick={() => respond(inv.id, "accept")}
+                    onClick={() => respond(invitation.id, "accept")}
                   >
                     <Check className="h-4 w-4" aria-hidden />
                     Bevestig {noun}
@@ -118,8 +130,9 @@ export function ExamInvitations({
                     type="button"
                     size="sm"
                     variant="ghost"
+                    className="text-white/70 hover:bg-white/10 hover:text-white"
                     disabled={busy}
-                    onClick={() => respond(inv.id, "decline")}
+                    onClick={() => respond(invitation.id, "decline")}
                   >
                     <X className="h-4 w-4" aria-hidden />
                     Afwijzen
@@ -129,7 +142,7 @@ export function ExamInvitations({
             );
           })}
         </ol>
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }

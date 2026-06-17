@@ -17,11 +17,13 @@ type Row = { weekday: number; start: string; end: string };
 export function WeeklyEditor({
   initial,
   instructorId,
+  branchId = null,
   redirectTo,
   action,
 }: {
   initial: WeeklyAvailability[];
   instructorId: string;
+  branchId?: string | null;
   redirectTo: string;
   action: (formData: FormData) => void | Promise<void>;
 }) {
@@ -75,6 +77,7 @@ export function WeeklyEditor({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="instructor_id" value={instructorId} />
+      <input type="hidden" name="branch_id" value={branchId ?? ""} />
       <input type="hidden" name="redirect_to" value={redirectTo} />
       <input type="hidden" name="blocks" value={blocksJson} />
 

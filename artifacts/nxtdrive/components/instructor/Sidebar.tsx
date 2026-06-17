@@ -7,36 +7,37 @@ import { motion } from "framer-motion";
 import {
   CalendarDays,
   ClipboardList,
+  Home,
   ListTodo,
   MessageCircle,
-  LogOut,
-  CalendarRange,
   MoreHorizontal,
 } from "lucide-react";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
+import { MobileSearch } from "@/components/backoffice/global-search";
 import { InstructorDayList } from "@/components/instructor/DayList";
+import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/lessons/types";
 import type { AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
+import type { AgendaAppointmentView } from "@/lib/agenda/appointments";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof CalendarDays;
   match: "exact" | "prefix";
-  /** Additional path prefixes that also count as active for this nav item. */
   extraPrefixes?: string[];
 };
 
-/**
- * Mobile nav: trimmed to 5 most-used destinations.
- * "Meer" links to the /instructor/meer hub page which lists all secondary
- * destinations (Beschikbaarheid, Meldingen, Leerlingen, Instellingen).
- */
+const ICON_BUTTON_CLASS =
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10 sm:rounded-xl";
+
 const MOBILE_NAV: NavItem[] = [
   { href: "/instructor", label: "Vandaag", icon: CalendarDays, match: "exact" },
-  { href: "/instructor/week", label: "Planning", icon: ClipboardList, match: "prefix" },
+  { href: "/instructor/week", label: "Agenda", icon: ClipboardList, match: "prefix" },
   { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix" },
   { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
   {
@@ -55,24 +56,20 @@ const MOBILE_NAV: NavItem[] = [
 
 function isActive(pathname: string, item: NavItem): boolean {
   if (item.match === "exact") {
-    const base = pathname === item.href;
-    return base || (item.extraPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false);
+    const direct = pathname === item.href;
+    return (
+      direct ||
+      (item.extraPrefixes?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) ?? false)
+    );
   }
-  const base = pathname === item.href || pathname.startsWith(`${item.href}/`);
-  return base || (item.extraPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false);
+
+  const direct = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  return (
+    direct ||
+    (item.extraPrefixes?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) ?? false)
+  );
 }
 
-/**
- * Instructor PWA sidebar.
- *
- * Desktop (md+): dark agenda-rail — date header, full-day lesson timeline
- * (using InstructorDayList which auto-highlights the selected lesson via
- * usePathname), Weekplanning shortcut, and a polished user-tile footer
- * (avatar + name + logout).
- *
- * Mobile: compact sticky top bar (logo + notifications + logout) followed by a
- * 5-item bottom-nav strip with Framer Motion active-pill animation.
- */
 export function InstructorSidebar({
   tenantName,
   userLabel,
@@ -82,6 +79,10 @@ export function InstructorSidebar({
   studentNames,
   todayDate,
   trialLessons,
+  appointments = [],
+  visibleStartHour,
+  visibleEndHour,
+  theme,
 }: {
   tenantName: string;
   userLabel: string;
@@ -91,128 +92,119 @@ export function InstructorSidebar({
   studentNames: Map<string, string>;
   todayDate: Date;
   trialLessons?: AgendaTrialLesson[];
+  appointments?: AgendaAppointmentView[];
+  visibleStartHour: number;
+  visibleEndHour: number;
+  theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
 
   return (
     <>
-      {/* ── Desktop agenda-rail ─────────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
-        {/* Logo */}
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-          <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
-        </div>
-
-        {/* Agenda: full-height scrollable */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3">
-          <InstructorDayList
-            lessons={todayLessons}
-            studentNames={studentNames}
-            date={todayDate}
-            trialLessons={trialLessons}
-          />
-        </div>
-
-        {/* Footer: Weekplanning shortcut + user tile */}
-        <div className="shrink-0 border-t border-border p-3 space-y-1">
+      <aside className="sticky top-0 hidden h-screen w-[18.25rem] shrink-0 bg-card lg:flex lg:flex-col xl:w-[18.75rem]">
+        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border/80 px-5">
           <Link
-            href="/instructor/week"
-            className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors",
-              pathname.startsWith("/instructor/week")
-                ? "bg-primary-soft font-medium text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
+            href="/instructor"
+            aria-label="Naar startscherm"
+            className={ICON_BUTTON_CLASS}
           >
-            <CalendarRange className="h-4 w-4 shrink-0" aria-hidden />
-            Weekplanning
+            <Home className="h-4 w-4" aria-hidden />
           </Link>
+          <NxtdriveLogo className="text-base font-semibold" logoUrl={logoUrl} brandName={tenantName} />
+        </div>
 
-          {/* User tile */}
-          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2">
-            <Avatar name={userLabel} className="h-8 w-8 shrink-0 text-xs" />
-            <span
-              className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
-              title={userLabel}
-            >
-              {userLabel}
-            </span>
-            <form method="post" action="/auth/logout">
-              <button
-                type="submit"
-                aria-label="Uitloggen"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </button>
-            </form>
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-4">
+          <div className="mb-4 rounded-[1.45rem] border border-border/80 bg-background px-3 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Avatar name={userLabel} className="h-12 w-12 shrink-0 text-sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">{userLabel}</p>
+                <p className="truncate text-xs text-muted-foreground">{tenantName}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden rounded-[1.45rem] border border-border/80 bg-background shadow-sm">
+            <div className="h-full overflow-auto px-3 py-3">
+              <InstructorDayList
+                lessons={todayLessons}
+                studentNames={studentNames}
+                date={todayDate}
+                trialLessons={trialLessons}
+                appointments={appointments}
+                visibleStartHour={visibleStartHour}
+                visibleEndHour={visibleEndHour}
+              />
+            </div>
           </div>
         </div>
+
+        <div className="h-4 shrink-0 border-t border-border/80" />
       </aside>
 
-      {/* ── Mobile: sticky top bar + bottom nav strip ────────────────────── */}
       <header
-        className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur md:hidden"
+        className="sticky top-0 z-30 border-b border-border/80 bg-card/95 backdrop-blur lg:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <NxtdriveLogo className="text-base" logoUrl={logoUrl} brandName={tenantName} />
+        <div className="flex h-[3.25rem] items-center justify-between gap-2.5 px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/instructor"
+              aria-label="Naar startscherm"
+              className={ICON_BUTTON_CLASS}
+            >
+              <Home className="h-4 w-4" aria-hidden />
+            </Link>
+            <NxtdriveLogo className="min-w-0 text-[0.92rem] font-semibold" logoUrl={logoUrl} brandName={tenantName} />
+          </div>
           <div className="flex items-center gap-1">
+            <MobileSearch />
+            <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
             {notifications}
-            <form method="post" action="/auth/logout">
-              <button
-                type="submit"
-                aria-label="Uitloggen"
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </button>
-            </form>
+            <ThemeToggle
+              current={theme}
+              className="h-10 w-10 rounded-xl border-border/80"
+            />
           </div>
         </div>
       </header>
 
-      {/* Mobile bottom nav — same Framer Motion active-pill style as student BottomNav */}
       <nav
         aria-label="Instructeur navigatie"
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 lg:hidden"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.55rem)" }}
       >
-        <ul className="mx-auto grid max-w-2xl grid-cols-5">
+        <ul className="pointer-events-auto mx-auto grid max-w-3xl grid-cols-5 rounded-[1.55rem] border border-border/70 bg-card/80 p-1.25 shadow-[0_22px_50px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
           {MOBILE_NAV.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item);
+
             return (
-              <li key={item.href} className="relative">
+              <li key={item.href} className="relative min-w-0">
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex flex-col items-center gap-0.5 px-2 py-3 text-[11px] font-medium transition-colors active:scale-95",
-                    active
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground",
+                    "relative flex flex-col items-center gap-1 rounded-[1.1rem] px-1.5 py-1.5 text-[10px] font-semibold transition-colors active:scale-95",
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {active ? (
                     <motion.span
                       layoutId="instructor-nav-active"
-                      className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary"
+                      className="absolute inset-0 rounded-[1.1rem] bg-primary-soft"
                       transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     />
                   ) : null}
                   <span
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                      active ? "bg-primary-soft" : "bg-transparent",
+                      "relative z-10 flex h-[1.9rem] w-[1.9rem] items-center justify-center rounded-full transition-colors sm:h-7 sm:w-7",
+                      active ? "bg-primary/15" : "bg-transparent",
                     )}
                   >
-                    <Icon
-                      style={{ height: "1.125rem", width: "1.125rem" }}
-                      aria-hidden
-                    />
+                    <Icon className="h-[1.05rem] w-[1.05rem]" aria-hidden />
                   </span>
-                  {item.label}
+                  <span className="relative z-10 truncate">{item.label}</span>
                 </Link>
               </li>
             );

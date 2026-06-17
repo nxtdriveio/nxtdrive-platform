@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import { cache } from "react";
 import type {
   AuthenticatedUser,
   MemberRole,
@@ -13,7 +14,7 @@ import type {
  * or null if not logged in. Uses the service role to load profile + memberships
  * to avoid RLS recursion on the auth bootstrap path.
  */
-export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
+export const getCurrentUser = cache(async (): Promise<AuthenticatedUser | null> => {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -23,11 +24,44 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
 
   const service = createServiceRoleClient();
 
-  const { data: profile } = await service
+  const profileSelect =
+    "id, email, full_name, is_platform_admin, calendar_start_hour, calendar_end_hour, created_at";
+  const legacyProfileSelect = "id, email, full_name, is_platform_admin, created_at";
+
+  const { data: profileRaw, error: profileError } = await service
     .from("profiles")
-    .select("id, email, full_name, is_platform_admin, created_at")
+    .select(profileSelect)
     .eq("id", user.id)
-    .maybeSingle<Profile>();
+    .maybeSingle();
+
+  let profile = profileRaw as Profile | null;
+  if (profileError) {
+    const missingCalendarColumns =
+      profileError.message.includes("calendar_start_hour") ||
+      profileError.message.includes("calendar_end_hour");
+
+    if (!missingCalendarColumns) {
+      throw profileError;
+    }
+
+    const { data: legacyProfile, error: legacyProfileError } = await service
+      .from("profiles")
+      .select(legacyProfileSelect)
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (legacyProfileError) {
+      throw legacyProfileError;
+    }
+
+    profile = legacyProfile
+      ? ({
+          ...legacyProfile,
+          calendar_start_hour: 6,
+          calendar_end_hour: 22,
+        } as Profile)
+      : null;
+  }
 
   const { data: memberships } = await service
     .from("memberships")
@@ -44,7 +78,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
       Membership & { tenant: Tenant }
     >,
   };
-}
+});
 
 export function rolesForTenant(
   user: AuthenticatedUser,

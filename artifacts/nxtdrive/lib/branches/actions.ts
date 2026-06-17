@@ -1,21 +1,22 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  canManageExistingBranches,
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { tenantHasFeature } from "@/lib/platform/features";
+import { PLAN_LABELS } from "@/lib/platform/features";
 
-function assertMultiBranchEnabled(tenant: { plan: string }) {
-  if (!tenantHasFeature({ plan: tenant.plan as "start" | "pro" | "elite" }, "multi_branch")) {
-    redirect(
-      "/backoffice/instellingen/vestigingen?error=plan_required&plan=pro",
-    );
-  }
+function redirectPlanRequired(path: string): never {
+  redirect(
+    `${path}${path.includes("?") ? "&" : "?"}error=plan_required&plan=${encodeURIComponent(PLAN_LABELS.pro)}`,
+  );
 }
 
 export async function createBranch(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("branch:manage");
 
   const name = String(formData.get("name") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
@@ -27,9 +28,21 @@ export async function createBranch(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, organization.id);
+  if (!snapshot.featureAccess.multi_branch.allowed) {
+    redirectPlanRequired("/backoffice/instellingen/vestigingen");
+  }
+  const branchLimit = snapshot.limitStatuses.branches;
+
+  if (branchLimit.isAtLimit) {
+    redirect(
+      "/backoffice/instellingen/vestigingen?error=branch_limit_reached&limit=" +
+        encodeURIComponent(branchLimit.limitLabel),
+    );
+  }
 
   const { error } = await service.rpc("create_branch", {
-    p_tenant_id: tenant.id,
+    p_tenant_id: organization.id,
     p_name: name,
     p_slug: slug,
     p_address: address,
@@ -54,8 +67,7 @@ export async function createBranch(formData: FormData) {
 }
 
 export async function updateBranch(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("branch:manage");
 
   const branchId = String(formData.get("branch_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -68,6 +80,11 @@ export async function updateBranch(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, organization.id);
+
+  if (!canManageExistingBranches(snapshot)) {
+    redirectPlanRequired("/backoffice/instellingen/vestigingen");
+  }
 
   const { error } = await service.rpc("update_branch", {
     p_branch_id: branchId,
@@ -89,8 +106,7 @@ export async function updateBranch(formData: FormData) {
 }
 
 export async function setMembershipBranches(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
-  assertMultiBranchEnabled(tenant);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
 
   const membershipId = String(formData.get("membership_id") ?? "").trim();
   const raw = formData.getAll("branch_ids[]");
@@ -103,12 +119,19 @@ export async function setMembershipBranches(formData: FormData) {
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, organization.id);
+
+  if (!canManageExistingBranches(snapshot)) {
+    redirectPlanRequired(
+      `/backoffice/medewerkers/${membershipId}/vestigingen`,
+    );
+  }
 
   const { data: membership } = await service
     .from("memberships")
     .select("id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!membership) {

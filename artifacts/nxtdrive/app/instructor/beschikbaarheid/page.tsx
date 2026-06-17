@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeeklyEditor } from "@/components/availability/WeeklyEditor";
 import { ExceptionsManager } from "@/components/availability/ExceptionsManager";
 import {
+  PWACard,
+  PWAKpiGrid,
+  PWAKpiTile,
+  PWAPage,
+  PWAPageHeader,
+} from "@/components/pwa/primitives";
+import {
   loadExceptions,
   loadWeeklyAvailability,
 } from "@/lib/availability/service";
@@ -35,24 +42,46 @@ export default async function InstructorAvailabilityPage({
     loadWeeklyAvailability(supabase, tenant.id, user.id),
     loadExceptions(supabase, tenant.id, user.id),
   ]);
+  const activeWeekdays = new Set(weekly.map((block) => block.weekday)).size;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Link
-          href="/instructor/week"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" /> Terug naar weekplanning
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          Mijn beschikbaarheid
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Stel je wekelijkse beschikbaarheid in en zet uitzonderingen voor
-          specifieke datums. Tijden zijn in UTC.
-        </p>
-      </div>
+    <PWAPage app="instructor" contentClassName="space-y-5 xl:space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Mijn beschikbaarheid"
+        description="Stel je wekelijkse beschikbaarheid in en beheer uitzonderingen voor specifieke datums. Tijden worden gebruikt in Europe/Amsterdam."
+        align="left"
+        actions={
+          <Link
+            href="/instructor/week"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Terug naar agenda
+          </Link>
+        }
+      />
+
+      <PWAKpiGrid compact className="lg:grid-cols-3">
+        <PWAKpiTile
+          label="Actieve blokken"
+          value={weekly.length}
+          hint="Terugkerende tijdvakken in je basisweek."
+          info="Alle wekelijkse beschikbaarheidsblokken die standaard terugkomen in jouw agenda."
+        />
+        <PWAKpiTile
+          label="Beschikbare dagen"
+          value={activeWeekdays}
+          hint="Dagen waarop je momenteel lesruimte openzet."
+          info="Aantal weekdagen waarop je nu één of meer lesvensters beschikbaar hebt gemaakt."
+        />
+        <PWAKpiTile
+          label="Uitzonderingen"
+          value={exceptions.length}
+          hint="Vakantie, examenmomenten of extra openingen."
+          info="Eenmalige afwijkingen op je basisweek, zoals vakantie, losse openingen of geblokkeerde momenten."
+        />
+      </PWAKpiGrid>
 
       {sp.error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -60,34 +89,52 @@ export default async function InstructorAvailabilityPage({
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Wekelijks schema</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WeeklyEditor
-            initial={weekly}
-            instructorId={user.id}
-            redirectTo={REDIRECT}
-            action={saveWeeklyAvailability}
-          />
-        </CardContent>
-      </Card>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)]">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Wekelijks schema</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WeeklyEditor
+              initial={weekly}
+              instructorId={user.id}
+              branchId={null}
+              redirectTo={REDIRECT}
+              action={saveWeeklyAvailability}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Uitzonderingen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ExceptionsManager
-            exceptions={exceptions}
-            instructorId={user.id}
-            redirectTo={REDIRECT}
-            addAction={addAvailabilityException}
-            deleteAction={deleteAvailabilityException}
-          />
-        </CardContent>
-      </Card>
-    </div>
+        <div className="space-y-5">
+          <PWACard
+            title="Ritme en uitzonderingen"
+            className="bg-card"
+            contentClassName="space-y-2"
+          >
+            <p className="text-sm leading-6 text-muted-foreground">
+              Houd je basisweek links compact en gebruik uitzonderingen alleen
+              voor dagen die afwijken. Zo blijft je planning overzichtelijk en
+              past deze pagina beter in een tabletviewport.
+            </p>
+          </PWACard>
+
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Uitzonderingen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ExceptionsManager
+                exceptions={exceptions}
+                instructorId={user.id}
+                branchId={null}
+                redirectTo={REDIRECT}
+                addAction={addAvailabilityException}
+                deleteAction={deleteAvailabilityException}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </PWAPage>
   );
 }

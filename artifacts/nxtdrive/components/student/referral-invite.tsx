@@ -2,26 +2,24 @@
 
 import * as React from "react";
 import { Check, Copy, Gift, Share2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  STUDENT_ACCENT_SURFACE,
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 import type { StudentReferralSummary } from "@/lib/referrals/data";
 
 function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("nl-NL", {
     day: "numeric",
     month: "short",
-  }).format(d);
+  }).format(date);
 }
 
-/**
- * Task #113 — "Nodig een vriend uit". Toont de persoonlijke referrallink van de
- * leerling met een kopieer- en deelknop, plus de status van de eigen aandragingen.
- * De link verwijst naar het intakeformulier van de rijschool met de code als
- * `?ref=`, zodat een nieuwe aanmelding aan deze leerling wordt toegeschreven.
- */
 export function ReferralInvite({
   url,
   schoolName,
@@ -33,17 +31,17 @@ export function ReferralInvite({
 }) {
   const [copied, setCopied] = React.useState(false);
 
-  const copy = async () => {
+  async function copy() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Klembord niet beschikbaar — de leerling kan de link handmatig selecteren.
+      // If the clipboard is unavailable, the student can still copy the link manually.
     }
-  };
+  }
 
-  const share = async () => {
+  async function share() {
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({
@@ -53,42 +51,48 @@ export function ReferralInvite({
         });
         return;
       } catch {
-        // Gebruiker annuleerde of delen mislukte — val terug op kopiëren.
+        // Ignore cancellations and fall back to copying.
       }
     }
     await copy();
-  };
+  }
 
   return (
-    <Card className="border-primary/40 bg-primary-soft/30">
-      <CardContent className="space-y-3 pt-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
-          <Gift className="h-4 w-4" aria-hidden />
-          Nodig een vriend uit
-        </div>
-        <p className="text-sm text-muted-foreground">
+    <StudentShowcaseCard
+      title="Nodig een vriend uit"
+      eyebrow="Persoonlijke link"
+      info="Deel je eigen link. Zodra iemand daarmee inschrijft, wordt die aanmelding automatisch aan jou gekoppeld."
+      className="border-primary/20"
+      style={{
+        background: STUDENT_ACCENT_SURFACE,
+      }}
+    >
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-white/60">
           Ken je iemand die zijn rijbewijs wil halen? Deel je persoonlijke link.
-          Schrijft iemand zich in via jouw link, dan koppelen we die aanmelding
+          Schrijft iemand zich via jouw link in, dan koppelen we die aanmelding
           automatisch aan jou.
         </p>
-        <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-            {url}
-          </span>
+
+        <div className="flex items-center gap-2 rounded-[1rem] border border-white/10 bg-black/20 px-3 py-2.5">
+          <Gift className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-sm text-white">{url}</span>
           <Button
             type="button"
             size="sm"
             variant="ghost"
+            className="text-white/72 hover:bg-white/10 hover:text-white"
             onClick={copy}
             aria-label="Kopieer link"
           >
             {copied ? (
-              <Check className="h-4 w-4 text-emerald-600" aria-hidden />
+              <Check className="h-4 w-4 text-emerald-300" aria-hidden />
             ) : (
               <Copy className="h-4 w-4" aria-hidden />
             )}
           </Button>
         </div>
+
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={share}>
             <Share2 className="h-4 w-4" aria-hidden />
@@ -100,30 +104,30 @@ export function ReferralInvite({
         </div>
 
         {summary && summary.total > 0 ? (
-          <div className="space-y-2 border-t pt-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-2 border-t border-white/8 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs uppercase tracking-wider text-white/42">
                 Jouw aandragingen
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-white/46">
                 {summary.total} totaal · {summary.convertedCount} gestart
               </span>
             </div>
             <ul className="space-y-1.5">
-              {summary.referrals.map((r) => (
+              {summary.referrals.map((referral) => (
                 <li
-                  key={r.leadId}
-                  className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-3 py-2"
+                  key={referral.leadId}
+                  className="flex items-center justify-between gap-2 rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-2.5"
                 >
-                  <span className="min-w-0 truncate text-sm text-foreground">
-                    {r.fullName ?? "Aanmelding"}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {formatWhen(r.createdAt)}
+                  <span className="min-w-0 truncate text-sm text-white">
+                    {referral.fullName ?? "Aanmelding"}
+                    <span className="ml-2 text-xs text-white/44">
+                      {formatWhen(referral.createdAt)}
                     </span>
                   </span>
-                  {r.rewardHandled ? (
+                  {referral.rewardHandled ? (
                     <Badge variant="success">Beloning ontvangen</Badge>
-                  ) : r.converted ? (
+                  ) : referral.converted ? (
                     <Badge variant="primary">Gestart</Badge>
                   ) : (
                     <Badge variant="default">Aangemeld</Badge>
@@ -133,11 +137,13 @@ export function ReferralInvite({
             </ul>
           </div>
         ) : summary ? (
-          <p className="border-t pt-3 text-xs text-muted-foreground">
-            Nog geen aandragingen. Deel je link om vrienden uit te nodigen!
-          </p>
+          <StudentShowcaseNotice
+            title="Nog geen aandragingen"
+            description="Deel je link om vrienden uit te nodigen en je eerste aanmelding te verzamelen."
+            icon={<Gift className="h-5 w-5" aria-hidden />}
+          />
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }

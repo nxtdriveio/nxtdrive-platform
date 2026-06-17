@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
+import { InfoBubble } from "@/components/ui/info-bubble";
 import { cn } from "@/lib/utils";
 
 type PWAAppKind = "student" | "instructor";
@@ -20,10 +21,10 @@ export function PWAPage({
   return (
     <div
       className={cn(
-        "min-w-0 space-y-4 sm:space-y-5",
+        "min-w-0 space-y-3.5 sm:space-y-[1.125rem]",
         app === "student"
-          ? "mx-auto max-w-[31rem] md:max-w-5xl xl:max-w-7xl"
-          : "mx-auto max-w-6xl",
+          ? "mx-auto max-w-[31rem] md:max-w-5xl 2xl:max-w-7xl"
+          : "mx-auto w-full max-w-[100rem]",
         className,
       )}
     >
@@ -52,31 +53,45 @@ export function PWAHero({
       className={cn(
         "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-2xl",
         app === "student"
-          ? "px-4 py-5 sm:px-5 sm:py-6"
-          : "px-5 py-5 sm:px-6 sm:py-6 lg:px-7",
+          ? "px-4 py-[1.125rem] sm:px-5 sm:py-[1.375rem]"
+          : "px-[1.125rem] py-4 sm:px-6 sm:py-5 lg:px-7",
         className,
       )}
       style={{
         background:
           app === "student"
-            ? "var(--brand-hero-background)"
-            : "radial-gradient(circle at 8% 0%, rgba(255,255,255,0.16), transparent 26%), radial-gradient(circle at 100% 20%, rgba(245,158,11,0.18), transparent 32%), linear-gradient(140deg, #131520, #0a0b12 62%, #05060b)",
+            ? "radial-gradient(circle at 16% 0%, rgba(255,255,255,0.24), transparent 28%), radial-gradient(circle at 100% 0%, rgba(255,255,255,0.1), transparent 30%), linear-gradient(145deg, var(--hero-surface-start), var(--hero-surface-mid) 60%, var(--hero-surface-end))"
+            : "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 28%), radial-gradient(circle at 100% 18%, var(--hero-accent-soft), transparent 32%), linear-gradient(140deg, var(--hero-surface-start), var(--hero-surface-mid) 58%, var(--hero-surface-end))",
       }}
     >
       <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full border border-white/10" />
       <div className="pointer-events-none absolute -bottom-24 left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
       <div className="relative flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-1.5">
           {eyebrow ? (
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="text-balance text-[clamp(1.75rem,4vw,3.5rem)] font-black leading-[1.02] tracking-tight text-white">
+          <h1
+            className={cn(
+              "text-balance font-black leading-[1.02] tracking-tight text-white",
+              app === "student"
+                ? "text-[clamp(1.72rem,7vw,2.65rem)]"
+                : "text-[clamp(1.75rem,4vw,3.5rem)]",
+            )}
+          >
             {title}
           </h1>
           {subtitle ? (
-            <p className="max-w-2xl text-sm leading-6 text-white/72 sm:text-[0.95rem]">
+            <p
+              className={cn(
+                "max-w-2xl text-sm text-white/72",
+                app === "student"
+                  ? "leading-[1.375rem] sm:text-[0.94rem]"
+                  : "leading-6 sm:text-[0.95rem]",
+              )}
+            >
               {subtitle}
             </p>
           ) : null}
@@ -100,7 +115,9 @@ export function PWAKpiGrid({
     <div
       className={cn(
         "grid min-w-0 gap-3",
-        compact ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4",
+        compact
+          ? "grid-cols-2 gap-2.5 sm:gap-3"
+          : "grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3",
         className,
       )}
     >
@@ -113,28 +130,39 @@ export function PWAKpiTile({
   label,
   value,
   hint,
+  info,
   className,
 }: {
   label: ReactNode;
   value: ReactNode;
   hint?: ReactNode;
+  info?: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "min-w-0 rounded-2xl border border-border/70 bg-card/88 px-3.5 py-3.5 shadow-sm backdrop-blur",
+        "min-w-0 rounded-[1.2rem] border border-border/70 bg-card/88 px-3 py-3 shadow-sm backdrop-blur sm:rounded-2xl sm:px-3.5 sm:py-3.5",
         className,
       )}
     >
-      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:text-xl">
+      <div className="flex min-w-0 items-center gap-2">
+        <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
+        {info ? (
+          <InfoBubble className="h-4 w-4" contentClassName="w-64">
+            {info}
+          </InfoBubble>
+        ) : null}
+      </div>
+      <p className="mt-1 truncate text-[1.05rem] font-bold tracking-tight text-foreground sm:text-xl">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</p>
+        <p className="mt-1 text-[11px] leading-[1.125rem] text-muted-foreground sm:text-xs sm:leading-5">
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -160,12 +188,12 @@ export function PWACard({
   return (
     <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/88 shadow-sm backdrop-blur",
+        "min-w-0 overflow-hidden rounded-[1.35rem] border border-border/70 bg-card/88 shadow-sm backdrop-blur sm:rounded-[1.5rem]",
         className,
       )}
     >
       {title ? (
-        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3.5">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/70 px-3.5 py-3 sm:px-4 sm:py-3.5">
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
             {title}
           </div>
@@ -182,7 +210,9 @@ export function PWACard({
           </div>
         </div>
       ) : null}
-      <div className={cn("min-w-0 px-4 py-4", contentClassName)}>{children}</div>
+      <div className={cn("min-w-0 px-3.5 py-3.5 sm:px-4 sm:py-4", contentClassName)}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -258,7 +288,7 @@ export function PWAPageHeader({
             "flex min-w-0 items-center gap-2 tracking-tight text-foreground",
             align === "wide"
               ? "text-[clamp(1.7rem,3vw,2.4rem)] font-black"
-              : "text-xl font-black sm:text-2xl",
+              : "text-lg font-black sm:text-2xl",
           )}
         >
           {icon ? (

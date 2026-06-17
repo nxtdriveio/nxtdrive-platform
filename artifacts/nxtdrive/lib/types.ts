@@ -66,6 +66,8 @@ export type Profile = {
   email: string;
   full_name: string | null;
   is_platform_admin: boolean;
+  calendar_start_hour: number;
+  calendar_end_hour: number;
   created_at: string;
 };
 
@@ -93,6 +95,52 @@ export type TenantBranding = {
   primary_foreground: string | null;
   custom_domain: string | null;
   welcome_message: string | null;
+  theme_preset_id: string | null;
+  theme_overrides: ThemeOverrides | null;
+};
+
+export type ThemeMode = "light" | "dark";
+
+export type ThemeTokenKey =
+  | "background"
+  | "foreground"
+  | "card"
+  | "card_foreground"
+  | "muted"
+  | "muted_foreground"
+  | "border"
+  | "input"
+  | "popover"
+  | "popover_foreground"
+  | "accent"
+  | "accent_foreground"
+  | "primary"
+  | "primary_foreground"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info";
+
+export type ThemeTokenSet = Record<ThemeTokenKey, string>;
+
+export type ThemeTokenOverrides = Partial<ThemeTokenSet>;
+
+export type ThemeOverrides = {
+  light?: ThemeTokenOverrides | null;
+  dark?: ThemeTokenOverrides | null;
+};
+
+export type ThemePreset = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  tokens_light: ThemeTokenSet;
+  tokens_dark: ThemeTokenSet;
+  is_system: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TenantDomainType = "subdomain" | "custom";

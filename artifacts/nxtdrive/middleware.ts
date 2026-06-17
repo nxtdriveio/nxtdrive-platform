@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getSupabaseCookieOptions } from "@/lib/supabase/cookie-options";
 
 const CHANGE_PASSWORD_PATH = "/account/wachtwoord-wijzigen";
 
@@ -9,11 +10,40 @@ const BYPASS_PATHS = [
   "/api/",
   "/intake/",
   "/privacy",
-  CHANGE_PASSWORD_PATH,
+  "/manifest.webmanifest",
+  "/student/manifest.webmanifest",
+  "/instructor/manifest.webmanifest",
 ];
+
+const PROTECTED_PATHS = [
+  "/admin",
+  "/backoffice",
+  "/student",
+  "/instructor",
+  "/ouder",
+  "/account",
+  "/select-tenant",
+];
+
+const PUBLIC_FILE_RE = /\.(?:css|js|map|json|webmanifest|svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$/i;
 
 function isBypassPath(pathname: string): boolean {
   return BYPASS_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function shouldSkipAuthRefresh(pathname: string): boolean {
+  return isBypassPath(pathname) || PUBLIC_FILE_RE.test(pathname);
+}
+
+function withAppSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  return response;
 }
 
 function isLocalHost(host: string): boolean {
@@ -40,15 +70,21 @@ function buildRedirectUrl(request: NextRequest, pathname: string): string {
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+
+  if (!isProtectedPath(pathname) || shouldSkipAuthRefresh(pathname)) {
+    return withAppSecurityHeaders(response);
+  }
 
   const supabaseUrl = process.env["SUPABASE_URL"];
   const supabaseAnonKey = process.env["SUPABASE_ANON_KEY"];
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return response;
+    return withAppSecurityHeaders(response);
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -79,16 +115,24 @@ export async function middleware(request: NextRequest) {
   if (
     user &&
     user.user_metadata?.["must_change_password"] === true &&
-    !isBypassPath(request.nextUrl.pathname)
+    pathname !== CHANGE_PASSWORD_PATH
   ) {
-    return NextResponse.redirect(buildRedirectUrl(request, CHANGE_PASSWORD_PATH));
+    return withAppSecurityHeaders(
+      NextResponse.redirect(buildRedirectUrl(request, CHANGE_PASSWORD_PATH)),
+    );
   }
 
-  return response;
+  return withAppSecurityHeaders(response);
 }
 
 export const config = {
   matcher: [
-    "/((?!api/health|api/tls-check|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/admin/:path*",
+    "/backoffice/:path*",
+    "/student/:path*",
+    "/instructor/:path*",
+    "/ouder/:path*",
+    "/account/:path*",
+    "/select-tenant",
   ],
 };

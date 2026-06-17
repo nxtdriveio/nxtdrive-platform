@@ -32,9 +32,9 @@ export function DashboardShell({
   }, [mobileOpen]);
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-[var(--surface-canvas)] text-foreground">
       {/* ── Desktop fixed sidebar ── */}
-      <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-card">
+      <aside className="hidden md:flex md:w-72 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-[var(--admin-sidebar)]">
         {sidebar}
       </aside>
 
@@ -52,7 +52,7 @@ export function DashboardShell({
           />
           <div
             ref={drawerRef}
-            className="absolute inset-y-0 left-0 z-50 flex w-64 flex-col bg-card shadow-2xl"
+            className="absolute inset-y-0 left-0 z-50 flex w-72 flex-col bg-[var(--admin-sidebar)] shadow-2xl"
           >
             <div className="flex h-14 shrink-0 items-center justify-end border-b border-border px-3">
               <button
@@ -71,7 +71,7 @@ export function DashboardShell({
 
       {/* ── Content area ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center gap-0 border-b border-border bg-card/60 backdrop-blur">
+        <header className="flex h-16 shrink-0 items-center gap-0 border-b border-border bg-[var(--admin-header)] backdrop-blur">
           {/* Hamburger — mobile only */}
           <button
             type="button"
@@ -94,7 +94,7 @@ export function DashboardShell({
           <div className="flex-1">{topbar}</div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

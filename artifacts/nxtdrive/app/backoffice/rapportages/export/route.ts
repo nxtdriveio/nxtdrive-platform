@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireAdvancedReportExportAccess } from "@/lib/platform/commercial-access";
 import {
   getReport,
   defaultReportRange,
@@ -22,6 +23,9 @@ function csvField(value: string): string {
 
 export async function GET(request: NextRequest) {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const blocked = await requireAdvancedReportExportAccess(tenant.id);
+  if (blocked) return blocked;
+
   const supabase = await createServerSupabaseClient();
 
   const sp = request.nextUrl.searchParams;

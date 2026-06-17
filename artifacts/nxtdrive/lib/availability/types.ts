@@ -2,7 +2,8 @@
 // Availability (beschikbaarheid) domain types + small time helpers.
 //
 // Times are stored as integer MINUTES from midnight (0..1440), interpreted in
-// UTC for this phase. Weekday uses JS getUTCDay() semantics: 0=Sunday .. 6=Sat.
+// Europe/Amsterdam for product-facing planning. Weekday uses JS getUTCDay()
+// semantics: 0=Sunday .. 6=Sat.
 // ---------------------------------------------------------------------------
 
 export type AvailabilityExceptionKind = "available" | "blocked";
@@ -10,6 +11,7 @@ export type AvailabilityExceptionKind = "available" | "blocked";
 export type WeeklyAvailability = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   weekday: number; // 0=Sunday .. 6=Saturday
   start_min: number;
@@ -21,6 +23,7 @@ export type WeeklyAvailability = {
 export type AvailabilityException = {
   id: string;
   tenant_id: string;
+  branch_id: string | null;
   instructor_id: string;
   exception_date: string; // YYYY-MM-DD
   kind: AvailabilityExceptionKind;

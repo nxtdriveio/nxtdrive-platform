@@ -10,7 +10,8 @@
  *  3. add_lesson_note succeeds for tenant_admin/instructor, writes audit row.
  *  4. mark_lesson_no_show flips status, no refund, audit row created.
  *  5. mark_lesson_no_show rejects non-planned lessons.
- *  6. set_lesson_progress stores score+summary; rejects out-of-range score.
+ *  6. set_lesson_progress stores score+summary for an in-progress lesson;
+ *     rejects out-of-range score.
  *  7. Cross-tenant access to lesson_notes blocked by RLS.
  */
 import { createClient } from "@supabase/supabase-js";
@@ -263,8 +264,13 @@ async function main(): Promise<void> {
     }
   }
 
-  // ---- 6. set_lesson_progress stores + rejects out-of-range --------------
+  // ---- 6. set_lesson_progress stores for in-progress + rejects out-of-range
   {
+    const started = await serviceClient.rpc("start_lesson", {
+      p_lesson_id: lessonId,
+      p_tenant_id: tenantId,
+      p_actor: instructorId,
+    });
     const ok = await serviceClient.rpc("set_lesson_progress", {
       p_lesson_id: lessonId,
       p_tenant_id: tenantId,
@@ -290,11 +296,13 @@ async function main(): Promise<void> {
     });
 
     results.push({
-      name: "set_lesson_progress stores & rejects out-of-range",
-      ok: !ok.error && stored && bad.error !== null,
-      detail: ok.error
-        ? ok.error.message
-        : `stored=${stored} rejected_high=${bad.error !== null}`,
+      name: "set_lesson_progress stores for in-progress lesson & rejects out-of-range",
+      ok: !started.error && !ok.error && stored && bad.error !== null,
+      detail: started.error
+        ? started.error.message
+        : ok.error
+          ? ok.error.message
+          : `stored=${stored} rejected_high=${bad.error !== null}`,
     });
   }
 

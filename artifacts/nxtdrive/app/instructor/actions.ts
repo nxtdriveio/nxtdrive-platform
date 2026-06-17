@@ -3,14 +3,29 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { requireAgendaAppointmentAccess } from "@/lib/agenda/access";
+import { durationMinutes } from "@/lib/agenda/types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  loadPlanningKernelData,
+  PlanningValidationError,
+  rescheduleAppointment,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
 import {
   notifyCbrAuthorizationNeeded,
   maybeFireLessonReviewMoments,
 } from "@/lib/notifications/dispatch";
 import type { Lesson } from "@/lib/lessons/types";
+import type { MemberRole } from "@/lib/types";
 
 type ActionResult = { error?: string };
+
+function isValidColorOverride(color: string | null): boolean {
+  if (color === null) return true;
+  return /^#[0-9a-fA-F]{6}$/.test(color);
+}
 
 /**
  * Loads the lesson and asserts the actor either owns it (instructor_id matches)
@@ -18,9 +33,16 @@ type ActionResult = { error?: string };
  * check is an additional defense-in-depth layer so one instructor cannot mutate
  * another instructor's lesson via the instructor UI.
  */
-async function loadOwnedLesson(
-  lessonId: string,
-): Promise<{ lesson: Lesson; userId: string; tenantId: string } | string> {
+async function loadOwnedLesson(lessonId: string): Promise<
+  | {
+      lesson: Lesson;
+      userId: string;
+      tenantId: string;
+      roles: readonly MemberRole[];
+      isPlatformAdmin: boolean;
+    }
+  | string
+> {
   if (!lessonId) return "lesson_id ontbreekt";
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -40,7 +62,225 @@ async function loadOwnedLesson(
   if (!isAdmin && lesson.instructor_id !== user.id) {
     return "Niet geautoriseerd voor deze les";
   }
-  return { lesson, userId: user.id, tenantId: tenant.id };
+  return {
+    lesson,
+    userId: user.id,
+    tenantId: tenant.id,
+    roles,
+    isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+  };
+}
+
+function planningActorForOwnedMutation(ctx: {
+  userId: string;
+  tenantId: string;
+  roles: readonly string[];
+  isPlatformAdmin: boolean;
+}): PlanningActorAccess {
+  const canManageTenant =
+    ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
+  return {
+    userId: ctx.userId,
+    roles: ctx.roles as PlanningActorAccess["roles"],
+    isPlatformAdmin: ctx.isPlatformAdmin,
+    tenantIds: canManageTenant ? [ctx.tenantId] : [],
+    branchAccess: canManageTenant
+      ? [{ tenantId: ctx.tenantId, branchIds: "all" }]
+      : [{ tenantId: ctx.tenantId, branchIds: "all" }],
+  };
+}
+
+function planningScopeForTenantBranch(
+  tenantId: string,
+  branchId: string | null | undefined,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningErrorMessage(error: unknown): string {
+  if (error instanceof PlanningValidationError) {
+    return error.validation.blockingReasons[0]?.message ?? error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Planningvalidatie is mislukt.";
+}
+
+export async function moveOwnedLessonAction(input: {
+  lessonId: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<ActionResult> {
+  const ctx = await loadOwnedLesson(input.lessonId);
+  if (typeof ctx === "string") return { error: ctx };
+
+  const startsAt = new Date(input.startsAt);
+  const endsAt = new Date(input.endsAt);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return { error: "Ongeldige agenda-tijd." };
+  }
+  if (startsAt >= endsAt) {
+    return { error: "De eindtijd moet na de starttijd liggen." };
+  }
+
+  const service = createServiceRoleClient();
+  const planningInput = {
+    actor: planningActorForOwnedMutation(ctx),
+    scope: planningScopeForTenantBranch(ctx.tenantId, ctx.lesson.branch_id),
+    entityType: "lesson" as const,
+    entityId: input.lessonId,
+    tenantId: ctx.tenantId,
+    branchId: ctx.lesson.branch_id,
+    instructorId: ctx.lesson.instructor_id,
+    vehicleId: ctx.lesson.vehicle_id,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: ctx.lesson.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+
+  try {
+    await rescheduleAppointment(planningInput, kernelData, async () => {
+      const { error } = await service
+        .from("lessons")
+        .update({
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+        })
+        .eq("id", input.lessonId)
+        .eq("tenant_id", ctx.tenantId);
+      if (error) throw new Error(error.message);
+      return true;
+    });
+  } catch (error) {
+    return { error: planningErrorMessage(error) };
+  }
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/${input.lessonId}`);
+  return {};
+}
+
+export async function moveOwnedAppointmentAction(input: {
+  appointmentId: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<ActionResult> {
+  const service = createServiceRoleClient();
+  const access = await requireAgendaAppointmentAccess(
+    service,
+    input.appointmentId,
+    "manage",
+  );
+  if (!access.appointment)
+    return { error: "Niet geautoriseerd voor deze afspraak." };
+  const appointment = access.appointment;
+
+  const startsAt = new Date(input.startsAt);
+  const endsAt = new Date(input.endsAt);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return { error: "Ongeldige agenda-tijd." };
+  }
+  if (startsAt >= endsAt) {
+    return { error: "De eindtijd moet na de starttijd liggen." };
+  }
+
+  const tenantId = access.context.organization.id;
+  const planningInput = {
+    actor: {
+      userId: access.context.user.id,
+      roles: access.context.roles,
+      isPlatformAdmin: Boolean(access.context.user.profile?.is_platform_admin),
+      tenantIds:
+        access.context.user.profile?.is_platform_admin ||
+        access.context.roles.includes("tenant_admin")
+          ? [tenantId]
+          : [],
+      branchAccess: [
+        {
+          tenantId,
+          branchIds:
+            access.branchScope.scope_type === "all"
+              ? ("all" as const)
+              : (access.branchScope.branch_ids ?? []),
+        },
+      ],
+    },
+    scope: planningScopeForTenantBranch(tenantId, access.appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: input.appointmentId,
+    tenantId,
+    branchId: access.appointmentBranchId,
+    instructorId: appointment.instructor_id,
+    vehicleId: appointment.vehicle_id,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: appointment.pickup_service_area_id,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+
+  try {
+    await rescheduleAppointment(planningInput, kernelData, async () => {
+      const { error } = await service.rpc("update_agenda_appointment", {
+        p_appointment_id: input.appointmentId,
+        p_tenant_id: tenantId,
+        p_actor: access.context.user.id,
+        p_starts_at: startsAt.toISOString(),
+        p_duration_min: durationMinutes(
+          startsAt.toISOString(),
+          endsAt.toISOString(),
+        ),
+        p_student_id: appointment.student_id,
+        p_branch_id: access.appointmentBranchId,
+        p_title: appointment.title,
+        p_location: appointment.location,
+        p_notes: appointment.notes,
+        p_vehicle_id: appointment.vehicle_id,
+      });
+      if (error) throw new Error(error.message);
+      return true;
+    });
+  } catch (error) {
+    return { error: planningErrorMessage(error) };
+  }
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  return {};
+}
+
+export async function setOwnedAppointmentColorAction(input: {
+  appointmentId: string;
+  color: string | null;
+}): Promise<ActionResult> {
+  if (!isValidColorOverride(input.color)) {
+    return { error: "Ongeldige kleur." };
+  }
+
+  const service = createServiceRoleClient();
+  const access = await requireAgendaAppointmentAccess(
+    service,
+    input.appointmentId,
+    "manage",
+  );
+  if (!access.appointment)
+    return { error: "Niet geautoriseerd voor deze afspraak." };
+
+  const { error } = await service
+    .from("agenda_appointments")
+    .update({ color_override: input.color })
+    .eq("id", input.appointmentId)
+    .eq("tenant_id", access.context.organization.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/instructor");
+  revalidatePath("/instructor/week");
+  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  return {};
 }
 
 export async function startLessonAction(formData: FormData): Promise<void> {
@@ -84,7 +324,11 @@ export async function completeLessonAction(formData: FormData): Promise<void> {
   }
   // Task #113 — beoordeel reviewmomenten (na N lessen / examenwaardig). Best-
   // effort: faalt nooit de lesactie; idempotent via de dedupe key.
-  await maybeFireLessonReviewMoments(service, ctx.tenantId, ctx.lesson.student_id);
+  await maybeFireLessonReviewMoments(
+    service,
+    ctx.tenantId,
+    ctx.lesson.student_id,
+  );
   revalidatePath(`/instructor/${lessonId}`);
   revalidatePath("/instructor");
   redirect(`/instructor/${lessonId}`);
@@ -94,7 +338,9 @@ export async function cancelLessonAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 500);
   if (!reason) return { error: "Reden is verplicht" };
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -137,7 +383,9 @@ export async function addLessonNoteAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
-  const body = String(formData.get("body") ?? "").trim().slice(0, 4000);
+  const body = String(formData.get("body") ?? "")
+    .trim()
+    .slice(0, 4000);
   if (!body) return { error: "Notitie kan niet leeg zijn" };
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -214,7 +462,9 @@ export async function setLessonProgressAction(
 ): Promise<ActionResult> {
   const lessonId = String(formData.get("lesson_id") ?? "");
   const scoreRaw = String(formData.get("score") ?? "");
-  const summary = String(formData.get("summary") ?? "").trim().slice(0, 2000);
+  const summary = String(formData.get("summary") ?? "")
+    .trim()
+    .slice(0, 2000);
   const score = parseInt(scoreRaw, 10);
   if (!Number.isFinite(score) || score < 0 || score > 10) {
     return { error: "Score moet tussen 0 en 10 liggen" };
@@ -287,10 +537,18 @@ export async function setLessonContextAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
   const locationId = String(formData.get("location_id") ?? "").trim() || null;
-  const studentNote = String(formData.get("student_note") ?? "").trim().slice(0, 4000);
-  const internalNote = String(formData.get("internal_note") ?? "").trim().slice(0, 4000);
-  const attention = String(formData.get("attention_points") ?? "").trim().slice(0, 4000);
-  const advies = String(formData.get("advice") ?? "").trim().slice(0, 4000);
+  const studentNote = String(formData.get("student_note") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const internalNote = String(formData.get("internal_note") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const attention = String(formData.get("attention_points") ?? "")
+    .trim()
+    .slice(0, 4000);
+  const advies = String(formData.get("advice") ?? "")
+    .trim()
+    .slice(0, 4000);
   const topicSkillIds = formData
     .getAll("topic_skill_ids")
     .map((v) => String(v))
@@ -331,7 +589,9 @@ export async function assignTheoryHomeworkAction(
   const lessonId = String(formData.get("lesson_id") ?? "");
   const moduleId = String(formData.get("module_id") ?? "").trim();
   const deadline = String(formData.get("deadline") ?? "").trim() || null;
-  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+  const note = String(formData.get("note") ?? "")
+    .trim()
+    .slice(0, 1000);
   if (!moduleId) return { error: "Kies een theoriemodule" };
 
   const ctx = await loadOwnedLesson(lessonId);

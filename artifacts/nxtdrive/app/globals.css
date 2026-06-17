@@ -19,6 +19,8 @@
   --color-primary-soft: var(--primary-soft);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
@@ -72,6 +74,26 @@
 :root {
   color-scheme: light;
 
+  --platform-background: #f4f5f8;
+  --platform-foreground: #0b0b14;
+  --platform-card: #fbfbfd;
+  --platform-card-foreground: #0b0b14;
+  --platform-muted: #eceef3;
+  --platform-muted-foreground: #62687a;
+  --platform-border: #d9dde7;
+  --platform-input: #ffffff;
+  --platform-ring: #7c5cff;
+  --platform-primary: #6b4eff;
+  --platform-primary-foreground: #ffffff;
+  --platform-accent: #f3eeff;
+  --platform-accent-foreground: #392693;
+  --platform-popover: #ffffff;
+  --platform-popover-foreground: #0b0b14;
+  --platform-success: #10a36c;
+  --platform-warning: #d97706;
+  --platform-danger: #dc2626;
+  --platform-info: #2563eb;
+
   --brand-background: #f7f8fc;
   --brand-foreground: #101323;
   --brand-primary: #5a4bff;
@@ -110,14 +132,14 @@
   --shadow-soft: 0 12px 32px rgba(15, 23, 42, 0.07);
   --shadow-floating: 0 24px 70px rgba(15, 23, 42, 0.16);
 
-  --background: var(--brand-background);
-  --foreground: var(--brand-foreground);
-  --card: #ffffff;
-  --card-foreground: var(--brand-foreground);
-  --muted: var(--brand-muted);
-  --muted-foreground: var(--brand-muted-foreground);
-  --border: var(--brand-border);
-  --input: #ffffff;
+  --background: var(--platform-background);
+  --foreground: var(--platform-foreground);
+  --card: var(--platform-card);
+  --card-foreground: var(--platform-card-foreground);
+  --muted: var(--platform-muted);
+  --muted-foreground: var(--platform-muted-foreground);
+  --border: var(--platform-border);
+  --input: var(--platform-input);
   --ring: var(--brand-ring);
 
   --primary: var(--brand-primary);
@@ -126,29 +148,84 @@
 
   --accent: var(--brand-accent);
   --accent-foreground: var(--brand-accent-foreground);
+  --popover: var(--platform-popover);
+  --popover-foreground: var(--platform-popover-foreground);
 
   --success: var(--brand-success);
   --warning: var(--brand-warning);
   --danger: var(--brand-danger);
   --info: var(--brand-info);
 
-  --tenant-primary: var(--primary);
-  --tenant-primary-foreground: var(--primary-foreground);
+  --surface-canvas: #eef1f6;
+  --surface-1: #fbfbfd;
+  --surface-2: #f5f6fa;
+  --surface-3: #edf0f6;
+  --surface-raised: #ffffff;
+  --admin-header: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  --admin-sidebar: #f7f8fb;
+  --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
+  --admin-card-shadow: 0 14px 34px color-mix(in oklab, black 7%, transparent);
+  --admin-card-shadow-hover: 0 18px 42px color-mix(in oklab, black 10%, transparent);
+  --admin-grid-line: color-mix(in oklab, var(--border) 76%, transparent);
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 8%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 4%, transparent);
+
+  --hero-accent-soft: color-mix(in oklab, var(--primary) 18%, transparent);
+  --hero-surface-start: color-mix(in oklab, var(--primary) 88%, #0f172a);
+  --hero-surface-mid: color-mix(in oklab, var(--primary) 42%, #020617);
+  --hero-surface-end: #020617;
+
+  --cta-gradient-start: color-mix(in oklab, var(--primary) 76%, white);
+  --cta-gradient-end: var(--primary);
+  --cta-shadow-color: color-mix(in oklab, var(--primary) 32%, transparent);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
+  --platform-background: #101218;
+  --platform-foreground: #ececf2;
+  --platform-card: #181b24;
+  --platform-card-foreground: #ececf2;
+  --platform-muted: #202431;
+  --platform-muted-foreground: #a3a8b8;
+  --platform-border: #2e3442;
+  --platform-input: #171a23;
+  --platform-ring: #8b6fff;
+  --platform-primary: #8b6fff;
+  --platform-primary-foreground: #ffffff;
+  --platform-accent: #1c1733;
+  --platform-accent-foreground: #b8a0ff;
+  --platform-popover: #11111d;
+  --platform-popover-foreground: #ececf2;
+  --platform-success: #34d399;
+  --platform-warning: #fbbf24;
+  --platform-danger: #f87171;
+  --platform-info: #60a5fa;
+
   --brand-background: #08080f;
   --brand-foreground: #ececf2;
-  --brand-muted: #1a1a28;
-  --brand-muted-foreground: #9a9ab0;
-  --brand-border: #25253a;
   --brand-primary: #8b6fff;
+  --brand-primary-foreground: #ffffff;
   --brand-secondary: #38bdf8;
   --brand-accent: #1c1733;
   --brand-accent-foreground: #b8a0ff;
+  --brand-muted: #1a1a28;
+  --brand-muted-foreground: #9a9ab0;
+  --brand-border: #25253a;
   --brand-ring: #8b6fff;
+  --brand-success: #34d399;
+  --brand-success-foreground: #082016;
+  --brand-warning: #fbbf24;
+  --brand-warning-foreground: #241300;
+  --brand-danger: #f87171;
+  --brand-danger-foreground: #2a0505;
+  --brand-info: #60a5fa;
+  --brand-info-foreground: #061629;
   --brand-sidebar-background: rgba(17, 17, 29, 0.82);
   --brand-sidebar-foreground: #c7c7d8;
   --brand-sidebar-active: color-mix(in oklab, var(--brand-primary) 22%, transparent);
@@ -157,14 +234,14 @@
   --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.2);
   --shadow-floating: 0 24px 70px rgba(0, 0, 0, 0.38);
 
-  --background: var(--brand-background);
-  --foreground: var(--brand-foreground);
-  --card: #11111d;
-  --card-foreground: var(--brand-foreground);
-  --muted: var(--brand-muted);
-  --muted-foreground: var(--brand-muted-foreground);
-  --border: var(--brand-border);
-  --input: #14141f;
+  --background: var(--platform-background);
+  --foreground: var(--platform-foreground);
+  --card: var(--platform-card);
+  --card-foreground: var(--platform-card-foreground);
+  --muted: var(--platform-muted);
+  --muted-foreground: var(--platform-muted-foreground);
+  --border: var(--platform-border);
+  --input: var(--platform-input);
   --ring: var(--brand-ring);
 
   --primary: var(--brand-primary);
@@ -173,11 +250,212 @@
 
   --accent: var(--brand-accent);
   --accent-foreground: var(--brand-accent-foreground);
+  --popover: var(--platform-popover);
+  --popover-foreground: var(--platform-popover-foreground);
 
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
+  --success: var(--brand-success);
+  --warning: var(--brand-warning);
+  --danger: var(--brand-danger);
+  --info: var(--brand-info);
+
+  --surface-canvas: #0f1118;
+  --surface-1: #171a23;
+  --surface-2: #1d212c;
+  --surface-3: #252b38;
+  --surface-raised: #202431;
+  --admin-header: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  --admin-sidebar: #12141c;
+  --admin-row-hover: color-mix(in oklab, var(--primary) 8%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 13%, var(--surface-1));
+  --admin-card-shadow: 0 18px 48px color-mix(in oklab, black 22%, transparent);
+  --admin-card-shadow-hover: 0 22px 56px color-mix(in oklab, black 28%, transparent);
+  --admin-grid-line: color-mix(in oklab, var(--border) 72%, transparent);
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 8%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 4%, transparent);
+
+  --hero-accent-soft: color-mix(in oklab, var(--primary) 18%, transparent);
+  --hero-surface-start: color-mix(in oklab, var(--primary) 22%, #10131d);
+  --hero-surface-mid: #0f1220;
+  --hero-surface-end: color-mix(in oklab, var(--primary) 18%, #0b0f18);
+
+  --cta-gradient-start: color-mix(in oklab, var(--primary) 72%, white);
+  --cta-gradient-end: color-mix(in oklab, var(--primary) 94%, #0c0f16);
+  --cta-shadow-color: color-mix(in oklab, var(--primary) 26%, transparent);
+}
+
+[data-white-label-theme="true"] {
+  --background: var(--tenant-light-background, var(--platform-background));
+  --foreground: var(--tenant-light-foreground, var(--platform-foreground));
+  --card: var(--tenant-light-card, var(--platform-card));
+  --card-foreground: var(--tenant-light-card-foreground, var(--platform-card-foreground));
+  --muted: var(--tenant-light-muted, var(--platform-muted));
+  --muted-foreground: var(--tenant-light-muted-foreground, var(--platform-muted-foreground));
+  --border: var(--tenant-light-border, var(--platform-border));
+  --input: var(--tenant-light-input, var(--platform-input));
+  --ring: var(--tenant-light-primary, var(--platform-primary));
+  --primary: var(--tenant-light-primary, var(--platform-primary));
+  --primary-foreground: var(--tenant-light-primary-foreground, var(--platform-primary-foreground));
+  --accent: var(--tenant-light-accent, var(--platform-accent));
+  --accent-foreground: var(--tenant-light-accent-foreground, var(--platform-accent-foreground));
+  --popover: var(--tenant-light-popover, var(--platform-popover));
+  --popover-foreground: var(--tenant-light-popover-foreground, var(--platform-popover-foreground));
+  --success: var(--tenant-light-success, var(--platform-success));
+  --warning: var(--tenant-light-warning, var(--platform-warning));
+  --danger: var(--tenant-light-danger, var(--platform-danger));
+  --info: var(--tenant-light-info, var(--platform-info));
+  --primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
+
+  --brand-background: var(--background);
+  --brand-foreground: var(--foreground);
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-secondary: var(--tenant-light-secondary, color-mix(in oklab, var(--primary) 45%, #38bdf8));
+  --brand-accent: var(--accent);
+  --brand-accent-foreground: var(--accent-foreground);
+  --brand-muted: var(--muted);
+  --brand-muted-foreground: var(--muted-foreground);
+  --brand-border: var(--border);
+  --brand-ring: var(--ring);
+  --brand-success: var(--success);
+  --brand-success-foreground: var(--primary-foreground);
+  --brand-warning: var(--warning);
+  --brand-warning-foreground: var(--foreground);
+  --brand-danger: var(--danger);
+  --brand-danger-foreground: var(--primary-foreground);
+  --brand-info: var(--info);
+  --brand-info-foreground: var(--primary-foreground);
+  --brand-gradient-start: color-mix(in oklab, var(--primary) 36%, #101323);
+  --brand-gradient-mid: var(--primary);
+  --brand-gradient-end: var(--brand-secondary);
+  --brand-hero-foreground: var(--primary-foreground);
+  --brand-hero-glow: color-mix(in oklab, var(--brand-secondary) 30%, transparent);
+  --brand-hero-background:
+    radial-gradient(circle at 76% 34%, color-mix(in oklab, var(--brand-secondary) 30%, transparent), transparent 28%),
+    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--primary) 42%, transparent), transparent 34%),
+    linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 58%, var(--brand-gradient-end) 112%);
+  --brand-sidebar-background: color-mix(in oklab, var(--card) 82%, transparent);
+  --brand-sidebar-foreground: var(--muted-foreground);
+  --brand-sidebar-active: color-mix(in oklab, var(--primary) 13%, var(--card));
+  --brand-sidebar-active-foreground: var(--primary);
+  --shadow-card: var(--admin-card-shadow);
+  --shadow-soft: 0 12px 32px color-mix(in oklab, black 7%, transparent);
+  --shadow-floating: 0 24px 70px color-mix(in oklab, black 14%, transparent);
+
+  --surface-canvas: color-mix(in oklab, var(--background) 88%, var(--muted));
+  --surface-1: var(--card);
+  --surface-2: color-mix(in oklab, var(--card) 86%, var(--muted));
+  --surface-3: color-mix(in oklab, var(--card) 72%, var(--muted));
+  --surface-raised: color-mix(in oklab, var(--card) 94%, white);
+  --admin-header: color-mix(in oklab, var(--card) 92%, transparent);
+  --admin-sidebar: color-mix(in oklab, var(--background) 82%, var(--card));
+  --admin-row-hover: color-mix(in oklab, var(--primary) 6%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 9%, var(--surface-1));
+  --admin-card-shadow: 0 14px 34px color-mix(in oklab, black 7%, transparent);
+  --admin-card-shadow-hover: 0 18px 42px color-mix(in oklab, black 10%, transparent);
+  --admin-grid-line: color-mix(in oklab, var(--border) 76%, transparent);
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 7%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 4%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 3%, transparent);
+
+  --hero-accent-soft: color-mix(in oklab, var(--primary) 14%, transparent);
+  --hero-surface-start: color-mix(in oklab, var(--primary) 10%, var(--card));
+  --hero-surface-mid: color-mix(in oklab, var(--primary) 4%, var(--background));
+  --hero-surface-end: var(--background);
+
+  --cta-gradient-start: color-mix(in oklab, var(--primary) 76%, white);
+  --cta-gradient-end: color-mix(in oklab, var(--primary) 92%, var(--card));
+  --cta-shadow-color: color-mix(in oklab, var(--primary) 20%, transparent);
+}
+
+[data-theme="dark"] [data-white-label-theme="true"] {
+  --background: var(--tenant-dark-background, var(--platform-background));
+  --foreground: var(--tenant-dark-foreground, var(--platform-foreground));
+  --card: var(--tenant-dark-card, var(--platform-card));
+  --card-foreground: var(--tenant-dark-card-foreground, var(--platform-card-foreground));
+  --muted: var(--tenant-dark-muted, var(--platform-muted));
+  --muted-foreground: var(--tenant-dark-muted-foreground, var(--platform-muted-foreground));
+  --border: var(--tenant-dark-border, var(--platform-border));
+  --input: var(--tenant-dark-input, var(--platform-input));
+  --ring: var(--tenant-dark-primary, var(--platform-primary));
+  --primary: var(--tenant-dark-primary, var(--platform-primary));
+  --primary-foreground: var(--tenant-dark-primary-foreground, var(--platform-primary-foreground));
+  --accent: var(--tenant-dark-accent, var(--platform-accent));
+  --accent-foreground: var(--tenant-dark-accent-foreground, var(--platform-accent-foreground));
+  --popover: var(--tenant-dark-popover, var(--platform-popover));
+  --popover-foreground: var(--tenant-dark-popover-foreground, var(--platform-popover-foreground));
+  --success: var(--tenant-dark-success, var(--platform-success));
+  --warning: var(--tenant-dark-warning, var(--platform-warning));
+  --danger: var(--tenant-dark-danger, var(--platform-danger));
+  --info: var(--tenant-dark-info, var(--platform-info));
+  --primary-soft: color-mix(in oklab, var(--primary) 12%, var(--card));
+
+  --brand-background: var(--background);
+  --brand-foreground: var(--foreground);
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-secondary: var(--tenant-dark-secondary, color-mix(in oklab, var(--primary) 45%, #38bdf8));
+  --brand-accent: var(--accent);
+  --brand-accent-foreground: var(--accent-foreground);
+  --brand-muted: var(--muted);
+  --brand-muted-foreground: var(--muted-foreground);
+  --brand-border: var(--border);
+  --brand-ring: var(--ring);
+  --brand-success: var(--success);
+  --brand-success-foreground: var(--primary-foreground);
+  --brand-warning: var(--warning);
+  --brand-warning-foreground: var(--foreground);
+  --brand-danger: var(--danger);
+  --brand-danger-foreground: var(--primary-foreground);
+  --brand-info: var(--info);
+  --brand-info-foreground: var(--primary-foreground);
+  --brand-gradient-start: color-mix(in oklab, var(--primary) 22%, #10131d);
+  --brand-gradient-mid: var(--primary);
+  --brand-gradient-end: var(--brand-secondary);
+  --brand-hero-foreground: var(--primary-foreground);
+  --brand-hero-glow: color-mix(in oklab, var(--brand-secondary) 24%, transparent);
+  --brand-hero-background:
+    radial-gradient(circle at 76% 34%, color-mix(in oklab, var(--brand-secondary) 24%, transparent), transparent 28%),
+    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 34%),
+    linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 58%, var(--brand-gradient-end) 112%);
+  --brand-sidebar-background: color-mix(in oklab, var(--card) 82%, transparent);
+  --brand-sidebar-foreground: var(--muted-foreground);
+  --brand-sidebar-active: color-mix(in oklab, var(--primary) 18%, transparent);
+  --brand-sidebar-active-foreground: var(--primary);
+  --shadow-card: var(--admin-card-shadow);
+  --shadow-soft: 0 12px 32px color-mix(in oklab, black 18%, transparent);
+  --shadow-floating: 0 24px 70px color-mix(in oklab, black 32%, transparent);
+
+  --surface-canvas: color-mix(in oklab, var(--background) 92%, black);
+  --surface-1: var(--card);
+  --surface-2: color-mix(in oklab, var(--card) 82%, var(--muted));
+  --surface-3: color-mix(in oklab, var(--card) 68%, var(--muted));
+  --surface-raised: color-mix(in oklab, var(--card) 88%, white);
+  --admin-header: color-mix(in oklab, var(--card) 88%, transparent);
+  --admin-sidebar: color-mix(in oklab, var(--background) 88%, black);
+  --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
+  --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
+  --admin-card-shadow: 0 18px 48px color-mix(in oklab, black 22%, transparent);
+  --admin-card-shadow-hover: 0 22px 56px color-mix(in oklab, black 28%, transparent);
+  --admin-grid-line: color-mix(in oklab, var(--border) 72%, transparent);
+
+  --shell-glow-strong: color-mix(in oklab, var(--primary) 6%, transparent);
+  --shell-glow-medium: color-mix(in oklab, var(--primary) 5%, transparent);
+  --shell-glow-soft: color-mix(in oklab, var(--primary) 4%, transparent);
+  --shell-glow-faint: color-mix(in oklab, var(--primary) 3%, transparent);
+
+  --hero-accent-soft: color-mix(in oklab, var(--primary) 11%, transparent);
+  --hero-surface-start: color-mix(in oklab, var(--primary) 12%, var(--card));
+  --hero-surface-mid: color-mix(in oklab, var(--primary) 5%, var(--background));
+  --hero-surface-end: color-mix(in oklab, var(--primary) 3%, var(--background));
+
+  --cta-gradient-start: color-mix(in oklab, var(--primary) 68%, white);
+  --cta-gradient-end: color-mix(in oklab, var(--primary) 90%, var(--card));
+  --cta-shadow-color: color-mix(in oklab, var(--primary) 18%, transparent);
 }
 
 html,
@@ -198,51 +476,26 @@ body {
   background-image:
     radial-gradient(
       circle at 20% 0%,
-      color-mix(in oklab, var(--primary) 18%, transparent),
+      var(--shell-glow-strong),
       transparent 50%
     ),
     radial-gradient(
       circle at 80% 100%,
-      color-mix(in oklab, var(--primary) 12%, transparent),
+      var(--shell-glow-medium),
       transparent 55%
     );
-}
-
-/* Instructor PWA shell: forced dark + amber accent.
-   Applied via data-instructor="" on the layout wrapper so it does NOT
-   require a user dark-mode preference and overrides tenant branding. */
-[data-instructor] {
-  color-scheme: dark;
-  --background: #0c0c15;
-  --foreground: #ececf2;
-  --card: #13141f;
-  --card-foreground: #ececf2;
-  --muted: #1c1d2e;
-  --muted-foreground: #8888a0;
-  --border: #2a2a40;
-  --input: #1c1d2e;
-  --ring: #F59E0B;
-  --primary: #F59E0B;
-  --primary-foreground: #0c0c15;
-  --primary-soft: rgba(245, 158, 11, 0.12);
-  --accent: rgba(245, 158, 11, 0.08);
-  --accent-foreground: #F59E0B;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
 }
 
 [data-student-shell] {
   background:
     radial-gradient(
       circle at 12% 0%,
-      color-mix(in oklab, var(--primary) 14%, transparent),
+      var(--shell-glow-soft),
       transparent 28%
     ),
     radial-gradient(
       circle at 88% 8%,
-      color-mix(in oklab, var(--primary) 10%, transparent),
+      var(--shell-glow-faint),
       transparent 26%
     ),
     linear-gradient(180deg, color-mix(in oklab, var(--background) 92%, #ffffff), var(--background));
@@ -251,26 +504,35 @@ body {
 [data-instructor-shell] {
   background:
     radial-gradient(
-      circle at 85% 0%,
-      color-mix(in oklab, var(--primary) 16%, transparent),
-      transparent 32%
-    ),
-    radial-gradient(
-      circle at 15% 12%,
-      color-mix(in oklab, var(--primary) 10%, transparent),
+      circle at 100% 0%,
+      var(--shell-glow-medium),
       transparent 26%
     ),
-    linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, #05070d), var(--background));
+    radial-gradient(
+      circle at 0% 12%,
+      var(--shell-glow-faint),
+      transparent 24%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--background) 98%, #ffffff),
+      var(--background)
+    );
 }
 
 [data-management-shell] {
   background:
     radial-gradient(
       circle at 8% 0%,
-      color-mix(in oklab, var(--primary) 10%, transparent),
+      var(--shell-glow-faint),
       transparent 24%
     ),
     linear-gradient(180deg, color-mix(in oklab, var(--background) 97%, #05070d), var(--background));
+}
+
+.theme-cta {
+  background: linear-gradient(135deg, var(--cta-gradient-start), var(--cta-gradient-end));
+  box-shadow: 0 14px 28px 0 var(--cta-shadow-color);
 }
 
 [data-pwa-copy] {

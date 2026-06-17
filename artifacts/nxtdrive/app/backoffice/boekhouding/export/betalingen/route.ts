@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireAdvancedReportExportAccess } from "@/lib/platform/commercial-access";
 import {
   startOfDayUtc,
   addDays,
@@ -21,6 +22,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const blocked = await requireAdvancedReportExportAccess(tenant.id);
+  if (blocked) return blocked;
+
   const supabase = await createServerSupabaseClient();
 
   const sp = request.nextUrl.searchParams;

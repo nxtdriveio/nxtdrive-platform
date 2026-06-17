@@ -2,19 +2,13 @@
 
 import * as React from "react";
 import { Star } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
 import { submitStudentReview } from "@/app/student/actions";
 
-/**
- * In-app reviewformulier (intern reviewsysteem, migration 0080). De leerling
- * (of voogd) geeft een sterbeoordeling (1–5) + optionele tekst. Eén review per
- * leerling: bestaat er al één, dan toont het formulier de huidige score en is
- * die bewerkbaar. De score voedt de rapportagekaart van de rijschool.
- *
- * Dit is het INTERNE reviewmoment. Het staat los van de Google-reviewbanner
- * (#113) — die spoort aan tot een EXTERNE review en blijft ongemoeid.
- */
 export function ReviewForm({
   studentId,
   initialRating,
@@ -34,8 +28,8 @@ export function ReviewForm({
   const hasExisting = initialRating !== null;
   const shown = hover || rating;
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError(null);
     setSaved(false);
     if (rating < 1 || rating > 5) {
@@ -44,13 +38,13 @@ export function ReviewForm({
     }
     setPending(true);
     try {
-      const fd = new FormData();
-      fd.set("student_id", studentId);
-      fd.set("rating", String(rating));
-      fd.set("body", body);
-      const res = await submitStudentReview(fd);
-      if (res.error) {
-        setError(res.error);
+      const formData = new FormData();
+      formData.set("student_id", studentId);
+      formData.set("rating", String(rating));
+      formData.set("body", body);
+      const result = await submitStudentReview(formData);
+      if (result.error) {
+        setError(result.error);
       } else {
         setSaved(true);
       }
@@ -59,21 +53,20 @@ export function ReviewForm({
     } finally {
       setPending(false);
     }
-  };
+  }
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-5">
-        <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
-            Jouw beoordeling
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {hasExisting
-              ? "Bedankt voor je beoordeling! Je kunt deze altijd aanpassen."
-              : "Hoe tevreden ben je over je rijschool? Je beoordeling helpt ze verbeteren."}
-          </p>
-        </div>
+    <StudentShowcaseCard
+      title="Jouw beoordeling"
+      eyebrow="Feedback"
+      info="Je beoordeling helpt je rijschool verbeteren. Heb je al eerder iets ingevuld, dan kun je dat hier gewoon aanpassen."
+    >
+      <div className="space-y-4">
+        <p className="text-sm leading-6 text-white/60">
+          {hasExisting
+            ? "Bedankt voor je beoordeling. Je kunt deze hier altijd aanpassen."
+            : "Hoe tevreden ben je over je rijschool? Je beoordeling helpt het team verbeteren."}
+        </p>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div
@@ -96,7 +89,7 @@ export function ReviewForm({
                   onFocus={() => setHover(value)}
                   onBlur={() => setHover(0)}
                   disabled={pending}
-                  className="rounded p-1 text-amber-500 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                  className="rounded p-1 text-amber-400 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                 >
                   <Star
                     className="h-7 w-7"
@@ -112,32 +105,36 @@ export function ReviewForm({
           <div className="space-y-1.5">
             <label
               htmlFor="review-body"
-              className="text-sm font-medium text-foreground"
+              className="text-sm font-medium text-white"
             >
-              Toelichting <span className="text-muted-foreground">(optioneel)</span>
+              Toelichting <span className="text-white/42">(optioneel)</span>
             </label>
             <textarea
               id="review-body"
               name="body"
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(event) => setBody(event.target.value)}
               disabled={pending}
               rows={3}
               maxLength={1000}
               placeholder="Wat ging er goed? Wat kan beter?"
-              className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              className="w-full resize-y rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-white/32 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
             />
           </div>
 
           {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
+            <StudentShowcaseNotice
+              tone="danger"
+              title="Beoordeling nog niet opgeslagen"
+              description={error}
+            />
           ) : null}
           {saved ? (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
-              Je beoordeling is opgeslagen. Bedankt!
-            </p>
+            <StudentShowcaseNotice
+              tone="success"
+              title="Beoordeling opgeslagen"
+              description="Bedankt! Je feedback is veilig toegevoegd aan je studentdossier."
+            />
           ) : null}
 
           <Button type="submit" size="sm" disabled={pending || rating < 1}>
@@ -145,7 +142,7 @@ export function ReviewForm({
             {hasExisting ? "Beoordeling bijwerken" : "Beoordeling versturen"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </StudentShowcaseCard>
   );
 }

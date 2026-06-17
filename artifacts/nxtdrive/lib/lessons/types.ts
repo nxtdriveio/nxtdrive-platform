@@ -46,6 +46,8 @@ export type Lesson = {
   student_id: string;
   starts_at: string;
   ends_at: string;
+  duration_min: number | null;
+  buffer_min: number | null;
   status: LessonStatus;
   location: string | null;
   notes: string | null;
@@ -59,6 +61,7 @@ export type Lesson = {
   // staat NIET hier maar in lesson_internal (staff-only).
   vehicle_id: string | null;
   location_id: string | null;
+  pickup_service_area_id: string | null;
   student_note: string | null;
   attention_points: string | null;
   advice: string | null;
@@ -81,7 +84,16 @@ export type Vehicle = {
   branch_id: string | null;
   label: string;
   license_plate: string | null;
+  brand: string | null;
+  model: string | null;
   transmission: VehicleTransmission | null;
+  vehicle_type: "car" | "motorcycle" | "trailer" | "scooter" | "other";
+  status: "active" | "inactive" | "maintenance" | "damaged" | "sold";
+  apk_expires_at: string | null;
+  insurance_expires_at: string | null;
+  current_odometer_km: number | null;
+  default_instructor_id: string | null;
+  notes: string | null;
   active: boolean;
   sort_order: number;
   created_at: string;

@@ -10,7 +10,11 @@ import { Input } from "@/components/ui/input";
 import { enterTenantBackoffice } from "../../actions";
 import {
   createTenantAdminAccount,
+  assignTenantThemePresetAction,
+  resetTenantThemeOverridesAction,
+  saveTenantThemeOverridesAction,
   setFranchiseeParentAction,
+  updateTenantIdentityAction,
   updateTenantPlanAction,
   toggleWhiteLabelAction,
 } from "./actions";
@@ -18,20 +22,21 @@ import { OrganizationProfileForm } from "./organization-profile-form";
 import {
   FEATURE_PLAN,
   FEATURE_LABELS,
+  PLAN_DESCRIPTIONS,
+  PLAN_LABELS,
   PLAN_ORDER,
+  isWhiteLabelEligible,
   tenantHasFeature,
   type FeatureKey,
 } from "@/lib/platform/features";
+import { getTenantLimitStatuses, loadTenantEntitlementUsage } from "@/lib/platform/entitlements";
 import type { TenantPlan } from "@/lib/types";
+import { getTenantBrandingBundle, listThemePresets } from "@/lib/branding";
 import Link from "next/link";
+import { TenantThemeOverridesForm } from "@/components/admin/tenant-theme-overrides-form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export const dynamic = "force-dynamic";
-
-const PLAN_LABELS: Record<string, string> = {
-  start: "Start",
-  pro: "Pro",
-  elite: "Elite",
-};
 
 const PLAN_BADGE: Record<string, "outline" | "primary" | "default"> = {
   start: "outline",
@@ -45,6 +50,21 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   groot: "Grote rijschool",
   multi_vestiging: "Multi-vestiging",
   franchise: "Franchise",
+};
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  prospect: "Prospect",
+  onboarding: "Onboarding",
+  active: "Actief",
+  paused: "Gepauzeerd",
+  churned: "Gestopt",
+};
+
+const ONBOARDING_LABELS: Record<string, string> = {
+  not_started: "Niet gestart",
+  in_progress: "In uitvoering",
+  ready: "Klaar",
+  blocked: "Geblokkeerd",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -164,6 +184,38 @@ export default async function TenantDetailPage({
 
   const tenantPlan = (tenant.plan as TenantPlan) ?? "start";
   const tenantObj = { plan: tenantPlan, white_label_enabled: !!tenantRecord.white_label_enabled };
+  const whiteLabelActive = isWhiteLabelEligible(tenantObj);
+  const entitlementUsage = await loadTenantEntitlementUsage(service, id);
+  const [themePresets, brandingBundle] = await Promise.all([
+    listThemePresets(),
+    getTenantBrandingBundle(id),
+  ]);
+  const currentThemePreset = brandingBundle.preset;
+  const limitStatuses = getTenantLimitStatuses(
+    tenantObj,
+    entitlementUsage,
+  );
+  const attentionItems = [
+    ...Object.values(limitStatuses)
+      .filter((status) => status.isAtLimit || status.isOverLimit)
+      .map((status) => ({
+        key: status.key,
+        title: status.label,
+        body: status.isOverLimit
+          ? "Gebruikt meer dan het huidige plan toelaat. Nieuwe uitbreiding moet nu via upgrade of opschoning lopen."
+          : "Limiet bereikt. Nieuwe uitbreiding is geblokkeerd totdat het plan wordt aangepast.",
+      })),
+    ...(!whiteLabelActive && tenantRecord.white_label_enabled
+      ? [
+          {
+            key: "white-label",
+            title: "White-label downgrade",
+            body:
+              "White-label staat nog aan, maar het huidige plan ondersteunt deze tenantinstelling niet volledig.",
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="min-h-screen bg-background">
@@ -193,15 +245,15 @@ export default async function TenantDetailPage({
               <h1 className="text-2xl font-bold text-foreground">
                 {tenant.name}
               </h1>
-              <Badge variant={PLAN_BADGE[tenant.plan as string] ?? "outline"}>
-                {PLAN_LABELS[tenant.plan as string] ?? tenant.plan}
+              <Badge variant={PLAN_BADGE[tenantPlan] ?? "outline"}>
+                {PLAN_LABELS[tenantPlan] ?? tenantPlan}
               </Badge>
               {tenantOrgType && (
                 <Badge variant="outline">
                   {ORG_TYPE_LABELS[tenantOrgType] ?? tenantOrgType}
                 </Badge>
               )}
-              {!!tenantRecord.white_label_enabled && (
+              {whiteLabelActive && (
                 <Badge variant="outline">White-label</Badge>
               )}
               {isFranchisee && (
@@ -258,15 +310,167 @@ export default async function TenantDetailPage({
           ))}
         </div>
 
+        {sp.identity_saved && (
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Tenantgegevens opgeslagen</AlertTitle>
+              <AlertDescription>De basisidentiteit van deze tenant is bijgewerkt.</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.identity_error && (
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Tenantgegevens konden niet worden opgeslagen</AlertTitle>
+              <AlertDescription>
+                {sp.identity_error === "missing_fields"
+                  ? "Vul minimaal een tenantnaam in."
+                  : decodeURIComponent(sp.identity_error)}
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tenant basisgegevens</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form action={updateTenantIdentityAction} className="space-y-4">
+                <input type="hidden" name="tenant_id" value={id} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label htmlFor="name" className="text-sm font-medium text-foreground">
+                      Tenantnaam
+                    </label>
+                    <Input
+                      id="name"
+                      name="name"
+                      defaultValue={tenant.name}
+                      placeholder="Rijschoolnaam"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="slug" className="text-sm font-medium text-foreground">
+                      Slug
+                    </label>
+                    <Input
+                      id="slug"
+                      value={tenant.slug}
+                      readOnly
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      De slug is de stabiele tenantidentiteit voor routing en domeinkoppeling en blijft daarom read-only.
+                    </p>
+                  </div>
+                </div>
+                <Button type="submit" variant="outline">
+                  Basisgegevens opslaan
+                </Button>
+              </form>
+
+              <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Commercieel profiel
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {PLAN_DESCRIPTIONS[tenantPlan]}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant={PLAN_BADGE[tenantPlan] ?? "outline"}>
+                    {PLAN_LABELS[tenantPlan] ?? tenantPlan}
+                  </Badge>
+                  <Badge variant="outline">
+                    {ORG_TYPE_LABELS[tenantOrgType ?? ""] ?? "Type onbekend"}
+                  </Badge>
+                  <Badge variant="outline">
+                    {LIFECYCLE_LABELS[organizationProfile?.lifecycle_status ?? "onboarding"] ??
+                      (organizationProfile?.lifecycle_status ?? "Onboarding")}
+                  </Badge>
+                  <Badge variant="outline">
+                    {ONBOARDING_LABELS[organizationProfile?.onboarding_status ?? "not_started"] ??
+                      (organizationProfile?.onboarding_status ?? "Niet gestart")}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Commerciele gezondheid</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Object.values(limitStatuses).map((status) => (
+                  <div
+                    key={status.key}
+                    className="rounded-xl border border-border bg-muted/20 px-4 py-3"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {status.label}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-foreground">
+                      {status.isUnlimited ? status.used : `${status.used}/${status.limitLabel}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {status.isUnlimited
+                        ? "Onbeperkt"
+                        : status.isOverLimit
+                          ? "Boven limiet"
+                          : status.isAtLimit
+                            ? "Limiet bereikt"
+                            : `${status.remaining} beschikbaar`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {attentionItems.length > 0 ? (
+                <div className="space-y-2">
+                  {attentionItems.map((item) => (
+                    <Alert key={item.key} variant="warning">
+                      <div>
+                        <AlertTitle>{item.title}</AlertTitle>
+                        <AlertDescription>{item.body}</AlertDescription>
+                      </div>
+                    </Alert>
+                  ))}
+                </div>
+              ) : (
+                <Alert variant="success">
+                  <div>
+                    <AlertTitle>Binnen planlimieten</AlertTitle>
+                    <AlertDescription>
+                      Deze tenant heeft momenteel geen downgrade-waarschuwingen of commerciële blokkades actief.
+                    </AlertDescription>
+                  </div>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {sp.profile_saved && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Organisatieprofiel opgeslagen.
-          </div>
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Organisatieprofiel opgeslagen</AlertTitle>
+              <AlertDescription>Lifecycle, onboarding en eigenaar zijn bijgewerkt.</AlertDescription>
+            </div>
+          </Alert>
         )}
         {sp.profile_error && (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {PROFILE_ERROR_MESSAGES[sp.profile_error] ?? decodeURIComponent(sp.profile_error)}
-          </div>
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Organisatieprofiel kon niet worden opgeslagen</AlertTitle>
+              <AlertDescription>
+                {PROFILE_ERROR_MESSAGES[sp.profile_error] ?? decodeURIComponent(sp.profile_error)}
+              </AlertDescription>
+            </div>
+          </Alert>
         )}
 
         <OrganizationProfileForm
@@ -278,16 +482,64 @@ export default async function TenantDetailPage({
 
         {/* Plan & feature management */}
         {sp.plan_saved && (
-          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Abonnement bijgewerkt.
-          </div>
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Abonnement bijgewerkt</AlertTitle>
+              <AlertDescription>Plan, limieten en feature-gating zijn opnieuw toegepast.</AlertDescription>
+            </div>
+          </Alert>
         )}
         {sp.plan_error && (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {sp.plan_error === "invalid"
-              ? "Ongeldig plan geselecteerd."
-              : decodeURIComponent(sp.plan_error)}
-          </div>
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Abonnement kon niet worden bijgewerkt</AlertTitle>
+              <AlertDescription>
+                {sp.plan_error === "invalid"
+                  ? "Ongeldig plan geselecteerd."
+                  : decodeURIComponent(sp.plan_error)}
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_saved && (
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Theme preset bijgewerkt</AlertTitle>
+              <AlertDescription>De tenant volgt nu het nieuwe centrale palette.</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_error && (
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Theme preset kon niet worden opgeslagen</AlertTitle>
+              <AlertDescription>{decodeURIComponent(sp.theme_error)}</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_overrides_saved && (
+          <Alert variant="success">
+            <div>
+              <AlertTitle>Tenant-overrides opgeslagen</AlertTitle>
+              <AlertDescription>De tenant heeft nu een eigen light/dark verfijning bovenop de preset.</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_overrides_reset && (
+          <Alert variant="info">
+            <div>
+              <AlertTitle>Tenant-overrides gewist</AlertTitle>
+              <AlertDescription>De tenant erft weer volledig van de gekoppelde preset of platformdefaults.</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {sp.theme_overrides_error && (
+          <Alert variant="danger">
+            <div>
+              <AlertTitle>Tenant-overrides konden niet worden opgeslagen</AlertTitle>
+              <AlertDescription>{decodeURIComponent(sp.theme_overrides_error)}</AlertDescription>
+            </div>
+          </Alert>
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -314,6 +566,33 @@ export default async function TenantDetailPage({
                   Opslaan
                 </Button>
               </form>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {Object.values(limitStatuses).map((status) => (
+                  <div
+                    key={status.key}
+                    className="rounded-md border border-border bg-muted/30 px-3 py-2.5"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {status.label}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {status.isUnlimited
+                        ? status.used
+                        : `${status.used}/${status.limitLabel}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {status.isUnlimited
+                        ? "Onbeperkt op dit plan"
+                        : status.isOverLimit
+                          ? "Boven planlimiet"
+                          : status.isAtLimit
+                            ? "Planlimiet bereikt"
+                            : `${status.remaining} beschikbaar`}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
               {/* White-label toggle — only meaningful for Elite */}
               <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2.5">
@@ -363,7 +642,7 @@ export default async function TenantDetailPage({
                         {FEATURE_LABELS[feature]}
                       </span>
                       {unlocked ? (
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400">✓</span>
+                        <span className="text-xs text-success">✓</span>
                       ) : (
                         <Badge variant="outline" className="text-[10px]">
                           {PLAN_LABELS[requiredPlan] ?? requiredPlan}+
@@ -376,6 +655,105 @@ export default async function TenantDetailPage({
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Theme preset koppeling</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Huidige preset
+                </p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {currentThemePreset?.name ?? "Geen preset gekoppeld"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {currentThemePreset?.description?.trim()
+                    ? currentThemePreset.description
+                    : currentThemePreset
+                      ? "Tenant volgt dit centrale light/dark palet."
+                      : "Deze tenant draait nog op platformdefaults of legacy primaire kleuren."}
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <span
+                    className="h-10 w-10 rounded-full border border-white/10"
+                    style={{
+                      backgroundColor: currentThemePreset
+                        ? currentThemePreset.tokens_dark.primary
+                        : brandingBundle.tokens.dark.primary,
+                    }}
+                    title="Dark primary"
+                  />
+                  <span
+                    className="h-10 w-10 rounded-full border border-border"
+                    style={{
+                      backgroundColor: currentThemePreset
+                        ? currentThemePreset.tokens_light.primary
+                        : brandingBundle.tokens.light.primary,
+                    }}
+                    title="Light primary"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    <p>Dark primary</p>
+                    <p>Light primary</p>
+                  </div>
+                </div>
+              </div>
+
+              <form action={assignTenantThemePresetAction} className="space-y-4 rounded-xl border border-border bg-muted/15 px-4 py-4">
+                <input type="hidden" name="tenant_id" value={id} />
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="theme_preset_id"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Platform preset
+                  </label>
+                  <select
+                    id="theme_preset_id"
+                    name="theme_preset_id"
+                    defaultValue={currentThemePreset?.id ?? ""}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Geen preset</option>
+                    {themePresets
+                      .filter(
+                        (preset) =>
+                          preset.is_active || preset.id === currentThemePreset?.id,
+                      )
+                      .map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name}
+                          {preset.is_system ? " · systeem" : " · custom"}
+                          {!preset.is_active ? " · inactief" : ""}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Zodra een preset is gekoppeld, volgen instructeur-, student- en backoffice-shells het centrale light/dark palet.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-muted-foreground">
+                  Legacy primaire kleuren uit tenant-branding worden niet meer leidend zodra een preset actief is. Zo blijft white-label visueel consistent.
+                </div>
+                <Button type="submit" variant="outline">
+                  Theme preset opslaan
+                </Button>
+              </form>
+            </div>
+          </CardContent>
+        </Card>
+
+        <TenantThemeOverridesForm
+          action={saveTenantThemeOverridesAction}
+          resetAction={resetTenantThemeOverridesAction}
+          tenantId={id}
+          baseTokens={brandingBundle.baseTokens}
+          initialOverrides={brandingBundle.branding?.theme_overrides ?? null}
+          presetName={currentThemePreset?.name ?? null}
+        />
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Existing admins */}
@@ -422,15 +800,22 @@ export default async function TenantDetailPage({
             </CardHeader>
             <CardContent className="space-y-4">
               {sp.created && (
-                <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
-                  Account aangemaakt voor{" "}
-                  <strong>{decodeURIComponent(sp.created)}</strong>.
-                </div>
+                <Alert variant="success">
+                  <div>
+                    <AlertTitle>Adminaccount aangemaakt</AlertTitle>
+                    <AlertDescription>
+                      Account aangemaakt voor <strong>{decodeURIComponent(sp.created)}</strong>.
+                    </AlertDescription>
+                  </div>
+                </Alert>
               )}
               {sp.error && (
-                <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-                  {ERROR_MESSAGES[sp.error] ?? "Er is een fout opgetreden."}
-                </div>
+                <Alert variant="danger">
+                  <div>
+                    <AlertTitle>Adminaccount kon niet worden aangemaakt</AlertTitle>
+                    <AlertDescription>{ERROR_MESSAGES[sp.error] ?? "Er is een fout opgetreden."}</AlertDescription>
+                  </div>
+                </Alert>
               )}
 
               <form action={createAction} className="space-y-4">
@@ -498,14 +883,20 @@ export default async function TenantDetailPage({
           </CardHeader>
           <CardContent className="space-y-4">
             {sp.franchise_saved && (
-              <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
-                Franchise-koppeling opgeslagen.
-              </div>
+              <Alert variant="success">
+                <div>
+                  <AlertTitle>Franchise-koppeling opgeslagen</AlertTitle>
+                  <AlertDescription>De netwerkrelatie van deze tenant is bijgewerkt.</AlertDescription>
+                </div>
+              </Alert>
             )}
             {sp.franchise_error && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-                {decodeURIComponent(sp.franchise_error)}
-              </div>
+              <Alert variant="danger">
+                <div>
+                  <AlertTitle>Franchise-koppeling mislukt</AlertTitle>
+                  <AlertDescription>{decodeURIComponent(sp.franchise_error)}</AlertDescription>
+                </div>
+              </Alert>
             )}
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -517,7 +908,7 @@ export default async function TenantDetailPage({
                 <p className="text-xs text-muted-foreground">
                   Kies een franchisegever-tenant. Leeg laten = ontkoppelen.
                   {isFranchisee && franchisegeverName && (
-                    <span className="ml-1 text-yellow-400">
+                    <span className="ml-1 text-warning">
                       Huidig: {franchisegeverName}
                     </span>
                   )}

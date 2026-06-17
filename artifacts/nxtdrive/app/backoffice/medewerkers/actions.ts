@@ -2,12 +2,15 @@
 
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireActiveTenant } from "@/lib/auth/require-role";
 import { generateTemporaryPassword } from "@/lib/auth/generate-password";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { loadEmailBranding } from "@/lib/notifications/branding";
 import { sendEmail } from "@/lib/notifications/provider";
 import { renderStaffWelcome } from "@/lib/notifications/staff-welcome";
+import { requireOrganizationPermission } from "@/lib/organization";
+import {
+  loadTenantEntitlementSnapshot,
+} from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import type { MemberRole } from "@/lib/types";
 
@@ -31,6 +34,34 @@ const ROLE_LABEL: Partial<Record<MemberRole, string>> = {
 
 function blockPlatformAdmin(isPlatformAdmin: boolean | undefined) {
   if (isPlatformAdmin) redirect("/backoffice/medewerkers?error=forbidden");
+}
+
+function formIds(formData: FormData, key: string): string[] {
+  return formData
+    .getAll(key)
+    .map((value) => String(value).trim())
+    .filter((value) => value.length > 0);
+}
+
+function appendQuery(url: string, key: string, value: string | null | undefined): string {
+  if (!value) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${key}=${encodeURIComponent(value)}`;
+}
+
+function redirectToRoleTarget(
+  formData: FormData,
+  fallback: string,
+  params?: Record<string, string>,
+): never {
+  const raw = String(formData.get("return_to") ?? "").trim();
+  let target = raw || fallback;
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      target = appendQuery(target, key, value);
+    }
+  }
+  redirect(target);
 }
 
 /** Find an existing auth user id by email, paging through the admin list. */
@@ -71,23 +102,61 @@ async function rollbackNewStaffUser(
   await service.auth.admin.deleteUser(userId).catch(() => {});
 }
 
+async function removeMembership(
+  service: SupabaseClient,
+  tenantId: string,
+  membershipId: string,
+) {
+  await service
+    .from("memberships")
+    .delete()
+    .eq("id", membershipId)
+    .eq("tenant_id", tenantId);
+}
+
+async function setMembershipTeamsOrThrow(
+  service: SupabaseClient,
+  membershipId: string,
+  tenantId: string,
+  actorId: string,
+  teamIds: string[],
+) {
+  const { error } = await service.rpc("set_membership_organization_teams", {
+    p_membership_id: membershipId,
+    p_tenant_id: tenantId,
+    p_actor: actorId,
+    p_team_ids: teamIds,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function inviteInstructor(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "") as MemberRole;
-  const rawBranchIds = formData.getAll("branch_ids[]");
-  const branchIds = rawBranchIds
-    .map((v) => String(v).trim())
-    .filter((v) => v.length > 0);
+  const branchIds = formIds(formData, "branch_ids[]");
+  const teamIds = formIds(formData, "team_ids[]");
 
   if (!email || !STAFF_ROLES.includes(role)) {
     redirect("/backoffice/medewerkers?error=missing_fields");
   }
 
   const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, organization.id);
+  const staffLimit = snapshot.limitStatuses.staff_memberships;
+
+  if (staffLimit.isAtLimit) {
+    redirect(
+      "/backoffice/medewerkers?error=staff_limit_reached&reason=" +
+        encodeURIComponent(staffLimit.limitLabel),
+    );
+  }
 
   const { data: profileRow } = await service
     .from("profiles")
@@ -150,7 +219,7 @@ export async function inviteInstructor(formData: FormData) {
     .from("memberships")
     .select("id")
     .eq("user_id", userId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .limit(1)
     .maybeSingle();
 
@@ -174,7 +243,7 @@ export async function inviteInstructor(formData: FormData) {
 
   if (profileError) {
     if (createdNewUser) {
-      await rollbackNewStaffUser(service, tenant.id, userId);
+      await rollbackNewStaffUser(service, organization.id, userId);
     }
     redirect(
       "/backoffice/medewerkers?error=invite_failed&reason=" +
@@ -184,13 +253,13 @@ export async function inviteInstructor(formData: FormData) {
 
   const { data: memberRow, error: memberError } = await service
     .from("memberships")
-    .insert({ user_id: userId, tenant_id: tenant.id, role })
+    .insert({ user_id: userId, tenant_id: organization.id, role })
     .select("id")
     .maybeSingle();
 
   if (memberError || !memberRow) {
     if (createdNewUser) {
-      await rollbackNewStaffUser(service, tenant.id, userId);
+      await rollbackNewStaffUser(service, organization.id, userId);
     }
     if (memberError?.code === "23505") {
       redirect(
@@ -201,10 +270,6 @@ export async function inviteInstructor(formData: FormData) {
     redirect("/backoffice/medewerkers?error=membership_failed");
   }
 
-  // If branch IDs were specified, scope the membership.
-  // Failure here is blocking — a failed scope leaves the membership
-  // unrestricted, violating least-privilege. Roll back by deleting the
-  // membership and surfacing the error.
   if (branchIds.length > 0) {
     const { error: branchError } = await service.rpc("set_membership_branches", {
       p_membership_id: memberRow.id,
@@ -213,15 +278,10 @@ export async function inviteInstructor(formData: FormData) {
     });
 
     if (branchError) {
-      // Roll back: remove the newly-created membership so the user stays outside.
-      await service
-        .from("memberships")
-        .delete()
-        .eq("id", memberRow.id)
-        .eq("tenant_id", tenant.id);
+      await removeMembership(service, organization.id, memberRow.id as string);
 
       if (createdNewUser) {
-        await rollbackNewStaffUser(service, tenant.id, userId);
+        await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
       }
 
       redirect(
@@ -233,11 +293,36 @@ export async function inviteInstructor(formData: FormData) {
     }
   }
 
+  if (teamIds.length > 0) {
+    try {
+      await setMembershipTeamsOrThrow(
+        service,
+        memberRow.id as string,
+        organization.id,
+        user.id,
+        teamIds,
+      );
+    } catch (err) {
+      if (createdNewUser) {
+        await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
+      } else {
+        await removeMembership(service, organization.id, memberRow.id as string);
+      }
+
+      redirect(
+        "/backoffice/medewerkers?error=invite_failed&reason=" +
+          encodeURIComponent(
+            `Teamindeling instellen mislukt: ${err instanceof Error ? err.message : "Onbekende fout"}`,
+          ),
+      );
+    }
+  }
+
   if (temporaryPassword) {
     let emailError: string | null = null;
     try {
       const [branding, platformConfig] = await Promise.all([
-        loadEmailBranding(service, tenant.id),
+        loadEmailBranding(service, organization.id),
         getPlatformEmailConfig(service).catch(() => null),
       ]);
       const appUrl =
@@ -269,7 +354,7 @@ export async function inviteInstructor(formData: FormData) {
     }
 
     if (emailError) {
-      await rollbackNewStaffUser(service, tenant.id, userId, memberRow.id as string);
+      await rollbackNewStaffUser(service, organization.id, userId, memberRow.id as string);
       redirect(
         "/backoffice/medewerkers?error=invite_failed&reason=" +
           encodeURIComponent(emailError),
@@ -284,7 +369,7 @@ export async function inviteInstructor(formData: FormData) {
 }
 
 export async function removeMember(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
@@ -296,7 +381,7 @@ export async function removeMember(formData: FormData) {
     .from("memberships")
     .select("user_id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
   if (!row) redirect("/backoffice/medewerkers?error=not_found");
@@ -309,7 +394,7 @@ export async function removeMember(formData: FormData) {
     .from("memberships")
     .delete()
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id);
+    .eq("tenant_id", organization.id);
 
   if (error) redirect("/backoffice/medewerkers?error=remove_failed");
 
@@ -317,14 +402,16 @@ export async function removeMember(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, organization } = await requireOrganizationPermission("user:manage");
   blockPlatformAdmin(user.profile?.is_platform_admin);
 
   const membershipId = String(formData.get("membership_id") ?? "");
   const newRole = String(formData.get("role") ?? "") as MemberRole;
 
   if (!membershipId || !STAFF_ROLES.includes(newRole)) {
-    redirect("/backoffice/medewerkers?error=missing_fields");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "missing_fields",
+    });
   }
 
   const service = createServiceRoleClient();
@@ -333,27 +420,74 @@ export async function changeRole(formData: FormData) {
     .from("memberships")
     .select("user_id")
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id)
+    .eq("tenant_id", organization.id)
     .maybeSingle();
 
-  if (!row) redirect("/backoffice/medewerkers?error=not_found");
+  if (!row) {
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "not_found",
+    });
+  }
 
   if ((row.user_id as string) === user.id) {
-    redirect("/backoffice/medewerkers?error=cannot_change_own_role");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "cannot_change_own_role",
+    });
   }
 
   const { error } = await service
     .from("memberships")
     .update({ role: newRole })
     .eq("id", membershipId)
-    .eq("tenant_id", tenant.id);
+    .eq("tenant_id", organization.id);
 
   if (error) {
     if (error.code === "23505") {
-      redirect("/backoffice/medewerkers?error=role_conflict");
+      redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+        error: "role_conflict",
+      });
     }
-    redirect("/backoffice/medewerkers?error=update_failed");
+    redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+      error: "update_failed",
+    });
   }
 
-  redirect("/backoffice/medewerkers?success=role_changed");
+  redirectToRoleTarget(formData, "/backoffice/medewerkers", {
+    success: "role_changed",
+  });
+}
+
+export async function setMembershipTeams(formData: FormData) {
+  const { user, organization } = await requireOrganizationPermission("user:manage");
+  blockPlatformAdmin(user.profile?.is_platform_admin);
+
+  const membershipId = String(formData.get("membership_id") ?? "").trim();
+  const teamIds = formIds(formData, "team_ids[]");
+
+  if (!membershipId) {
+    redirect("/backoffice/medewerkers?error=missing_fields");
+  }
+
+  const service = createServiceRoleClient();
+  const { data: membershipRow } = await service
+    .from("memberships")
+    .select("id")
+    .eq("id", membershipId)
+    .eq("tenant_id", organization.id)
+    .maybeSingle();
+
+  if (!membershipRow) {
+    redirect("/backoffice/medewerkers?error=not_found");
+  }
+
+  try {
+    await setMembershipTeamsOrThrow(service, membershipId, organization.id, user.id, teamIds);
+  } catch (err) {
+    redirect(
+      `/backoffice/medewerkers/${membershipId}/teams?error=save_failed&reason=` +
+        encodeURIComponent(err instanceof Error ? err.message : "Onbekende fout"),
+    );
+  }
+
+  redirect(`/backoffice/medewerkers/${membershipId}/teams?success=updated`);
 }

@@ -1,5 +1,17 @@
+import Link from "next/link";
+import {
+  BellRing,
+  CreditCard,
+  Globe,
+  Palette,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { tenantHasFeature } from "@/lib/platform/features";
+import {
+  PLAN_LABELS,
+} from "@/lib/platform/features";
+import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
 import {
@@ -12,6 +24,13 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandingForm } from "@/components/backoffice/branding-form";
+import { WhiteLabelFoundationCard } from "@/components/backoffice/white-label-foundation-card";
+import {
+  getTenantBrandingBundle,
+  resolveBrandAppName,
+  resolveLogoUrl,
+  resolveThemeColorForMode,
+} from "@/lib/branding";
 import { saveMollieApiKey } from "./actions";
 import {
   AssignmentRulesManager,
@@ -56,11 +75,9 @@ export default async function SettingsPage({
 
   const service = createServiceRoleClient();
   const status = await getMollieApiKeyStatus(service, tenant.id);
-  const { data: brandingRow } = await service
-    .from("tenant_branding")
-    .select("logo_url, primary_color, primary_foreground, welcome_message")
-    .eq("tenant_id", tenant.id)
-    .maybeSingle();
+  const brandingBundle = await getTenantBrandingBundle(tenant.id);
+  const branding = brandingBundle.branding;
+  const themePreset = brandingBundle.preset;
 
   const [{ data: departmentRows }, { data: ruleRows }] = await Promise.all([
     service
@@ -105,6 +122,74 @@ export default async function SettingsPage({
     verifyRecord: verificationRecord(d),
     trafficRecords: trafficRecords(d.hostname),
   }));
+  const entitlementSnapshot = await loadTenantEntitlementSnapshot(
+    service,
+    tenant.id,
+  );
+  const currentTenant = entitlementSnapshot.tenant;
+  const limitStatuses = entitlementSnapshot.limitStatuses;
+  const customDomainLimit = limitStatuses.custom_domains;
+  const lockedCount = entitlementSnapshot.entitlements.locked.length;
+
+  const whiteLabelAvailable = entitlementSnapshot.featureAccess.white_label.allowed;
+  const whiteLabelActive = whiteLabelAvailable && currentTenant.white_label_enabled;
+  const hasExistingWhiteLabelState =
+    currentTenant.white_label_enabled ||
+    domainViews.length > 0 ||
+    Boolean(
+      branding?.logo_url ||
+        branding?.primary_color ||
+        branding?.primary_foreground ||
+        branding?.welcome_message ||
+        branding?.theme_preset_id,
+    );
+  const primaryHost =
+    domainViews.find((domain) => domain.is_primary && domain.status === "active")
+      ?.hostname ?? `${currentTenant.slug}.nxtdrive.io`;
+  const logoUrl = resolveLogoUrl(currentTenant, branding);
+  const themeColor = resolveThemeColorForMode(
+    currentTenant,
+    "dark",
+    brandingBundle,
+    "#0c0c15",
+  );
+  const activeDomainCount = domainViews.filter((domain) => domain.status === "active").length;
+  const settingsSummaryCards = [
+    {
+      title: "Abonnement",
+      value: PLAN_LABELS[currentTenant.plan] ?? currentTenant.plan,
+      description:
+        lockedCount === 0
+          ? "alle commerciële modules van dit plan zijn beschikbaar"
+          : `${lockedCount} feature${lockedCount === 1 ? "" : "s"} nog vergrendeld`,
+      icon: ShieldCheck,
+    },
+    {
+      title: "Betaalintegratie",
+      value: status.configured ? (status.mode === "live" ? "Live" : "Test") : "Nog leeg",
+      description: status.configured
+        ? "Mollie-sleutel is versleuteld opgeslagen"
+        : "configureer Mollie om betaalflows te activeren",
+      icon: CreditCard,
+    },
+    {
+      title: "White-label",
+      value: whiteLabelActive ? "Actief" : whiteLabelAvailable ? "Beschikbaar" : "Elite",
+      description: whiteLabelActive
+        ? "branding en app-shells volgen tenantstijl"
+        : "branding blijft read-only of platform-default",
+      icon: Palette,
+    },
+    {
+      title: "Domeinen",
+      value: activeDomainCount.toLocaleString("nl-NL"),
+      description:
+        activeDomainCount === 0
+          ? "nog geen actieve branded hosts"
+          : "actieve custom of branded hosts",
+      icon: Globe,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -116,6 +201,186 @@ export default async function SettingsPage({
           Tenant-specifieke configuratie voor {tenant.name}.
         </p>
       </div>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {settingsSummaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.title}>
+              <CardHeader className="flex-row items-center justify-between gap-3">
+                <div>
+                  <CardTitle>{card.title}</CardTitle>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                    {card.value}
+                  </p>
+                </div>
+                <span className="rounded-full bg-primary-soft p-2 text-primary">
+                  <Icon className="h-5 w-5" aria-hidden />
+                </span>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{card.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Regiecentrum</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Technische status
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {status.configured ? "Mollie klaar voor gebruik" : "Betaalstack nog incompleet"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {status.configured
+                  ? "Sleutel staat versleuteld klaar en kan direct gebruikt worden in checkout- en factuurflows."
+                  : "Koppel eerst een Mollie-sleutel zodat facturen, betaallinks en herinneringen live kunnen draaien."}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Brandingstatus
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {whiteLabelActive
+                  ? "Tenantstijl draait live"
+                  : whiteLabelAvailable
+                    ? "Branding staat klaar"
+                    : "White-label hangt af van upgrade"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Primair host: <span className="font-medium text-foreground">{primaryHost}</span>
+              </p>
+              {themePreset ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Preset: <span className="font-medium text-foreground">{themePreset.name}</span>
+                </p>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Snelle routes</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <Link
+              href="/backoffice/abonnement"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Abonnement beheren</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Bekijk limieten, gating en upgrade-impact per tenant.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/instellingen/notificaties"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <BellRing className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Notificaties beheren</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stuur e-mail-, push- en in-app triggers centraal bij.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/instellingen/vestigingen"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <Workflow className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Vestigingen</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Werk branch-structuur, capaciteitsverdeling en scope uit.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/rapportages"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <Globe className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Rapportages</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Verbind deze instellingen direct met omzet, planning en adoptie.
+              </p>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Abonnement & entitlements
+            <Badge variant="primary">
+        {PLAN_LABELS[currentTenant.plan] ?? currentTenant.plan}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Je instellingen, white-label en schaalopties volgen het huidige
+            abonnement. Bekijk gebruik, limieten en upgradeblokkades centraal in
+            het abonnementsoverzicht.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {Object.values(limitStatuses).map((status) => (
+              <div
+                key={status.key}
+                className="rounded-lg border border-border bg-muted/30 px-4 py-3"
+              >
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {status.label}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {status.isUnlimited
+                    ? status.used
+                    : `${status.used}/${status.limitLabel}`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {status.isUnlimited
+                    ? "Onbeperkt op dit plan"
+                    : status.isOverLimit
+                      ? "Boven limiet, uitbreiding vergrendeld"
+                      : status.isAtLimit
+                        ? "Limiet bereikt"
+                        : `${status.remaining} beschikbaar`}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              {lockedCount === 0
+                ? "Alle commerciële features van dit plan zijn beschikbaar."
+                : `${lockedCount} commerciële feature${lockedCount === 1 ? "" : "s"} zijn nog vergrendeld op dit abonnement.`}
+            </p>
+            <Link
+              href="/backoffice/abonnement"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Abonnement bekijken →
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -183,13 +448,24 @@ export default async function SettingsPage({
         </CardContent>
       </Card>
 
+      <WhiteLabelFoundationCard
+        tenantName={tenant.name}
+        logoUrl={logoUrl}
+        primaryHost={primaryHost}
+        themeColor={themeColor}
+        backofficeName={resolveBrandAppName(tenant, "backoffice")}
+        studentName={resolveBrandAppName(tenant, "student")}
+        instructorName={resolveBrandAppName(tenant, "instructor")}
+        whiteLabelActive={whiteLabelActive}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Huisstijl
-            {tenantHasFeature(tenant, "white_label") && tenant.white_label_enabled ? (
+            {whiteLabelActive ? (
               <Badge variant="success">Witlabel actief</Badge>
-            ) : tenantHasFeature(tenant, "white_label") ? (
+            ) : whiteLabelAvailable ? (
               <Badge variant="warning">Witlabel niet actief</Badge>
             ) : (
               <Badge variant="outline">Elite-functie</Badge>
@@ -197,21 +473,27 @@ export default async function SettingsPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!tenantHasFeature(tenant, "white_label") ? (
+          {!whiteLabelAvailable ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
               <p className="font-medium">White-label huisstijl vereist het Elite-abonnement.</p>
               <p className="mt-1 text-xs opacity-80">
-                Je kunt je logo en kleuren hier instellen. Ze worden pas
-                zichtbaar voor je team en leerlingen zodra je account is
-                opgewaardeerd naar Elite. Neem contact op met NXTDRIVE.
+                {hasExistingWhiteLabelState
+                  ? "Er staat al white-label configuratie klaar uit een hoger plan. Die blijft zichtbaar als referentie, maar aanpassen is nu read-only totdat Elite weer actief is."
+                  : "Je kunt je logo en kleuren hier instellen. Ze worden pas zichtbaar voor je team en leerlingen zodra je account is opgewaardeerd naar Elite."}
               </p>
+              <Link
+                href="/backoffice/abonnement"
+                className="mt-3 inline-flex items-center justify-center rounded-md border border-amber-500/40 bg-transparent px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-200"
+              >
+                Abonnement bekijken
+              </Link>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Stel je eigen logo en kleuren in voor het backoffice, de
               instructeur- en de leerlingomgeving.
-              {tenant.white_label_enabled
-                ? " Je huisstijl is zichtbaar voor je team en leerlingen."
+              {currentTenant.white_label_enabled
+                ? " Je huisstijl loopt nu ook door naar metadata, manifests en domeingebonden app-shells."
                 : " Je huisstijl wordt pas getoond zodra witlabel is geactiveerd voor jouw abonnement; tot die tijd blijft het NXTDRIVE-logo zichtbaar."}
             </p>
           )}
@@ -228,10 +510,20 @@ export default async function SettingsPage({
           ) : null}
 
           <BrandingForm
-            initialLogoUrl={brandingRow?.logo_url ?? ""}
-            initialPrimaryColor={brandingRow?.primary_color ?? ""}
-            initialPrimaryForeground={brandingRow?.primary_foreground ?? ""}
-            initialWelcomeMessage={brandingRow?.welcome_message ?? ""}
+            initialLogoUrl={branding?.logo_url ?? ""}
+            initialPrimaryColor={
+              themePreset ? brandingBundle.tokens.dark.primary : branding?.primary_color ?? ""
+            }
+            initialPrimaryForeground={
+              themePreset
+                ? brandingBundle.tokens.dark.primary_foreground
+                : branding?.primary_foreground ?? ""
+            }
+            initialWelcomeMessage={branding?.welcome_message ?? ""}
+            disabled={!whiteLabelAvailable}
+            colorFieldsLocked={Boolean(themePreset)}
+            themePresetName={themePreset?.name ?? null}
+            themePresetDescription={themePreset?.description ?? null}
           />
         </CardContent>
       </Card>
@@ -319,10 +611,38 @@ export default async function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Domeinen</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Domeinen
+            {whiteLabelAvailable ? (
+              <Badge variant="success">Beschikbaar</Badge>
+            ) : (
+              <Badge variant="outline">Elite-functie</Badge>
+            )}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <DomainsManager domains={domainViews} />
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Koppel een eigen domein of subdomein aan jouw rijschool. Custom
+            domains, branded login en tenant-specifieke app-shells vereisen het
+            Elite-abonnement.
+          </p>
+          {!whiteLabelAvailable && domainViews.length > 0 ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              Er zijn nog {domainViews.length} domein{domainViews.length === 1 ? "" : "en"} gekoppeld vanuit een hoger plan. Ze blijven zichtbaar, maar domeinbeheer is read-only totdat Elite opnieuw actief is.
+            </div>
+          ) : null}
+          {whiteLabelAvailable && customDomainLimit.isAtLimit ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              Je gebruikt nu {customDomainLimit.used}/{customDomainLimit.limitLabel} eigen
+              domeinen. Nieuwe domeinen toevoegen is vergrendeld totdat je een
+              domein verwijdert of je plan wijzigt.
+            </div>
+          ) : null}
+          <DomainsManager
+            domains={domainViews}
+            editable={whiteLabelAvailable}
+            canAdd={whiteLabelAvailable && !customDomainLimit.isAtLimit}
+          />
         </CardContent>
       </Card>
 

@@ -9,7 +9,7 @@ export function StudentSidebarNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-24 hidden h-[calc(100vh-6rem)] w-[17rem] shrink-0 px-6 py-6 xl:block">
+    <aside className="sticky top-24 hidden h-[calc(100vh-6rem)] w-[17rem] shrink-0 px-6 py-6 2xl:block">
       <div className="h-full rounded-[var(--radius-panel)] border border-brand-border/70 bg-brand-sidebar-background p-3 shadow-brand-card backdrop-blur-xl">
         <nav aria-label="Hoofdnavigatie">
           <ul className="space-y-1.5">

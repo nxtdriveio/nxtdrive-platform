@@ -35,6 +35,14 @@ export const AGENDA_APPOINTMENT_RESULTS = [
 export type AgendaAppointmentResult =
   (typeof AGENDA_APPOINTMENT_RESULTS)[number];
 
+export const AGENDA_VISIBILITY_SCOPES = [
+  "personal",
+  "shared_staff",
+  "team",
+] as const;
+export type AgendaVisibilityScope =
+  (typeof AGENDA_VISIBILITY_SCOPES)[number];
+
 export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> = {
   passed: "Geslaagd",
   failed: "Gezakt",
@@ -69,6 +77,12 @@ export const APPOINTMENT_TYPE_SHORT: Record<AgendaAppointmentType, string> = {
   maintenance: "Onderhoud",
   admin: "Admin",
   vacation: "Vakantie",
+};
+
+export const APPOINTMENT_VISIBILITY_LABEL: Record<AgendaVisibilityScope, string> = {
+  personal: "Persoonlijk",
+  shared_staff: "Met collega's",
+  team: "Teamblok",
 };
 
 // Types that may be linked to a student (examen/TTT/theoriebegeleiding). The
@@ -106,14 +120,23 @@ export type AgendaAppointment = {
   tenant_id: string;
   branch_id: string | null;
   instructor_id: string;
+  team_id: string | null;
+  visibility_scope: AgendaVisibilityScope;
+  participant_user_ids: string[];
   student_id: string | null;
   type: AgendaAppointmentType;
   status: AgendaAppointmentStatus;
   starts_at: string;
   ends_at: string;
+  duration_min: number | null;
+  buffer_min: number | null;
   title: string | null;
   location: string | null;
   notes: string | null;
+  color_override: string | null;
+  vehicle_id: string | null;
+  location_id: string | null;
+  pickup_service_area_id: string | null;
   result: AgendaAppointmentResult | null;
   result_note: string | null;
   result_recorded_at: string | null;
@@ -124,10 +147,28 @@ export type AgendaAppointment = {
 };
 
 // Common duration presets (minutes) offered in the appointment form.
-export const APPOINTMENT_DURATIONS = [15, 30, 45, 60, 90, 120, 240, 480] as const;
+export const APPOINTMENT_DURATIONS = [
+  10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 180, 240, 480,
+] as const;
+export const APPOINTMENT_BUFFER_OPTIONS = [0, 10, 20, 30, 40, 50, 60] as const;
 
 export function durationMinutes(startsAt: string, endsAt: string): number {
   return Math.round(
     (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000,
   );
+}
+
+export function appointmentDurationMinutes(
+  appointment: Pick<AgendaAppointment, "starts_at" | "ends_at" | "duration_min" | "buffer_min">,
+): number {
+  return (
+    appointment.duration_min ??
+    Math.max(1, durationMinutes(appointment.starts_at, appointment.ends_at) - (appointment.buffer_min ?? 0))
+  );
+}
+
+export function appointmentBufferMinutes(
+  appointment: Pick<AgendaAppointment, "buffer_min">,
+): number {
+  return Math.max(0, appointment.buffer_min ?? 0);
 }

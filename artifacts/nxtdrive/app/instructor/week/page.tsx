@@ -1,17 +1,9 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarPlus, ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  LESSON_IN_PROGRESS_CARD,
-  LESSON_STATUS_LABEL,
-  LESSON_STATUS_VARIANT,
-  type Lesson,
-} from "@/lib/lessons/types";
-import { cn } from "@/lib/utils";
+import type { Lesson } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
 import {
   loadAgendaTrialLessons,
@@ -21,264 +13,225 @@ import {
   loadAgendaAppointments,
   type AgendaAppointmentView,
 } from "@/lib/agenda/appointments";
-import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
-import { AppointmentCard } from "@/components/agenda/appointment-card";
-import { AvailabilityBanner } from "@/components/agenda/availability-banner";
-import { loadFreeSpaceForRange } from "@/lib/availability/service";
-import { dateKey } from "@/lib/availability/compute";
+import { APPOINTMENT_TYPE_LABEL } from "@/lib/agenda/types";
+import { cn } from "@/lib/utils";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import {
+  InstructorAgendaWorkspace,
+  type InstructorAgendaEvent,
+  type InstructorAgendaView,
+} from "@/components/instructor/AgendaWorkspace";
 
 export const dynamic = "force-dynamic";
 
-const dayFmt = new Intl.DateTimeFormat("nl-NL", {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-});
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
 
-function startOfWeek(d: Date): Date {
-  const date = new Date(d);
-  date.setHours(0, 0, 0, 0);
-  const day = (date.getDay() + 6) % 7;
-  date.setDate(date.getDate() - day);
-  return date;
+function addDays(date: Date, amount: number) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + amount);
+  return value;
+}
+
+function startOfWeek(date: Date) {
+  const value = startOfDay(date);
+  const day = (value.getDay() + 6) % 7;
+  value.setDate(value.getDate() - day);
+  return value;
+}
+
+function startOfMonthGrid(date: Date) {
+  return startOfWeek(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+function endOfMonthGrid(date: Date) {
+  const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return addDays(startOfMonthGrid(nextMonth), -1);
+}
+
+function parseView(raw: string | undefined): InstructorAgendaView {
+  return raw === "day" || raw === "week" || raw === "month" ? raw : "week";
+}
+
+function parseDate(raw: string | undefined) {
+  if (!raw) return new Date();
+  const parsed = new Date(`${raw}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function visibleRange(view: InstructorAgendaView, anchor: Date) {
+  if (view === "day") {
+    const start = startOfDay(anchor);
+    return { from: start, to: addDays(start, 1) };
+  }
+  if (view === "week") {
+    const start = startOfWeek(anchor);
+    return { from: start, to: addDays(start, 7) };
+  }
+  const start = startOfMonthGrid(anchor);
+  return { from: start, to: addDays(endOfMonthGrid(anchor), 1) };
+}
+
+function mapLessons(
+  lessons: Lesson[],
+  studentNames: Map<string, string>,
+): InstructorAgendaEvent[] {
+  return lessons.map((lesson) => ({
+    id: lesson.id,
+    kind: "lesson",
+    title: studentNames.get(lesson.student_id) ?? "Leerling",
+    subtitle: lesson.location ?? "Leslocatie volgt",
+    startsAt: lesson.starts_at,
+    endsAt: lesson.ends_at,
+    href: `/instructor/${lesson.id}`,
+    location: lesson.location,
+    notes: lesson.notes,
+    badge: "Les",
+    palette: "lesson",
+    readOnly: false,
+  }));
+}
+
+function mapTrials(trials: AgendaTrialLesson[]): InstructorAgendaEvent[] {
+  return trials.map((trial) => ({
+    id: trial.id,
+    kind: "trial",
+    title: trial.lead_name,
+    subtitle: trial.pickup_location ?? "Proefleslocatie volgt",
+    startsAt: trial.starts_at,
+    endsAt: trial.ends_at,
+    href: "/instructor/intake",
+    location: trial.pickup_location,
+    notes: trial.notes,
+    badge: "Proefles",
+    palette: "trial",
+    readOnly: true,
+  }));
+}
+
+function mapAppointments(appointments: AgendaAppointmentView[]): InstructorAgendaEvent[] {
+  return appointments.map((appointment) => ({
+    id: appointment.id,
+    kind: "appointment",
+    title:
+      appointment.student_name ?? appointment.title?.trim() ?? "Agenda-item",
+    subtitle: appointment.location ?? "Geen locatie",
+    startsAt: appointment.starts_at,
+    endsAt: appointment.ends_at,
+    href: `/instructor/afspraak/${appointment.id}`,
+    location: appointment.location,
+    notes: appointment.notes,
+    badge: appointment.student_name
+      ? `Afspraak · ${appointment.student_name}`
+      : APPOINTMENT_TYPE_LABEL[appointment.type],
+    palette: appointment.type,
+    colorOverride: appointment.color_override,
+    readOnly: false,
+  }));
 }
 
 export default async function InstructorWeekPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{ view?: string; date?: string }>;
 }) {
-  const { user, tenant, roles } = await requireActiveTenant([
-    "instructor",
-    "tenant_admin",
-  ]);
-  const sp = await searchParams;
+  const { user, tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const params = await searchParams;
+  const view = parseView(params.view);
+  const anchor = parseDate(params.date);
+  const { from, to } = visibleRange(view, anchor);
 
-  const anchor = sp.week ? new Date(sp.week) : new Date();
-  const weekStart = startOfWeek(isNaN(anchor.getTime()) ? new Date() : anchor);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 7);
-
-  const prevWeek = new Date(weekStart);
-  prevWeek.setDate(weekStart.getDate() - 7);
-  const nextWeek = new Date(weekStart);
-  nextWeek.setDate(weekStart.getDate() + 7);
+  const visibleStartHour = user.profile?.calendar_start_hour ?? 6;
+  const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
 
   const supabase = await createServerSupabaseClient();
-  let query = supabase
+  const { data: lessonsRaw } = await supabase
     .from("lessons")
     .select("*")
     .eq("tenant_id", tenant.id)
-    .gte("starts_at", weekStart.toISOString())
-    .lt("starts_at", weekEnd.toISOString())
+    .eq("instructor_id", user.id)
+    .gte("starts_at", from.toISOString())
+    .lt("starts_at", to.toISOString())
     .order("starts_at", { ascending: true });
-  if (!roles.includes("tenant_admin")) {
-    query = query.eq("instructor_id", user.id);
-  }
-  const { data: lessonsRaw } = await query;
   const lessons = (lessonsRaw ?? []) as Lesson[];
 
   const trials = await loadAgendaTrialLessons(supabase, {
     tenantId: tenant.id,
-    from: weekStart,
-    to: weekEnd,
-    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+    from,
+    to,
+    instructorId: user.id,
   });
 
   const appointments = await loadAgendaAppointments(supabase, {
     tenantId: tenant.id,
-    from: weekStart,
-    to: weekEnd,
-    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
+    from,
+    to,
+    instructorId: user.id,
   });
 
-  // Background availability: own schedule (or union across instructors for admins).
-  const freeSpace = await loadFreeSpaceForRange(supabase, {
-    tenantId: tenant.id,
-    from: weekStart,
-    to: weekEnd,
-    instructorId: roles.includes("tenant_admin") ? undefined : user.id,
-  });
-
-  const studentIds = Array.from(new Set(lessons.map((l) => l.student_id)));
+  const studentIds = Array.from(
+    new Set(lessons.map((lesson) => lesson.student_id).filter(Boolean)),
+  );
   const { data: studentsRaw } = studentIds.length
-    ? await supabase
-        .from("students")
-        .select("id, full_name")
-        .in("id", studentIds)
+    ? await supabase.from("students").select("id, full_name").in("id", studentIds)
     : { data: [] };
   const studentNames = new Map(
-    ((studentsRaw ?? []) as Pick<Student, "id" | "full_name">[]).map((s) => [
-      s.id,
-      s.full_name,
+    ((studentsRaw ?? []) as Pick<Student, "id" | "full_name">[]).map((student) => [
+      student.id,
+      student.full_name,
     ]),
   );
 
-  // Interleave lessons and active trial lessons per day, sorted by start time.
-  type AgendaItem =
-    | { kind: "lesson"; starts_at: string; lesson: Lesson }
-    | { kind: "trial"; starts_at: string; trial: AgendaTrialLesson }
-    | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
-
-  const days: { date: Date; items: AgendaItem[] }[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    days.push({ date: d, items: [] });
-  }
-  const dayIndex = (startsAt: string) =>
-    Math.floor(
-      (new Date(startsAt).getTime() - weekStart.getTime()) /
-        (1000 * 60 * 60 * 24),
-    );
-  for (const l of lessons) {
-    const idx = dayIndex(l.starts_at);
-    if (idx >= 0 && idx < 7)
-      days[idx]!.items.push({ kind: "lesson", starts_at: l.starts_at, lesson: l });
-  }
-  for (const t of trials) {
-    const idx = dayIndex(t.starts_at);
-    if (idx >= 0 && idx < 7)
-      days[idx]!.items.push({ kind: "trial", starts_at: t.starts_at, trial: t });
-  }
-  for (const a of appointments) {
-    const idx = dayIndex(a.starts_at);
-    if (idx >= 0 && idx < 7)
-      days[idx]!.items.push({
-        kind: "appointment",
-        starts_at: a.starts_at,
-        appointment: a,
-      });
-  }
-  for (const day of days) {
-    day.items.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-  }
+  const events = [
+    ...mapLessons(lessons, studentNames),
+    ...mapTrials(trials),
+    ...mapAppointments(appointments),
+  ].sort((left, right) => left.startsAt.localeCompare(right.startsAt));
 
   return (
-    <div className="space-y-4">
-      <Link
-        href="/instructor"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar vandaag
-      </Link>
+    <PWAPage app="instructor" contentClassName="space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Agenda"
+        description="Schakel tussen dag, week en maand, sleep afspraken naar een nieuw tijdslot en open ieder item vanuit een eigen instructeurflow."
+        align="left"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/instructor"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Terug naar dashboard
+            </Link>
+            <Link
+              href="/instructor/afspraak/nieuw"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              Afspraak
+            </Link>
+            <Link
+              href="/instructor/les/nieuw"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              Les plannen
+            </Link>
+          </div>
+        }
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            Weekplanning
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {dayFmt.format(weekStart)} — {dayFmt.format(
-              new Date(weekEnd.getTime() - 1),
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/instructor/week?week=${prevWeek.toISOString()}`}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            ← Vorige
-          </Link>
-          <Link
-            href="/instructor/week"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            Deze week
-          </Link>
-          <Link
-            href={`/instructor/week?week=${nextWeek.toISOString()}`}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            Volgende →
-          </Link>
-          <Link
-            href="/instructor/afspraak/nieuw"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            + Afspraak
-          </Link>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
-        {days.map((day) => (
-          <Card key={day.date.toISOString()}>
-            <CardContent className="space-y-2 pt-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {dayFmt.format(day.date)}
-              </div>
-              <AvailabilityBanner
-                intervals={freeSpace.get(dateKey(day.date)) ?? []}
-              />
-              {day.items.length === 0 ? (
-                <div className="text-xs text-muted-foreground">—</div>
-              ) : (
-                <ul className="space-y-1.5">
-                  {day.items.map((item) =>
-                    item.kind === "lesson" ? (
-                      <li key={`lesson-${item.lesson.id}`}>
-                        <Link
-                          href={`/instructor/${item.lesson.id}`}
-                          className={cn(
-                            "block rounded-md border px-2 py-1.5 text-xs transition-colors",
-                            item.lesson.status === "in_progress"
-                              ? LESSON_IN_PROGRESS_CARD
-                              : "border-border bg-card hover:border-primary",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-medium text-foreground">
-                              {timeFmt.format(new Date(item.lesson.starts_at))}
-                            </span>
-                            <Badge
-                              variant={LESSON_STATUS_VARIANT[item.lesson.status]}
-                            >
-                              {LESSON_STATUS_LABEL[item.lesson.status]}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 truncate text-muted-foreground">
-                            {studentNames.get(item.lesson.student_id) ??
-                              "Leerling"}
-                          </div>
-                        </Link>
-                      </li>
-                    ) : item.kind === "trial" ? (
-                      <li key={`trial-${item.trial.id}`}>
-                        <TrialLessonCard
-                          leadId={item.trial.lead_id}
-                          leadName={item.trial.lead_name}
-                          startsAt={item.trial.starts_at}
-                          status={item.trial.status}
-                        />
-                      </li>
-                    ) : (
-                      <li key={`appt-${item.appointment.id}`}>
-                        <AppointmentCard
-                          id={item.appointment.id}
-                          type={item.appointment.type}
-                          startsAt={item.appointment.starts_at}
-                          endsAt={item.appointment.ends_at}
-                          title={item.appointment.title}
-                          location={item.appointment.location}
-                          studentName={item.appointment.student_name}
-                          href={`/instructor/afspraak/${item.appointment.id}`}
-                        />
-                      </li>
-                    ),
-                  )}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+      <InstructorAgendaWorkspace
+        initialView={view}
+        initialDate={anchor.toISOString().slice(0, 10)}
+        events={events}
+        visibleStartHour={visibleStartHour}
+        visibleEndHour={visibleEndHour}
+      />
+    </PWAPage>
   );
 }

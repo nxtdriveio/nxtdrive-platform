@@ -1,41 +1,61 @@
 "use client";
 
-import { WifiOff, RefreshCw } from "lucide-react";
+import { RefreshCw, WifiOff } from "lucide-react";
 import { BrandLogo } from "@/components/pwa/BrandLogo";
+import {
+  StudentShowcaseCard,
+  StudentShowcaseNotice,
+} from "@/components/student/Showcase";
+import { PWAPage } from "@/components/pwa/primitives";
 
-/**
- * Offline fallback for the Leerling PWA (Task #177). The service worker
- * precaches this route at install time and serves it when a navigation fails
- * because the device is offline. Branded, no data fetching, so the cached
- * snapshot always renders. "use client" only for the reload button.
- */
 export default function StudentOfflinePage() {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
-      <div className="flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-950 px-8 py-10 text-white shadow-xl">
-        <BrandLogo className="h-12 w-12" />
-        <div className="flex items-center gap-2 text-white/80">
-          <WifiOff className="h-5 w-5" aria-hidden />
-          <span className="text-sm font-medium">Je bent offline</span>
-        </div>
-        <h1 className="text-xl font-semibold">NXTDRIVE Leerling</h1>
-        <p className="max-w-xs text-sm text-white/70">
-          We kunnen je gegevens nu niet laden. Zodra je weer internet hebt, ben
-          je gelijk weer up-to-date.
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-white/90"
+    <PWAPage
+      app="student"
+      contentClassName="flex min-h-[70vh] flex-col items-center justify-center"
+    >
+      <div className="w-full max-w-md space-y-4">
+        <StudentShowcaseCard
+          style={{
+            background:
+              "radial-gradient(circle at top, color-mix(in oklab, var(--primary) 32%, transparent), rgba(10,10,22,0.98) 72%)",
+          }}
         >
-          <RefreshCw className="h-4 w-4" aria-hidden />
-          Opnieuw proberen
-        </button>
+          <div className="flex flex-col items-center gap-4 py-2 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.04] text-primary">
+              <BrandLogo className="h-10 w-10" />
+            </div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/42">
+              <WifiOff className="h-4 w-4" aria-hidden />
+              Je bent offline
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-white">
+              NXTDRIVE leerlingapp
+            </h1>
+            <p className="max-w-xs text-sm leading-6 text-white/58">
+              We kunnen je gegevens nu niet laden. Zodra je weer internet hebt,
+              ben je direct weer up-to-date.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              style={{
+                boxShadow:
+                  "0 18px 40px color-mix(in oklab, var(--primary) 38%, transparent)",
+              }}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              Opnieuw proberen
+            </button>
+          </div>
+        </StudentShowcaseCard>
+
+        <StudentShowcaseNotice
+          title="Tip"
+          description="Je laatst geladen planning kan nog zichtbaar zijn op de vorige pagina."
+        />
       </div>
-      <p className="text-xs text-muted-foreground">
-        Tip: je laatst geladen planning kan al zichtbaar zijn op de vorige
-        pagina.
-      </p>
-    </div>
+    </PWAPage>
   );
 }

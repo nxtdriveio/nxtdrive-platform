@@ -33,6 +33,7 @@ import {
   loadAgendaAppointments,
   type AgendaAppointmentView,
 } from "@/lib/agenda/appointments";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
 import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
@@ -55,12 +56,12 @@ const AGENDA_BACKOFFICE_READ_ROLES = [
   "instructor",
 ] as const satisfies readonly MemberRole[];
 
-const dayFmt = new Intl.DateTimeFormat("nl-NL", {
+const dayFmt = createNlDateTimeFormatter({
   weekday: "short",
   day: "2-digit",
   month: "short",
 });
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
@@ -186,6 +187,7 @@ export default async function AgendaPage({
     from: weekStart,
     to: weekEnd,
     instructorIds: availabilityInstructors.map((i) => i.id),
+    branchIds: branchFilterIds,
   });
 
   // Pull display names for students (RLS-scoped to this tenant).

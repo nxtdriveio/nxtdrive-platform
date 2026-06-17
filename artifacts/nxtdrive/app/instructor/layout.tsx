@@ -1,7 +1,17 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import type { Metadata, Viewport } from "next";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { getTenantBranding, resolveLogoUrl } from "@/lib/branding";
+import { roleHomePath } from "@/lib/auth/role-home";
+import { homePathForRoles } from "@/lib/auth/role-routing";
+import { getTheme } from "@/lib/theme";
+import {
+  getTenantBrandingBundle,
+  resolveBrandAppName,
+  resolveBrandDescription,
+  resolveLogoUrl,
+  resolveThemeColorForMode,
+} from "@/lib/branding";
 import { BrandProvider } from "@/components/brand-provider";
 import { InstructorSidebar } from "@/components/instructor/Sidebar";
 import { InstructorTopbar } from "@/components/instructor/InstructorTopbar";
@@ -12,45 +22,77 @@ import { InstructorSplash } from "@/components/pwa/InstructorSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
+import { loadAgendaAppointments } from "@/lib/agenda/appointments";
 import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "NXTDRIVE Instructeur",
-  manifest: "/instructor/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Instructeur",
-    startupImage: [
-      {
-        url: "/splash/ios-splash-1170x2532.svg",
-        media:
-          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
-      },
-      {
-        url: "/splash/ios-splash-828x1792.svg",
-        media:
-          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
-      },
-    ],
-  },
-  icons: { apple: "/icons/instructor-apple-180.png" },
-};
+const loadInstructorBrandingContext = cache(async () => {
+  const { tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const bundle = await getTenantBrandingBundle(tenant.id);
 
-export const viewport: Viewport = {
-  themeColor: "#0c0c15",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
+  return {
+    tenant,
+    bundle,
+    brandTitle: resolveBrandAppName(tenant, "instructor"),
+    brandDescription: resolveBrandDescription(tenant, "instructor"),
+  };
+});
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brandingContext = await loadInstructorBrandingContext();
+
+  return {
+    title: brandingContext.brandTitle,
+    description: brandingContext.brandDescription,
+    manifest: "/instructor/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: brandingContext.brandTitle,
+      startupImage: [
+        {
+          url: "/splash/ios-splash-1170x2532.svg",
+          media:
+            "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+        },
+        {
+          url: "/splash/ios-splash-828x1792.svg",
+          media:
+            "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+        },
+      ],
+    },
+    icons: { apple: "/icons/instructor-apple-180.png" },
+    applicationName: brandingContext.brandTitle,
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const [brandingContext, theme] = await Promise.all([
+    loadInstructorBrandingContext(),
+    getTheme(),
+  ]);
+
+  return {
+    themeColor: resolveThemeColorForMode(
+      brandingContext.tenant,
+      theme,
+      brandingContext.bundle,
+      "#0c0c15",
+    ),
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  };
+}
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
 }
+
 function endOfDay(d: Date): Date {
   const x = startOfDay(d);
   x.setDate(x.getDate() + 1);
@@ -66,36 +108,47 @@ export default async function InstructorLayout({
     "instructor",
     "tenant_admin",
   ]);
-  const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
-  const isAdmin = roles.includes("tenant_admin");
+  const theme = await getTheme();
 
-  const branding = await getTenantBranding(tenant.id);
-  const logoUrl = resolveLogoUrl(tenant, branding);
+  if (homePathForRoles(roles) !== "/instructor") {
+    redirect(roleHomePath(user, tenant.id));
+  }
+
+  const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
+  const visibleStartHour = user.profile?.calendar_start_hour ?? 6;
+  const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
+
+  const bundle = await getTenantBrandingBundle(tenant.id);
+  const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
-  /* Load today's agenda for the sidebar agenda-rail */
   const today = new Date();
   const dayStart = startOfDay(today);
   const dayEnd = endOfDay(today);
 
   const supabase = await createServerSupabaseClient();
 
-  let lessonQuery = supabase
+  const { data: lessonsRaw } = await supabase
     .from("lessons")
     .select("*")
     .eq("tenant_id", tenant.id)
+    .eq("instructor_id", user.id)
     .gte("starts_at", dayStart.toISOString())
     .lt("starts_at", dayEnd.toISOString())
     .order("starts_at", { ascending: true });
-  if (!isAdmin) lessonQuery = lessonQuery.eq("instructor_id", user.id);
-  const { data: lessonsRaw } = await lessonQuery;
   const todayLessons = (lessonsRaw ?? []) as Lesson[];
 
   const todayTrials = await loadAgendaTrialLessons(supabase, {
     tenantId: tenant.id,
     from: dayStart,
     to: dayEnd,
-    instructorId: isAdmin ? undefined : user.id,
+    instructorId: user.id,
+  });
+  const todayAppointments = await loadAgendaAppointments(supabase, {
+    tenantId: tenant.id,
+    from: dayStart,
+    to: dayEnd,
+    instructorId: user.id,
   });
 
   const studentIds = [...new Set(todayLessons.map((l) => l.student_id))];
@@ -106,25 +159,30 @@ export default async function InstructorLayout({
         .in("id", studentIds)
     : { data: [] };
   const studentNames = new Map(
-    (
-      (studentsRaw ?? []) as { id: string; full_name: string }[]
-    ).map((s) => [s.id, s.full_name]),
+    ((studentsRaw ?? []) as { id: string; full_name: string }[]).map((s) => [
+      s.id,
+      s.full_name,
+    ]),
   );
 
   const notificationBell = (
-    <NotificationBell items={items} unreadCount={unreadCount} />
+    <NotificationBell
+      items={items}
+      unreadCount={unreadCount}
+      viewAllHref="/instructor/meldingen"
+    />
   );
 
   return (
-    <BrandProvider tenant={tenant} branding={branding}>
-      {/*
-        data-instructor="" activates the dark+amber token block in globals.css
-        for the entire instructor PWA shell — independent of tenant branding and
-        the user's light/dark preference.
-      */}
+    <BrandProvider
+      tenant={tenant}
+      branding={bundle.branding}
+      themeTokens={bundle.tokens}
+    >
       <div
-        data-instructor=""
-        className="flex min-h-screen flex-col text-foreground md:flex-row"
+        data-instructor-shell=""
+        data-pwa-copy=""
+        className="flex min-h-screen flex-col text-foreground md:flex-row lg:h-screen lg:overflow-hidden"
       >
         <InstructorSidebar
           tenantName={tenant.name}
@@ -135,17 +193,21 @@ export default async function InstructorLayout({
           studentNames={studentNames}
           todayDate={today}
           trialLessons={todayTrials}
+          appointments={todayAppointments}
+          visibleStartHour={visibleStartHour}
+          visibleEndHour={visibleEndHour}
+          theme={theme}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Desktop-only utility topbar: secondary nav + notifications + Taken + Acties */}
-          <InstructorTopbar notifications={notificationBell} />
-
+        <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
+          <InstructorTopbar notifications={notificationBell} theme={theme} />
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="flex-1 overflow-auto bg-background pb-16 md:pb-0">
-            <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.5rem] pt-3.5 sm:px-5 sm:pb-20 sm:pt-[1.125rem] md:px-6 md:pb-9 lg:min-h-0 lg:overflow-y-auto lg:px-7 lg:pb-5 lg:pt-[1.125rem] xl:px-8">
+            <div className="mx-auto w-full max-w-[100rem] lg:flex lg:h-full lg:flex-col">
+              <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
+            </div>
           </main>
         </div>
       </div>

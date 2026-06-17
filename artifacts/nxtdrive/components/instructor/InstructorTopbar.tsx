@@ -4,17 +4,22 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CarFront,
   CalendarClock,
-  MessageCircle,
-  Bell,
-  ChevronDown,
-  Users,
   CalendarPlus,
-  FileText,
-  Settings,
-  ListTodo,
+  ChevronDown,
   ClipboardList,
+  FileText,
+  ListTodo,
+  LogOut,
+  MessageCircle,
+  Settings,
+  Users,
 } from "lucide-react";
+import { InstructorQuickSearch } from "@/components/instructor/InstructorQuickSearch";
+import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -24,133 +29,117 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: typeof CalendarClock;
-  match: "exact" | "prefix";
-};
+const BUTTON_CLASS =
+  "inline-flex h-[2.375rem] shrink-0 items-center gap-2 rounded-[0.95rem] border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:rounded-xl";
 
-const NAV: NavItem[] = [
-  { href: "/instructor/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, match: "prefix" },
-  { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix" },
-  { href: "/instructor/meldingen", label: "Meldingen", icon: Bell, match: "prefix" },
-];
+const ICON_BUTTON_CLASS =
+  "inline-flex h-[2.375rem] w-[2.375rem] shrink-0 items-center justify-center rounded-[0.95rem] border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:h-10 xl:w-10 xl:rounded-xl";
 
 const ACTIES_INSTRUCTOR = [
-  { href: "/instructor/taken", icon: ListTodo, label: "Mijn taken" },
-  { href: "/instructor/week", icon: ClipboardList, label: "Weekplanning" },
+  { href: "/instructor/week", icon: ClipboardList, label: "Agenda" },
+  { href: "/instructor/beschikbaarheid", icon: CalendarClock, label: "Beschikbaarheid" },
+  { href: "/instructor/berichten", icon: MessageCircle, label: "Berichten" },
   { href: "/instructor/leerlingen", icon: Users, label: "Leerlingenlijst" },
+  { href: "/instructor/taken", icon: ListTodo, label: "Taken" },
+  { href: "/instructor/les-evaluaties", icon: FileText, label: "Les evaluaties" },
+  { href: "/instructor/voertuigen", icon: CarFront, label: "Voertuigen" },
 ];
 
 const ACTIES_BACKOFFICE = [
-  { href: "/backoffice/agenda/afspraken/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
-  { href: "/backoffice/intake", icon: FileText, label: "Intakeformulier" },
-  { href: "/backoffice/instellingen", icon: Settings, label: "Instellingen" },
+  { href: "/instructor/afspraak/nieuw", icon: CalendarPlus, label: "Afspraak inplannen" },
+  { href: "/instructor/intake", icon: FileText, label: "Intakeformulier" },
+  { href: "/instructor/instellingen", icon: Settings, label: "Instellingen" },
 ];
 
-function isActive(pathname: string, item: NavItem): boolean {
-  if (item.match === "exact") return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
-}
-
-/**
- * Horizontal utility bar rendered above main content on desktop only.
- * Contains secondary nav links (beschikbaarheid / berichten / meldingen),
- * a "Taken" shortcut, the notification bell, and an "Acties" shadcn
- * DropdownMenu for quick-access cross-module links.
- */
 export function InstructorTopbar({
   notifications,
+  theme,
 }: {
   notifications?: ReactNode;
+  theme: Theme;
 }) {
   const pathname = usePathname() ?? "";
+  const messagesActive =
+    pathname === "/instructor/berichten" || pathname.startsWith("/instructor/berichten/");
 
   return (
-    <header className="hidden h-12 shrink-0 items-center gap-1 border-b border-border bg-card/60 px-3 backdrop-blur md:flex">
-      {/* Secondary nav links */}
-      <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto">
-        {NAV.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                active
-                  ? "bg-primary-soft font-medium text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+    <header className="hidden h-[3.75rem] shrink-0 items-center gap-3 border-b border-border/80 bg-card px-4 lg:flex xl:h-16 xl:px-5">
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-2xl">
+          <InstructorQuickSearch />
+        </div>
+      </div>
 
-      {/* Right cluster: Taken shortcut + notifications + Acties dropdown */}
-      <div className="ml-auto flex shrink-0 items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <RouteInfoBubble scope="instructor" className={ICON_BUTTON_CLASS} />
         <Link
-          href="/instructor/taken"
+          href="/instructor/berichten"
+          aria-current={messagesActive ? "page" : undefined}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-            pathname.startsWith("/instructor/taken")
-              ? "bg-primary-soft font-medium text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            ICON_BUTTON_CLASS,
+            messagesActive ? "border-primary/20 bg-primary-soft text-primary" : "",
           )}
         >
-          <ListTodo className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Taken
+          <MessageCircle className="h-4 w-4" aria-hidden />
         </Link>
-
         {notifications}
+        <ThemeToggle
+          current={theme}
+          className="h-10 w-10 rounded-xl border-border/80"
+        />
 
-        {/* Acties — shadcn DropdownMenu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                "text-muted-foreground hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground",
+                BUTTON_CLASS,
+                "font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground",
               )}
             >
               Acties
               <ChevronDown
-                className="h-3.5 w-3.5 shrink-0 transition-transform duration-150 [[data-state=open]_&]:rotate-180"
+                className="h-4 w-4 shrink-0 transition-transform duration-150 [[data-state=open]_&]:rotate-180"
                 aria-hidden
               />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            {ACTIES_INSTRUCTOR.map((a) => {
-              const Icon = a.icon;
+          <DropdownMenuContent align="end" className="w-56">
+            {ACTIES_INSTRUCTOR.map((action) => {
+              const Icon = action.icon;
               return (
-                <DropdownMenuItem key={a.href} asChild>
-                  <Link href={a.href} className="flex items-center gap-2.5">
+                <DropdownMenuItem key={action.href} asChild>
+                  <Link href={action.href} className="flex items-center gap-2.5">
                     <Icon aria-hidden />
-                    {a.label}
+                    {action.label}
                   </Link>
                 </DropdownMenuItem>
               );
             })}
             <DropdownMenuSeparator />
-            {ACTIES_BACKOFFICE.map((a) => {
-              const Icon = a.icon;
+            {ACTIES_BACKOFFICE.map((action) => {
+              const Icon = action.icon;
               return (
-                <DropdownMenuItem key={a.href} asChild>
-                  <Link href={a.href} className="flex items-center gap-2.5">
+                <DropdownMenuItem key={action.href} asChild>
+                  <Link href={action.href} className="flex items-center gap-2.5">
                     <Icon aria-hidden />
-                    {a.label}
+                    {action.label}
                   </Link>
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <form method="post" action="/auth/logout" className="w-full">
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-2.5 text-left"
+                >
+                  <LogOut aria-hidden />
+                  Uitloggen
+                </button>
+              </form>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

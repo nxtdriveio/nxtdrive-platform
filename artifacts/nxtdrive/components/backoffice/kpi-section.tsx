@@ -29,9 +29,15 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
   const [data, setData] = useState<KpiData>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false);
 
-  const fetchKpis = useCallback(async () => {
+  const fetchKpis = useCallback(async (force = false) => {
+    if (!force && typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return;
+    }
+    if (inFlightRef.current) return;
     try {
+      inFlightRef.current = true;
       setRefreshing(true);
       const res = await fetch("/backoffice/kpis", { cache: "no-store" });
       if (!res.ok) return;
@@ -39,14 +45,24 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
       setData(json);
     } catch {
     } finally {
+      inFlightRef.current = false;
       setRefreshing(false);
     }
   }, []);
 
   // 60 s polling — fallback when realtime connection is unavailable
   useEffect(() => {
-    intervalRef.current = setInterval(fetchKpis, REFRESH_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchKpis(true);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    intervalRef.current = setInterval(() => {
+      void fetchKpis();
+    }, REFRESH_INTERVAL_MS);
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchKpis]);
@@ -103,7 +119,7 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
           Bijgewerkt om {lastUpdated}
         </span>
         <button
-          onClick={fetchKpis}
+          onClick={() => { void fetchKpis(true); }}
           disabled={refreshing}
           aria-label="Nu vernieuwen"
           className="flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
@@ -115,7 +131,7 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         <StatCard
           label="Actieve leerlingen"
           value={data.activeStudents.toLocaleString("nl-NL")}

@@ -416,7 +416,13 @@ export function TheoryCard({
 
 // --- Lesson history ---------------------------------------------------------
 
-export function LessonHistoryCard({ lessons }: { lessons: Lesson[] }) {
+export function LessonHistoryCard({
+  lessons,
+  scope = "backoffice",
+}: {
+  lessons: Lesson[];
+  scope?: "backoffice" | "instructor";
+}) {
   return (
     <Card>
       <CardHeader>
@@ -435,7 +441,7 @@ export function LessonHistoryCard({ lessons }: { lessons: Lesson[] }) {
                 className="flex items-center justify-between gap-3 py-2.5"
               >
                 <Link
-                  href={`/backoffice/agenda/${l.id}`}
+                  href={scope === "instructor" ? `/instructor/${l.id}` : `/backoffice/agenda/${l.id}`}
                   className="flex-1 hover:underline"
                 >
                   <div className="text-sm font-medium text-foreground">
@@ -466,10 +472,12 @@ export function PlannedCard({
   upcomingLessons,
   appointments,
   studentId,
+  scope = "backoffice",
 }: {
   upcomingLessons: Lesson[];
   appointments: StudentAppointment[];
   studentId: string;
+  scope?: "backoffice" | "instructor";
 }) {
   const hasNothing = upcomingLessons.length === 0 && appointments.length === 0;
   return (
@@ -482,7 +490,11 @@ export function PlannedCard({
           <p className="text-sm text-muted-foreground">
             Geen geplande lessen of examens.{" "}
             <Link
-              href={`/backoffice/agenda/nieuw?student_id=${studentId}`}
+              href={
+                scope === "instructor"
+                  ? `/instructor/les/nieuw?student_id=${studentId}`
+                  : `/backoffice/agenda/nieuw?student_id=${studentId}`
+              }
               className="text-primary hover:underline"
             >
               Plan er één →
@@ -512,7 +524,7 @@ export function PlannedCard({
                 className="flex items-center justify-between gap-3 py-2.5"
               >
                 <Link
-                  href={`/backoffice/agenda/${l.id}`}
+                  href={scope === "instructor" ? `/instructor/${l.id}` : `/backoffice/agenda/${l.id}`}
                   className="flex-1 hover:underline"
                 >
                   <div className="text-sm font-medium text-foreground">

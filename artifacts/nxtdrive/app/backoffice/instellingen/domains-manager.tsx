@@ -58,7 +58,15 @@ function RecordRow({ record }: { record: DnsRecord }) {
   );
 }
 
-export function DomainsManager({ domains }: { domains: DomainView[] }) {
+export function DomainsManager({
+  domains,
+  editable = true,
+  canAdd = true,
+}: {
+  domains: DomainView[];
+  editable?: boolean;
+  canAdd?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [hostname, setHostname] = useState("");
@@ -66,6 +74,7 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
   const [notice, setNotice] = useState<string | null>(null);
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, ok?: string) {
+    if (!editable) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
@@ -80,6 +89,7 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
   }
 
   function add() {
+    if (!editable || !canAdd) return;
     const host = hostname.trim();
     if (!host) {
       setError("Vul een domeinnaam in.");
@@ -110,19 +120,32 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
             id="domain_hostname"
             placeholder="www.jouwrijschool.nl of jouwschool.nxtdrive.io"
             value={hostname}
+            disabled={!editable || pending}
             onChange={(e) => setHostname(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (editable && e.key === "Enter") {
                 e.preventDefault();
                 add();
               }
             }}
           />
-          <Button type="button" onClick={add} disabled={pending}>
+          <Button
+            type="button"
+            onClick={add}
+            disabled={!editable || !canAdd || pending}
+          >
             Toevoegen
           </Button>
         </div>
       </div>
+
+      {!editable ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          Eigen domeinen vereisen het Elite-abonnement. Bestaande domeinen
+          blijven hieronder zichtbaar, maar beheer is nu read-only totdat dit
+          abonnement opnieuw voor white-label is vrijgegeven.
+        </div>
+      ) : null}
 
       {error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -183,7 +206,7 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={pending}
+                    disabled={!editable || pending}
                     onClick={() => {
                       const fd = new FormData();
                       fd.set("domain_id", d.id);
@@ -200,7 +223,7 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={pending}
+                    disabled={!editable || pending}
                     onClick={() => {
                       const fd = new FormData();
                       fd.set("domain_id", d.id);
@@ -216,7 +239,7 @@ export function DomainsManager({ domains }: { domains: DomainView[] }) {
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={pending}
+                  disabled={!editable || pending}
                   onClick={() => {
                     const fd = new FormData();
                     fd.set("domain_id", d.id);

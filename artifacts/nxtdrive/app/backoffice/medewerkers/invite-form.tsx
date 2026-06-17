@@ -4,34 +4,51 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { UserPlus } from "lucide-react";
 import { inviteInstructor } from "./actions";
 import type { Branch } from "@/lib/branches/service";
+import { GovernanceAlerts } from "@/components/organization/governance-alerts";
+import {
+  governanceRoles,
+  isBranchScopedGovernanceRole,
+  roleGovernanceAlerts,
+  roleGovernanceDefinition,
+  type StaffGovernanceRole,
+} from "@/lib/organization/roles";
 
-const ROLE_OPTIONS = [
-  { value: "instructor", label: "Instructeur" },
-  { value: "branch_manager", label: "Vestigingsmanager" },
-  { value: "planner", label: "Planner" },
-  { value: "admin_staff", label: "Administratie" },
-  { value: "marketing", label: "Marketing" },
-  { value: "tenant_admin", label: "Beheerder" },
-];
+type TeamOption = {
+  id: string;
+  name: string;
+  branch_id: string | null;
+  color: string;
+  is_active: boolean;
+};
 
-const BRANCH_SCOPED_ROLES = new Set([
-  "branch_manager",
-  "planner",
-  "admin_staff",
-  "marketing",
-  "instructor",
-]);
+const ROLE_OPTIONS = governanceRoles().map((role) => ({
+  value: role,
+  label: roleGovernanceDefinition(role).short_label,
+}));
 
-export function InviteForm({ branches }: { branches: Branch[] }) {
+export function InviteForm({
+  branches,
+  teams,
+}: {
+  branches: Branch[];
+  teams: TeamOption[];
+}) {
   const [open, setOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("instructor");
+  const [selectedRole, setSelectedRole] = useState<StaffGovernanceRole>("instructor");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
   const showBranchPicker =
-    branches.length > 0 && BRANCH_SCOPED_ROLES.has(selectedRole);
+    branches.length > 0 && isBranchScopedGovernanceRole(selectedRole);
+  const branchNameById = new Map(branches.map((branch) => [branch.id, branch.name]));
+  const roleDefinition = roleGovernanceDefinition(selectedRole);
+  const governanceAlerts = roleGovernanceAlerts(selectedRole, {
+    selectedBranchCount: selectedBranches.length,
+    availableBranchCount: branches.length,
+  });
 
   function toggleBranch(id: string) {
     setSelectedBranches((prev) =>
@@ -92,7 +109,7 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
                     required
                     value={selectedRole}
                     onChange={(e) => {
-                      setSelectedRole(e.target.value);
+                      setSelectedRole(e.target.value as StaffGovernanceRole);
                       setSelectedBranches([]);
                     }}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -106,7 +123,22 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
                 </div>
               </div>
 
-              {/* Branch multi-select for scoped roles */}
+              <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="primary">{roleDefinition.label}</Badge>
+                  <Badge variant="outline">
+                    {roleDefinition.scope_policy === "branch"
+                      ? "Vestiging-scoped"
+                      : "Organisatiebreed"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-foreground">{roleDefinition.description}</p>
+                <p className="mt-2 text-muted-foreground">{roleDefinition.intended_use}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{roleDefinition.governance_note}</p>
+              </div>
+
+              <GovernanceAlerts alerts={governanceAlerts} />
+
               {showBranchPicker ? (
                 <div className="space-y-2">
                   <Label>
@@ -144,6 +176,54 @@ export function InviteForm({ branches }: { branches: Branch[] }) {
                   <p className="text-[11px] text-muted-foreground">
                     Selecteer vestigingen om deze medewerker te beperken tot
                     die locaties. Geen selectie = toegang tot alle vestigingen.
+                  </p>
+                </div>
+              ) : null}
+
+              {teams.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>
+                    Teams{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optioneel)
+                    </span>
+                  </Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {teams.map((team) => {
+                      const branchLabel = team.branch_id
+                        ? branchNameById.get(team.branch_id) ?? "Vestiging onbekend"
+                        : "Organisatiebreed";
+                      return (
+                        <label
+                          key={team.id}
+                          className="flex cursor-pointer items-start gap-2 rounded-md border border-input px-3 py-2 text-sm transition-colors hover:bg-muted"
+                        >
+                          <input
+                            type="checkbox"
+                            name="team_ids[]"
+                            value={team.id}
+                            className="mt-0.5 rounded"
+                          />
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="flex items-center gap-2 font-medium text-foreground">
+                              <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: team.color }}
+                                aria-hidden
+                              />
+                              {team.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {branchLabel}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Teams zijn operationeel. Rollen en vestigingstoegang blijven
+                    voorlopig leidend voor rechten.
                   </p>
                 </div>
               ) : null}

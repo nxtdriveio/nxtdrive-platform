@@ -14,9 +14,9 @@ export function BrandLogo({
   accent = false,
 }: {
   className?: string;
-  accent?: boolean;
+ accent?: boolean;
 }) {
-  const right = accent ? "#7c5cff" : "currentColor";
+  const right = accent ? "var(--primary)" : "currentColor";
   return (
     <svg
       viewBox="0 0 40 40"

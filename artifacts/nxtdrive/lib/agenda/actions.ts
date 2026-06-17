@@ -18,6 +18,12 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
+import {
   AGENDA_APPOINTMENT_TYPES,
   AGENDA_APPOINTMENT_RESULTS,
   isStudentLinkedType,
@@ -30,7 +36,9 @@ import {
 // RPCs as service_role; every write first resolves explicit agenda/student
 // access so service_role never becomes the authorization boundary.
 
-type AgendaContextAccess = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+type AgendaContextAccess = Awaited<
+  ReturnType<typeof requireAgendaAccessContext>
+>;
 type AppointmentCreateAccess = StudentBackofficeAccess | AgendaContextAccess;
 
 function hasStudentAccess(
@@ -39,7 +47,9 @@ function hasStudentAccess(
   return "student" in access;
 }
 
-function parseType(raw: FormDataEntryValue | null): AgendaAppointmentType | null {
+function parseType(
+  raw: FormDataEntryValue | null,
+): AgendaAppointmentType | null {
   const v = String(raw ?? "");
   return (AGENDA_APPOINTMENT_TYPES as readonly string[]).includes(v)
     ? (v as AgendaAppointmentType)
@@ -51,7 +61,10 @@ function parseBranchId(raw: FormDataEntryValue | null): string | null {
   return v || null;
 }
 
-function safeRedirect(raw: FormDataEntryValue | null, fallback: string): string {
+function safeRedirect(
+  raw: FormDataEntryValue | null,
+  fallback: string,
+): string {
   const v = String(raw ?? "").trim();
   // Only allow internal absolute paths to avoid open-redirects.
   return v.startsWith("/") ? v : fallback;
@@ -66,6 +79,47 @@ function canManageAgendaBranch(
   return (
     rolesGrantPermission(context.roles, "planning:manage") &&
     canAccessBranch(branchScope, branchId)
+  );
+}
+
+function agendaPlanningActor(
+  context: AuthorizedOrganizationContext,
+  branchScope: BranchAccessScope,
+): PlanningActorAccess {
+  const tenantId = context.organization.id;
+  const canManageTenant =
+    Boolean(context.user.profile?.is_platform_admin) ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  return {
+    userId: context.user.id,
+    roles: context.roles,
+    isPlatformAdmin: Boolean(context.user.profile?.is_platform_admin),
+    tenantIds: canManageTenant ? [tenantId] : [],
+    branchAccess: [
+      {
+        tenantId,
+        branchIds:
+          branchScope.scope_type === "all" ? "all" : branchScope.branch_ids,
+      },
+    ],
+  };
+}
+
+function agendaPlanningScope(
+  tenantId: string,
+  branchId: string | null,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningValidationMessage(
+  blockingReasons: readonly { message: string }[],
+): string {
+  return (
+    blockingReasons[0]?.message ?? "Deze afspraak past niet in de planning."
   );
 }
 
@@ -90,22 +144,36 @@ export async function createAppointment(formData: FormData) {
   const type = parseType(formData.get("type"));
   if (!type) redirect(`${errorTo}?error=type`);
 
-  const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
+  const requestedInstructorId = String(
+    formData.get("instructor_id") ?? "",
+  ).trim();
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = isStudentLinkedType(type) && studentIdRaw
-    ? studentIdRaw
-    : null;
+  const studentId =
+    isStudentLinkedType(type) && studentIdRaw ? studentIdRaw : null;
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
+  const title = String(formData.get("title") ?? "")
+    .trim()
+    .slice(0, 200);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const notes = String(formData.get("notes") ?? "")
+    .trim()
+    .slice(0, 1000);
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const pickupServiceAreaId =
+    String(formData.get("pickup_service_area_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
     redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
@@ -156,27 +224,71 @@ export async function createAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
-  const { data: newId, error } = await service.rpc("create_agenda_appointment", {
-    p_tenant_id: context.organization.id,
-    p_actor: context.user.id,
-    p_instructor_id: instructorId,
-    p_type: type,
-    p_starts_at: startsAt.toISOString(),
-    p_duration_min: duration,
-    p_student_id: studentId,
-    p_branch_id: appointmentBranchId,
-    p_title: title || null,
-    p_location: location || null,
-    p_notes: notes || null,
-  });
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
+  const planningInput = {
+    actor: agendaPlanningActor(context, branchScope),
+    scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: null,
+    tenantId: context.organization.id,
+    branchId: appointmentBranchId,
+    instructorId,
+    vehicleId,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningValidationMessage(validation.blockingReasons),
+      )}`,
+    );
+  }
+
+  const { data: newId, error } = await service.rpc(
+    "create_agenda_appointment",
+    {
+      p_tenant_id: context.organization.id,
+      p_actor: context.user.id,
+      p_instructor_id: instructorId,
+      p_type: type,
+      p_starts_at: startsAt.toISOString(),
+      p_duration_min: occupied,
+      p_student_id: studentId,
+      p_branch_id: appointmentBranchId,
+      p_title: title || null,
+      p_location: location || null,
+      p_notes: notes || null,
+      p_vehicle_id: vehicleId,
+      p_pickup_service_area_id: pickupServiceAreaId,
+    },
+  );
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  if (newId) {
+    const { error: metadataError } = await service
+      .from("agenda_appointments")
+      .update({ duration_min: duration, buffer_min: buffer })
+      .eq("id", String(newId))
+      .eq("tenant_id", context.organization.id);
+    if (metadataError) {
+      redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
+    }
   }
 
   // White-label-aware "exam scheduled" mail to the student. Idempotent per
   // appointment and best-effort; mail failures must never block planning.
   if (studentId && (type === "exam" || type === "interim_test") && newId) {
-    await maybeNotifyExamPlanned(service, context.organization.id, String(newId));
+    await maybeNotifyExamPlanned(
+      service,
+      context.organization.id,
+      String(newId),
+    );
   }
 
   revalidatePath("/backoffice/agenda");
@@ -209,9 +321,8 @@ async function maybeNotifyExamResult(
   appointmentId: string,
 ) {
   try {
-    const { notifyExamResult, maybeFireExamPassedReview } = await import(
-      "@/lib/notifications/dispatch"
-    );
+    const { notifyExamResult, maybeFireExamPassedReview } =
+      await import("@/lib/notifications/dispatch");
     await notifyExamResult(service, tenantId, appointmentId);
     // Task #113 - review request after a passed driving exam. Idempotent per
     // appointment; no-op for failed/TTT or when disabled.
@@ -235,19 +346,31 @@ export async function updateAppointment(formData: FormData) {
   const hasBranchField = formData.has("branch_id");
   const requestedBranchId = parseBranchId(formData.get("branch_id"));
   const studentIdRaw = String(formData.get("student_id") ?? "").trim();
-  const studentId = isStudentLinkedType(type) && studentIdRaw
-    ? studentIdRaw
-    : null;
+  const studentId =
+    isStudentLinkedType(type) && studentIdRaw ? studentIdRaw : null;
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
-  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
+  const title = String(formData.get("title") ?? "")
+    .trim()
+    .slice(0, 200);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const notes = String(formData.get("notes") ?? "")
+    .trim()
+    .slice(0, 1000);
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const pickupServiceAreaId =
+    String(formData.get("pickup_service_area_id") ?? "").trim() || null;
 
   if (!date || !time) redirect(`${errorTo}?error=missing`);
   if (!Number.isFinite(duration) || duration < 5) {
     redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
@@ -300,26 +423,65 @@ export async function updateAppointment(formData: FormData) {
     redirect(`${errorTo}?error=forbidden`);
   }
 
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
+  const planningInput = {
+    actor: agendaPlanningActor(context, branchScope),
+    scope: agendaPlanningScope(context.organization.id, appointmentBranchId),
+    entityType: "agenda_appointment" as const,
+    entityId: appointmentId,
+    tenantId: context.organization.id,
+    branchId: appointmentBranchId,
+    instructorId: appointmentAccess.appointment.instructor_id,
+    vehicleId,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningValidationMessage(validation.blockingReasons),
+      )}`,
+    );
+  }
+
   const { error } = await service.rpc("update_agenda_appointment", {
     p_appointment_id: appointmentId,
     p_tenant_id: context.organization.id,
     p_actor: context.user.id,
     p_starts_at: startsAt.toISOString(),
-    p_duration_min: duration,
+    p_duration_min: occupied,
     p_student_id: studentId,
     p_branch_id: appointmentBranchId,
     p_title: title || null,
     p_location: location || null,
     p_notes: notes || null,
+    p_vehicle_id: vehicleId,
+    p_pickup_service_area_id: pickupServiceAreaId,
   });
   if (error) {
     redirect(`${errorTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  const { error: metadataError } = await service
+    .from("agenda_appointments")
+    .update({ duration_min: duration, buffer_min: buffer })
+    .eq("id", appointmentId)
+    .eq("tenant_id", context.organization.id);
+  if (metadataError) {
+    redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
   }
 
   // Idempotent per appointment: later edits never re-send with the same dedupe
   // key, but an appointment made complete by this edit can still notify once.
   if (studentId && (type === "exam" || type === "interim_test")) {
-    await maybeNotifyExamPlanned(service, context.organization.id, appointmentId);
+    await maybeNotifyExamPlanned(
+      service,
+      context.organization.id,
+      appointmentId,
+    );
   }
 
   revalidatePath("/backoffice/agenda");
@@ -382,7 +544,9 @@ export async function setAppointmentResult(formData: FormData) {
 
   const result = parseResult(formData.get("result"));
   if (!result) redirect(`${errorTo}?error=result`);
-  const note = String(formData.get("result_note") ?? "").trim().slice(0, 1000);
+  const note = String(formData.get("result_note") ?? "")
+    .trim()
+    .slice(0, 1000);
 
   const service = createServiceRoleClient();
   const { context, appointment } = await requireAgendaAppointmentAccess(
@@ -449,7 +613,8 @@ export async function setExamAppointmentDetails(formData: FormData) {
         for (const item of parsed) {
           if (!item || typeof item !== "object") continue;
           const r = item as Record<string, unknown>;
-          const code = typeof r.code === "string" ? r.code.trim().slice(0, 60) : "";
+          const code =
+            typeof r.code === "string" ? r.code.trim().slice(0, 60) : "";
           const label =
             typeof r.label === "string" ? r.label.trim().slice(0, 200) : "";
           if (!code || !label) continue;

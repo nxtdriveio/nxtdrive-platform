@@ -3,7 +3,8 @@ import { ChevronLeft, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadTenantInstructors } from "@/lib/availability/service";
-import { listBranches } from "@/lib/branches/service";
+import { listBranches, type Branch } from "@/lib/branches/service";
+import { loadVehicles } from "@/lib/lessons/context-data";
 import { rolesGrantPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ import {
 import {
   APPOINTMENT_TYPE_LABEL,
   APPOINTMENT_RESULT_LABEL,
+  appointmentBufferMinutes,
+  appointmentDurationMinutes,
   durationMinutes,
   isStudentLinkedType,
   isResultableType,
@@ -52,8 +55,12 @@ export default async function EditAppointmentPage({
   const formPath = `/backoffice/agenda/afspraak/${id}`;
 
   const service = createServiceRoleClient();
-  const { context, branchScope, appointment: appt, appointmentBranchId } =
-    await requireAgendaAppointmentAccess(service, id, "read");
+  const {
+    context,
+    branchScope,
+    appointment: appt,
+    appointmentBranchId,
+  } = await requireAgendaAppointmentAccess(service, id, "read");
   if (!appt) notFound();
 
   const { user, organization: tenant, roles } = context;
@@ -67,13 +74,40 @@ export default async function EditAppointmentPage({
   const canEditAppointment = canManageAppointment;
 
   const supabase = await createServerSupabaseClient();
-  const instructors = canEditAppointment && canSelectInstructor
-    ? await loadTenantInstructors(tenant.id)
-    : undefined;
+  const instructors =
+    canEditAppointment && canSelectInstructor
+      ? await loadTenantInstructors(tenant.id)
+      : undefined;
 
-  const allBranches = canEditAppointment
+  let serviceAreasQuery = service
+    .from("service_areas")
+    .select("id, name, branch_id")
+    .eq("tenant_id", tenant.id)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (branchScope.scope_type === "branches") {
+    serviceAreasQuery = serviceAreasQuery.or(
+      `branch_id.is.null,branch_id.in.(${branchScope.branch_ids.join(",")})`,
+    );
+  }
+
+  const allBranches: Branch[] = canEditAppointment
     ? await listBranches(service, tenant.id)
     : [];
+  const vehicles = canEditAppointment
+    ? await loadVehicles(service, tenant.id, {
+        branchIds:
+          branchScope.scope_type === "branches" ? branchScope.branch_ids : null,
+        includeShared: true,
+        activeOnly: true,
+      })
+    : [];
+  const serviceAreasRes = canEditAppointment
+    ? await serviceAreasQuery
+    : { data: [], error: null };
+  if (serviceAreasRes.error) {
+    throw new Error(`Rayons laden mislukt: ${serviceAreasRes.error.message}`);
+  }
   const branches =
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
@@ -153,7 +187,10 @@ export default async function EditAppointmentPage({
       ) : null}
 
       {examSignals ? (
-        <ExamSignalsPanel appointmentId={appt.id} signals={examSignals.signals} />
+        <ExamSignalsPanel
+          appointmentId={appt.id}
+          signals={examSignals.signals}
+        />
       ) : null}
 
       {isResultableType(appt.type) ? (
@@ -210,7 +247,8 @@ export default async function EditAppointmentPage({
                     htmlFor="result_note"
                     className="text-sm font-medium text-foreground"
                   >
-                    Vervolgadvies <span className="text-muted-foreground">(optioneel)</span>
+                    Vervolgadvies{" "}
+                    <span className="text-muted-foreground">(optioneel)</span>
                   </label>
                   <textarea
                     id="result_note"
@@ -249,14 +287,19 @@ export default async function EditAppointmentPage({
                   : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
               }
               students={students}
+              vehicles={vehicles}
+              serviceAreas={serviceAreasRes.data ?? []}
               defaults={{
                 type: appt.type,
                 branchId: appt.branch_id ?? appointmentBranchId,
                 instructorId: appt.instructor_id,
+                vehicleId: appt.vehicle_id,
+                pickupServiceAreaId: appt.pickup_service_area_id,
                 studentId: appt.student_id,
                 date: appt.starts_at.slice(0, 10),
                 time: appt.starts_at.slice(11, 16),
-                durationMin: durationMinutes(appt.starts_at, appt.ends_at),
+                durationMin: appointmentDurationMinutes(appt),
+                bufferMin: appointmentBufferMinutes(appt),
                 title: appt.title,
                 location: appt.location,
                 notes: appt.notes,
@@ -266,8 +309,8 @@ export default async function EditAppointmentPage({
           ) : (
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>
-                Je hebt leesrechten voor deze afspraak. Bewerken is uitgeschakeld
-                totdat de afspraak binnen jouw beheerscope valt.
+                Je hebt leesrechten voor deze afspraak. Bewerken is
+                uitgeschakeld totdat de afspraak binnen jouw beheerscope valt.
               </p>
               <dl className="grid gap-2 sm:grid-cols-2">
                 <div>
@@ -304,7 +347,11 @@ export default async function EditAppointmentPage({
             </div>
             <form action={deleteAppointment}>
               <input type="hidden" name="appointment_id" value={appt.id} />
-              <input type="hidden" name="redirect_to" value="/backoffice/agenda" />
+              <input
+                type="hidden"
+                name="redirect_to"
+                value="/backoffice/agenda"
+              />
               <Button type="submit" variant="danger">
                 <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
                 Verwijderen

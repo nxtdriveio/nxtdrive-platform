@@ -2,6 +2,7 @@
 
 import { WifiOff, RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/components/pwa/BrandLogo";
+import { PWAPage } from "@/components/pwa/primitives";
 
 /**
  * Offline fallback for the Instructeur PWA (Task #177). Precached by the service
@@ -9,7 +10,7 @@ import { BrandLogo } from "@/components/pwa/BrandLogo";
  */
 export default function InstructorOfflinePage() {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
+    <PWAPage contentClassName="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
       <div className="flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-950 px-8 py-10 text-white shadow-xl">
         <BrandLogo className="h-12 w-12" accent />
         <div className="flex items-center gap-2 text-white/80">
@@ -33,6 +34,6 @@ export default function InstructorOfflinePage() {
       <p className="text-xs text-muted-foreground">
         Tip: de laatst geopende les kan nog zichtbaar zijn op de vorige pagina.
       </p>
-    </div>
+    </PWAPage>
   );
 }

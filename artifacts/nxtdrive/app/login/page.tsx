@@ -7,7 +7,11 @@ import { DevLoginPanel } from "@/components/dev/DevLoginPanel";
 import { BrandProvider } from "@/components/brand-provider";
 import { sendMagicLink, signInWithPassword } from "./actions";
 import { resolveTenantByHost } from "@/lib/tenant/resolve-host";
-import { getTenantBrandingPublic, resolveLogoUrl } from "@/lib/branding";
+import {
+  getTenantBrandingBundle,
+  isWhiteLabelActive,
+  resolveLogoUrl,
+} from "@/lib/branding";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export default async function LoginPage({
@@ -27,12 +31,18 @@ export default async function LoginPage({
   const service = createServiceRoleClient();
   const tenant = await resolveTenantByHost(service, host);
 
-  const branding = tenant ? await getTenantBrandingPublic(tenant.id) : null;
+  const bundle = tenant ? await getTenantBrandingBundle(tenant.id) : null;
+  const branding = bundle?.branding ?? null;
   const logoUrl = resolveLogoUrl(tenant ?? null, branding);
-  const isWhiteLabel = tenant?.white_label_enabled === true && tenant?.plan === "elite";
+  const isWhiteLabel = isWhiteLabelActive(tenant ?? null);
 
   return (
-    <BrandProvider tenant={tenant} branding={branding} className="contents">
+    <BrandProvider
+      tenant={tenant}
+      branding={branding}
+      themeTokens={bundle?.tokens ?? null}
+      className="contents"
+    >
       <main className="bg-nxt-grid relative flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-10">
         <DevLoginPanel />
         <Card className="w-full max-w-sm space-y-6 p-8">

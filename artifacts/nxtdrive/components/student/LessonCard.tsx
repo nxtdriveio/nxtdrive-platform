@@ -2,13 +2,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { PWAStatusBadge } from "@/components/pwa/primitives";
 import { type Lesson } from "@/lib/lessons/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import { formatTegoed } from "@/lib/students/types";
 
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
+const timeFmt = createNlDateTimeFormatter({
   hour: "2-digit",
   minute: "2-digit",
 });
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+const dateFmt = createNlDateTimeFormatter({
   weekday: "short",
   day: "numeric",
   month: "short",

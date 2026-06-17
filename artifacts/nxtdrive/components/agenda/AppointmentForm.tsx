@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AGENDA_APPOINTMENT_TYPES,
+  APPOINTMENT_BUFFER_OPTIONS,
   APPOINTMENT_DURATIONS,
   APPOINTMENT_TYPE_LABEL,
   isStudentLinkedType,
@@ -17,15 +18,27 @@ import {
 type BranchOption = { id: string; name: string };
 type InstructorOption = { id: string; full_name: string | null };
 type StudentOption = { id: string; full_name: string };
+type VehicleOption = {
+  id: string;
+  label: string;
+  license_plate: string | null;
+  transmission: "schakel" | "automaat" | null;
+  status?: string | null;
+  default_instructor_id?: string | null;
+};
+type ServiceAreaOption = { id: string; name: string; branch_id?: string | null };
 
 export type AppointmentFormDefaults = {
   type?: AgendaAppointmentType;
   branchId?: string | null;
   instructorId?: string;
+  vehicleId?: string | null;
+  pickupServiceAreaId?: string | null;
   studentId?: string | null;
   date?: string;
   time?: string;
   durationMin?: number;
+  bufferMin?: number;
   title?: string | null;
   location?: string | null;
   notes?: string | null;
@@ -43,6 +56,8 @@ export function AppointmentForm({
   branches,
   instructors,
   ownInstructor,
+  vehicles,
+  serviceAreas,
   students,
   defaults,
   submitLabel,
@@ -57,6 +72,8 @@ export function AppointmentForm({
   // When provided, the instructor is selectable (admin/planner). Otherwise pinned.
   instructors?: InstructorOption[];
   ownInstructor?: InstructorOption;
+  vehicles?: VehicleOption[];
+  serviceAreas?: ServiceAreaOption[];
   students: StudentOption[];
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
@@ -127,7 +144,8 @@ export function AppointmentForm({
             </Select>
             {showStudent ? (
               <p className="text-xs text-muted-foreground">
-                Bij een gekoppelde leerling wordt de vestiging automatisch gelijkgezet met het leerlingdossier.
+                Bij een gekoppelde leerling wordt de vestiging automatisch
+                gelijkgezet met het leerlingdossier.
               </p>
             ) : null}
           </div>
@@ -178,6 +196,51 @@ export function AppointmentForm({
           </div>
         ) : null}
 
+        {vehicles ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="vehicle_id">Voertuig</Label>
+            <Select
+              id="vehicle_id"
+              name="vehicle_id"
+              defaultValue={defaults?.vehicleId ?? ""}
+            >
+              <option value="">Geen voertuig</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {[
+                    vehicle.license_plate ?? vehicle.label,
+                    vehicle.transmission,
+                    vehicle.default_instructor_id ? "standaard voertuig" : null,
+                    vehicle.status && vehicle.status !== "active"
+                      ? vehicle.status
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+
+        {serviceAreas && serviceAreas.length > 0 ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="pickup_service_area_id">Rayon</Label>
+            <Select
+              id="pickup_service_area_id"
+              name="pickup_service_area_id"
+              defaultValue={defaults?.pickupServiceAreaId ?? ""}
+            >
+              <option value="">Geen rayon</option>
+              {serviceAreas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+
         <div className="space-y-1.5">
           <Label htmlFor="date">Datum</Label>
           <Input
@@ -201,18 +264,36 @@ export function AppointmentForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="duration_min">Duur (minuten)</Label>
+          <Label htmlFor="duration_min">Lestijd / duur</Label>
           <Select
             id="duration_min"
             name="duration_min"
-            defaultValue={String(defaults?.durationMin ?? 60)}
+            defaultValue={String(defaults?.durationMin ?? 50)}
           >
             {APPOINTMENT_DURATIONS.map((d) => (
               <option key={d} value={d}>
-                {d}
+                {d} min
               </option>
             ))}
           </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="buffer_min">Buffer na afloop</Label>
+          <Select
+            id="buffer_min"
+            name="buffer_min"
+            defaultValue={String(defaults?.bufferMin ?? 0)}
+          >
+            {APPOINTMENT_BUFFER_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {d} min
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Bezet in agenda: duur + buffer.
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -251,7 +332,10 @@ export function AppointmentForm({
       </div>
 
       <div className="flex justify-end gap-2">
-        <Link href={redirectTo} className={buttonVariants({ variant: "ghost" })}>
+        <Link
+          href={redirectTo}
+          className={buttonVariants({ variant: "ghost" })}
+        >
           Annuleren
         </Link>
         <Button type="submit">{submitLabel}</Button>

@@ -37,10 +37,17 @@ export async function generateLessonReportDraft(
   const system = [
     "Je bent een Nederlandse rijschool-assistent die rij-instructeurs helpt een",
     "professioneel, beknopt lesverslag te schrijven voor een rijles (rijbewijs B).",
-    "Schrijf in het Nederlands, zakelijk en constructief, in de derde persoon over",
-    "de leerling. Gebruik 2 tot 4 korte alinea's: wat er behandeld is, wat goed",
-    "ging, en aandachtspunten of de volgende stap. Verzin geen feiten die niet uit",
-    "de aangeleverde informatie volgen. Geen markdown-opmaak of kopjes met symbolen.",
+    "Schrijf in het Nederlands rechtstreeks tegen de leerling in de tweede persoon",
+    "(je/jij/jouw). Houd de toon vriendelijk, menselijk en licht informeel, maar",
+    "wel professioneel en constructief. Gebruik 2 tot 4 korte alinea's: wat er",
+    "behandeld is, wat goed ging, en aandachtspunten of de volgende stap.",
+    "Open bij voorkeur met een korte positieve of bemoedigende zin.",
+    "Houd zinnen kort en duidelijk. Vermijd lange formele constructies.",
+    "Sluit af met een concrete volgende stap of focus voor de volgende les.",
+    "Verzin geen feiten die niet uit de aangeleverde informatie volgen. Gebruik",
+    "geen markdown-opmaak of kopjes met symbolen. Vermijd afstandelijke formuleringen",
+    "in de derde persoon zoals 'de leerling' of het herhalen van de volledige naam,",
+    "tenzij dat echt nodig is.",
   ].join(" ");
 
   const parts: string[] = [`Leerling: ${input.studentName}`];
@@ -346,6 +353,120 @@ export type InternalAttention = {
   samenvatting: string;
 };
 
+export type RisAiAssessmentSignal = {
+  code: string;
+  title: string;
+  moduleNumber: number;
+  risStep: string | number | null;
+  studentLabel: string;
+  isAttentionPoint: boolean;
+  isFeaturedForLesson: boolean;
+  shouldRepeat: boolean;
+  readyForTest: boolean;
+  instructorNote?: string | null;
+  studentVisibleNote?: string | null;
+};
+
+export type RisLessonPublicationDraftInput = {
+  studentName: string;
+  assessments: RisAiAssessmentSignal[];
+  reflection?: {
+    wentWellText?: string | null;
+    difficultText?: string | null;
+    nextLessonWish?: string | null;
+    instructorContextNote?: string | null;
+  };
+};
+
+export type RisLessonPublicationDraft = {
+  studentSummary: string;
+  homeworkOrNextFocus: string;
+  internalSummary: string;
+  weakScripts: { script: string; reason: string; nextStep: string }[];
+  moduleAdvice: string[];
+  internalAttentionPoints: string[];
+};
+
+export async function generateRisLessonPublicationDraft(
+  input: RisLessonPublicationDraftInput,
+): Promise<RisLessonPublicationDraft> {
+  if (input.assessments.length === 0) {
+    throw new Error("Er zijn nog geen RIS-scripts beoordeeld om een AI-voorstel te maken.");
+  }
+
+  const system = [
+    "Je bent een Nederlandse rijschool-assistent die een RIS-leskaart helpt",
+    "afronden. Je schrijft adviserend, niet bindend. De instructeur controleert,",
+    "past aan en publiceert handmatig. Schrijf leerlingtekst rechtstreeks tegen de",
+    "leerling in de tweede persoon (je/jij/jouw), vriendelijk en duidelijk. Houd",
+    "interne aandachtspunten apart en staff-only. Verzin geen feiten buiten de",
+    "aangeleverde RIS-data. Geef ALLEEN geldige JSON terug met exact deze structuur:",
+    '{"studentSummary":string,"homeworkOrNextFocus":string,"internalSummary":string,',
+    '"weakScripts":[{"script":string,"reason":string,"nextStep":string}],',
+    '"moduleAdvice":[string],"internalAttentionPoints":[string]}.',
+    "studentSummary: 2 tot 4 korte zinnen, positief en coachend.",
+    "homeworkOrNextFocus: concrete focus voor de volgende les.",
+    "internalSummary: korte staff-only samenvatting.",
+    "weakScripts: maximaal 5 scripts met aandacht/herhalen/lage stap.",
+    "moduleAdvice: 2 tot 4 modulegerichte adviezen.",
+    "internalAttentionPoints: 2 tot 5 staff-only opvolgpunten.",
+  ].join(" ");
+
+  const lines: string[] = [`Leerling: ${input.studentName}`];
+  lines.push("RIS-beoordelingen:");
+  for (const item of input.assessments.slice(0, 40)) {
+    const flags = [
+      item.isFeaturedForLesson ? "focus" : "",
+      item.isAttentionPoint ? "aandachtspunt" : "",
+      item.shouldRepeat ? "herhalen" : "",
+      item.readyForTest ? "toetsklaar" : "",
+    ].filter(Boolean);
+    lines.push(
+      `- Module ${item.moduleNumber} ${item.code} ${item.title}: stap ${
+        item.risStep ?? "N"
+      } (${item.studentLabel})${flags.length ? `; ${flags.join(", ")}` : ""}.`,
+    );
+    if (item.instructorNote) lines.push(`  Interne notitie: ${item.instructorNote}`);
+    if (item.studentVisibleNote) lines.push(`  Leerlingnotitie: ${item.studentVisibleNote}`);
+  }
+  if (input.reflection?.wentWellText) {
+    lines.push(`Reflectie - ging goed: ${input.reflection.wentWellText}`);
+  }
+  if (input.reflection?.difficultText) {
+    lines.push(`Reflectie - lastig: ${input.reflection.difficultText}`);
+  }
+  if (input.reflection?.nextLessonWish) {
+    lines.push(`Leerwens volgende les: ${input.reflection.nextLessonWish}`);
+  }
+  if (input.reflection?.instructorContextNote) {
+    lines.push(`Interne context: ${input.reflection.instructorContextNote}`);
+  }
+
+  const completion = await getOpenAIClient().chat.completions.create({
+    model: AI_MODEL,
+    max_completion_tokens: AI_MAX_TOKENS,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: lines.join("\n") },
+    ],
+  });
+
+  const raw = completion.choices[0]?.message?.content?.trim();
+  if (!raw) {
+    throw new Error("De AI gaf geen RIS-publicatievoorstel terug. Probeer het opnieuw.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Het RIS AI-voorstel kon niet worden verwerkt. Probeer het opnieuw.");
+  }
+
+  return normalizeRisLessonPublicationDraft(parsed);
+}
+
 /**
  * Internal staff summary of recurring attention points + advice for the next
  * lesson, derived from the structured lesson data the instructor already
@@ -460,6 +581,45 @@ function normalizeInternalAttention(value: unknown): InternalAttention {
     terugkerendePunten,
     adviesVolgendeLes,
     samenvatting: String(obj.samenvatting ?? "").trim(),
+  };
+}
+
+function normalizeRisLessonPublicationDraft(
+  value: unknown,
+): RisLessonPublicationDraft {
+  const obj = (value ?? {}) as Record<string, unknown>;
+  const weakScripts = Array.isArray(obj.weakScripts)
+    ? obj.weakScripts
+        .map((item) => {
+          const row = (item ?? {}) as Record<string, unknown>;
+          return {
+            script: String(row.script ?? "").trim(),
+            reason: String(row.reason ?? "").trim(),
+            nextStep: String(row.nextStep ?? "").trim(),
+          };
+        })
+        .filter((item) => item.script || item.reason || item.nextStep)
+        .slice(0, 5)
+    : [];
+
+  const moduleAdvice = Array.isArray(obj.moduleAdvice)
+    ? obj.moduleAdvice.map((item) => String(item ?? "").trim()).filter(Boolean).slice(0, 4)
+    : [];
+
+  const internalAttentionPoints = Array.isArray(obj.internalAttentionPoints)
+    ? obj.internalAttentionPoints
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
+
+  return {
+    studentSummary: String(obj.studentSummary ?? "").trim(),
+    homeworkOrNextFocus: String(obj.homeworkOrNextFocus ?? "").trim(),
+    internalSummary: String(obj.internalSummary ?? "").trim(),
+    weakScripts,
+    moduleAdvice,
+    internalAttentionPoints,
   };
 }
 

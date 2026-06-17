@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarPlus2, ChevronLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { buttonVariants } from "@/components/ui/button";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { loadVehicles } from "@/lib/lessons/context-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentForm } from "@/components/agenda/AppointmentForm";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { createAppointment } from "@/lib/agenda/actions";
+import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -26,17 +31,25 @@ export default async function NewInstructorAppointmentPage({
     roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
 
   const supabase = await createServerSupabaseClient();
+  const planningSettings = await loadTenantPlanningSettings(supabase, tenant.id);
   // Admins may pick any instructor; instructors are pinned to themselves.
   const instructors = isAdmin
     ? await loadTenantInstructors(tenant.id)
     : undefined;
 
-  const { data: studentsRaw } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("full_name", { ascending: true });
+  const [studentsRes, vehicles] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, full_name")
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("full_name", { ascending: true }),
+    loadVehicles(supabase, tenant.id, {
+      activeOnly: true,
+      includeShared: true,
+    }),
+  ]);
+  const { data: studentsRaw } = studentsRes;
   const students = (studentsRaw ?? []) as Pick<Student, "id" | "full_name">[];
 
   const now = new Date();
@@ -44,24 +57,52 @@ export default async function NewInstructorAppointmentPage({
   now.setHours(now.getHours() + 1);
 
   return (
-    <div className="space-y-6">
-      <Link
-        href="/instructor/week"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        Terug naar weekplanning
-      </Link>
+    <PWAPage app="instructor" contentClassName="space-y-6">
+      <PWAPageHeader
+        eyebrow="Planning"
+        title="Nieuwe agenda-afspraak"
+        description="Gebruik dit scherm voor examens, tussentijdse toetsen, theoriebegeleiding en andere agenda-items of blokkades. Reguliere lessen plan je via de lesplanner."
+        align="left"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/instructor/week"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Terug naar agenda
+            </Link>
+            <Link
+              href="/instructor/les/nieuw"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <CalendarPlus2 className="h-4 w-4" aria-hidden />
+              Les plannen
+            </Link>
+          </div>
+        }
+      />
 
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          Nieuwe afspraak
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Examen, tussentijdse toets, theoriebegeleiding of een blok dat tijd
-          bezet.
-        </p>
-      </div>
+      <Card className="border-primary/20 bg-primary-soft/35">
+        <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              Reguliere les nodig?
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Een gewone rijles kies je niet in deze lijst, omdat dit scherm
+              alleen agenda-afspraken en tijdsblokken beheert. Open daarvoor
+              direct de lesplanner.
+            </p>
+          </div>
+          <Link
+            href="/instructor/les/nieuw"
+            className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
+          >
+            Open lesplanner
+          </Link>
+        </CardContent>
+      </Card>
 
       {sp.error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
@@ -86,14 +127,17 @@ export default async function NewInstructorAppointmentPage({
                 : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
             }
             students={students}
+            vehicles={vehicles}
             defaults={{
               date: now.toISOString().slice(0, 10),
               time: now.toISOString().slice(11, 16),
+              durationMin: planningSettings.defaultLessonDurationMinutes,
+              bufferMin: planningSettings.defaultLessonBufferMinutes,
             }}
             submitLabel="Afspraak inplannen"
           />
         </CardContent>
       </Card>
-    </div>
+    </PWAPage>
   );
 }

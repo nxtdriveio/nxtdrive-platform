@@ -15,7 +15,13 @@ import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { PWACard, PWASectionHeader, PWAEmptyState } from "@/components/pwa/primitives";
+import {
+  PWACard,
+  PWAEmptyState,
+  PWAPage,
+  PWAPageHeader,
+  PWASectionHeader,
+} from "@/components/pwa/primitives";
 import { InstructorDayList } from "@/components/instructor/DayList";
 import { InstructorStudentCard } from "@/components/instructor/StudentCard";
 import { InstructorProgressCard } from "@/components/instructor/ProgressCard";
@@ -27,6 +33,8 @@ import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
 import { AiInternalAttention } from "@/components/instructor/AiInternalAttention";
 import { SkillScoring } from "@/components/skills/SkillScoring";
 import { ExamReadinessPanel } from "@/components/skills/ExamReadinessPanel";
+import { RisScriptScoring } from "@/components/ris/RisScriptScoring";
+import { RisLessonPublicationPanel } from "@/components/ris/RisLessonPublicationPanel";
 import {
   loadVehicles,
   loadLocations,
@@ -43,32 +51,28 @@ import type { Student, StudentBalance } from "@/lib/students/types";
 import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
 import { loadInstructorLeskaart } from "@/lib/skills/leskaart-data";
 import { loadStudentReadiness } from "@/lib/skills/readiness-data";
+import { loadInstructorRisLessonCard } from "@/lib/ris/data";
 import type { MachtigingStatus } from "@/lib/cbr/types";
 import {
   loadCockpitProgress,
   loadCockpitPayment,
 } from "@/lib/instructor/cockpit-data";
+import {
+  addDaysYmd,
+  amsterdamYmd,
+  createNlDateTimeFormatter,
+  startOfAmsterdamDayUtc,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dtFmt = new Intl.DateTimeFormat("nl-NL", {
+const dtFmt = createNlDateTimeFormatter({
   day: "2-digit",
   month: "short",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function endOfDay(d: Date): Date {
-  const x = startOfDay(d);
-  x.setDate(x.getDate() + 1);
-  return x;
-}
 
 export default async function InstructorLessonPage({
   params,
@@ -99,8 +103,9 @@ export default async function InstructorLessonPage({
   if (!isAdmin && lesson.instructor_id !== user.id) notFound();
 
   const anchor = new Date(lesson.starts_at);
-  const dayStart = startOfDay(anchor);
-  const dayEnd = endOfDay(anchor);
+  const anchorYmd = amsterdamYmd(anchor);
+  const dayStart = startOfAmsterdamDayUtc(anchorYmd);
+  const dayEnd = startOfAmsterdamDayUtc(addDaysYmd(anchorYmd, 1));
 
   let dayQuery = supabase
     .from("lessons")
@@ -167,6 +172,7 @@ export default async function InstructorLessonPage({
   const [
     readiness,
     leskaart,
+    risLessonCard,
     vehicles,
     locations,
     lessonContext,
@@ -175,6 +181,7 @@ export default async function InstructorLessonPage({
   ] = await Promise.all([
     loadStudentReadiness(supabase, tenant.id, lesson.student_id),
     loadInstructorLeskaart(supabase, tenant.id, lesson.student_id, lesson.id),
+    loadInstructorRisLessonCard(supabase, tenant.id, lesson.id),
     loadVehicles(supabase, tenant.id, { activeOnly: true }),
     loadLocations(supabase, tenant.id, { activeOnly: true }),
     loadLessonContext(supabase, tenant.id, lesson.id),
@@ -215,9 +222,17 @@ export default async function InstructorLessonPage({
   );
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);
+  const isRisLessonMode = risLessonCard.settings.lessonCardMode === "ris";
+  const risPublished = risLessonCard.card?.publicationStatus === "published";
 
   return (
-    <div className="flex flex-col gap-4 p-3 sm:p-4">
+    <PWAPage app="instructor" contentClassName="flex flex-col gap-4">
+      <PWAPageHeader
+        eyebrow="Lescockpit"
+        title={student?.full_name ?? "Lesdetails"}
+        description="Werk deze les af vanuit een rustige cockpit: context, voortgang, acties, theorie en aandachtspunten op een plek."
+        align="left"
+      />
       {/* ── Mobile only: horizontal agenda chip strip ────────────────────── */}
       <div className="md:hidden">
         <PWACard>
@@ -267,6 +282,8 @@ export default async function InstructorLessonPage({
         currentScore={lesson.progress_score}
         currentSummary={lesson.progress_summary}
         leskaart={leskaart}
+        risMode={isRisLessonMode}
+        risPublished={risPublished}
       />
 
       <LessonContextPanel
@@ -396,16 +413,32 @@ export default async function InstructorLessonPage({
             className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
             <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            Weekplanning
+            Agenda
           </Link>
         </div>
       </PWACard>
 
-      <SkillScoring
-        lessonId={lesson.id}
-        studentName={student?.full_name ?? "Leerling"}
-        leskaart={leskaart}
-      />
-    </div>
+      {isRisLessonMode ? (
+        <>
+          <RisScriptScoring
+            lessonId={lesson.id}
+            studentName={student?.full_name ?? "Leerling"}
+            ris={risLessonCard}
+          />
+          <RisLessonPublicationPanel
+            lessonId={lesson.id}
+            studentId={lesson.student_id}
+            studentName={student?.full_name ?? "Leerling"}
+            ris={risLessonCard}
+          />
+        </>
+      ) : (
+        <SkillScoring
+          lessonId={lesson.id}
+          studentName={student?.full_name ?? "Leerling"}
+          leskaart={leskaart}
+        />
+      )}
+    </PWAPage>
   );
 }

@@ -16,6 +16,12 @@ import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
 import { loadTenantInstructors } from "@/lib/availability/service";
 import {
+  getPlanningPreview,
+  loadPlanningKernelData,
+  type PlanningActorAccess,
+  type PlanningScope,
+} from "@/lib/planning-core";
+import {
   notifyLessonRefillInvitation,
   notifyExamInvitation,
   notifyLessonCancelled,
@@ -33,12 +39,52 @@ async function instructorCanServeBranch(
   return instructors.some((instructor) => instructor.id === instructorId);
 }
 
+type PlanningContext = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+
+function actorForPlanningContext(
+  context: PlanningContext["context"],
+  branchScope: PlanningContext["branchScope"],
+): PlanningActorAccess {
+  const tenantId = context.organization.id;
+  const canManageTenant =
+    Boolean(context.user.profile?.is_platform_admin) ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  return {
+    userId: context.user.id,
+    roles: context.roles,
+    isPlatformAdmin: Boolean(context.user.profile?.is_platform_admin),
+    tenantIds: canManageTenant ? [tenantId] : [],
+    branchAccess: [
+      {
+        tenantId,
+        branchIds:
+          branchScope.scope_type === "all" ? "all" : branchScope.branch_ids,
+      },
+    ],
+  };
+}
+
+function scopeForTenantBranch(
+  tenantId: string,
+  branchId: string | null | undefined,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
+
+function planningMessage(blockingReasons: readonly { message: string }[]): string {
+  return blockingReasons[0]?.message ?? "Deze planning past niet binnen de regels.";
+}
+
 export async function scheduleLesson(formData: FormData) {
   const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
   const studentId = String(formData.get("student_id") ?? "").trim();
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
+  const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
 
@@ -54,12 +100,18 @@ export async function scheduleLesson(formData: FormData) {
   const locationPlaceId = hasCoords
     ? String(formData.get("location_place_id") ?? "").trim().slice(0, 300) || null
     : null;
+  const redirectTo = String(formData.get("redirect_to") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
+  const errorTo = String(formData.get("error_to") ?? "/backoffice/agenda/nieuw").trim() || "/backoffice/agenda/nieuw";
+  const detailBase = String(formData.get("detail_base") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
 
   if (!studentId || !date || !time) {
-    redirect("/backoffice/agenda/nieuw?error=missing");
+    redirect(`${errorTo}?error=missing`);
   }
   if (!Number.isFinite(duration) || duration < 15) {
-    redirect("/backoffice/agenda/nieuw?error=duration");
+    redirect(`${errorTo}?error=duration`);
+  }
+  if (!Number.isFinite(buffer) || buffer < 0) {
+    redirect(`${errorTo}?error=buffer`);
   }
 
   // Combine local datetime as ISO string. Browser submits date as YYYY-MM-DD
@@ -67,7 +119,7 @@ export async function scheduleLesson(formData: FormData) {
   // purposes this is acceptable; later we'll attach a tenant TZ.
   const startsAt = new Date(`${date}T${time}:00`);
   if (isNaN(startsAt.getTime())) {
-    redirect("/backoffice/agenda/nieuw?error=date");
+    redirect(`${errorTo}?error=date`);
   }
 
   const service = createServiceRoleClient();
@@ -78,7 +130,7 @@ export async function scheduleLesson(formData: FormData) {
     { allowedRoles: [...AGENDA_BACKOFFICE_MANAGE_ROLES] },
   );
   if (!studentAccess.student) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
   }
 
   const { context } = studentAccess;
@@ -86,9 +138,21 @@ export async function scheduleLesson(formData: FormData) {
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "planning:manage");
   const instructorId = canAssignInstructor ? requestedInstructorId : context.user.id;
-  if (!instructorId) redirect("/backoffice/agenda/nieuw?error=missing");
+  if (!instructorId) redirect(`${errorTo}?error=missing`);
   if (!canManageAgendaForInstructor(context, instructorId)) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
+  }
+  if (!canAssignInstructor) {
+    const taughtStudentIds = await import("@/lib/students/access").then((module) =>
+      module.loadInstructorAccessibleStudentIds(
+        service,
+        context.organization.id,
+        context.user.id,
+      ),
+    );
+    if (!taughtStudentIds.includes(studentId)) {
+      redirect(`${errorTo}?error=forbidden`);
+    }
   }
   if (
     !(await instructorCanServeBranch(
@@ -97,7 +161,35 @@ export async function scheduleLesson(formData: FormData) {
       studentAccess.student.branch_id,
     ))
   ) {
-    redirect("/backoffice/agenda/nieuw?error=forbidden");
+    redirect(`${errorTo}?error=forbidden`);
+  }
+
+  const occupied = duration + buffer;
+  const endsAt = new Date(startsAt.getTime() + occupied * 60000);
+  const planningInput = {
+    actor: actorForPlanningContext(context, studentAccess.branchScope),
+    scope: scopeForTenantBranch(
+      context.organization.id,
+      studentAccess.student.branch_id,
+    ),
+    entityType: "lesson" as const,
+    entityId: null,
+    tenantId: context.organization.id,
+    branchId: studentAccess.student.branch_id,
+    instructorId,
+    vehicleId: null,
+    startAt: startsAt,
+    endAt: endsAt,
+    pickupServiceAreaId: null,
+  };
+  const kernelData = await loadPlanningKernelData(service, planningInput);
+  const validation = await getPlanningPreview(planningInput, kernelData);
+  if (!validation.allowed) {
+    redirect(
+      `${errorTo}?error=${encodeURIComponent(
+        planningMessage(validation.blockingReasons),
+      )}`,
+    );
   }
 
   const { data: lessonId, error } = await service.rpc("schedule_lesson", {
@@ -115,7 +207,19 @@ export async function scheduleLesson(formData: FormData) {
   });
   if (error || !lessonId) {
     const code = encodeURIComponent(error?.message ?? "unknown");
-    redirect(`/backoffice/agenda/nieuw?error=${code}`);
+    redirect(`${errorTo}?error=${code}`);
+  }
+  const { error: metadataError } = await service
+    .from("lessons")
+    .update({
+      ends_at: endsAt.toISOString(),
+      duration_min: duration,
+      buffer_min: buffer,
+    })
+    .eq("id", lessonId as string)
+    .eq("tenant_id", context.organization.id);
+  if (metadataError) {
+    redirect(`${errorTo}?error=${encodeURIComponent(metadataError.message)}`);
   }
 
   // Task #131 - notify linked guardians that a driving lesson was scheduled.
@@ -131,8 +235,11 @@ export async function scheduleLesson(formData: FormData) {
   }
 
   revalidatePath("/backoffice/agenda");
+  revalidatePath("/instructor/les/nieuw");
   revalidatePath(`/backoffice/leerlingen/${studentId}`);
-  redirect(`/backoffice/agenda/${lessonId as string}`);
+  revalidatePath(`/instructor/leerlingen/${studentId}`);
+  revalidatePath("/instructor/week");
+  redirect(`${detailBase}/${lessonId as string}`);
 }
 
 export async function completeLesson(formData: FormData) {

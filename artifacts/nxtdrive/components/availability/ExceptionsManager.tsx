@@ -25,12 +25,14 @@ function formatDate(dateKey: string): string {
 export function ExceptionsManager({
   exceptions,
   instructorId,
+  branchId = null,
   redirectTo,
   addAction,
   deleteAction,
 }: {
   exceptions: AvailabilityException[];
   instructorId: string;
+  branchId?: string | null;
   redirectTo: string;
   addAction: (formData: FormData) => void | Promise<void>;
   deleteAction: (formData: FormData) => void | Promise<void>;
@@ -46,6 +48,7 @@ export function ExceptionsManager({
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       >
         <input type="hidden" name="instructor_id" value={instructorId} />
+        <input type="hidden" name="branch_id" value={branchId ?? ""} />
         <input type="hidden" name="redirect_to" value={redirectTo} />
 
         <div className="space-y-1.5">
