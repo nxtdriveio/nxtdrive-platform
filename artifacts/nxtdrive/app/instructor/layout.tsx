@@ -20,10 +20,6 @@ import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register"
 import { InstallPromptBanner } from "@/components/pwa/InstallPromptBanner";
 import { InstructorSplash } from "@/components/pwa/InstructorSplash";
 import { loadInAppNotifications } from "@/lib/notifications/in-app";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { loadAgendaTrialLessons } from "@/lib/trial-lessons/agenda";
-import { loadAgendaAppointments } from "@/lib/agenda/appointments";
-import type { Lesson } from "@/lib/lessons/types";
 
 export const dynamic = "force-dynamic";
 
@@ -79,24 +75,12 @@ export async function generateViewport(): Promise<Viewport> {
       brandingContext.tenant,
       theme,
       brandingContext.bundle,
-      "#0c0c15",
+    "#f7f8fc",
     ),
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
   };
-}
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfDay(d: Date): Date {
-  const x = startOfDay(d);
-  x.setDate(x.getDate() + 1);
-  return x;
 }
 
 export default async function InstructorLayout({
@@ -115,55 +99,9 @@ export default async function InstructorLayout({
   }
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Instructeur";
-  const visibleStartHour = user.profile?.calendar_start_hour ?? 6;
-  const visibleEndHour = user.profile?.calendar_end_hour ?? 22;
-
   const bundle = await getTenantBrandingBundle(tenant.id);
   const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
-
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const dayEnd = endOfDay(today);
-
-  const supabase = await createServerSupabaseClient();
-
-  const { data: lessonsRaw } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("instructor_id", user.id)
-    .gte("starts_at", dayStart.toISOString())
-    .lt("starts_at", dayEnd.toISOString())
-    .order("starts_at", { ascending: true });
-  const todayLessons = (lessonsRaw ?? []) as Lesson[];
-
-  const todayTrials = await loadAgendaTrialLessons(supabase, {
-    tenantId: tenant.id,
-    from: dayStart,
-    to: dayEnd,
-    instructorId: user.id,
-  });
-  const todayAppointments = await loadAgendaAppointments(supabase, {
-    tenantId: tenant.id,
-    from: dayStart,
-    to: dayEnd,
-    instructorId: user.id,
-  });
-
-  const studentIds = [...new Set(todayLessons.map((l) => l.student_id))];
-  const { data: studentsRaw } = studentIds.length
-    ? await supabase
-        .from("students")
-        .select("id, full_name")
-        .in("id", studentIds)
-    : { data: [] };
-  const studentNames = new Map(
-    ((studentsRaw ?? []) as { id: string; full_name: string }[]).map((s) => [
-      s.id,
-      s.full_name,
-    ]),
-  );
 
   const notificationBell = (
     <NotificationBell
@@ -188,24 +126,19 @@ export default async function InstructorLayout({
           tenantName={tenant.name}
           userLabel={userLabel}
           logoUrl={logoUrl}
-          notifications={notificationBell}
-          todayLessons={todayLessons}
-          studentNames={studentNames}
-          todayDate={today}
-          trialLessons={todayTrials}
-          appointments={todayAppointments}
-          visibleStartHour={visibleStartHour}
-          visibleEndHour={visibleEndHour}
-          theme={theme}
         />
 
         <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
-          <InstructorTopbar notifications={notificationBell} theme={theme} />
+          <InstructorTopbar
+            notifications={notificationBell}
+            theme={theme}
+            userLabel={userLabel}
+          />
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.5rem] pt-3.5 sm:px-5 sm:pb-20 sm:pt-[1.125rem] md:px-6 md:pb-9 lg:min-h-0 lg:overflow-y-auto lg:px-7 lg:pb-5 lg:pt-[1.125rem] xl:px-8">
-            <div className="mx-auto w-full max-w-[100rem] lg:flex lg:h-full lg:flex-col">
+          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.75rem] pt-4 sm:px-5 sm:pb-24 md:px-6 lg:min-h-0 lg:overflow-y-auto lg:px-6 lg:pb-8 lg:pt-6 xl:px-8">
+            <div className="mx-auto w-full max-w-[96rem] lg:flex lg:min-h-full lg:flex-col">
               <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
             </div>
           </main>
