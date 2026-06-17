@@ -23,7 +23,7 @@ export function PWAPage({
       className={cn(
         "min-w-0 space-y-3.5 sm:space-y-[1.125rem]",
         app === "student"
-          ? "mx-auto max-w-[28.5rem]"
+          ? "mx-auto max-w-[31rem] md:max-w-5xl 2xl:max-w-7xl"
           : "mx-auto w-full max-w-[100rem]",
         className,
       )}
@@ -115,7 +115,9 @@ export function PWAKpiGrid({
     <div
       className={cn(
         "grid min-w-0 gap-3",
-        compact ? "grid-cols-2 gap-2.5 sm:gap-3" : "grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3",
+        compact
+          ? "grid-cols-2 gap-2.5 sm:gap-3"
+          : "grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3",
         className,
       )}
     >

@@ -35,11 +35,22 @@ export function BrandProvider({
     : {};
 
   if (whitelabel && !themeTokens && branding.primary_color) {
-    style["--tenant-light-primary"] = branding.primary_color;
-    style["--tenant-dark-primary"] = branding.primary_color;
+    const primary = branding.primary_color;
+    style["--tenant-light-primary"] = primary;
+    style["--tenant-dark-primary"] = primary;
+    style["--brand-primary"] = primary;
+    style["--brand-ring"] = primary;
+    style["--brand-gradient-mid"] = primary;
+    style["--brand-sidebar-active-foreground"] = primary;
+    style["--primary"] = primary;
+    style["--ring"] = primary;
+    style["--primary-soft"] = `color-mix(in oklab, ${primary} 16%, transparent)`;
+    style["--brand-sidebar-active"] = `color-mix(in oklab, ${primary} 13%, white)`;
     if (branding.primary_foreground) {
       style["--tenant-light-primary-foreground"] = branding.primary_foreground;
       style["--tenant-dark-primary-foreground"] = branding.primary_foreground;
+      style["--brand-primary-foreground"] = branding.primary_foreground;
+      style["--primary-foreground"] = branding.primary_foreground;
     }
   }
 

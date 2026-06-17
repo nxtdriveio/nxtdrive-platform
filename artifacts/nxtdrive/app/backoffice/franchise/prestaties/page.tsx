@@ -230,7 +230,7 @@ export default async function FranchisePerformancePage() {
           title="Aandachtssignalen"
           value={String(overview.network.attention_count)}
           description="Franchisees met een directe terugval, kwaliteits- of capaciteitswaarschuwing."
-          badge={`${overview.network.high_priority_count} hoog`} 
+          badge={`${overview.network.high_priority_count} hoog`}
           icon={AlertTriangle}
         />
       </div>

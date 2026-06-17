@@ -1,6 +1,6 @@
 # Sprint 7 - Entitlements Completion
 
-Status: in progress  
+Status: in progress
 Roadmap position: Stream 3 - subscriptions, entitlements and downgrade behavior
 
 ## Goal

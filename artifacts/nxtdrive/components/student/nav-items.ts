@@ -1,9 +1,12 @@
 import {
-  Home,
-  CalendarDays,
-  TrendingUp,
+  BadgeCheck,
   BookOpen,
+  CalendarDays,
+  Home,
+  MessageCircle,
+  TrendingUp,
   User,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,11 +19,8 @@ export type StudentNavItem = {
 };
 
 /**
- * Single source of truth for the leerling-PWA hoofdnavigatie, shared by the
- * mobile bottom nav and the desktop sidebar so both always stay in sync.
+ * Single source of truth for the leerling-PWA hoofdnavigatie.
  * Order follows the PWA Canon: Home · Lessen · Voortgang · Theorie · Account.
- * Betalingen is reachable from Home/quick-actions but is not a primary tab
- * (canon lists it under "eventueel later").
  */
 export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student", label: "Home", icon: Home, exact: true },
@@ -28,6 +28,19 @@ export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
   { href: "/student/theorie", label: "Theorie", icon: BookOpen },
   { href: "/student/profile", label: "Meer", icon: User },
+];
+
+export const STUDENT_BOTTOM_NAV_ITEMS = STUDENT_NAV_ITEMS;
+
+export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
+  { href: "/student", label: "Dashboard", icon: Home, exact: true },
+  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
+  { href: "/student/voortgang", label: "Voortgang", icon: TrendingUp },
+  { href: "/student/theorie", label: "Theorie", icon: BookOpen },
+  { href: "/student/berichten", label: "Berichten", icon: MessageCircle },
+  { href: "/student/betalingen", label: "Betalingen", icon: Wallet },
+  { href: "/student/cbr", label: "CBR & Examens", icon: BadgeCheck },
+  { href: "/student/profile", label: "Account", icon: User },
 ];
 
 /** Whether a nav item matches the current pathname. */

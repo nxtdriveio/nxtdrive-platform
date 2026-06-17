@@ -15,6 +15,7 @@ import {
 import { BrandProvider } from "@/components/brand-provider";
 import { StudentTopBar } from "@/components/student/TopBar";
 import { StudentBottomNav } from "@/components/student/BottomNav";
+import { StudentSidebarNav } from "@/components/student/SidebarNav";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { InstallPromptBanner } from "@/components/pwa/InstallPromptBanner";
@@ -101,7 +102,6 @@ export default async function StudentLayout({
   if (!roles.includes("student")) redirect(roleHomePath(user, tenant.id));
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Leerling";
-
   const bundle = await getTenantBrandingBundle(tenant.id);
   const logoUrl = resolveLogoUrl(tenant, bundle.branding);
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
@@ -127,15 +127,17 @@ export default async function StudentLayout({
       />
       <ServiceWorkerRegister />
       <InstallPromptBanner app="student" />
-      <main
-        data-student-shell=""
-        data-pwa-copy=""
-        className="min-w-0 flex-1 overflow-x-hidden px-4 pb-[6.15rem] pt-[5.2rem] sm:px-5 sm:pb-24 sm:pt-[6.55rem]"
-      >
-        <div className="mx-auto w-full max-w-[28.5rem]">
-          <Suspense fallback={<StudentSplash />}>{children}</Suspense>
-        </div>
-      </main>
+      <div data-student-shell="" className="flex min-w-0 flex-1">
+        <StudentSidebarNav />
+        <main
+          data-pwa-copy=""
+          className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 xl:px-8 xl:pb-12"
+        >
+          <div className="mx-auto w-full max-w-[31rem] md:max-w-5xl xl:max-w-7xl">
+            <Suspense fallback={<StudentSplash />}>{children}</Suspense>
+          </div>
+        </main>
+      </div>
       <StudentBottomNav />
     </BrandProvider>
   );

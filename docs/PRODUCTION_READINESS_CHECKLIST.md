@@ -1,7 +1,7 @@
 # NXTDRIVE Production Readiness Checklist
 
-Status: working checklist  
-Last updated: 2026-06-15  
+Status: working checklist
+Last updated: 2026-06-15
 Owner: product / engineering / operations
 
 ## Purpose
