@@ -43,7 +43,7 @@ export function QuickActions({
           Snelle acties
         </h2>
       </div>
-      <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-3 gap-2 md:grid-cols-6 md:gap-3">
         {shortcuts.map((shortcut) => {
           const Icon = shortcut.icon;
 
@@ -51,7 +51,7 @@ export function QuickActions({
             <Link
               key={shortcut.href}
               href={shortcut.href}
-              className="group relative flex min-h-[5.35rem] min-w-0 flex-col items-center justify-center gap-2 rounded-[1.1rem] border border-brand-border/80 bg-white px-2.5 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/35 hover:shadow-brand-card"
+              className="group relative flex min-h-[5.2rem] min-w-0 flex-col items-center justify-center gap-2 rounded-[1.05rem] border border-brand-border/80 bg-white px-2.5 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/35 hover:shadow-brand-card"
             >
               {shortcut.badge ? (
                 <span className="absolute right-2 top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[10px] font-semibold leading-5 text-brand-primary-foreground">
@@ -61,7 +61,7 @@ export function QuickActions({
               <span className="flex h-9 w-9 items-center justify-center rounded-[0.9rem] bg-brand-accent text-brand-primary transition group-hover:bg-brand-primary group-hover:text-brand-primary-foreground">
                 <Icon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
               </span>
-              <span className="max-w-full truncate text-[11px] font-semibold text-brand-foreground">
+              <span className="max-w-full truncate text-[11px] font-semibold leading-none text-brand-foreground">
                 {shortcut.label}
               </span>
             </Link>

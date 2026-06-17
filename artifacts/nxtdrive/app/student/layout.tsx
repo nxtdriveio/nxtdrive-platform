@@ -120,9 +120,9 @@ export default async function StudentLayout({
         <StudentSidebarNav />
         <main
           data-pwa-copy=""
-          className="min-w-0 flex-1 overflow-x-hidden px-4 pb-28 pt-24 sm:px-6 sm:pb-28 sm:pt-28 xl:px-8 xl:pb-12"
+          className="min-w-0 flex-1 overflow-x-hidden px-4 pb-36 pt-24 sm:px-5 sm:pb-36 sm:pt-28 xl:px-8 xl:pb-12"
         >
-          <div className="mx-auto w-full max-w-[31rem] md:max-w-5xl xl:max-w-7xl">
+          <div className="mx-auto w-full max-w-[430px] md:max-w-5xl xl:max-w-7xl">
             <Suspense fallback={<StudentSplash />}>{children}</Suspense>
           </div>
         </main>
