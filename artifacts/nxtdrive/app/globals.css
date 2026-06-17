@@ -718,7 +718,7 @@ body {
   --card: #ffffff;
   --card-foreground: #101323;
   --muted: #eef2f8;
-  --muted-foreground: #475467;
+  --muted-foreground: #344054;
   --border: #e2e7f0;
   --input: #ffffff;
   --popover: #ffffff;
@@ -733,7 +733,7 @@ body {
   --brand-accent: color-mix(in oklab, var(--primary) 12%, white);
   --brand-accent-foreground: #33257f;
   --brand-muted: #eef2f8;
-  --brand-muted-foreground: #475467;
+  --brand-muted-foreground: #344054;
   --brand-border: #e2e7f0;
   --brand-ring: var(--primary);
   --brand-sidebar-background: #071426;
