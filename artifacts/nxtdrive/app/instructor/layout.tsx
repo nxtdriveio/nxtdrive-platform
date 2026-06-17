@@ -120,7 +120,7 @@ export default async function InstructorLayout({
       <div
         data-instructor-shell=""
         data-pwa-copy=""
-        className="flex min-h-screen flex-col text-foreground xl:h-screen xl:overflow-hidden"
+        className="instructor-shell-root text-foreground"
       >
         <InstructorSidebar
           tenantName={tenant.name}
@@ -128,7 +128,7 @@ export default async function InstructorLayout({
           logoUrl={logoUrl}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col xl:min-h-0">
+        <div className="instructor-shell-main-column">
           <InstructorTopbar
             notifications={notificationBell}
             theme={theme}
@@ -137,8 +137,8 @@ export default async function InstructorLayout({
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
 
-          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.75rem] pt-4 sm:px-5 sm:pb-24 md:px-6 xl:min-h-0 xl:overflow-y-auto xl:px-8 xl:pb-8 xl:pt-6">
-            <div className="mx-auto w-full max-w-[96rem] xl:flex xl:min-h-full xl:flex-col">
+          <main className="instructor-shell-main bg-transparent">
+            <div className="instructor-shell-main-inner">
               <Suspense fallback={<InstructorSplash />}>{children}</Suspense>
             </div>
           </main>
