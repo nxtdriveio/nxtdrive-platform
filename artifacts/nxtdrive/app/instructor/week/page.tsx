@@ -1,7 +1,9 @@
 import { InstructorAgendaView } from "@/components/instructor/RedesignViews";
+import { loadInstructorExperience } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
-export default function InstructorWeekPage() {
-  return <InstructorAgendaView />;
+export default async function InstructorWeekPage() {
+  const data = await loadInstructorExperience();
+  return <InstructorAgendaView data={data} />;
 }

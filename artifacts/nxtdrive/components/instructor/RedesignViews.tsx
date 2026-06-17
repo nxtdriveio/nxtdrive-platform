@@ -33,11 +33,8 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  getInstructorAppointment,
   getInstructorEvaluation,
   getInstructorExperience,
   getInstructorMessageThread,
@@ -46,6 +43,7 @@ import {
   type InstructorAppointmentType,
   type InstructorEvaluation,
   type InstructorEvaluationStatus,
+  type InstructorExperience,
   type InstructorStudent,
   type InstructorStudentStatus,
   type InstructorTaskPriority,
@@ -117,7 +115,7 @@ function InstructorPage({
   className?: string;
 }) {
   return (
-    <div className={cn("min-w-0 space-y-4 md:space-y-5 xl:space-y-6", className)}>
+    <div className={cn("min-w-0 space-y-4 xl:space-y-5", className)}>
       {children}
     </div>
   );
@@ -242,7 +240,7 @@ function StatCard({
   tone: string;
 }) {
   return (
-    <div className="rounded-[1.15rem] border border-brand-border/80 bg-white p-4 shadow-brand-card">
+    <div className="rounded-[1.15rem] border border-brand-border/80 bg-white p-3 shadow-brand-card xl:p-4">
       <div className="flex items-center gap-3">
         <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl", tone)}>
           <Icon className="h-5 w-5" aria-hidden />
@@ -309,29 +307,46 @@ function AppointmentCard({
   );
 }
 
-function NextLessonCard() {
-  const data = getInstructorExperience();
-  const lesson = data.appointments.find((appointment) => appointment.id === "apt-1000")!;
+function NextLessonCard({ appointments }: { appointments: InstructorAppointment[] }) {
+  const lesson = appointments.find((appointment) => appointment.type === "lesson") ?? appointments[0] ?? null;
+
+  if (!lesson) {
+    return (
+      <InstructorCard
+        title="Volgende les"
+        icon={CalendarDays}
+        className="h-full"
+        contentClassName="space-y-3"
+      >
+        <p className="text-sm leading-6 text-muted-foreground">
+          Er staat vandaag nog geen les in je agenda.
+        </p>
+        <Link href="/instructor/agenda/new" className={buttonVariants({ size: "sm" })}>
+          Les plannen
+        </Link>
+      </InstructorCard>
+    );
+  }
 
   return (
     <InstructorCard
       title="Volgende les"
       icon={CalendarDays}
-      right={<Badge variant="primary">Over 45 min</Badge>}
+      right={<Badge variant="primary">{lesson.startsAt}</Badge>}
       className="h-full"
-      contentClassName="space-y-4"
+      contentClassName="space-y-3"
     >
       <div className="flex items-start gap-3">
-        <Avatar name="Emma Jansen" className="h-14 w-14 text-sm" />
+        <Avatar name={lesson.studentName ?? lesson.title} className="h-12 w-12 text-sm" />
         <div className="min-w-0">
-          <h3 className="truncate text-lg font-black text-foreground">Emma Jansen</h3>
-          <p className="text-sm text-muted-foreground">Rijles - 90 minuten</p>
+          <h3 className="truncate text-base font-black text-foreground">{lesson.studentName ?? lesson.title}</h3>
+          <p className="text-sm text-muted-foreground">{lesson.title} - {lesson.duration}</p>
         </div>
       </div>
       <div className="grid gap-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-2">
           <Clock3 className="h-4 w-4 text-brand-primary" aria-hidden />
-          {lesson.startsAt} - {lesson.endsAt} - 23 mei 2025
+          {lesson.startsAt} - {lesson.endsAt}
         </span>
         <span className="flex items-center gap-2">
           <Home className="h-4 w-4 text-brand-primary" aria-hidden />
@@ -339,24 +354,15 @@ function NextLessonCard() {
         </span>
         <span className="flex items-center gap-2">
           <CarFront className="h-4 w-4 text-brand-primary" aria-hidden />
-          {lesson.vehicle} (N-285-DF)
+          {lesson.vehicle ?? "Voertuig nog niet gekoppeld"}
         </span>
       </div>
-      <div className="rounded-2xl border border-brand-border/80 bg-brand-muted/60 p-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Leerdoelen
-        </p>
-        <ul className="mt-2 space-y-1 text-sm text-foreground">
-          <li>Kijktechniek bij kruispunten</li>
-          <li>Voorsorteren en rijstrookgebruik</li>
-        </ul>
-      </div>
       <div className="flex flex-wrap gap-2">
-        <Link href="/instructor/evaluations/lesson-emma" className={buttonVariants({ size: "sm" })}>
+        <Link href={lesson.href} className={buttonVariants({ size: "sm" })}>
           Les starten
         </Link>
         <Link
-          href="/instructor/agenda/apt-1000"
+          href={lesson.href}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           Details bekijken
@@ -366,14 +372,14 @@ function NextLessonCard() {
   );
 }
 
-export function InstructorCockpitView() {
-  const data = getInstructorExperience();
+export function InstructorCockpitView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+  const firstName = data.profile.name.split(" ")[0] ?? data.profile.name;
 
   return (
-    <InstructorPage>
+    <InstructorPage className="space-y-3 xl:space-y-4">
       <PageHeader
-        eyebrow="Dinsdag 23 mei 2025"
-        title={`Goedemorgen ${data.profile.name.split(" ")[0]}!`}
+        eyebrow={data.profile.tenantName}
+        title={`Dag ${firstName}!`}
         subtitle="Alles voor je lesdag staat klaar: lessen, taken, aandachtspunten en berichten."
         actions={
           <Link href="/instructor/agenda/new" className={buttonVariants()}>
@@ -383,19 +389,33 @@ export function InstructorCockpitView() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Rijlessen" value="7" hint="Vandaag" icon={CalendarDays} tone="bg-blue-50 text-blue-700" />
-        <StatCard label="Proeflessen" value="1" hint="Vandaag" icon={Users} tone="bg-violet-50 text-violet-700" />
-        <StatCard label="Examens / TTT" value="1" hint="Vandaag" icon={Flag} tone="bg-rose-50 text-rose-700" />
-        <StatCard label="Open taken" value="4" hint="Totaal" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-700" />
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {data.stats.map((stat) => (
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            hint={stat.hint}
+            icon={stat.label.includes("Proef") ? Users : stat.label.includes("Examen") ? Flag : stat.label.includes("Taken") ? CheckCircle2 : CalendarDays}
+            tone={
+              stat.tone === "purple"
+                ? "bg-violet-50 text-violet-700"
+                : stat.tone === "rose"
+                  ? "bg-rose-50 text-rose-700"
+                  : stat.tone === "green"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-blue-50 text-blue-700"
+            }
+          />
+        ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.95fr_0.95fr]">
-        <NextLessonCard />
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+        <NextLessonCard appointments={data.appointments} />
 
         <InstructorCard title="Op de radar" icon={Target} className="h-full">
           <div className="space-y-3">
-            {data.radar.map((item) => (
+            {data.radar.length > 0 ? data.radar.map((item) => (
               <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-brand-border/70 bg-brand-muted/45 p-3">
                 <Avatar name={item.student} className="h-10 w-10 text-xs" />
                 <div className="min-w-0 flex-1">
@@ -404,7 +424,9 @@ export function InstructorCockpitView() {
                 </div>
                 <span className={cn("h-2.5 w-2.5 rounded-full", priorityLabel[item.priority].dot)} />
               </div>
-            ))}
+            )) : (
+              <p className="text-sm leading-6 text-muted-foreground">Geen urgente aandachtspunten voor vandaag.</p>
+            )}
             <Link href="/instructor/students" className="inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
               Naar alle aandachtspunten
               <ArrowRight className="h-4 w-4" aria-hidden />
@@ -412,9 +434,9 @@ export function InstructorCockpitView() {
           </div>
         </InstructorCard>
 
-        <InstructorCard title="Openstaande taken" icon={ListTodo} right={<Badge variant="primary">4</Badge>}>
+        <InstructorCard title="Openstaande taken" icon={ListTodo} right={<Badge variant="primary">{data.tasks.length}</Badge>}>
           <div className="space-y-2">
-            {data.tasks.map((task) => (
+            {data.tasks.length > 0 ? data.tasks.slice(0, 5).map((task) => (
               <Link key={task.id} href="/instructor/tasks" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <span className="h-4 w-4 rounded border border-muted-foreground/40" />
                 <div className="min-w-0 flex-1">
@@ -423,15 +445,17 @@ export function InstructorCockpitView() {
                 </div>
                 <Badge variant={priorityLabel[task.priority].variant}>{priorityLabel[task.priority].label}</Badge>
               </Link>
-            ))}
+            )) : (
+              <p className="text-sm leading-6 text-muted-foreground">Geen openstaande taken.</p>
+            )}
           </div>
         </InstructorCard>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.78fr_0.92fr]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.72fr)_minmax(0,0.92fr)]">
         <InstructorCard title="Berichten" icon={MessageCircle}>
           <div className="space-y-2">
-            {data.messages.map((thread) => (
+            {data.messages.length > 0 ? data.messages.slice(0, 4).map((thread) => (
               <Link key={thread.id} href={`/instructor/messages/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <Avatar name={thread.name} className="h-10 w-10 text-xs" />
                 <div className="min-w-0 flex-1">
@@ -440,7 +464,9 @@ export function InstructorCockpitView() {
                 </div>
                 <span className="text-xs text-muted-foreground">{thread.time}</span>
               </Link>
-            ))}
+            )) : (
+              <p className="text-sm leading-6 text-muted-foreground">Nog geen gesprekken.</p>
+            )}
           </div>
         </InstructorCard>
 
@@ -469,20 +495,15 @@ export function InstructorCockpitView() {
 
         <InstructorCard title="Dagoverzicht" icon={BarChart3}>
           <div className="flex items-center gap-5">
-            <ProgressRing value={78} label="Vandaag" />
+            <ProgressRing value={Math.min(100, Number(data.stats[0]?.value ?? 0) * 12)} label="Vandaag" />
             <div className="min-w-0 flex-1 space-y-2">
-              {[
-                ["Rijlessen", 7, "bg-blue-500"],
-                ["Proeflessen", 1, "bg-emerald-500"],
-                ["Examen / TTT", 1, "bg-violet-500"],
-                ["Administratie", 2, "bg-amber-500"],
-              ].map(([label, value, dot]) => (
-                <div key={String(label)} className="flex items-center justify-between gap-3 text-sm">
+              {data.stats.map((stat, index) => (
+                <div key={stat.label} className="flex items-center justify-between gap-3 text-sm">
                   <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className={cn("h-2 w-2 rounded-full", String(dot))} />
-                    {String(label)}
+                    <span className={cn("h-2 w-2 rounded-full", index === 1 ? "bg-emerald-500" : index === 2 ? "bg-violet-500" : index === 3 ? "bg-amber-500" : "bg-blue-500")} />
+                    {stat.label}
                   </span>
-                  <span className="font-black text-foreground">{String(value)}</span>
+                  <span className="font-black text-foreground">{stat.value}</span>
                 </div>
               ))}
             </div>
@@ -497,8 +518,7 @@ export function InstructorCockpitView() {
   );
 }
 
-export function InstructorAgendaView() {
-  const data = getInstructorExperience();
+export function InstructorAgendaView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
 
   return (
     <InstructorPage>
@@ -520,7 +540,7 @@ export function InstructorAgendaView() {
       />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <InstructorCard
-          title="Dinsdag 23 mei 2025"
+          title="Vandaag"
           icon={CalendarDays}
           right={
             <div className="flex rounded-full bg-brand-muted p-1 text-xs font-bold">
@@ -533,14 +553,20 @@ export function InstructorAgendaView() {
           }
         >
           <div className="grid gap-3">
-            {data.appointments.map((appointment) => (
-              <div key={appointment.id} className="grid gap-3 md:grid-cols-[4.5rem_1fr]">
-                <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
-                  {appointment.startsAt}
+            {data.appointments.length > 0 ? (
+              data.appointments.map((appointment) => (
+                <div key={appointment.id} className="grid gap-3 md:grid-cols-[4.5rem_1fr]">
+                  <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
+                    {appointment.startsAt}
+                  </div>
+                  <AppointmentCard appointment={appointment} />
                 </div>
-                <AppointmentCard appointment={appointment} />
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+                Er staan vandaag geen agenda-items voor jou.
+              </p>
+            )}
           </div>
         </InstructorCard>
 
@@ -559,103 +585,15 @@ export function InstructorAgendaView() {
           </InstructorCard>
           <InstructorCard title="Afspraken" icon={ListTodo}>
             <div className="space-y-2">
-              {["Rijlessen 7", "Proeflessen 1", "Examens / TTT 1", "Overig 2"].map((line) => (
-                <div key={line} className="flex items-center justify-between rounded-2xl bg-brand-muted/55 px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">{line.split(" ")[0]}</span>
-                  <span className="font-black text-foreground">{line.split(" ").at(-1)}</span>
+              {data.stats.map((stat) => (
+                <div key={stat.label} className="flex items-center justify-between rounded-2xl bg-brand-muted/55 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">{stat.label}</span>
+                  <span className="font-black text-foreground">{stat.value}</span>
                 </div>
               ))}
             </div>
           </InstructorCard>
         </div>
-      </div>
-    </InstructorPage>
-  );
-}
-
-export function InstructorNewAppointmentView() {
-  return (
-    <InstructorPage>
-      <PageHeader
-        eyebrow="Nieuwe planning"
-        title="Nieuwe afspraak"
-        subtitle="Maak snel een rijles, proefles, examenblok of administratieve afspraak aan."
-      />
-      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
-        <InstructorCard title="Afspraakgegevens" icon={CalendarPlus}>
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              "Type afspraak",
-              "Leerling",
-              "Datum",
-              "Starttijd",
-              "Duur",
-              "Voertuig",
-              "Locatie",
-              "Status",
-            ].map((label) => (
-              <label key={label} className="grid gap-2 text-sm font-bold text-foreground">
-                {label}
-                <Input placeholder={label} />
-              </label>
-            ))}
-            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">
-              Leerdoelen en notities
-              <Textarea placeholder="Bijvoorbeeld: kijktechniek, rotondes, snelheid aanpassen..." />
-            </label>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/instructor/agenda" className={buttonVariants({ variant: "outline" })}>Annuleren</Link>
-            <button className={buttonVariants()}>Aanmaken</button>
-          </div>
-        </InstructorCard>
-        <InstructorCard title="Beschikbaarheidscheck" icon={ShieldCheck}>
-          <div className="space-y-3 text-sm">
-            <Badge variant="success">Binnen beschikbaarheid</Badge>
-            <p className="leading-6 text-muted-foreground">
-              De gekozen tijd valt binnen je zichtbare agenda-uren. Conflicten met voertuig of leerling verschijnen hier zodra de planning-core dit valideert.
-            </p>
-          </div>
-        </InstructorCard>
-      </div>
-    </InstructorPage>
-  );
-}
-
-export function InstructorAppointmentDetailView({ appointmentId }: { appointmentId?: string }) {
-  const appointment = getInstructorAppointment(appointmentId);
-
-  return (
-    <InstructorPage>
-      <PageHeader
-        eyebrow="Afspraakdetail"
-        title={appointment.studentName ?? appointment.title}
-        subtitle={`${appointment.title} - ${appointment.startsAt} tot ${appointment.endsAt} - ${appointment.location}`}
-        actions={<AppointmentTypeBadge type={appointment.type} />}
-      />
-      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
-        <InstructorCard title="Samenvatting" icon={CalendarDays}>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              ["Tijd", `${appointment.startsAt} - ${appointment.endsAt}`],
-              ["Duur", appointment.duration],
-              ["Locatie", appointment.location],
-              ["Voertuig", appointment.vehicle ?? "Niet gekoppeld"],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-brand-border bg-brand-muted/45 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-                <p className="mt-2 text-sm font-black text-foreground">{value}</p>
-              </div>
-            ))}
-          </div>
-        </InstructorCard>
-        <InstructorCard title="Acties" icon={Sparkles}>
-          <div className="grid gap-2">
-            <Link href="/instructor/evaluations/lesson-emma" className={buttonVariants()}>Les starten</Link>
-            <Link href="/instructor/messages/emma" className={buttonVariants({ variant: "outline" })}>Bericht sturen</Link>
-            <button className={buttonVariants({ variant: "outline" })}>Wijzigen</button>
-          </div>
-        </InstructorCard>
       </div>
     </InstructorPage>
   );
@@ -680,9 +618,8 @@ function StudentListItem({ student, active }: { student: InstructorStudent; acti
   );
 }
 
-export function InstructorStudentsView() {
-  const data = getInstructorExperience();
-  const active = data.students[0]!;
+export function InstructorStudentsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+  const active = data.students[0] ?? null;
 
   return (
     <InstructorPage>
@@ -698,12 +635,18 @@ export function InstructorStudentsView() {
             <span className="text-sm text-muted-foreground">Zoek leerling...</span>
           </div>
           <div className="space-y-2">
-            {data.students.map((student, index) => (
-              <StudentListItem key={student.id} student={student} active={index === 0} />
-            ))}
+            {data.students.length > 0 ? (
+              data.students.map((student, index) => (
+                <StudentListItem key={student.id} student={student} active={index === 0} />
+              ))
+            ) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+                Geen gekoppelde leerlingen gevonden voor jouw agenda.
+              </p>
+            )}
           </div>
         </InstructorCard>
-        <StudentDetailPanel student={active} />
+        {active ? <StudentDetailPanel student={active} /> : null}
       </div>
     </InstructorPage>
   );
@@ -719,7 +662,7 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
             <h2 className="text-2xl font-black text-foreground">{student.name}</h2>
             <p className="text-sm text-muted-foreground">{student.license} - {studentStatus[student.status].label}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/instructor/messages/emma" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href="/instructor/messages" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <MessageCircle className="h-4 w-4" aria-hidden /> Bericht
               </Link>
               <a href={`tel:${student.phone}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
@@ -755,8 +698,18 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function InstructorStudentDetailView({ studentId }: { studentId?: string }) {
-  const student = getInstructorStudent(studentId);
+export function InstructorStudentDetailView({
+  studentId,
+  data,
+}: {
+  studentId?: string;
+  data?: InstructorExperience;
+}) {
+  const student =
+    data?.students.find((item) => item.id === studentId) ??
+    data?.students[0] ??
+    getInstructorStudent(studentId);
+  const studentEvaluation = data?.evaluations.find((item) => item.studentId === student.id) ?? data?.evaluations[0];
   return (
     <InstructorPage>
       <PageHeader eyebrow="Leerlingdossier" title={student.name} subtitle="Overzicht, voortgang, lessen, planning en dossierinformatie in een tablet-first detailview." />
@@ -777,9 +730,11 @@ export function InstructorStudentDetailView({ studentId }: { studentId?: string 
         </InstructorCard>
         <InstructorCard title="AI coachnotitie" icon={Sparkles}>
           <p className="text-sm leading-6 text-muted-foreground">
-            Emma maakt mooie stappen. Houd de komende lessen focus op kijktechniek bij kruispunten en rustiger voorsorteren in druk verkeer.
+            {student.attention === "Geen urgente aandachtspunten."
+              ? `${student.name} heeft geen urgente aandachtspunten. Gebruik de volgende les om de voortgang actueel te houden.`
+              : student.attention}
           </p>
-          <Link href="/instructor/evaluations/lesson-emma" className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <Link href={studentEvaluation ? `/instructor/evaluations/${studentEvaluation.id}` : "/instructor/evaluations"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
             Open lesevaluatie
           </Link>
         </InstructorCard>
@@ -788,36 +743,50 @@ export function InstructorStudentDetailView({ studentId }: { studentId?: string 
   );
 }
 
-export function InstructorEvaluationsView() {
-  const data = getInstructorExperience();
+export function InstructorEvaluationsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
       <PageHeader eyebrow="RIS" title="Les evaluaties" subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft." />
       <InstructorCard title="Te beoordelen en recent" icon={FileText}>
         <div className="space-y-3">
-          {data.evaluations.map((evaluation) => (
-            <Link key={evaluation.id} href={`/instructor/evaluations/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
-              <div className="flex min-w-0 gap-3">
-                <Avatar name={evaluation.studentName} className="h-11 w-11 text-xs" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-foreground">{evaluation.studentName}</p>
-                  <p className="text-sm text-muted-foreground">{evaluation.lessonLabel} - {evaluation.lessonDate}</p>
+          {data.evaluations.length > 0 ? (
+            data.evaluations.map((evaluation) => (
+              <Link key={evaluation.id} href={`/instructor/evaluations/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <Avatar name={evaluation.studentName} className="h-11 w-11 text-xs" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-foreground">{evaluation.studentName}</p>
+                    <p className="text-sm text-muted-foreground">{evaluation.lessonLabel} - {evaluation.lessonDate}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={evaluationStatus[evaluation.status].variant}>{evaluationStatus[evaluation.status].label}</Badge>
-                <span className="text-sm font-bold text-brand-primary">Open</span>
-              </div>
-            </Link>
-          ))}
+                <div className="flex items-center gap-2">
+                  <Badge variant={evaluationStatus[evaluation.status].variant}>{evaluationStatus[evaluation.status].label}</Badge>
+                  <span className="text-sm font-bold text-brand-primary">Open</span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+              Geen lessen gevonden om te evalueren.
+            </p>
+          )}
         </div>
       </InstructorCard>
     </InstructorPage>
   );
 }
 
-export function InstructorEvaluationDetailView({ lessonId }: { lessonId?: string }) {
-  const evaluation = getInstructorEvaluation(lessonId);
+export function InstructorEvaluationDetailView({
+  lessonId,
+  data,
+}: {
+  lessonId?: string;
+  data?: InstructorExperience;
+}) {
+  const evaluation =
+    data?.evaluations.find((item) => item.id === lessonId) ??
+    data?.evaluations[0] ??
+    getInstructorEvaluation(lessonId);
   return (
     <InstructorPage>
       <PageHeader
@@ -885,16 +854,24 @@ export function InstructorEvaluationDetailView({ lessonId }: { lessonId?: string
   );
 }
 
-export function InstructorMessagesView({ threadId }: { threadId?: string }) {
-  const data = getInstructorExperience();
-  const active = getInstructorMessageThread(threadId);
+export function InstructorMessagesView({
+  threadId,
+  data = getInstructorExperience(),
+}: {
+  threadId?: string;
+  data?: InstructorExperience;
+}) {
+  const active =
+    data.messages.find((thread) => thread.id === threadId) ??
+    data.messages[0] ??
+    getInstructorMessageThread(threadId);
   return (
     <InstructorPage>
       <PageHeader eyebrow="Communicatie" title="Berichten" subtitle="Gesprekken met leerlingen, planning en team in een overzichtelijke split-view." />
       <div className="grid gap-4 xl:grid-cols-[22rem_1fr]">
         <InstructorCard title="Gesprekken" icon={MessageCircle}>
           <div className="space-y-2">
-            {data.messages.map((thread) => (
+            {data.messages.length > 0 ? data.messages.map((thread) => (
               <Link key={thread.id} href={`/instructor/messages/${thread.id}`} className={cn("flex items-center gap-3 rounded-2xl border p-3", thread.id === active.id ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white")}>
                 <Avatar name={thread.name} className="h-10 w-10 text-xs" />
                 <div className="min-w-0 flex-1">
@@ -903,7 +880,11 @@ export function InstructorMessagesView({ threadId }: { threadId?: string }) {
                 </div>
                 {thread.unread ? <Badge variant="primary">{thread.unread}</Badge> : null}
               </Link>
-            ))}
+            )) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+                Nog geen gesprekken.
+              </p>
+            )}
           </div>
         </InstructorCard>
         <InstructorCard title={active.name} icon={User} right={<Badge variant="success">Online</Badge>}>
@@ -931,14 +912,13 @@ export function InstructorMessagesView({ threadId }: { threadId?: string }) {
   );
 }
 
-export function InstructorTasksView() {
-  const data = getInstructorExperience();
+export function InstructorTasksView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
       <PageHeader eyebrow="Taken" title="Openstaande taken" subtitle="Werk acties af rond lessen, leerlingen, voertuigen en planning." />
       <InstructorCard title="Takenlijst" icon={ListTodo}>
         <div className="space-y-2">
-          {data.tasks.map((task) => (
+          {data.tasks.length > 0 ? data.tasks.map((task) => (
             <div key={task.id} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-3">
                 <span className="mt-1 h-4 w-4 rounded border border-muted-foreground/40" />
@@ -949,30 +929,37 @@ export function InstructorTasksView() {
               </div>
               <Badge variant={priorityLabel[task.priority].variant}>{priorityLabel[task.priority].label}</Badge>
             </div>
-          ))}
+          )) : (
+            <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+              Geen openstaande taken.
+            </p>
+          )}
         </div>
       </InstructorCard>
     </InstructorPage>
   );
 }
 
-export function InstructorVehiclesView() {
-  const data = getInstructorExperience();
+export function InstructorVehiclesView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
       <PageHeader eyebrow="Voertuigen" title="Voertuigen" subtitle="Bekijk je gekoppelde lesauto's, status, APK en onderhoudscontext." />
       <div className="grid gap-4 xl:grid-cols-[20rem_1fr]">
         <InstructorCard title="Voertuigen" icon={CarFront}>
           <div className="space-y-2">
-            {data.vehicles.map((vehicle, index) => (
+            {data.vehicles.length > 0 ? data.vehicles.map((vehicle, index) => (
               <div key={vehicle.id} className={cn("rounded-2xl border p-3", index === 0 ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white")}>
                 <p className="font-black text-foreground">{vehicle.name}</p>
                 <p className="text-sm text-muted-foreground">{vehicle.plate}</p>
               </div>
-            ))}
+            )) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
+                Geen actieve voertuigen gevonden.
+              </p>
+            )}
           </div>
         </InstructorCard>
-        <InstructorCard title="Volkswagen Golf" icon={CarFront} right={<Badge variant="success">Actief</Badge>}>
+        <InstructorCard title="Voertuigdetails" icon={CarFront}>
           <div className="grid gap-4 md:grid-cols-3">
             {data.vehicles.map((vehicle) => (
               <div key={vehicle.id} className="rounded-2xl border border-brand-border bg-white p-4">
@@ -998,44 +985,28 @@ export function InstructorVehiclesView() {
   );
 }
 
-export function InstructorAvailabilityView() {
-  const data = getInstructorExperience();
-  return (
-    <InstructorPage>
-      <PageHeader eyebrow="Beschikbaarheid" title="Agenda uren" subtitle="Beheer je zichtbare agenda-uren, pauzes en uitzonderingen." />
-      <InstructorCard title="Weekoverzicht" icon={Clock3}>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {data.availability.map((day) => (
-            <div key={day.day} className="rounded-2xl border border-brand-border bg-white p-4">
-              <div className="flex items-center justify-between">
-                <p className="font-black text-foreground">{day.day}</p>
-                <Switch checked={day.active} />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">{day.start} - {day.end}</p>
-              <p className="text-sm text-muted-foreground">Pauze: {day.breakLabel}</p>
-            </div>
-          ))}
-        </div>
-      </InstructorCard>
-    </InstructorPage>
-  );
-}
+export function InstructorReportsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+  const lessonsToday = data.stats.find((stat) => stat.label === "Rijlessen")?.value ?? "0";
+  const openTasks = data.tasks.length;
+  const attentionCount = data.radar.length;
+  const activeVehicles = data.vehicles.filter((vehicle) => vehicle.status === "active").length;
+  const trendValues = data.stats.map((stat) => Math.max(8, Math.min(100, Number(stat.value) * 16 || 8)));
 
-export function InstructorReportsView() {
   return (
     <InstructorPage>
       <PageHeader eyebrow="Rapportages" title="Rapportages" subtitle="Lichte operationele inzichten voor jouw week en leerlingen met aandachtspunten." />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Lessen deze week" value="31" hint="5 dagen" icon={CalendarDays} tone="bg-blue-50 text-blue-700" />
-        <StatCard label="Evaluatiegraad" value="92%" hint="Afgerond" icon={FileText} tone="bg-emerald-50 text-emerald-700" />
-        <StatCard label="Aandacht" value="3" hint="Leerlingen" icon={Target} tone="bg-amber-50 text-amber-700" />
-        <StatCard label="Examens" value="2" hint="Komend" icon={Flag} tone="bg-violet-50 text-violet-700" />
+        <StatCard label="Rijlessen vandaag" value={lessonsToday} hint="Agenda" icon={CalendarDays} tone="bg-blue-50 text-blue-700" />
+        <StatCard label="Open taken" value={String(openTasks)} hint="Acties" icon={FileText} tone="bg-emerald-50 text-emerald-700" />
+        <StatCard label="Aandacht" value={String(attentionCount)} hint="Leerlingen" icon={Target} tone="bg-amber-50 text-amber-700" />
+        <StatCard label="Actieve voertuigen" value={String(activeVehicles)} hint="Beschikbaar" icon={Flag} tone="bg-violet-50 text-violet-700" />
       </div>
-      <InstructorCard title="Weektrend" icon={BarChart3}>
-        <div className="grid gap-3 md:grid-cols-5">
-          {[62, 78, 54, 88, 70].map((value, index) => (
-            <div key={index} className="flex h-44 items-end rounded-2xl bg-brand-muted p-3">
-              <div className="w-full rounded-xl bg-brand-primary" style={{ height: `${value}%` }} />
+      <InstructorCard title="Dagmix" icon={BarChart3}>
+        <div className="grid gap-3 md:grid-cols-4">
+          {data.stats.map((stat, index) => (
+            <div key={stat.label} className="flex h-44 flex-col justify-end rounded-2xl bg-brand-muted p-3">
+              <div className="w-full rounded-xl bg-brand-primary" style={{ height: `${trendValues[index] ?? 8}%` }} />
+              <p className="mt-2 truncate text-xs font-bold text-foreground">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -1044,7 +1015,7 @@ export function InstructorReportsView() {
   );
 }
 
-export function InstructorSettingsView() {
+export function InstructorSettingsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
       <PageHeader eyebrow="Instellingen" title="Instellingen" subtitle="Profiel, agenda-uren, notificaties, app instellingen en thema." />
@@ -1060,9 +1031,9 @@ export function InstructorSettingsView() {
         </InstructorCard>
         <InstructorCard title="Profiel" icon={User}>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-bold text-foreground">Naam<Input defaultValue="Mark de Vries" /></label>
-            <label className="grid gap-2 text-sm font-bold text-foreground">Telefoon<Input defaultValue="+31 6 12 34 56 78" /></label>
-            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">E-mail<Input defaultValue="mark@nxtdrive.nl" /></label>
+            <label className="grid gap-2 text-sm font-bold text-foreground">Naam<Input defaultValue={data.profile.name} /></label>
+            <label className="grid gap-2 text-sm font-bold text-foreground">Telefoon<Input defaultValue={data.profile.phone ?? ""} placeholder="Niet ingevuld" /></label>
+            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">E-mail<Input defaultValue={data.profile.email ?? ""} placeholder="Niet ingevuld" /></label>
           </div>
           <button className={cn(buttonVariants(), "mt-5")}>Instellingen opslaan</button>
         </InstructorCard>
@@ -1071,8 +1042,7 @@ export function InstructorSettingsView() {
   );
 }
 
-export function InstructorProfileView() {
-  const data = getInstructorExperience();
+export function InstructorProfileView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
       <PageHeader eyebrow="Profiel" title={data.profile.name} subtitle={`${data.profile.role} - ${data.profile.tenantName}`} />

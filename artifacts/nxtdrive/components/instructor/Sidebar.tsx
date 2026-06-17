@@ -132,7 +132,7 @@ export function InstructorSidebar({
 }) {
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden bg-brand-sidebar-background text-brand-sidebar-foreground shadow-[28px_0_80px_rgba(10,20,44,0.18)] lg:flex lg:flex-col xl:w-[18.5rem]">
+      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden bg-brand-sidebar-background text-brand-sidebar-foreground shadow-[28px_0_80px_rgba(10,20,44,0.18)] xl:flex xl:flex-col xl:w-[18.5rem]">
         <div className="relative flex min-h-0 flex-1 flex-col p-4">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(126,92,255,0.25),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(47,183,255,0.14),transparent_28%)]" />
           <div className="relative">
@@ -167,7 +167,7 @@ export function InstructorSidebar({
       </aside>
 
       <header
-        className="sticky top-0 z-30 border-b border-brand-border/80 bg-white/88 backdrop-blur-xl lg:hidden"
+        className="sticky top-0 z-30 border-b border-brand-border/80 bg-white/88 backdrop-blur-xl xl:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex h-[3.5rem] items-center justify-between gap-3 px-4">
@@ -189,7 +189,7 @@ export function InstructorSidebar({
 
       <nav
         aria-label="Mobiele instructeur navigatie"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 lg:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 xl:hidden"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.55rem)" }}
       >
         <ul className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 rounded-[1.45rem] border border-brand-border/80 bg-white/92 p-1.5 shadow-brand-floating backdrop-blur-xl">

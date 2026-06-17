@@ -133,6 +133,8 @@ export type InstructorExperience = {
     role: string;
     status: string;
     tenantName: string;
+    email?: string | null;
+    phone?: string | null;
   };
   stats: Array<{
     label: string;
@@ -198,6 +200,8 @@ export const instructorExperience: InstructorExperience = {
     role: "Instructeur",
     status: "Online",
     tenantName: "NXTDRIVE",
+    email: "mark@nxtdrive.nl",
+    phone: null,
   },
   stats: [
     { label: "Rijlessen", value: "7", hint: "Vandaag", tone: "blue" },

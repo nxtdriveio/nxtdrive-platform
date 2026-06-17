@@ -1,4 +1,4 @@
-import { InstructorAppointmentDetailView } from "@/components/instructor/RedesignViews";
+import { InstructorAppointmentDetailManager } from "@/components/instructor/AppointmentManagers";
 
 export const dynamic = "force-dynamic";
 
@@ -8,5 +8,11 @@ export default async function InstructorAgendaDetailPage({
   params: Promise<{ appointmentId: string }>;
 }) {
   const { appointmentId } = await params;
-  return <InstructorAppointmentDetailView appointmentId={appointmentId} />;
+  return (
+    <InstructorAppointmentDetailManager
+      appointmentId={appointmentId}
+      formPath={`/instructor/agenda/${appointmentId}`}
+      redirectTo="/instructor/agenda"
+    />
+  );
 }

@@ -1,7 +1,9 @@
 import { InstructorSettingsView } from "@/components/instructor/RedesignViews";
+import { loadInstructorExperience } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
-export default function InstructorSettingsAliasPage() {
-  return <InstructorSettingsView />;
+export default async function InstructorSettingsAliasPage() {
+  const data = await loadInstructorExperience();
+  return <InstructorSettingsView data={data} />;
 }

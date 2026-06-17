@@ -34,7 +34,7 @@ export function InstructorTopbar({
   userLabel: string;
 }) {
   return (
-    <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl lg:flex xl:px-6">
+    <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl xl:flex xl:px-6">
       <div className="relative max-w-3xl flex-1">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <input
