@@ -523,7 +523,7 @@ body {
   --card: #ffffff !important;
   --card-foreground: #101323 !important;
   --muted: #f1f3f8 !important;
-  --muted-foreground: #667085 !important;
+  --muted-foreground: #475467 !important;
   --border: #e3e7f0 !important;
   --input: #ffffff !important;
   --popover: #ffffff !important;
@@ -542,7 +542,7 @@ body {
   --brand-accent: color-mix(in oklab, var(--brand-primary) 12%, white) !important;
   --brand-accent-foreground: #33257f !important;
   --brand-muted: #f1f3f8 !important;
-  --brand-muted-foreground: #667085 !important;
+  --brand-muted-foreground: #475467 !important;
   --brand-border: #e3e7f0 !important;
   --brand-ring: var(--brand-primary) !important;
   --brand-sidebar-background: rgba(255, 255, 255, 0.86) !important;
@@ -593,7 +593,7 @@ body {
 [data-student-app-theme="light"] [class~="text-brand-muted-foreground"],
 [data-student-app-theme="light"] [class~="text-muted-foreground"],
 [data-student-app-theme="light"] [class~="text-brand-sidebar-foreground"] {
-  color: #667085 !important;
+  color: #475467 !important;
 }
 
 [data-student-app-theme="light"] [class~="border-brand-border"],
