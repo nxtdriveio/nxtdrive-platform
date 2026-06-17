@@ -433,6 +433,52 @@ export async function resetTenantThemeOverridesAction(formData: FormData) {
   redirect(`/admin/tenants/${tenantId}?theme_overrides_reset=1`);
 }
 
+export async function resetTenantThemeToNxtdriveDefaultsAction(formData: FormData) {
+  const actor = await requirePlatformAdmin();
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  if (!tenantId) {
+    redirect("/admin?tab=tenants");
+  }
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_branding").upsert(
+    {
+      tenant_id: tenantId,
+      primary_color: null,
+      primary_foreground: null,
+      theme_preset_id: null,
+      theme_overrides: null,
+    },
+    { onConflict: "tenant_id" },
+  );
+
+  if (error) {
+    redirect(
+      `/admin/tenants/${tenantId}?theme_reset_error=` +
+        encodeURIComponent(error.message.slice(0, 200)),
+    );
+  }
+
+  await service.from("audit_log").insert({
+    actor_user_id: actor.id,
+    tenant_id: tenantId,
+    action: "tenant.theme_reset_to_nxtdrive_defaults",
+    target_type: "tenant",
+    target_id: tenantId,
+    payload: {
+      primary_color: null,
+      primary_foreground: null,
+      theme_preset_id: null,
+      theme_overrides: null,
+    },
+  });
+
+  revalidatePath(`/admin/tenants/${tenantId}`);
+  revalidatePath("/admin");
+  redirect(`/admin/tenants/${tenantId}?theme_reset=1`);
+}
+
 export async function createTenantAdminAccount(
   tenantId: string,
   formData: FormData,
