@@ -8,6 +8,7 @@ export function DashboardCard({
   actionHref,
   children,
   className,
+  contentClassName,
   headerRight,
 }: {
   title: ReactNode;
@@ -15,12 +16,13 @@ export function DashboardCard({
   actionHref?: string;
   children: ReactNode;
   className?: string;
+  contentClassName?: string;
   headerRight?: ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[var(--admin-card-shadow)]",
+        "flex min-h-[20rem] max-h-[24rem] flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
@@ -40,7 +42,14 @@ export function DashboardCard({
           )}
         </div>
       </div>
-      <div className="flex-1 px-4 py-4">{children}</div>
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto px-4 py-4 [scrollbar-color:color-mix(in_oklab,var(--brand-primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent",
+          contentClassName,
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

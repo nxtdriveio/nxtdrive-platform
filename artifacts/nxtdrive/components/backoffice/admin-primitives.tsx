@@ -36,26 +36,30 @@ export function AdminPageHeader({
 }) {
   return (
     <section>
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0 space-y-3">
-          {eyebrow ? (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-              {eyebrow}
+      <div className="min-w-0 space-y-2">
+        {eyebrow ? (
+          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+            {eyebrow}
+          </div>
+        ) : null}
+        <h1 className="text-2xl font-black tracking-tight text-foreground md:text-3xl">
+          {title}
+        </h1>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          {description ? (
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              {description}
+            </p>
+          ) : (
+            <span aria-hidden className="hidden xl:block" />
+          )}
+          {actions || meta ? (
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              {meta}
+              {actions}
             </div>
           ) : null}
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black tracking-tight text-foreground md:text-3xl">
-              {title}
-            </h1>
-            {description ? (
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
-            ) : null}
-          </div>
-          {meta}
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
     </section>
   );
