@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Loader2, Send, Target } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Loader2, Send, Target, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,20 +36,33 @@ export function InstructorPlanningCardPanel({
   studentName,
   planningCard,
   goalOptions,
+  studentLearningWish,
 }: {
   lessonId: string;
   studentId: string;
   studentName: string;
   planningCard: PlanningCard | null;
   goalOptions: string[];
+  studentLearningWish?: string | null;
 }) {
+  const [planningCardId, setPlanningCardId] = useState(planningCard?.id ?? null);
   const [summary, setSummary] = useState(planningCard?.studentVisibleSummary ?? "");
   const [goals, setGoals] = useState<GoalState[]>(() => initialGoals(planningCard));
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    planningCard ? "saved" : "idle",
+  );
+  const [sharedWithStudent, setSharedWithStudent] = useState(
+    planningCard?.sharedWithStudent ?? false,
+  );
   const [isPending, startTransition] = useTransition();
   const datalistId = `ris-goal-options-${lessonId}`;
-  const normalizedGoalOptions = Array.from(new Set([...goalOptions, "Anders..."]));
+  const normalizedGoalOptions = useMemo(
+    () => Array.from(new Set([...goalOptions, "Anders..."])),
+    [goalOptions],
+  );
+  const draftSignature = JSON.stringify({ summary, goals });
+  const lastSavedSignature = useRef(draftSignature);
 
   function updateGoal(index: number, patch: Partial<GoalState>) {
     setGoals((current) =>
@@ -59,29 +72,53 @@ export function InstructorPlanningCardPanel({
     );
   }
 
-  function save() {
+  async function persist({ share }: { share: boolean }) {
+    const result = await upsertPlanningCardAction({
+      id: planningCardId,
+      studentId,
+      nextLessonId: lessonId,
+      studentVisibleSummary: summary,
+      sharedWithStudent: share,
+      goals: goals
+        .map((goal) => ({
+          title: goal.title,
+          description: goal.description,
+          status: "active" as const,
+        }))
+        .filter((goal) => goal.title.trim().length > 0),
+    });
+    if ("error" in result && result.error) {
+      setError(result.error);
+      setSaveState("idle");
+      return null;
+    }
+    const nextPlanningCardId =
+      "planningCardId" in result ? result.planningCardId : undefined;
+    if (nextPlanningCardId) {
+      setPlanningCardId(nextPlanningCardId);
+    }
+    lastSavedSignature.current = draftSignature;
+    setSaveState("saved");
+    if (share) setSharedWithStudent(true);
+    return nextPlanningCardId ?? planningCardId;
+  }
+
+  useEffect(() => {
+    if (draftSignature === lastSavedSignature.current) return;
     setError(null);
-    setSaved(false);
+    setSaveState("saving");
+    const timer = window.setTimeout(() => {
+      void persist({ share: sharedWithStudent });
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftSignature, sharedWithStudent]);
+
+  function sharePlanningCard() {
+    setError(null);
+    setSaveState("saving");
     startTransition(async () => {
-      const result = await upsertPlanningCardAction({
-        id: planningCard?.id ?? null,
-        studentId,
-        nextLessonId: lessonId,
-        studentVisibleSummary: summary,
-        sharedWithStudent: true,
-        goals: goals
-          .map((goal) => ({
-            title: goal.title,
-            description: goal.description,
-            status: "active" as const,
-          }))
-          .filter((goal) => goal.title.trim().length > 0),
-      });
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setSaved(true);
+      await persist({ share: true });
     });
   }
 
@@ -106,8 +143,28 @@ export function InstructorPlanningCardPanel({
             <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
               Gedeeld
             </span>
+          ) : saveState === "saving" ? (
+            <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
+              Concept opslaan...
+            </span>
+          ) : saveState === "saved" ? (
+            <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+              Concept opgeslagen
+            </span>
           ) : null}
         </div>
+
+        {studentLearningWish ? (
+          <div className="rounded-2xl border border-primary/20 bg-primary-soft/40 p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-foreground">
+              <WandSparkles className="h-4 w-4 text-primary" aria-hidden />
+              Leerwens leerling na vorige les
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {studentLearningWish}
+            </p>
+          </div>
+        ) : null}
 
         <Textarea
           value={summary}
@@ -149,7 +206,7 @@ export function InstructorPlanningCardPanel({
             {error}
           </p>
         ) : null}
-        {saved ? (
+        {sharedWithStudent ? (
           <p className="rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
             Plankaart is gedeeld met de leerling.
           </p>
@@ -159,7 +216,7 @@ export function InstructorPlanningCardPanel({
           type="button"
           variant="primary"
           disabled={isPending}
-          onClick={save}
+          onClick={sharePlanningCard}
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

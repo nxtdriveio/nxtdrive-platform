@@ -725,17 +725,22 @@ export async function loadStudentPlanningCardForLesson(
   tenantId: string,
   studentId: string,
   lessonId: string,
+  options: { includeDraft?: boolean } = {},
 ): Promise<PlanningCard | null> {
-  const { data: cardRaw, error: cardError } = await client
+  let query = client
     .from("planning_cards")
     .select(
       "id, tenant_id, student_id, instructor_id, next_lesson_id, previous_lesson_card_id, status, student_visible_summary, shared_with_student, shared_at, confirmed_at",
     )
     .eq("tenant_id", tenantId)
     .eq("student_id", studentId)
-    .eq("next_lesson_id", lessonId)
-    .eq("shared_with_student", true)
-    .maybeSingle();
+    .eq("next_lesson_id", lessonId);
+
+  if (!options.includeDraft) {
+    query = query.eq("shared_with_student", true);
+  }
+
+  const { data: cardRaw, error: cardError } = await query.maybeSingle();
 
   if (cardError) {
     throw new Error(`Plankaart laden mislukt (lesson=${lessonId}): ${cardError.message}`);

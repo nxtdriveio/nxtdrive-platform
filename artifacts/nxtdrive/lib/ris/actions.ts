@@ -21,6 +21,7 @@ import {
 } from "@workspace/leskaart";
 import {
   loadInstructorRisLessonCard,
+  STAFF_OPEN_RIS_CARD_STATUSES,
   type InstructorRisLessonCard,
   type LessonCardMode,
   type PlanningCardGoalStatus,
@@ -147,7 +148,7 @@ export async function setRisConceptScoreAction(input: {
       p_student_visible_note: input.studentVisibleNote ?? null,
     });
     if (error) return { error: error.message };
-    revalidatePath(`/instructor/${input.lessonId}`);
+    revalidatePath(`/instructor/evaluations/${input.lessonId}`);
     return { assessmentId: typeof data === "string" ? data : undefined };
   } catch (error) {
     return { error: err(error) };
@@ -185,8 +186,85 @@ export async function setGuidedReflectionAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
     return {};
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function saveRisLessonCardDraftAction(input: {
+  lessonId: string;
+  internalSummary?: string | null;
+  studentFriendlySummary?: string | null;
+  homeworkOrNextFocus?: string | null;
+}): Promise<ActionResult<{ lessonCardId?: string }>> {
+  try {
+    const { tenant, user, roles } = await requireActiveTenant([
+      "instructor",
+      "tenant_admin",
+    ]);
+    const lessonId = requiredId(input.lessonId, "Les");
+    const service = createServiceRoleClient();
+
+    const { data: lessonRaw, error: lessonError } = await service
+      .from("lessons")
+      .select("id, instructor_id, student_id")
+      .eq("id", lessonId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (lessonError) return { error: lessonError.message };
+    const lesson = lessonRaw as {
+      id: string;
+      instructor_id: string | null;
+      student_id: string;
+    } | null;
+    if (!lesson) return { error: "Les niet gevonden." };
+    if (!roles.includes("tenant_admin") && lesson.instructor_id !== user.id) {
+      return { error: "Niet geautoriseerd voor deze RIS-les." };
+    }
+
+    const { data, error } = await service.rpc("_ensure_ris_lesson_card", {
+      p_tenant_id: tenant.id,
+      p_lesson_id: lessonId,
+      p_actor: user.id,
+    });
+    if (error) return { error: error.message };
+    const lessonCardId = typeof data === "string" ? data : null;
+    if (!lessonCardId) return { error: "RIS-leskaart kon niet worden aangemaakt." };
+
+    const patch: Record<string, string | null> = {};
+    if ("internalSummary" in input) {
+      patch.internal_summary = input.internalSummary?.trim().slice(0, 2000) || null;
+    }
+    if ("studentFriendlySummary" in input) {
+      patch.student_friendly_summary =
+        input.studentFriendlySummary?.trim().slice(0, 2000) || null;
+    }
+    if ("homeworkOrNextFocus" in input) {
+      patch.homework_or_next_focus =
+        input.homeworkOrNextFocus?.trim().slice(0, 2000) || null;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      const { data: updated, error: updateError } = await service
+        .from("ris_lesson_cards")
+        .update(patch)
+        .eq("tenant_id", tenant.id)
+        .eq("id", lessonCardId)
+        .in("publication_status", Array.from(STAFF_OPEN_RIS_CARD_STATUSES))
+        .select("id")
+        .maybeSingle();
+      if (updateError) return { error: updateError.message };
+      if (!updated) {
+        return { error: "Deze RIS-leskaart is al gepubliceerd en kan niet meer als concept worden aangepast." };
+      }
+    }
+
+    revalidatePath("/instructor");
+    revalidatePath(`/instructor/evaluations/${lessonId}`);
+    revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
+    return { lessonCardId };
   } catch (error) {
     return { error: err(error) };
   }
@@ -216,7 +294,7 @@ export async function publishRisLessonCardAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
     if (input.studentId) {
       revalidatePath("/student");
       revalidatePath("/student/voortgang");
@@ -388,7 +466,7 @@ export async function upsertPlanningCardAction(input: {
 
     revalidatePath("/instructor");
     if (input.nextLessonId) {
-      revalidatePath(`/instructor/${input.nextLessonId}`);
+      revalidatePath(`/instructor/evaluations/${input.nextLessonId}`);
       revalidatePath(`/student/lessons/${input.nextLessonId}`);
     }
     revalidatePath("/student");

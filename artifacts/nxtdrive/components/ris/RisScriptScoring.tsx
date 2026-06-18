@@ -1,15 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   BookOpenCheck,
   ChevronDown,
+  Info,
   Loader2,
   Minus,
   Pin,
   Plus,
-  Sparkles,
   Tags,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +16,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { setRisConceptScoreAction } from "@/lib/ris/actions";
 import {
-  translateRisStepForStudent,
   type RISStepValue,
   type RISTreeModule,
   type RISTreeScript,
@@ -26,8 +24,6 @@ import type {
   InstructorRisLessonCard,
   RisScriptAssessment,
 } from "@/lib/ris/data";
-
-type FilterKey = "all" | "focus" | "attention" | `module-${1 | 2 | 3 | 4}`;
 
 type ScriptView = {
   module: RISTreeModule;
@@ -38,7 +34,9 @@ type ScriptView = {
 const MIN_STEP_INDEX = 0;
 const MAX_STEP_INDEX = 8;
 
-function statusForStep(step: RISStepValue): Parameters<typeof setRisConceptScoreAction>[0]["status"] {
+function statusForStep(
+  step: RISStepValue,
+): NonNullable<Parameters<typeof setRisConceptScoreAction>[0]["status"]> {
   if (step === "N") return "not_started";
   const numeric = Number(step);
   if (numeric <= 2) return "prepared";
@@ -81,68 +79,91 @@ function summaryTagCount(assessment: RisScriptAssessment | null): number {
   ].filter(Boolean).length;
 }
 
-function filterLabel(filter: FilterKey): string {
-  if (filter === "all") return "Alles";
-  if (filter === "focus") return "Focus";
-  if (filter === "attention") return "Aandacht";
-  return `Module ${filter.replace("module-", "")}`;
+function optimisticAssessment({
+  lessonCardId,
+  script,
+  current,
+  step,
+  isAttentionPoint,
+  isFeaturedForLesson,
+  shouldRepeat,
+  readyForTest,
+}: {
+  lessonCardId: string | null;
+  script: RISTreeScript;
+  current: RisScriptAssessment | null;
+  step: RISStepValue;
+  isAttentionPoint: boolean;
+  isFeaturedForLesson: boolean;
+  shouldRepeat: boolean;
+  readyForTest: boolean;
+}): RisScriptAssessment {
+  return {
+    id: current?.id ?? `optimistic-${script.id}`,
+    lessonCardId: current?.lessonCardId ?? lessonCardId ?? "",
+    scriptId: script.id,
+    scriptVariantId: current?.scriptVariantId ?? null,
+    previousRisStep: current?.previousRisStep ?? null,
+    conceptRisStep: step,
+    finalRisStep: current?.finalRisStep ?? null,
+    status: isAttentionPoint ? "needs_attention" : statusForStep(step),
+    isAttentionPoint,
+    isFeaturedForLesson,
+    shouldRepeat,
+    readyForTest,
+    instructorNote: current?.instructorNote ?? null,
+    studentVisibleNote: current?.studentVisibleNote ?? null,
+  };
 }
 
 export function RisScriptScoring({
   lessonId,
   studentName,
   ris,
+  onAssessmentsChange,
 }: {
   lessonId: string;
   studentName: string;
   ris: InstructorRisLessonCard;
+  onAssessmentsChange?: (assessments: RisScriptAssessment[]) => void;
 }) {
-  const router = useRouter();
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [assessments, setAssessments] = useState(ris.assessments);
   const [pendingScriptId, setPendingScriptId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  useEffect(() => {
+    setAssessments(ris.assessments);
+  }, [ris.assessments]);
+
   const assessmentByScript = useMemo(() => {
     const map = new Map<string, RisScriptAssessment>();
-    for (const assessment of ris.assessments) {
+    for (const assessment of assessments) {
       map.set(assessment.scriptId, assessment);
     }
     return map;
-  }, [ris.assessments]);
+  }, [assessments]);
 
-  const scripts = useMemo<ScriptView[]>(() => {
-    const out: ScriptView[] = [];
-    for (const module of ris.catalog.tree) {
+  const modules = useMemo(() => {
+    return ris.catalog.tree.map((module) => {
+      const scripts: ScriptView[] = [];
       for (const category of module.categories) {
         for (const script of category.scripts) {
-          out.push({
+          scripts.push({
             module,
             script,
             assessment: assessmentByScript.get(script.id) ?? null,
           });
         }
       }
-    }
-    return out;
+      return { module, scripts };
+    });
   }, [assessmentByScript, ris.catalog.tree]);
 
-  const filteredScripts = scripts.filter(({ module, assessment }) => {
-    if (filter === "all") return true;
-    if (filter === "focus") return Boolean(assessment?.isFeaturedForLesson);
-    if (filter === "attention") {
-      return Boolean(
-        assessment?.isAttentionPoint ||
-          assessment?.shouldRepeat ||
-          assessment?.status === "needs_attention",
-      );
-    }
-    return module.moduleNumber === Number(filter.replace("module-", ""));
-  });
-
-  const scoredCount = scripts.filter((item) => visibleStep(item.assessment) !== null).length;
-  const focusCount = scripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
-  const attentionCount = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
+  const allScripts = modules.flatMap((module) => module.scripts);
+  const scoredCount = allScripts.filter((item) => visibleStep(item.assessment) !== null).length;
+  const focusCount = allScripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
+  const attentionCount = allScripts.filter((item) => item.assessment?.isAttentionPoint).length;
   const locked = ris.card
     ? !["draft", "completion_in_progress", "ready_to_publish"].includes(
         ris.card.publicationStatus,
@@ -163,7 +184,28 @@ export function RisScriptScoring({
     const isFeaturedForLesson = input.focus ?? current?.isFeaturedForLesson ?? false;
     const shouldRepeat = input.repeat ?? current?.shouldRepeat ?? false;
     const readyForTest = input.ready ?? current?.readyForTest ?? false;
+    const previousAssessments = assessments;
+    const nextAssessment = optimisticAssessment({
+      lessonCardId: ris.card?.id ?? null,
+      script: input.script,
+      current,
+      step,
+      isAttentionPoint,
+      isFeaturedForLesson,
+      shouldRepeat,
+      readyForTest,
+    });
 
+    setAssessments((currentAssessments) => {
+      const exists = currentAssessments.some((item) => item.scriptId === input.script.id);
+      const next = !exists
+        ? [...currentAssessments, nextAssessment]
+        : currentAssessments.map((item) =>
+        item.scriptId === input.script.id ? nextAssessment : item,
+      );
+      onAssessmentsChange?.(next);
+      return next;
+    });
     setError(null);
     setPendingScriptId(input.script.id);
     startTransition(async () => {
@@ -181,8 +223,25 @@ export function RisScriptScoring({
       });
       if (result.error) {
         setError(result.error);
+        setAssessments(previousAssessments);
+        onAssessmentsChange?.(previousAssessments);
       } else {
-        router.refresh();
+        const assessmentId = "assessmentId" in result ? result.assessmentId : undefined;
+        if (!assessmentId) {
+          setPendingScriptId(null);
+          return;
+        }
+        setAssessments((currentAssessments) =>
+          {
+            const next = currentAssessments.map((item) =>
+            item.scriptId === input.script.id
+              ? { ...item, id: assessmentId }
+              : item,
+            );
+            onAssessmentsChange?.(next);
+            return next;
+          },
+        );
       }
       setPendingScriptId(null);
     });
@@ -198,52 +257,19 @@ export function RisScriptScoring({
               RIS-leskaart
             </div>
             <h2 className="mt-1 text-xl font-black text-foreground">
-              Scriptbeoordeling voor {studentName}
+              Beoordeling voor {studentName}
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Leg per RIS-script een conceptstap vast. Conceptscores blijven intern
-              totdat de leskaart later bewust wordt gepubliceerd.
+              Werk per module de actuele RIS-stap bij. Alle modules staan standaard
+              ingeklapt zodat de leskaart compact blijft.
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[22rem]">
-            <div className="rounded-xl border border-border bg-muted/30 p-3">
-              <div className="text-lg font-black text-foreground">{scoredCount}</div>
-              <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
-                Concepten
-              </div>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/30 p-3">
-              <div className="text-lg font-black text-foreground">{focusCount}</div>
-              <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
-                Focus
-              </div>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/30 p-3">
-              <div className="text-lg font-black text-foreground">{attentionCount}</div>
-              <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
-                Aandacht
-              </div>
-            </div>
+            <Metric value={scoredCount} label="Concepten" />
+            <Metric value={focusCount} label="Focus" />
+            <Metric value={attentionCount} label="Aandacht" />
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {(["all", "focus", "attention", "module-1", "module-2", "module-3", "module-4"] as FilterKey[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setFilter(item)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                filter === item
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground",
-              )}
-            >
-              {filterLabel(item)}
-            </button>
-          ))}
         </div>
 
         {locked ? (
@@ -262,142 +288,150 @@ export function RisScriptScoring({
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             Er is nog geen RIS-catalogus beschikbaar voor deze tenant.
           </div>
-        ) : filteredScripts.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-6 text-center">
-            <Sparkles className="mx-auto mb-2 h-8 w-8 text-muted-foreground" aria-hidden />
-            <div className="font-semibold text-foreground">
-              Geen scripts in filter "{filterLabel(filter)}"
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Markeer scripts als focus of aandachtspunt, of schakel naar Alles.
-            </p>
-          </div>
         ) : (
           <div className="space-y-3">
-            {filteredScripts.map(({ module, script, assessment }) => {
-              const step = visibleStep(assessment) ?? "N";
-              const definition = translateRisStepForStudent(step, ris.catalog.steps);
-              const pending = pendingScriptId === script.id;
-              const hasConcept = assessment?.conceptRisStep != null;
-              const tagCount = summaryTagCount(assessment);
-              const currentIndex = stepIndex(step);
+            {modules.map(({ module, scripts }) => {
+              const moduleScored = scripts.filter((item) => visibleStep(item.assessment) !== null).length;
+              const moduleAttention = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
               return (
-                <article
-                  key={script.id}
-                  className={cn(
-                    "rounded-2xl border border-border bg-card/75 p-3 shadow-sm",
-                    assessment?.isAttentionPoint && "border-warning/50 bg-warning/5",
-                    assessment?.isFeaturedForLesson && "ring-1 ring-primary/30",
-                  )}
+                <details
+                  key={module.id}
+                  className="group rounded-2xl border border-border bg-card/75 shadow-sm"
                 >
-                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-                    <div className="min-w-0 flex-1">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">Module {module.moduleNumber}</Badge>
-                        <Badge variant={hasConcept ? "primary" : "outline"}>
-                          {script.code}
-                        </Badge>
-                        {assessment?.isFeaturedForLesson ? (
-                          <Badge variant="info" className="gap-1">
-                            <Pin className="h-3 w-3" aria-hidden />
-                            Focus
-                          </Badge>
-                        ) : null}
-                        {assessment?.isAttentionPoint ? (
-                          <Badge variant="warning">Aandacht</Badge>
-                        ) : null}
-                        {assessment?.readyForTest ? (
-                          <Badge variant="success">Toetsklaar</Badge>
+                        <Badge variant="primary">Module {module.moduleNumber}</Badge>
+                        {moduleAttention > 0 ? (
+                          <Badge variant="warning">{moduleAttention} aandacht</Badge>
                         ) : null}
                       </div>
-                      <h3 className="mt-2 text-sm font-black text-foreground sm:text-base">
-                        {script.title}
-                      </h3>
-                      {script.descriptionShort ? (
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
-                          {script.descriptionShort}
-                        </p>
-                      ) : null}
-                      {script.variants.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {script.variants.map((variant) => (
-                            <span
-                              key={variant.id}
-                              className="rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[0.68rem] text-muted-foreground"
-                            >
-                              {variant.code}: {variant.title}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-col xl:items-stretch">
-                      <div className="flex min-w-[13rem] items-center justify-between gap-2 rounded-2xl border border-border bg-background/70 p-1.5">
-                        <button
-                          type="button"
-                          disabled={locked || pending || currentIndex === MIN_STEP_INDEX}
-                          onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
-                          aria-label={`Verlaag score voor ${script.title}`}
-                          className={cn(
-                            "grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/50 hover:text-primary",
-                            (locked || pending || currentIndex === MIN_STEP_INDEX) &&
-                              "cursor-not-allowed opacity-45",
-                          )}
-                        >
-                          <Minus className="h-4 w-4" aria-hidden />
-                        </button>
-                        <div className="min-w-0 flex-1 px-1 text-center">
-                          <div className="text-[0.62rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                            Score
-                          </div>
-                          <div className="mt-0.5 text-xl font-black text-foreground">
-                            {pending ? (
-                              <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" aria-hidden />
-                            ) : (
-                              step
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={locked || pending || currentIndex === MAX_STEP_INDEX}
-                          onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
-                          aria-label={`Verhoog score voor ${script.title}`}
-                          className={cn(
-                            "grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/50 hover:text-primary",
-                            (locked || pending || currentIndex === MAX_STEP_INDEX) &&
-                              "cursor-not-allowed opacity-45",
-                          )}
-                        >
-                          <Plus className="h-4 w-4" aria-hidden />
-                        </button>
+                      <div className="mt-1 truncate text-sm font-black text-foreground">
+                        {module.title}
                       </div>
-
-                      <SummaryTagDropdown
-                        count={tagCount}
-                        assessment={assessment}
-                        disabled={locked || pending}
-                        onToggle={(patch) =>
-                          saveScript({
-                            script,
-                            ...patch,
-                          })
-                        }
-                      />
                     </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-xs font-bold text-muted-foreground">
+                        {moduleScored} / {scripts.length}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" aria-hidden />
+                    </div>
+                  </summary>
+                  <div className="divide-y divide-border border-t border-border">
+                    {scripts.map(({ script, assessment }) => {
+                      const step = visibleStep(assessment) ?? "N";
+                      const pending = pendingScriptId === script.id;
+                      const tagCount = summaryTagCount(assessment);
+                      const currentIndex = stepIndex(step);
+                      const tooltip = script.descriptionShort ?? "Geen extra scriptinformatie.";
+                      return (
+                        <div
+                          key={script.id}
+                          className={cn(
+                            "grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center",
+                            assessment?.isAttentionPoint && "bg-warning/5",
+                            assessment?.isFeaturedForLesson && "bg-primary-soft/25",
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                title={tooltip}
+                                className="inline-flex min-w-0 items-center gap-2 text-left text-sm font-black text-foreground"
+                              >
+                                <span className="shrink-0 text-primary">{script.code}:</span>
+                                <span className="truncate">{script.title}</span>
+                                <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                              </button>
+                              {assessment?.isFeaturedForLesson ? (
+                                <Badge variant="info" className="gap-1">
+                                  <Pin className="h-3 w-3" aria-hidden />
+                                  Focus
+                                </Badge>
+                              ) : null}
+                              {assessment?.isAttentionPoint ? (
+                                <Badge variant="warning">Aandacht</Badge>
+                              ) : null}
+                              {assessment?.shouldRepeat ? (
+                                <Badge variant="outline">Herhalen</Badge>
+                              ) : null}
+                              {assessment?.readyForTest ? (
+                                <Badge variant="success">Toetsklaar</Badge>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                            <div className="flex items-center gap-1 rounded-xl border border-border bg-background/70 p-1">
+                              <button
+                                type="button"
+                                disabled={locked || pending || currentIndex === MIN_STEP_INDEX}
+                                onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
+                                aria-label={`Verlaag score voor ${script.title}`}
+                                className={cn(
+                                  "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
+                                  (locked || pending || currentIndex === MIN_STEP_INDEX) &&
+                                    "cursor-not-allowed opacity-45",
+                                )}
+                              >
+                                <Minus className="h-4 w-4" aria-hidden />
+                              </button>
+                              <span className="grid h-8 min-w-12 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
+                                {pending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                                ) : (
+                                  step
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={locked || pending || currentIndex === MAX_STEP_INDEX}
+                                onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
+                                aria-label={`Verhoog score voor ${script.title}`}
+                                className={cn(
+                                  "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
+                                  (locked || pending || currentIndex === MAX_STEP_INDEX) &&
+                                    "cursor-not-allowed opacity-45",
+                                )}
+                              >
+                                <Plus className="h-4 w-4" aria-hidden />
+                              </button>
+                            </div>
+                            <SummaryTagDropdown
+                              count={tagCount}
+                              assessment={assessment}
+                              disabled={locked || pending}
+                              onToggle={(patch) =>
+                                saveScript({
+                                  script,
+                                  ...patch,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    {definition.instructorLabel}
-                  </p>
-                </article>
+                </details>
               );
             })}
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-muted/30 p-3">
+      <div className="text-lg font-black text-foreground">{value}</div>
+      <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+    </div>
   );
 }
 
@@ -443,20 +477,19 @@ function SummaryTagDropdown({
   return (
     <details className="group relative">
       <summary
+        aria-label="Labels kiezen"
         className={cn(
-          "flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3 text-xs font-black text-foreground shadow-sm transition hover:border-primary/50",
+          "flex h-10 cursor-pointer list-none items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-black text-foreground shadow-sm transition hover:border-primary/50",
           "[&::-webkit-details-marker]:hidden",
           disabled && "pointer-events-none opacity-60",
         )}
       >
-        <span className="inline-flex items-center gap-2">
-          <Tags className="h-4 w-4 text-primary" aria-hidden />
-          Samenvatting
-        </span>
-        <span className="inline-flex items-center gap-1 text-muted-foreground">
+        <Tags className="h-4 w-4 text-primary" aria-hidden />
+        <span>Labels</span>
+        <span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[0.65rem] text-primary">
           {count}
-          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
         </span>
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" aria-hidden />
       </summary>
       <div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-2xl border border-border bg-popover p-2 shadow-brand-floating">
         {options.map((option) => (

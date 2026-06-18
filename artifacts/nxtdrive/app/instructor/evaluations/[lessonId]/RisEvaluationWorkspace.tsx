@@ -2,16 +2,27 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, Car, Clock, UserRound } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
+import { CBR_EXAM_STATUS_LABEL } from "@/lib/cbr/derive";
+import { loadStudentCbrSummary } from "@/lib/cbr/data";
+import { MACHTIGING_STATUS_LABEL } from "@/lib/cbr/types";
+import { LESSON_STATUS_LABEL, type LessonStatus } from "@/lib/lessons/types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   loadInstructorRisLessonCard,
   loadStudentPlanningCardForLesson,
+  loadStudentRisProgress,
 } from "@/lib/ris/data";
-import { RisScriptScoring } from "@/components/ris/RisScriptScoring";
-import { RisLessonPublicationPanel } from "@/components/ris/RisLessonPublicationPanel";
-import { InstructorPlanningCardPanel } from "@/components/ris/InstructorPlanningCardPanel";
+import {
+  RisEvaluationTabs,
+  type EvaluationLessonInfo,
+} from "@/components/ris/RisEvaluationTabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+
+const LESSON_SELECT =
+  "id, student_id, instructor_id, vehicle_id, status, starts_at, ends_at, duration_min, location, notes, progress_score, progress_summary, location_id, pickup_service_area_id, student_note, attention_points, advice";
+
+const OPEN_LESSON_STATUSES = ["planned", "in_progress"] as const;
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
@@ -21,15 +32,39 @@ const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   minute: "2-digit",
 });
 
+const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
 type LessonRow = {
   id: string;
   student_id: string;
   instructor_id: string | null;
   vehicle_id: string | null;
-  status: string;
+  status: LessonStatus;
   starts_at: string;
   ends_at: string | null;
+  duration_min: number | null;
   location: string | null;
+  notes: string | null;
+  progress_score: number | null;
+  progress_summary: string | null;
+  location_id: string | null;
+  pickup_service_area_id: string | null;
+  student_note: string | null;
+  attention_points: string | null;
+  advice: string | null;
+};
+
+type StudentRow = {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
 };
 
 export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string }) {
@@ -38,24 +73,45 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
     "tenant_admin",
   ]);
   const service = createServiceRoleClient();
+  const isAdmin = roles.includes("tenant_admin");
 
-  const { data: lessonRaw, error: lessonError } = await service
+  const { data: clickedLessonRaw, error: clickedLessonError } = await service
     .from("lessons")
-    .select("id, student_id, instructor_id, vehicle_id, status, starts_at, ends_at, location")
+    .select(LESSON_SELECT)
     .eq("id", lessonId)
     .eq("tenant_id", tenant.id)
     .maybeSingle();
-  if (lessonError) throw new Error(`Les laden mislukt: ${lessonError.message}`);
-  const lesson = lessonRaw as LessonRow | null;
-  if (!lesson) notFound();
-  if (!roles.includes("tenant_admin") && lesson.instructor_id !== user.id) {
+  if (clickedLessonError) {
+    throw new Error(`Les laden mislukt: ${clickedLessonError.message}`);
+  }
+  const clickedLesson = clickedLessonRaw as LessonRow | null;
+  if (!clickedLesson) notFound();
+  if (!isAdmin && clickedLesson.instructor_id !== user.id) {
     notFound();
   }
 
-  const [studentRes, vehicleRes, ris, planningCard] = await Promise.all([
+  const openLesson = await loadNextOpenLesson({
+    tenantId: tenant.id,
+    studentId: clickedLesson.student_id,
+    instructorId: user.id,
+    isAdmin,
+    fallback: clickedLesson,
+  });
+  const lesson = openLesson ?? clickedLesson;
+
+  const [
+    studentRes,
+    vehicleRes,
+    serviceAreaRes,
+    ris,
+    planningCard,
+    studentRisProgress,
+    cbrSummary,
+    latestResponseRes,
+  ] = await Promise.all([
     service
       .from("students")
-      .select("id, full_name")
+      .select("id, full_name, email, phone, notes")
       .eq("id", lesson.student_id)
       .eq("tenant_id", tenant.id)
       .maybeSingle(),
@@ -67,14 +123,46 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
           .eq("tenant_id", tenant.id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    lesson.pickup_service_area_id
+      ? service
+          .from("service_areas")
+          .select("name")
+          .eq("id", lesson.pickup_service_area_id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     loadInstructorRisLessonCard(service, tenant.id, lesson.id),
-    loadStudentPlanningCardForLesson(service, tenant.id, lesson.student_id, lesson.id),
+    loadStudentPlanningCardForLesson(
+      service,
+      tenant.id,
+      lesson.student_id,
+      lesson.id,
+      { includeDraft: true },
+    ),
+    loadStudentRisProgress(service, tenant.id, lesson.student_id),
+    loadStudentCbrSummary(service, tenant.id, lesson.student_id),
+    service
+      .from("student_post_lesson_responses")
+      .select("next_lesson_wish, comment_text, submitted_at")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", lesson.student_id)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   if (studentRes.error) throw new Error(`Leerling laden mislukt: ${studentRes.error.message}`);
   if (vehicleRes.error) throw new Error(`Voertuig laden mislukt: ${vehicleRes.error.message}`);
-  const student = studentRes.data as { id: string; full_name: string } | null;
+  if (serviceAreaRes.error) {
+    throw new Error(`Rayon laden mislukt: ${serviceAreaRes.error.message}`);
+  }
+  if (latestResponseRes.error) {
+    throw new Error(`Leerwens laden mislukt: ${latestResponseRes.error.message}`);
+  }
+
+  const student = studentRes.data as StudentRow | null;
   if (!student) notFound();
   const vehicle = vehicleRes.data as { label: string; license_plate: string | null } | null;
+  const serviceArea = serviceAreaRes.data as { name: string } | null;
   const vehicleLabel = vehicle
     ? [vehicle.label, vehicle.license_plate ? `(${vehicle.license_plate})` : null]
         .filter(Boolean)
@@ -90,6 +178,22 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
     ),
   );
 
+  const lessonInfo = buildLessonInfo({
+    student,
+    lesson,
+    vehicleLabel,
+    pickupAreaName: serviceArea?.name ?? null,
+    studentRisProgress,
+    cbrSummary,
+    ris,
+  });
+  const latestResponse = latestResponseRes.data as {
+    next_lesson_wish: string | null;
+    comment_text: string | null;
+    submitted_at: string;
+  } | null;
+  const studentLearningWish = latestResponse?.next_lesson_wish?.trim() || null;
+
   return (
     <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-4 px-3 pb-8 sm:px-4 lg:px-6">
       <div className="flex flex-col gap-4 rounded-[1.6rem] border border-border bg-card/85 p-4 shadow-brand-card lg:flex-row lg:items-end lg:justify-between">
@@ -102,23 +206,27 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
             Terug naar lesevaluaties
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="primary">RIS methode</Badge>
+            <Badge variant="primary">Lesevaluatie</Badge>
             <Badge variant={lesson.status === "completed" ? "success" : "outline"}>
-              {lesson.status}
+              {LESSON_STATUS_LABEL[lesson.status] ?? lesson.status}
             </Badge>
+            {lesson.id !== lessonId ? (
+              <Badge variant="info">Eerstvolgende open leskaart</Badge>
+            ) : null}
           </div>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground">
-            Les evaluatie
+            Lesevaluatie
           </h1>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Score volgens RIS, begeleid de reflectie en publiceer pas daarna de
-            leerlingveilige leskaart.
+            {student.full_name} - {dateFmt.format(new Date(lesson.starts_at))} -
+            {" "}
+            {timeRange(lesson.starts_at, lesson.ends_at)}
           </p>
         </div>
         <div className="grid gap-2 text-sm sm:grid-cols-2 lg:min-w-[28rem]">
           <InfoLine icon={UserRound} label={student.full_name} />
           <InfoLine icon={CalendarDays} label={dateTimeFmt.format(new Date(lesson.starts_at))} />
-          <InfoLine icon={Clock} label={timeRange(lesson.starts_at, lesson.ends_at)} />
+          <InfoLine icon={Clock} label={durationLabel(lesson)} />
           <InfoLine icon={Car} label={vehicleLabel} />
         </div>
       </div>
@@ -132,28 +240,165 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
         </Card>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(28rem,0.55fr)]">
-        <div className="space-y-4">
-          <InstructorPlanningCardPanel
-            lessonId={lesson.id}
-            studentId={student.id}
-            studentName={student.full_name}
-            planningCard={planningCard}
-            goalOptions={goalOptions}
-          />
-          <RisScriptScoring lessonId={lesson.id} studentName={student.full_name} ris={ris} />
-        </div>
-        <div className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-          <RisLessonPublicationPanel
-            lessonId={lesson.id}
-            studentId={student.id}
-            studentName={student.full_name}
-            ris={ris}
-          />
-        </div>
-      </div>
+      <RisEvaluationTabs
+        lessonId={lesson.id}
+        studentId={student.id}
+        studentName={student.full_name}
+        ris={ris}
+        planningCard={planningCard}
+        goalOptions={goalOptions}
+        lessonInfo={lessonInfo}
+        studentLearningWish={studentLearningWish}
+      />
     </div>
   );
+
+  async function loadNextOpenLesson({
+    tenantId,
+    studentId,
+    instructorId,
+    isAdmin,
+    fallback,
+  }: {
+    tenantId: string;
+    studentId: string;
+    instructorId: string;
+    isAdmin: boolean;
+    fallback: LessonRow;
+  }): Promise<LessonRow | null> {
+    let query = service
+      .from("lessons")
+      .select(LESSON_SELECT)
+      .eq("tenant_id", tenantId)
+      .eq("student_id", studentId)
+      .in("status", Array.from(OPEN_LESSON_STATUSES))
+      .gte("starts_at", new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
+
+    if (!isAdmin) {
+      query = query.eq("instructor_id", instructorId);
+    }
+
+    const { data, error } = await query
+      .order("starts_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Open leskaart zoeken mislukt: ${error.message}`);
+    return (
+      (data as LessonRow | null) ??
+      (OPEN_LESSON_STATUSES.includes(
+        fallback.status as (typeof OPEN_LESSON_STATUSES)[number],
+      )
+        ? fallback
+        : null)
+    );
+  }
+}
+
+function buildLessonInfo({
+  student,
+  lesson,
+  vehicleLabel,
+  pickupAreaName,
+  studentRisProgress,
+  cbrSummary,
+  ris,
+}: {
+  student: StudentRow;
+  lesson: LessonRow;
+  vehicleLabel: string;
+  pickupAreaName: string | null;
+  studentRisProgress: Awaited<ReturnType<typeof loadStudentRisProgress>>;
+  cbrSummary: Awaited<ReturnType<typeof loadStudentCbrSummary>>;
+  ris: Awaited<ReturnType<typeof loadInstructorRisLessonCard>>;
+}): EvaluationLessonInfo {
+  const scriptMap = new Map<string, string>();
+  for (const module of ris.catalog.tree) {
+    for (const category of module.categories) {
+      for (const script of category.scripts) {
+        scriptMap.set(script.id, `${script.code}: ${script.title}`);
+      }
+    }
+  }
+  const radarItems = studentRisProgress.progress
+    .filter((item) => item.isAttentionPoint || item.readyForModuleTest)
+    .slice(0, 6)
+    .map((item) => scriptMap.get(item.scriptId) ?? "RIS-script met aandacht");
+
+  return {
+    studentName: student.full_name,
+    studentEmail: student.email,
+    studentPhone: student.phone,
+    statusLabel: LESSON_STATUS_LABEL[lesson.status] ?? lesson.status,
+    dateLabel: dateFmt.format(new Date(lesson.starts_at)),
+    timeLabel: timeRange(lesson.starts_at, lesson.ends_at),
+    durationLabel: durationLabel(lesson),
+    location: lesson.location ?? "Ophaallocatie volgt",
+    pickupAreaName,
+    vehicleLabel,
+    progressPct: studentRisProgress.progressPct,
+    progressSummary: lesson.progress_summary,
+    cbrItems: [
+      {
+        label: "Theorie",
+        ok: cbrSummary.preconditions.theorieBehaald,
+        value: cbrSummary.preconditions.theorieBehaald ? "Behaald" : "Nog niet behaald",
+      },
+      {
+        label: "Machtiging",
+        ok: cbrSummary.preconditions.machtigingGeregeld,
+        value: MACHTIGING_STATUS_LABEL[cbrSummary.preconditions.machtigingStatus],
+      },
+      {
+        label: "Gezondheidsverklaring",
+        ok:
+          !cbrSummary.preconditions.gezondheidsverklaringVereist ||
+          cbrSummary.preconditions.gezondheidsverklaringGeregeld,
+        value: cbrSummary.preconditions.gezondheidsverklaringVereist
+          ? cbrSummary.preconditions.gezondheidsverklaringGeregeld
+            ? "Geregeld"
+            : "Nog nodig"
+          : "Niet vereist",
+      },
+      {
+        label: "Examen / TTT",
+        ok: cbrSummary.derived.examStatus === "geslaagd",
+        value: CBR_EXAM_STATUS_LABEL[cbrSummary.derived.examStatus],
+      },
+    ],
+    attentionItems: compactTextItems([
+      lesson.attention_points,
+      lesson.advice,
+      lesson.student_note,
+      lesson.notes,
+      student.notes,
+    ]),
+    radarItems,
+    moduleProgress: studentRisProgress.moduleProgress.map((module) => ({
+      moduleNumber: module.moduleNumber,
+      progressPct: module.progressPct,
+    })),
+  };
+}
+
+function compactTextItems(values: Array<string | null>): string[] {
+  return values
+    .flatMap((value) =>
+      (value ?? "")
+        .split(/\r?\n|;/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    )
+    .filter((value, index, all) => all.indexOf(value) === index)
+    .slice(0, 8);
+}
+
+function durationLabel(lesson: LessonRow) {
+  if (lesson.duration_min) return `${lesson.duration_min} minuten`;
+  if (!lesson.ends_at) return "Duur onbekend";
+  const minutes = Math.round(
+    (new Date(lesson.ends_at).getTime() - new Date(lesson.starts_at).getTime()) / 60000,
+  );
+  return `${Math.max(0, minutes)} minuten`;
 }
 
 function timeRange(startsAt: string, endsAt: string | null) {
