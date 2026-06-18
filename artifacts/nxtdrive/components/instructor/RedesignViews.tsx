@@ -746,8 +746,8 @@ export function InstructorStudentDetailView({
 export function InstructorEvaluationsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
   return (
     <InstructorPage>
-      <PageHeader eyebrow="RIS" title="Les evaluaties" subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft." />
-      <InstructorCard title="Te beoordelen en recent" icon={FileText}>
+      <PageHeader eyebrow="RIS" title="Lesevaluaties" subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft." />
+      <InstructorCard title="Open leskaarten" icon={FileText}>
         <div className="space-y-3">
           {data.evaluations.length > 0 ? (
             data.evaluations.map((evaluation) => (
