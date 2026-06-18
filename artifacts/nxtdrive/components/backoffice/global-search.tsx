@@ -245,22 +245,22 @@ export function GlobalSearch() {
   }, [setOpen]);
 
   return (
-    <div className="relative hidden sm:block sm:max-w-xs sm:flex-1">
+    <div className="relative hidden sm:block sm:max-w-[38rem] sm:flex-1">
       <Search
         className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden
       />
       {loading && (
         <Loader2
-          className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground"
+          className="absolute right-14 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground"
           aria-hidden
         />
       )}
       <Input
         ref={inputRef}
         type="search"
-        placeholder="Zoeken…"
-        className="h-9 pl-9 pr-8 text-sm"
+        placeholder="Zoek leerling, afspraak, voertuig, bericht..."
+        className="h-10 rounded-xl border-brand-border bg-white/92 pl-9 pr-16 text-sm shadow-sm placeholder:text-muted-foreground/78 focus-visible:ring-brand-ring/30"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -274,6 +274,9 @@ export function GlobalSearch() {
         aria-haspopup="listbox"
         aria-autocomplete="list"
       />
+      <span className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-brand-border bg-brand-muted px-1.5 py-0.5 text-[10px] font-black text-muted-foreground lg:block">
+        Ctrl K
+      </span>
 
       {open && query.trim().length >= 2 && (
         <div
@@ -380,7 +383,7 @@ export function MobileSearch() {
               <input
                 ref={inputRef}
                 type="search"
-                placeholder="Zoeken in leerlingen, leads en lessen…"
+                placeholder="Zoeken in leerlingen, leads en lessen..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {

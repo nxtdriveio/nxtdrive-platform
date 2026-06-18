@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Users, Inbox, Wallet, Receipt, Clock, ArrowUpRight, Car, RefreshCw } from "lucide-react";
+import { Users, Inbox, Receipt, Clock, ClipboardList, CalendarCheck2, RefreshCw } from "lucide-react";
 import { StatCard } from "@/components/backoffice/stat-card";
 import { formatEuros } from "@/lib/invoices/types";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -13,6 +13,9 @@ export type KpiData = {
   revenueThisMonthCents: number;
   leadsToFollowUp: number;
   openInvoices: number;
+  openInvoiceCents: number;
+  openTasks: number;
+  examsThisWeek: number;
   upcomingTrials: number;
   fetchedAt: string;
 };
@@ -131,55 +134,48 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+        <StatCard
+          label="Rijlessen vandaag"
+          value={data.lessonsToday.toLocaleString("nl-NL")}
+          icon={Clock}
+          trendHint="gepland vandaag"
+          href="/backoffice/agenda"
+        />
         <StatCard
           label="Actieve leerlingen"
           value={data.activeStudents.toLocaleString("nl-NL")}
           icon={Users}
-          trendHint="actief"
+          trendHint="actieve dossiers"
           href="/backoffice/leerlingen"
         />
         <StatCard
-          label="Lessen vandaag"
-          value={data.lessonsToday.toLocaleString("nl-NL")}
-          icon={Clock}
-          trendHint="gepland"
-          href="/backoffice/agenda"
-        />
-        <StatCard
-          label="Openstaande leads"
-          value={data.openLeads.toLocaleString("nl-NL")}
-          icon={Inbox}
-          trendHint="in funnel"
-          href="/backoffice/leads"
-        />
-        <StatCard
-          label="Omzet deze maand"
-          value={formatEuros(data.revenueThisMonthCents)}
-          icon={Wallet}
-          trendHint="betaald"
-          href="/backoffice/boekhouding"
-        />
-        <StatCard
-          label="Nog opvolgen"
-          value={data.leadsToFollowUp.toLocaleString("nl-NL")}
-          icon={ArrowUpRight}
-          trendHint="nieuwe leads"
-          href="/backoffice/leads"
+          label="Open taken"
+          value={data.openTasks.toLocaleString("nl-NL")}
+          icon={ClipboardList}
+          trendHint="openstaand"
+          href="/backoffice/taken"
         />
         <StatCard
           label="Open facturen"
-          value={data.openInvoices.toLocaleString("nl-NL")}
+          value={formatEuros(data.openInvoiceCents)}
           icon={Receipt}
-          trendHint="onbetaald"
+          trendHint={`${data.openInvoices.toLocaleString("nl-NL")} openstaand`}
           href="/backoffice/facturen"
         />
         <StatCard
-          label="Proefles geboekt"
-          value={data.upcomingTrials.toLocaleString("nl-NL")}
-          icon={Car}
-          trendHint="aankomend"
+          label="Nieuwe leads"
+          value={data.openLeads.toLocaleString("nl-NL")}
+          icon={Inbox}
+          trendHint="in opvolging"
           href="/backoffice/leads"
+        />
+        <StatCard
+          label="Examens deze week"
+          value={data.examsThisWeek.toLocaleString("nl-NL")}
+          icon={CalendarCheck2}
+          trendHint={`${data.upcomingTrials.toLocaleString("nl-NL")} proefles(sen)`}
+          href="/backoffice/cbr"
         />
       </div>
     </section>

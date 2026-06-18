@@ -23,19 +23,19 @@ export function StatCard({
   const inner = (
     <div
       className={cn(
-        "group flex flex-col gap-3 rounded-2xl border border-border bg-[var(--surface-1)] p-4 shadow-sm transition-colors",
-        href && "hover:border-primary/40 cursor-pointer",
+        "group flex min-h-[6.6rem] flex-col justify-between rounded-xl border border-brand-border bg-white p-4 shadow-[var(--admin-card-shadow)] transition-all",
+        href && "cursor-pointer hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[var(--admin-card-shadow-hover)]",
         className,
       )}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_oklab,var(--primary)_10%,transparent)] text-primary">
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--primary)_11%,white)] text-primary">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
       <div>
-        <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
+        <p className="text-2xl font-black tracking-tight text-foreground">{value}</p>
         {trendHint && (
           <div className="mt-1 flex items-center gap-1">
             {trendValue !== null && trendValue !== undefined ? (

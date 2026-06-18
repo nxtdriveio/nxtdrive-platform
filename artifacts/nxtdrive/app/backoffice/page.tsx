@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Car,
   ClipboardList,
+  Filter,
   Gift,
   GraduationCap,
   Inbox,
@@ -16,6 +17,7 @@ import {
   Package,
   Receipt,
   Settings,
+  UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
@@ -39,7 +41,9 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import {
   getDashboardKpis,
   getLeadsPipeline,
+  getTodayCapacity,
   getTodayLessons,
+  getWeekPlanning,
 } from "@/lib/dashboard/metrics";
 import {
   getMonthlyRevenue,
@@ -118,7 +122,7 @@ const CORE_MODULES = [
 ];
 
 export default async function BackofficePage() {
-  const { user, tenant, roles } = await requireActiveTenant([
+  const { tenant, roles } = await requireActiveTenant([
     "tenant_admin",
     "instructor",
     "branch_manager",
@@ -138,6 +142,8 @@ export default async function BackofficePage() {
     smartAlerts,
     monthlyRevenue,
     pipeline,
+    weekPlanning,
+    todayCapacity,
   ] = await Promise.all([
     getDashboardKpis(supabase, tenant.id),
     getTodayLessons(supabase, tenant.id),
@@ -147,6 +153,8 @@ export default async function BackofficePage() {
     getSmartAlerts(supabase, tenant.id),
     getMonthlyRevenue(supabase, tenant.id, 6),
     getLeadsPipeline(supabase, tenant.id),
+    getWeekPlanning(supabase, tenant.id),
+    getTodayCapacity(supabase, tenant.id),
   ]);
 
   const today = new Intl.DateTimeFormat("nl-NL", {
@@ -154,8 +162,6 @@ export default async function BackofficePage() {
     day: "numeric",
     month: "long",
   }).format(new Date());
-  const firstName =
-    user.profile?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? "";
   const showSubscriptionCard = roles.includes("tenant_admin");
   const entitlementSnapshot = showSubscriptionCard
     ? await loadTenantEntitlementSnapshot(service, tenant.id)
@@ -173,36 +179,44 @@ export default async function BackofficePage() {
     upcomingTrials,
     openTasks,
     smartAlerts,
+    weekPlanning,
+    todayCapacity,
     fetchedAt: new Date().toISOString(),
   };
 
   return (
     <AdminPage>
       <AdminPageHeader
-        eyebrow="Backoffice"
-        title={firstName ? `Goedemorgen, ${firstName}` : "Dashboard"}
+        eyebrow="Overzicht"
+        title="Dashboard"
         description={
           <>
-            {today.charAt(0).toUpperCase() + today.slice(1)}. Focus op wat nu
-            werk nodig heeft: planning, opvolging, leerlingen, leads en finance.
+            Operationeel overzicht van vandaag. {today.charAt(0).toUpperCase() + today.slice(1)}.
           </>
         }
         actions={
           <>
             <Link
               href="/backoffice/agenda/afspraak/nieuw"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-[0_14px_30px_rgba(91,77,255,0.24)] transition-colors hover:bg-primary/90"
             >
               <CalendarDays className="h-4 w-4" aria-hidden />
-              Afspraak plannen
+              Nieuwe afspraak
             </Link>
             <Link
-              href="/backoffice/leads"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              href="/backoffice/leerlingen"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-4 text-sm font-bold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
             >
-              <Inbox className="h-4 w-4" aria-hidden />
-              Leads openen
+              <UserPlus className="h-4 w-4" aria-hidden />
+              Nieuwe leerling
             </Link>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-4 text-sm font-bold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <Filter className="h-4 w-4" aria-hidden />
+              Filters
+            </button>
           </>
         }
         meta={
@@ -224,6 +238,9 @@ export default async function BackofficePage() {
           revenueThisMonthCents: metrics.revenueThisMonthCents,
           leadsToFollowUp: metrics.leadsToFollowUp,
           openInvoices: metrics.openInvoices,
+          openInvoiceCents: metrics.openInvoiceCents,
+          openTasks: metrics.openTasks,
+          examsThisWeek: metrics.examsThisWeek,
           upcomingTrials: upcomingTrials.length,
           fetchedAt: new Date().toISOString(),
         }}
