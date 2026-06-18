@@ -80,6 +80,15 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
         .filter(Boolean)
         .join(" ")
     : "Geen voertuig gekoppeld";
+  const goalOptions = Array.from(
+    new Set(
+      ris.catalog.tree.flatMap((module) =>
+        module.categories.flatMap((category) =>
+          category.scripts.map((script) => `${script.code} - ${script.title}`),
+        ),
+      ),
+    ),
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-4 px-3 pb-8 sm:px-4 lg:px-6">
@@ -130,6 +139,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
             studentId={student.id}
             studentName={student.full_name}
             planningCard={planningCard}
+            goalOptions={goalOptions}
           />
           <RisScriptScoring lessonId={lesson.id} studentName={student.full_name} ris={ris} />
         </div>

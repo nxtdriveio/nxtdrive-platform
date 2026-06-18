@@ -141,7 +141,17 @@ export function InstructorSidebar({
             </Link>
           </div>
 
-          <div className="relative mt-6 flex items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3">
+          <nav className="relative mt-7 min-h-0 flex-1 overflow-auto" aria-label="Instructeur navigatie">
+            <ul className="space-y-1.5">
+              {SIDEBAR_NAV.map((item) => (
+                <li key={item.href}>
+                  <NavLink item={item} />
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="relative mt-4 flex shrink-0 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3">
             <Avatar name={userLabel} className="h-12 w-12 text-sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-black text-white">{userLabel}</p>
@@ -152,16 +162,6 @@ export function InstructorSidebar({
               </p>
             </div>
           </div>
-
-          <nav className="relative mt-5 min-h-0 flex-1 overflow-auto" aria-label="Instructeur navigatie">
-            <ul className="space-y-1.5">
-              {SIDEBAR_NAV.map((item) => (
-                <li key={item.href}>
-                  <NavLink item={item} />
-                </li>
-              ))}
-            </ul>
-          </nav>
 
         </div>
       </aside>
