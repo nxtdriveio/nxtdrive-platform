@@ -44,7 +44,7 @@ export function DashboardCard({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-4 py-4 [scrollbar-color:color-mix(in_oklab,var(--brand-primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent",
+          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 [scrollbar-color:color-mix(in_oklab,var(--brand-primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent",
           contentClassName,
         )}
       >
