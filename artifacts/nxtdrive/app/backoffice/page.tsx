@@ -4,10 +4,8 @@ import {
   BarChart3,
   BookOpenCheck,
   CalendarClock,
-  CalendarDays,
   Car,
   ClipboardList,
-  Filter,
   Gift,
   GraduationCap,
   Inbox,
@@ -17,7 +15,6 @@ import {
   Package,
   Receipt,
   Settings,
-  UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
@@ -189,31 +186,6 @@ export default async function BackofficePage() {
         description={
           <>
             Operationeel overzicht van vandaag. {today.charAt(0).toUpperCase() + today.slice(1)}.
-          </>
-        }
-        actions={
-          <>
-            <Link
-              href="/backoffice/agenda/afspraak/nieuw"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-[0_14px_30px_rgba(91,77,255,0.24)] transition-colors hover:bg-primary/90"
-            >
-              <CalendarDays className="h-4 w-4" aria-hidden />
-              Nieuwe afspraak
-            </Link>
-            <Link
-              href="/backoffice/leerlingen"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-4 text-sm font-bold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              <UserPlus className="h-4 w-4" aria-hidden />
-              Nieuwe leerling
-            </Link>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-4 text-sm font-bold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              <Filter className="h-4 w-4" aria-hidden />
-              Filters
-            </button>
           </>
         }
       />

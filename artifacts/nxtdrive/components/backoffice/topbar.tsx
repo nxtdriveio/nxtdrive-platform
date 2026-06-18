@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { CalendarPlus } from "lucide-react";
+import { BackofficeCreateMenu } from "@/components/backoffice/create-menu";
 import { RouteInfoBubble } from "@/components/navigation/RouteInfoBubble";
 import { GlobalSearch, MobileSearch } from "@/components/backoffice/global-search";
 import { UserMenu } from "@/components/backoffice/user-menu";
@@ -31,13 +30,7 @@ export function BackofficeTopbar({
       <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-2">
-        <Link
-          href="/backoffice/agenda/afspraak/nieuw"
-          className="hidden h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-[0_14px_30px_rgba(91,77,255,0.24)] transition hover:bg-primary/92 xl:inline-flex"
-        >
-          <CalendarPlus className="h-4 w-4" aria-hidden />
-          Nieuwe afspraak
-        </Link>
+        <BackofficeCreateMenu className="hidden xl:inline-flex" />
         <MobileSearch />
         <RouteInfoBubble scope="backoffice" />
         {notifications}
