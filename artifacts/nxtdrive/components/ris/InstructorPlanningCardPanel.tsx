@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Loader2, Send, Target, WandSparkles } from "lucide-react";
+import { Loader2, Pencil, Save, Send, Target, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,12 @@ type GoalState = {
 };
 
 const GOAL_SLOT_COUNT = 3;
+const LOCKED_PLANNING_CARD_STATUSES = new Set<PlanningCard["status"]>([
+  "submitted_by_instructor",
+  "shared_with_student",
+  "used_in_lesson",
+  "evaluated",
+]);
 
 function initialGoals(planningCard: PlanningCard | null): GoalState[] {
   const goals =
@@ -37,6 +43,7 @@ export function InstructorPlanningCardPanel({
   planningCard,
   goalOptions,
   studentLearningWish,
+  lessonCardLocked = false,
 }: {
   lessonId: string;
   studentId: string;
@@ -44,10 +51,19 @@ export function InstructorPlanningCardPanel({
   planningCard: PlanningCard | null;
   goalOptions: string[];
   studentLearningWish?: string | null;
+  lessonCardLocked?: boolean;
 }) {
+  const isSubmittedPlanningCard = Boolean(
+    planningCard &&
+      (planningCard.sharedWithStudent ||
+        LOCKED_PLANNING_CARD_STATUSES.has(planningCard.status)),
+  );
   const [planningCardId, setPlanningCardId] = useState(planningCard?.id ?? null);
   const [summary, setSummary] = useState(planningCard?.studentVisibleSummary ?? "");
   const [goals, setGoals] = useState<GoalState[]>(() => initialGoals(planningCard));
+  const [isEditing, setIsEditing] = useState(
+    !lessonCardLocked && !isSubmittedPlanningCard,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     planningCard ? "saved" : "idle",
@@ -57,6 +73,7 @@ export function InstructorPlanningCardPanel({
   );
   const [isPending, startTransition] = useTransition();
   const datalistId = `ris-goal-options-${lessonId}`;
+  const saveAsChange = isSubmittedPlanningCard || sharedWithStudent;
   const normalizedGoalOptions = useMemo(
     () => Array.from(new Set([...goalOptions, "Anders..."])),
     [goalOptions],
@@ -65,6 +82,7 @@ export function InstructorPlanningCardPanel({
   const lastSavedSignature = useRef(draftSignature);
 
   function updateGoal(index: number, patch: Partial<GoalState>) {
+    if (!isEditing || lessonCardLocked) return;
     setGoals((current) =>
       current.map((goal, goalIndex) =>
         goalIndex === index ? { ...goal, ...patch } : goal,
@@ -104,6 +122,8 @@ export function InstructorPlanningCardPanel({
   }
 
   useEffect(() => {
+    if (lessonCardLocked) return;
+    if (!isEditing) return;
     if (draftSignature === lastSavedSignature.current) return;
     setError(null);
     setSaveState("saving");
@@ -112,13 +132,23 @@ export function InstructorPlanningCardPanel({
     }, 900);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftSignature, sharedWithStudent]);
+  }, [draftSignature, isEditing, lessonCardLocked, sharedWithStudent]);
 
   function sharePlanningCard() {
     setError(null);
     setSaveState("saving");
     startTransition(async () => {
-      await persist({ share: true });
+      const savedId = await persist({ share: true });
+      if (savedId) setIsEditing(false);
+    });
+  }
+
+  function saveChanges() {
+    setError(null);
+    setSaveState("saving");
+    startTransition(async () => {
+      const savedId = await persist({ share: sharedWithStudent || isSubmittedPlanningCard });
+      if (savedId) setIsEditing(false);
     });
   }
 
@@ -154,6 +184,18 @@ export function InstructorPlanningCardPanel({
           ) : null}
         </div>
 
+        {isSubmittedPlanningCard && !isEditing ? (
+          <div className="rounded-2xl border border-border bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
+            Deze plankaart is ingediend. Klik op <span className="font-bold text-foreground">Wijzig</span> om aanpassingen te doen.
+          </div>
+        ) : null}
+
+        {lessonCardLocked ? (
+          <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+            Deze leskaart is afgerond. De plankaart en evaluatiegegevens zijn geblokkeerd.
+          </div>
+        ) : null}
+
         {studentLearningWish ? (
           <div className="rounded-2xl border border-primary/20 bg-primary-soft/40 p-4">
             <div className="flex items-center gap-2 text-sm font-black text-foreground">
@@ -169,6 +211,7 @@ export function InstructorPlanningCardPanel({
         <Textarea
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
+          disabled={!isEditing || lessonCardLocked}
           rows={3}
           maxLength={1200}
           placeholder="Korte voorbereiding voor de leerling..."
@@ -186,6 +229,7 @@ export function InstructorPlanningCardPanel({
               <Input
                 value={goal.title}
                 onChange={(event) => updateGoal(index, { title: event.target.value })}
+                disabled={!isEditing || lessonCardLocked}
                 list={datalistId}
                 maxLength={160}
                 placeholder={`Doel ${index + 1} kiezen of typen`}
@@ -193,6 +237,7 @@ export function InstructorPlanningCardPanel({
               <Textarea
                 value={goal.description}
                 onChange={(event) => updateGoal(index, { description: event.target.value })}
+                disabled={!isEditing || lessonCardLocked}
                 rows={2}
                 maxLength={500}
                 placeholder="Korte toelichting (optioneel)"
@@ -212,19 +257,46 @@ export function InstructorPlanningCardPanel({
           </p>
         ) : null}
 
-        <Button
-          type="button"
-          variant="primary"
-          disabled={isPending}
-          onClick={sharePlanningCard}
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        <div className="flex flex-wrap gap-2">
+          {lessonCardLocked ? null : !isEditing ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsEditing(true)}
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              Wijzig
+            </Button>
+          ) : saveAsChange ? (
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isPending}
+              onClick={saveChanges}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Save className="h-4 w-4" aria-hidden />
+              )}
+              Wijzigingen opslaan
+            </Button>
           ) : (
-            <Send className="h-4 w-4" aria-hidden />
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isPending}
+              onClick={sharePlanningCard}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-4 w-4" aria-hidden />
+              )}
+              Plankaart delen
+            </Button>
           )}
-          Plankaart delen
-        </Button>
+        </div>
       </CardContent>
     </Card>
   );
