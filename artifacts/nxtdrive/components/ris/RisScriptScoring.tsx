@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
   BookOpenCheck,
-  CheckCircle2,
-  Flag,
+  ChevronDown,
   Loader2,
+  Minus,
   Pin,
+  Plus,
   Sparkles,
+  Tags,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +35,8 @@ type ScriptView = {
   assessment: RisScriptAssessment | null;
 };
 
-const STEP_VALUES: RISStepValue[] = ["N", "1", "2", "3", "4", "5", "6", "7", "8"];
+const MIN_STEP_INDEX = 0;
+const MAX_STEP_INDEX = 8;
 
 function statusForStep(step: RISStepValue): Parameters<typeof setRisConceptScoreAction>[0]["status"] {
   if (step === "N") return "not_started";
@@ -48,6 +49,20 @@ function statusForStep(step: RISStepValue): Parameters<typeof setRisConceptScore
   return "ready_for_test";
 }
 
+function stepIndex(step: RISStepValue | null): number {
+  if (!step || step === "N") return MIN_STEP_INDEX;
+  return Number(step);
+}
+
+function stepFromIndex(index: number): RISStepValue {
+  if (index <= MIN_STEP_INDEX) return "N";
+  return String(Math.min(MAX_STEP_INDEX, Math.max(1, index))) as RISStepValue;
+}
+
+function shiftStep(step: RISStepValue, delta: -1 | 1): RISStepValue {
+  return stepFromIndex(stepIndex(step) + delta);
+}
+
 function visibleStep(assessment: RisScriptAssessment | null): RISStepValue | null {
   return (
     assessment?.conceptRisStep ??
@@ -55,6 +70,15 @@ function visibleStep(assessment: RisScriptAssessment | null): RISStepValue | nul
     assessment?.previousRisStep ??
     null
   );
+}
+
+function summaryTagCount(assessment: RisScriptAssessment | null): number {
+  return [
+    assessment?.isFeaturedForLesson,
+    assessment?.isAttentionPoint,
+    assessment?.shouldRepeat,
+    assessment?.readyForTest,
+  ].filter(Boolean).length;
 }
 
 function filterLabel(filter: FilterKey): string {
@@ -251,20 +275,22 @@ export function RisScriptScoring({
         ) : (
           <div className="space-y-3">
             {filteredScripts.map(({ module, script, assessment }) => {
-              const step = visibleStep(assessment);
+              const step = visibleStep(assessment) ?? "N";
               const definition = translateRisStepForStudent(step, ris.catalog.steps);
               const pending = pendingScriptId === script.id;
               const hasConcept = assessment?.conceptRisStep != null;
+              const tagCount = summaryTagCount(assessment);
+              const currentIndex = stepIndex(step);
               return (
                 <article
                   key={script.id}
                   className={cn(
-                    "rounded-2xl border border-border bg-card/70 p-4 shadow-sm",
+                    "rounded-2xl border border-border bg-card/75 p-3 shadow-sm",
                     assessment?.isAttentionPoint && "border-warning/50 bg-warning/5",
                     assessment?.isFeaturedForLesson && "ring-1 ring-primary/30",
                   )}
                 >
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">Module {module.moduleNumber}</Badge>
@@ -278,28 +304,22 @@ export function RisScriptScoring({
                           </Badge>
                         ) : null}
                         {assessment?.isAttentionPoint ? (
-                          <Badge variant="warning" className="gap-1">
-                            <AlertCircle className="h-3 w-3" aria-hidden />
-                            Aandacht
-                          </Badge>
+                          <Badge variant="warning">Aandacht</Badge>
                         ) : null}
                         {assessment?.readyForTest ? (
-                          <Badge variant="success" className="gap-1">
-                            <CheckCircle2 className="h-3 w-3" aria-hidden />
-                            Toetsklaar
-                          </Badge>
+                          <Badge variant="success">Toetsklaar</Badge>
                         ) : null}
                       </div>
-                      <h3 className="mt-2 text-base font-black text-foreground">
+                      <h3 className="mt-2 text-sm font-black text-foreground sm:text-base">
                         {script.title}
                       </h3>
                       {script.descriptionShort ? (
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
                           {script.descriptionShort}
                         </p>
                       ) : null}
                       {script.variants.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <div className="mt-2 flex flex-wrap gap-1">
                           {script.variants.map((variant) => (
                             <span
                               key={variant.id}
@@ -312,100 +332,65 @@ export function RisScriptScoring({
                       ) : null}
                     </div>
 
-                    <div className="rounded-xl border border-border bg-muted/20 p-3 xl:w-64">
-                      <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
-                        Huidige stap
-                      </div>
-                      <div className="mt-1 text-lg font-black text-foreground">
-                        {step ? `Stap ${step}` : "Nog niet beoordeeld"}
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {definition.studentLabel}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
-                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-9">
-                      {STEP_VALUES.map((value) => {
-                        const active = step === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            disabled={locked || pending}
-                            onClick={() => saveScript({ script, step: value })}
-                            aria-pressed={active}
-                            className={cn(
-                              "min-h-10 rounded-xl border px-2 text-sm font-black transition-colors",
-                              active
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground",
-                              (locked || pending) && "cursor-not-allowed opacity-60",
-                            )}
-                            title={translateRisStepForStudent(value, ris.catalog.steps).studentLabel}
-                          >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-col xl:items-stretch">
+                      <div className="flex min-w-[13rem] items-center justify-between gap-2 rounded-2xl border border-border bg-background/70 p-1.5">
+                        <button
+                          type="button"
+                          disabled={locked || pending || currentIndex === MIN_STEP_INDEX}
+                          onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
+                          aria-label={`Verlaag score voor ${script.title}`}
+                          className={cn(
+                            "grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/50 hover:text-primary",
+                            (locked || pending || currentIndex === MIN_STEP_INDEX) &&
+                              "cursor-not-allowed opacity-45",
+                          )}
+                        >
+                          <Minus className="h-4 w-4" aria-hidden />
+                        </button>
+                        <div className="min-w-0 flex-1 px-1 text-center">
+                          <div className="text-[0.62rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                            Score
+                          </div>
+                          <div className="mt-0.5 text-xl font-black text-foreground">
                             {pending ? (
-                              <Loader2 className="mx-auto h-4 w-4 animate-spin" aria-hidden />
+                              <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" aria-hidden />
                             ) : (
-                              value
+                              step
                             )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={locked || pending || currentIndex === MAX_STEP_INDEX}
+                          onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
+                          aria-label={`Verhoog score voor ${script.title}`}
+                          className={cn(
+                            "grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/50 hover:text-primary",
+                            (locked || pending || currentIndex === MAX_STEP_INDEX) &&
+                              "cursor-not-allowed opacity-45",
+                          )}
+                        >
+                          <Plus className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2 xl:justify-end">
-                      <ToggleButton
-                        active={Boolean(assessment?.isFeaturedForLesson)}
+                      <SummaryTagDropdown
+                        count={tagCount}
+                        assessment={assessment}
                         disabled={locked || pending}
-                        onClick={() =>
+                        onToggle={(patch) =>
                           saveScript({
                             script,
-                            focus: !assessment?.isFeaturedForLesson,
+                            ...patch,
                           })
                         }
-                      >
-                        Focus
-                      </ToggleButton>
-                      <ToggleButton
-                        active={Boolean(assessment?.isAttentionPoint)}
-                        disabled={locked || pending}
-                        onClick={() =>
-                          saveScript({
-                            script,
-                            attention: !assessment?.isAttentionPoint,
-                          })
-                        }
-                      >
-                        Aandacht
-                      </ToggleButton>
-                      <ToggleButton
-                        active={Boolean(assessment?.shouldRepeat)}
-                        disabled={locked || pending}
-                        onClick={() =>
-                          saveScript({
-                            script,
-                            repeat: !assessment?.shouldRepeat,
-                          })
-                        }
-                      >
-                        Herhalen
-                      </ToggleButton>
-                      <ToggleButton
-                        active={Boolean(assessment?.readyForTest)}
-                        disabled={locked || pending}
-                        onClick={() =>
-                          saveScript({
-                            script,
-                            ready: !assessment?.readyForTest,
-                          })
-                        }
-                      >
-                        Toetsklaar
-                      </ToggleButton>
+                      />
                     </div>
                   </div>
+
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    {definition.instructorLabel}
+                  </p>
                 </article>
               );
             })}
@@ -416,31 +401,88 @@ export function RisScriptScoring({
   );
 }
 
-function ToggleButton({
-  active,
+function SummaryTagDropdown({
+  assessment,
+  count,
   disabled,
-  onClick,
-  children,
+  onToggle,
 }: {
-  active: boolean;
+  assessment: RisScriptAssessment | null;
+  count: number;
   disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
+  onToggle: (patch: {
+    attention?: boolean;
+    focus?: boolean;
+    repeat?: boolean;
+    ready?: boolean;
+  }) => void;
 }) {
+  const options = [
+    {
+      label: "Focus",
+      active: Boolean(assessment?.isFeaturedForLesson),
+      patch: { focus: !assessment?.isFeaturedForLesson },
+    },
+    {
+      label: "Aandacht",
+      active: Boolean(assessment?.isAttentionPoint),
+      patch: { attention: !assessment?.isAttentionPoint },
+    },
+    {
+      label: "Herhalen",
+      active: Boolean(assessment?.shouldRepeat),
+      patch: { repeat: !assessment?.shouldRepeat },
+    },
+    {
+      label: "Toetsklaar",
+      active: Boolean(assessment?.readyForTest),
+      patch: { ready: !assessment?.readyForTest },
+    },
+  ];
+
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-        active
-          ? "border-primary bg-primary-soft text-primary"
-          : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-60",
-      )}
-    >
-      {children}
-    </button>
+    <details className="group relative">
+      <summary
+        className={cn(
+          "flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3 text-xs font-black text-foreground shadow-sm transition hover:border-primary/50",
+          "[&::-webkit-details-marker]:hidden",
+          disabled && "pointer-events-none opacity-60",
+        )}
+      >
+        <span className="inline-flex items-center gap-2">
+          <Tags className="h-4 w-4 text-primary" aria-hidden />
+          Samenvatting
+        </span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          {count}
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
+        </span>
+      </summary>
+      <div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-2xl border border-border bg-popover p-2 shadow-brand-floating">
+        {options.map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            disabled={disabled}
+            onClick={() => onToggle(option.patch)}
+            className={cn(
+              "flex items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold transition",
+              option.active
+                ? "border-primary/40 bg-primary-soft text-primary"
+                : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              disabled && "cursor-not-allowed opacity-60",
+            )}
+          >
+            {option.label}
+            <span
+              className={cn(
+                "h-2.5 w-2.5 rounded-full border",
+                option.active ? "border-primary bg-primary" : "border-muted-foreground/40",
+              )}
+            />
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

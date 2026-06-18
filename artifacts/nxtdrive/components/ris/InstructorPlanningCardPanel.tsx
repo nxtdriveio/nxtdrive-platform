@@ -14,32 +14,42 @@ type GoalState = {
   description: string;
 };
 
+const GOAL_SLOT_COUNT = 3;
+
+function initialGoals(planningCard: PlanningCard | null): GoalState[] {
+  const goals =
+    planningCard?.goals.map((goal) => ({
+      title: goal.title,
+      description: goal.description ?? "",
+    })) ?? [];
+
+  while (goals.length < GOAL_SLOT_COUNT) {
+    goals.push({ title: "", description: "" });
+  }
+
+  return goals.slice(0, GOAL_SLOT_COUNT);
+}
+
 export function InstructorPlanningCardPanel({
   lessonId,
   studentId,
   studentName,
   planningCard,
+  goalOptions,
 }: {
   lessonId: string;
   studentId: string;
   studentName: string;
   planningCard: PlanningCard | null;
+  goalOptions: string[];
 }) {
   const [summary, setSummary] = useState(planningCard?.studentVisibleSummary ?? "");
-  const [goals, setGoals] = useState<GoalState[]>(
-    planningCard?.goals.length
-      ? planningCard.goals.map((goal) => ({
-          title: goal.title,
-          description: goal.description ?? "",
-        }))
-      : [
-          { title: "", description: "" },
-          { title: "", description: "" },
-        ],
-  );
+  const [goals, setGoals] = useState<GoalState[]>(() => initialGoals(planningCard));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const datalistId = `ris-goal-options-${lessonId}`;
+  const normalizedGoalOptions = Array.from(new Set([...goalOptions, "Anders..."]));
 
   function updateGoal(index: number, patch: Partial<GoalState>) {
     setGoals((current) =>
@@ -107,21 +117,28 @@ export function InstructorPlanningCardPanel({
           placeholder="Korte voorbereiding voor de leerling..."
         />
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <datalist id={datalistId}>
+          {normalizedGoalOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+
+        <div className="grid gap-3 lg:grid-cols-3">
           {goals.map((goal, index) => (
             <div key={index} className="space-y-2 rounded-2xl border border-border bg-muted/20 p-3">
               <Input
                 value={goal.title}
                 onChange={(event) => updateGoal(index, { title: event.target.value })}
+                list={datalistId}
                 maxLength={160}
-                placeholder={`Doel ${index + 1}`}
+                placeholder={`Doel ${index + 1} kiezen of typen`}
               />
               <Textarea
                 value={goal.description}
                 onChange={(event) => updateGoal(index, { description: event.target.value })}
                 rows={2}
                 maxLength={500}
-                placeholder="Korte toelichting"
+                placeholder="Korte toelichting (optioneel)"
               />
             </div>
           ))}
