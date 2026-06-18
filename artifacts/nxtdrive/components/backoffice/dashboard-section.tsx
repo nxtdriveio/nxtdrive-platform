@@ -615,7 +615,7 @@ export function DashboardSection({
         </DashboardCard>
 
         <DashboardCard
-          className="xl:col-span-8"
+          className="xl:col-span-4"
           title="Eerstvolgende proeflessen"
           actionLabel="Alle leads"
           actionHref="/backoffice/leads"

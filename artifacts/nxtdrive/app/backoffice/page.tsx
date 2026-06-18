@@ -36,7 +36,6 @@ import {
   type DashboardLiveData,
 } from "@/components/backoffice/dashboard-section";
 import { KpiSection } from "@/components/backoffice/kpi-section";
-import { Badge } from "@/components/ui/badge";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import {
   getDashboardKpis,
@@ -54,7 +53,6 @@ import {
 } from "@/lib/dashboard/reports-data";
 import {
   FEATURE_LABELS,
-  PLAN_LABELS,
   lockedFeatures,
 } from "@/lib/platform/features";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
@@ -110,7 +108,7 @@ const CORE_MODULES = [
   {
     href: "/backoffice/ris",
     label: "RIS-leskaart",
-    description: "RIS-scripts, publicaties, moduletoetsen en migratie.",
+    description: "RIS-scripts, publicaties en moduletoetsen.",
     icon: BookOpenCheck,
   },
   {
@@ -187,7 +185,6 @@ export default async function BackofficePage() {
   return (
     <AdminPage>
       <AdminPageHeader
-        eyebrow="Overzicht"
         title="Dashboard"
         description={
           <>
@@ -218,14 +215,6 @@ export default async function BackofficePage() {
               Filters
             </button>
           </>
-        }
-        meta={
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{tenant.name}</Badge>
-            <Badge variant="primary">
-              {PLAN_LABELS[tenant.plan] ?? tenant.plan}
-            </Badge>
-          </div>
         }
       />
 
