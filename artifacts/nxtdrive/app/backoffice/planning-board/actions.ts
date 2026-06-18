@@ -26,6 +26,7 @@ import {
   loadPlanningQueueItem,
   planningActorForQueue,
   scheduleQueueItem,
+  type PlanningQueueItem,
   validationToJson,
 } from "@/lib/planning-queue";
 import type {
@@ -63,13 +64,21 @@ type TrialLessonMoveRow = {
   pickup_service_area_id: string | null;
 };
 
+type QueueStudentBranchRow = {
+  branch_id: string | null;
+};
+
+const QUEUE_STUDENT_BRANCH_MISMATCH_MESSAGE =
+  "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+
 function validationMessage(validation: PlanningValidationResult): string {
   const reasons = validation.blockingReasons.length
     ? validation.blockingReasons
     : validation.warnings;
   return (
-    reasons.map((reason) => humanizePlanningBoardError(reason.message)).join("; ") ||
-    "Geen details."
+    reasons
+      .map((reason) => humanizePlanningBoardError(reason.message))
+      .join("; ") || "Geen details."
   );
 }
 
@@ -78,13 +87,69 @@ function parseStart(value: string): Date | null {
 }
 
 function humanizePlanningBoardError(message: string): string {
-  if (message.includes("student branch does not match planning queue item branch")) {
-    return "Deze leerling hoort bij een andere vestiging dan dit queue-item. Pas eerst de vestiging van de leerling of het queue-item aan.";
+  if (
+    message.includes("student branch does not match planning queue item branch")
+  ) {
+    return QUEUE_STUDENT_BRANCH_MISMATCH_MESSAGE;
   }
-  if (message.includes("Cannot access") && message.includes("before initialization")) {
+  if (
+    message.includes("Cannot access") &&
+    message.includes("before initialization")
+  ) {
     return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
   }
   return message;
+}
+
+function queueBranchMismatchValidation(
+  item: PlanningQueueItem,
+  studentBranchId: string | null,
+): PlanningValidationResult {
+  return {
+    allowed: false,
+    blockingReasons: [
+      {
+        code: "QUEUE_STUDENT_BRANCH_MISMATCH",
+        severity: "blocking",
+        message: QUEUE_STUDENT_BRANCH_MISMATCH_MESSAGE,
+        meta: {
+          queueItemId: item.id,
+          queueBranchId: item.branch_id,
+          studentId: item.student_id,
+          studentBranchId,
+        },
+      },
+    ],
+    warnings: [],
+  };
+}
+
+async function validateQueueStudentBranch(
+  service: ReturnType<typeof createServiceRoleClient>,
+  item: PlanningQueueItem,
+): Promise<PlanningValidationResult | null> {
+  if (!item.student_id) return null;
+
+  const { data, error } = await service
+    .from("students")
+    .select("branch_id")
+    .eq("tenant_id", item.tenant_id)
+    .eq("id", item.student_id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Leerlingvestiging controleren mislukt: ${error.message}`);
+  }
+
+  const studentBranchId =
+    ((data as QueueStudentBranchRow | null)?.branch_id ?? null) || null;
+  const queueBranchId = item.branch_id ?? null;
+
+  if (studentBranchId !== queueBranchId) {
+    return queueBranchMismatchValidation(item, studentBranchId);
+  }
+
+  return null;
 }
 
 function agendaPlanningActor(
@@ -293,6 +358,15 @@ export async function previewQueueDropAction(
     return { ok: false, message: "Geen toegang tot dit queue item." };
   }
 
+  const branchValidation = await validateQueueStudentBranch(service, item);
+  if (branchValidation) {
+    return {
+      ok: false,
+      validation: branchValidation,
+      message: validationMessage(branchValidation),
+    };
+  }
+
   const candidate = buildQueueCandidateInput({
     item,
     actor: planningActorForQueue(context, branchScope),
@@ -323,6 +397,30 @@ export async function scheduleQueueDropAction(
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
   try {
+    const item = await loadPlanningQueueItem(
+      service,
+      context,
+      branchScope,
+      input.queueItemId,
+    );
+    if (!item || !canManagePlanningQueueItem(context, branchScope, item)) {
+      return {
+        ok: false,
+        scheduled: false,
+        message: "Geen toegang tot dit queue item.",
+      };
+    }
+
+    const branchValidation = await validateQueueStudentBranch(service, item);
+    if (branchValidation) {
+      return {
+        ok: false,
+        scheduled: false,
+        validation: branchValidation,
+        message: validationMessage(branchValidation),
+      };
+    }
+
     const result = await scheduleQueueItem(service, context, branchScope, {
       queueItemId: input.queueItemId,
       instructorId: input.instructorId,

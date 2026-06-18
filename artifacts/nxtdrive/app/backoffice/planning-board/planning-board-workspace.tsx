@@ -618,6 +618,7 @@ function DroppableSlot({
     preview?.validation?.blockingReasons[0]?.message ??
     preview?.validation?.warnings[0]?.message ??
     preview?.message;
+  const slotPreviewText = isBlockedPreview ? "Niet planbaar" : previewText;
   const title = previewText
     ? `${availabilityLabel(availability)} - ${previewText}`
     : availabilityLabel(availability);
@@ -646,16 +647,18 @@ function DroppableSlot({
       title={title}
       aria-label={title}
     >
-      {previewText ? (
+      {slotPreviewText ? (
         <span
           className={cn(
-            "pointer-events-none absolute inset-x-1 top-1 truncate text-[10px] font-medium",
-            isBlockedPreview && "text-danger",
-            isWarningPreview && "text-warning",
-            preview?.validation?.allowed && !isWarningPreview && "text-success",
+            "pointer-events-none absolute left-1 top-1 max-w-[calc(100%-0.5rem)] truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+            isBlockedPreview && "bg-danger/10 text-danger",
+            isWarningPreview && "bg-warning/10 text-warning",
+            preview?.validation?.allowed &&
+              !isWarningPreview &&
+              "bg-success/10 text-success",
           )}
         >
-          {previewText}
+          {slotPreviewText}
         </span>
       ) : null}
     </div>
@@ -696,6 +699,10 @@ export function PlanningBoardWorkspace({
   );
   const slotCount = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
   const layoutMode = planningBoardLayoutMode(detailMode);
+  const previewReasons = reasonText(preview?.validation ?? null);
+  const previewMessage = preview?.message ?? null;
+  const previewIsBlocked = Boolean(preview && !preview.validation?.allowed);
+  const previewStatus = status && status !== previewMessage ? status : null;
   const visibleDays = useMemo(() => {
     if (layoutMode === "instructor_timeline") return data.days;
     return [data.filters.date];
@@ -874,11 +881,7 @@ export function PlanningBoardWorkspace({
               vehicleId: selectedVehicleId || null,
             });
       if (!result.ok) {
-        setStatus(
-          result.message
-            ? humanizePlanningMessage(result.message)
-            : "Planning geblokkeerd.",
-        );
+        setStatus("Niet ingepland.");
         setPreview({
           target: slotId(target),
           validation: result.validation ?? null,
@@ -937,11 +940,7 @@ export function PlanningBoardWorkspace({
         );
         setStatus("Planning opgeslagen.");
       } else {
-        setStatus(
-          result.message
-            ? humanizePlanningMessage(result.message)
-            : "Planning geblokkeerd.",
-        );
+        setStatus("Niet ingepland.");
         setPreview({
           target: queueItemId,
           validation: result.validation ?? null,
@@ -1185,14 +1184,16 @@ export function PlanningBoardWorkspace({
 
           <Card className="shadow-[var(--admin-card-shadow)]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Preview</CardTitle>
+              <CardTitle className="text-base">
+                {previewIsBlocked ? "Preview - niet planbaar" : "Preview"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {pending ? (
                 <p className="text-muted-foreground">Controleren...</p>
               ) : null}
-              {status ? (
-                <p className="text-muted-foreground">{status}</p>
+              {previewStatus ? (
+                <p className="text-muted-foreground">{previewStatus}</p>
               ) : null}
               {preview?.validation?.allowed ? (
                 <div className="flex items-center gap-2 text-success">
@@ -1200,25 +1201,33 @@ export function PlanningBoardWorkspace({
                   Toegestaan
                 </div>
               ) : preview ? (
-                <div className="flex items-center gap-2 text-danger">
-                  <AlertCircle className="h-4 w-4" aria-hidden />
-                  {preview.message ?? "Geblokkeerd"}
+                <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertCircle className="h-4 w-4" aria-hidden />
+                    Niet ingepland
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    {previewMessage ?? "Deze drop is geblokkeerd."}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed">
+                    Dit is alleen een preview. Er is niets opgeslagen in de agenda.
+                  </p>
                 </div>
               ) : (
                 <p className="text-muted-foreground">
                   Sleep een kaart naar een slot.
                 </p>
               )}
-              {reasonText(preview?.validation ?? null)
-                .filter((reason) => reason !== preview?.message)
+              {previewReasons
+                .filter((reason) => reason !== previewMessage)
                 .map((reason) => (
-                <p
-                  key={reason}
-                  className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
-                >
-                  {reason}
-                </p>
-              ))}
+                  <p
+                    key={reason}
+                    className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
+                  >
+                    {reason}
+                  </p>
+                ))}
             </CardContent>
           </Card>
         </aside>
