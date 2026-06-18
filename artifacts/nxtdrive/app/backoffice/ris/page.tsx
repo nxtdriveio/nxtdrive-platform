@@ -22,7 +22,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { STUDENT_BACKOFFICE_READ_ROLES } from "@/lib/students/access";
 import { loadBackofficeRisOverview } from "@/lib/ris/data";
-import { loadRisLegacyMigrationReport } from "@/lib/ris/migration";
 import {
   Card,
   CardContent,
@@ -35,11 +34,7 @@ import { InfoBubble } from "@/components/ui/info-bubble";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  activateRisAfterMigrationCheckFromFormAction,
-  activateRisCleanStartFromFormAction,
-  upsertRisModuleTestFromFormAction,
-} from "./actions";
+import { upsertRisModuleTestFromFormAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -144,9 +139,6 @@ export default async function BackofficeRisPage({
   const overview = await loadBackofficeRisOverview(service, tenant.id, {
     branchScope,
   });
-  const migrationReport = await loadRisLegacyMigrationReport(service, tenant.id);
-  const migrationReady = migrationReport.readiness === "ready";
-  const migrationAlreadyActive = migrationReport.readiness === "already_active";
 
   const moduleRows = [1, 2, 3, 4].map((moduleNumber) => {
     const students = overview.students.filter((student) =>
@@ -227,24 +219,6 @@ export default async function BackofficeRisPage({
         </Card>
       ) : null}
 
-      {sp.ris_saved === "activated" ? (
-        <Card className="border-success/40 bg-success/5 p-4 text-sm text-success">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            RIS is geactiveerd voor deze tenant.
-          </div>
-        </Card>
-      ) : null}
-
-      {sp.ris_saved === "clean-start" ? (
-        <Card className="border-success/40 bg-success/5 p-4 text-sm text-success">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            Legacy mock-scores zijn gewist en RIS is geactiveerd.
-          </div>
-        </Card>
-      ) : null}
-
       {sp.ris_error ? (
         <Card className="border-danger/40 bg-danger/5 p-4 text-sm text-danger">
           RIS-actie mislukt: {decodeURIComponent(sp.ris_error)}
@@ -283,233 +257,6 @@ export default async function BackofficeRisPage({
           icon={ListChecks}
         />
       </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                <ClipboardCheck className="h-4 w-4" aria-hidden />
-                RIS-9 migratie & rollout
-              </div>
-              <CardTitle className="text-foreground">
-                Legacy-leskaart naar RIS preflight
-              </CardTitle>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                Deze check vergelijkt bestaande 1-10 leskaartdata met de
-                RIS-catalogus. RIS wordt pas geactiveerd als gescoorde legacy
-                onderdelen een betrouwbare RIS-match hebben of als er geen
-                legacy-scores zijn. Gaat het om mock-data? Gebruik dan de
-                clean-start optie onderaan deze kaart.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant={
-                  migrationAlreadyActive || migrationReady
-                    ? "success"
-                    : migrationReport.readiness === "no_ris_catalog"
-                      ? "danger"
-                      : "warning"
-                }
-              >
-                {migrationAlreadyActive
-                  ? "RIS actief"
-                  : migrationReady
-                    ? "Klaar voor RIS"
-                    : migrationReport.readiness === "no_ris_catalog"
-                      ? "Catalogus ontbreekt"
-                      : "Mapping nodig"}
-              </Badge>
-              <form action={activateRisAfterMigrationCheckFromFormAction}>
-                <input type="hidden" name="redirect_to" value="/backoffice/ris" />
-                <Button
-                  type="submit"
-                  disabled={!migrationReady || migrationAlreadyActive}
-                  variant={migrationReady ? "primary" : "outline"}
-                >
-                  {migrationAlreadyActive ? "RIS staat aan" : "RIS activeren"}
-                </Button>
-              </form>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {migrationReport.blockingReasons.length > 0 ? (
-            <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4 text-sm text-warning">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                <div className="space-y-1">
-                  <p className="font-medium">Nog niet klaar voor activatie</p>
-                  {migrationReport.blockingReasons.map((reason) => (
-                    <p key={reason}>{reason}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <MigrationMetric
-              label="Legacy scores"
-              value={String(migrationReport.totalLegacyScores)}
-              detail={`${migrationReport.studentsWithLegacyScores} leerling(en)`}
-            />
-            <MigrationMetric
-              label="Gescoorde onderdelen"
-              value={String(migrationReport.scoredLegacyLeaves)}
-              detail={`${migrationReport.totalLegacyLeaves} legacy leafs totaal`}
-            />
-            <MigrationMetric
-              label="RIS-matches"
-              value={String(migrationReport.mappedScoredLeaves)}
-              detail={`${migrationReport.unmappedScoredLeaves} nog unmapped`}
-            />
-            <MigrationMetric
-              label="RIS-catalogus"
-              value={String(migrationReport.risScriptCount)}
-              detail={migrationReport.risVersionName ?? "Geen actieve versie"}
-            />
-            <MigrationMetric
-              label="RIS-publicaties"
-              value={String(migrationReport.publishedRisCards)}
-              detail="Al gedeelde RIS-leskaarten"
-            />
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <section className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-foreground">Rollout-checklist</h2>
-                <InfoBubble className="h-4 w-4 text-muted-foreground">
-                  Alleen een groene preflight activeert RIS. Conceptuele migratie
-                  blijft zichtbaar zodat tenant admins handmatig kunnen
-                  controleren.
-                </InfoBubble>
-              </div>
-              <div className="space-y-2">
-                {migrationReport.checklist.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-start gap-3 rounded-xl border border-border bg-background/40 p-3"
-                  >
-                    <span
-                      className={
-                        item.ok
-                          ? "mt-0.5 rounded-full bg-success/15 p-1 text-success"
-                          : "mt-0.5 rounded-full bg-warning/15 p-1 text-warning"
-                      }
-                    >
-                      {item.ok ? (
-                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                      ) : (
-                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                      )}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.label}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-foreground">Mappingrapport</h2>
-                <Badge variant={migrationReport.unmapped.length === 0 ? "success" : "warning"}>
-                  {migrationReport.unmapped.length === 0
-                    ? "Geen open items"
-                    : `${migrationReport.unmapped.length} te controleren`}
-                </Badge>
-              </div>
-              {migrationReport.mappings.length === 0 ? (
-                <EmptyState message="Geen gescoorde legacy-onderdelen gevonden. RIS kan schoon starten." />
-              ) : (
-                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                  {migrationReport.mappings.slice(0, 12).map((mapping) => (
-                    <div
-                      key={mapping.legacySkillId}
-                      className="rounded-xl border border-border bg-background/40 p-3"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {mapping.legacyLabel}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {mapping.legacyCode} - {mapping.legacyScoreCount} score(s)
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            mapping.confidence === "high"
-                              ? "success"
-                              : mapping.confidence === "medium"
-                                ? "info"
-                                : "warning"
-                          }
-                        >
-                          {mapping.confidence === "none"
-                            ? "Geen match"
-                            : mapping.confidence}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {mapping.matchedRisCode && mapping.matchedRisTitle
-                          ? `${mapping.matchedRisCode} - ${mapping.matchedRisTitle}`
-                          : mapping.reason}
-                      </p>
-                      {mapping.confidence !== "none" ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{mapping.reason}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          {!migrationAlreadyActive && migrationReport.totalLegacyScores > 0 ? (
-            <section className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="max-w-3xl space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-warning">
-                    <AlertTriangle className="h-4 w-4" aria-hidden />
-                    Schoon starten met RIS
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Gebruik dit alleen als de bestaande 1-10 leskaartscores mock-data
-                    zijn. Deze actie wist legacy scores en rollups voor deze tenant,
-                    activeert RIS en laat leerlingen, lessen, facturen en RIS-data
-                    ongemoeid. Legacy blijft beschikbaar als fallbackmodus, maar
-                    zonder oude mock-scorehistorie.
-                  </p>
-                </div>
-                <form
-                  action={activateRisCleanStartFromFormAction}
-                  className="flex w-full flex-col gap-2 xl:max-w-sm"
-                >
-                  <input type="hidden" name="redirect_to" value="/backoffice/ris" />
-                  <Label htmlFor="confirm_clean_start" className="text-xs text-warning">
-                    Typ SCHOON STARTEN om te bevestigen
-                  </Label>
-                  <Input
-                    id="confirm_clean_start"
-                    name="confirm_clean_start"
-                    placeholder="SCHOON STARTEN"
-                    autoComplete="off"
-                  />
-                  <Button type="submit" variant="danger">
-                    Wis legacy scores en activeer RIS
-                  </Button>
-                </form>
-              </div>
-            </section>
-          ) : null}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -1026,26 +773,6 @@ function EmptyState({ message }: { message: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
       {message}
-    </div>
-  );
-}
-
-function MigrationMetric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-muted/20 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }

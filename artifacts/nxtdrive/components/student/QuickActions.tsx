@@ -17,8 +17,8 @@ type Shortcut = {
 };
 
 const BASE_SHORTCUTS: Shortcut[] = [
-  { href: "/student/agenda", label: "Planning", icon: CalendarDays },
-  { href: "/student/journey", label: "Voortgang", icon: Route },
+  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
+  { href: "/student/voortgang", label: "Voortgang", icon: Route },
   { href: "/student/payments", label: "Betalingen", icon: Wallet },
   { href: "/student/cbr-exams", label: "Examens", icon: BadgeCheck },
   { href: "/student/theory", label: "Theorie", icon: BookOpen },

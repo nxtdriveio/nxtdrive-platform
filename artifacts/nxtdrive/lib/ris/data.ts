@@ -20,6 +20,44 @@ export type TenantRisSettings = {
   aiAssistEnabled: boolean;
 };
 
+export type RisLessonCardStatus =
+  | "draft"
+  | "completion_in_progress"
+  | "ready_to_publish"
+  | "published"
+  | "published_to_student"
+  | "waiting_for_student_response"
+  | "fully_completed"
+  | "archived";
+
+export const STUDENT_VISIBLE_RIS_CARD_STATUSES = [
+  "published",
+  "published_to_student",
+  "waiting_for_student_response",
+  "fully_completed",
+] as const satisfies readonly RisLessonCardStatus[];
+
+export const STAFF_OPEN_RIS_CARD_STATUSES = [
+  "draft",
+  "completion_in_progress",
+  "ready_to_publish",
+] as const satisfies readonly RisLessonCardStatus[];
+
+export type RisReflectionRating =
+  | "very_insufficient"
+  | "insufficient"
+  | "moderate"
+  | "sufficient"
+  | "very_sufficient";
+
+export const RIS_REFLECTION_RATING_LABELS: Record<RisReflectionRating, string> = {
+  very_insufficient: "Zeer onvoldoende",
+  insufficient: "Onvoldoende",
+  moderate: "Matig",
+  sufficient: "Voldoende",
+  very_sufficient: "Zeer voldoende",
+};
+
 export type RisCatalog = {
   version: {
     id: string;
@@ -55,7 +93,7 @@ export type RisLessonCard = {
   studentId: string;
   instructorId: string;
   risVersionId: string;
-  publicationStatus: "draft" | "published" | "archived";
+  publicationStatus: RisLessonCardStatus;
   internalSummary: string | null;
   studentFriendlySummary: string | null;
   homeworkOrNextFocus: string | null;
@@ -63,19 +101,37 @@ export type RisLessonCard = {
   publishedBy: string | null;
 };
 
-export type StudentRisPublishedCard = RisLessonCard & {
+export type StudentPostLessonResponse = {
+  id: string;
+  lessonCardId: string;
+  studentId: string;
+  commentText: string | null;
+  nextLessonWish: string | null;
+  skippedResponse: boolean;
+  submittedAt: string;
+};
+
+export type StudentRisPublishedCard = Omit<RisLessonCard, "internalSummary"> & {
   reflection: RisGuidedReflection | null;
+  response: StudentPostLessonResponse | null;
 };
 
 export type RisGuidedReflection = {
   lessonCardId: string;
   studentPresent: boolean;
+  overallRating: RisReflectionRating | null;
+  independenceRating: RisReflectionRating | null;
+  insightRating: RisReflectionRating | null;
+  confidenceRating: RisReflectionRating | null;
+  oneSentenceReflection: string | null;
   ratingOverall: number | null;
   ratingIndependence: number | null;
   wentWellText: string | null;
   difficultText: string | null;
   nextLessonWish: string | null;
   instructorContextNote: string | null;
+  capturedAt: string | null;
+  publishedAt: string | null;
 };
 
 export type InstructorRisLessonCard = {
@@ -106,6 +162,57 @@ export type StudentRisProgress = {
   moduleProgress: RISModuleProgress[];
   progressPct: number;
   publishedCards: StudentRisPublishedCard[];
+};
+
+export type PlanningCardGoalStatus =
+  | "active"
+  | "achieved"
+  | "in_progress"
+  | "carry_forward"
+  | "archived";
+
+export type PlanningCardGoal = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: PlanningCardGoalStatus;
+  sortOrder: number;
+};
+
+export type PlanningCard = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  instructorId: string;
+  nextLessonId: string | null;
+  previousLessonCardId: string | null;
+  status:
+    | "draft"
+    | "submitted_by_instructor"
+    | "shared_with_student"
+    | "used_in_lesson"
+    | "evaluated"
+    | "archived";
+  studentVisibleSummary: string | null;
+  sharedWithStudent: boolean;
+  sharedAt: string | null;
+  confirmedAt: string | null;
+  goals: PlanningCardGoal[];
+};
+
+export type StudentRisLessonCardDetail = {
+  card: StudentRisPublishedCard | null;
+  assessments: Array<
+    Omit<
+      RisScriptAssessment,
+      "conceptRisStep" | "instructorNote"
+    > & {
+      scriptTitle: string;
+      moduleNumber: number;
+      studentLabel: string;
+    }
+  >;
+  planningCard: PlanningCard | null;
 };
 
 export type BackofficeRisOverview = {
@@ -396,10 +503,12 @@ export async function loadStudentRisProgress(
       .eq("student_id", studentId),
     client
       .from("ris_lesson_cards")
-      .select("*")
+      .select(
+        "id, tenant_id, lesson_id, student_id, instructor_id, ris_version_id, publication_status, student_friendly_summary, homework_or_next_focus, published_at, published_by",
+      )
       .eq("tenant_id", tenantId)
       .eq("student_id", studentId)
-      .eq("publication_status", "published")
+      .in("publication_status", Array.from(STUDENT_VISIBLE_RIS_CARD_STATUSES))
       .order("published_at", { ascending: false }),
   ]);
 
@@ -412,18 +521,32 @@ export async function loadStudentRisProgress(
 
   const cards = (cardsRes.data ?? []).map(mapLessonCard);
   const cardIds = cards.map((card) => card.id);
-  const reflectionsRes =
+  const [reflectionsRes, responsesRes] =
     cardIds.length > 0
-      ? await client
-          .from("ris_guided_reflections")
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .in("lesson_card_id", cardIds)
-      : { data: [], error: null };
+      ? await Promise.all([
+          client
+            .from("ris_guided_reflections")
+            .select(
+              "lesson_card_id, student_present, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
+            )
+            .eq("tenant_id", tenantId)
+            .in("lesson_card_id", cardIds),
+          client
+            .from("student_post_lesson_responses")
+            .select("id, lesson_card_id, student_id, comment_text, next_lesson_wish, skipped_response, submitted_at")
+            .eq("tenant_id", tenantId)
+            .in("lesson_card_id", cardIds),
+        ])
+      : [{ data: [], error: null }, { data: [], error: null }];
 
   if (reflectionsRes.error) {
     throw new Error(
       `RIS reflecties laden mislukt (student=${studentId}): ${reflectionsRes.error.message}`,
+    );
+  }
+  if (responsesRes.error) {
+    throw new Error(
+      `RIS leerlingreacties laden mislukt (student=${studentId}): ${responsesRes.error.message}`,
     );
   }
 
@@ -431,6 +554,12 @@ export async function loadStudentRisProgress(
     ((reflectionsRes.data ?? []) as Record<string, unknown>[]).map((row) => [
       row.lesson_card_id as string,
       mapGuidedReflection(row),
+    ]),
+  );
+  const responseByCardId = new Map(
+    ((responsesRes.data ?? []) as Record<string, unknown>[]).map((row) => [
+      row.lesson_card_id as string,
+      mapStudentPostLessonResponse(row),
     ]),
   );
 
@@ -482,11 +611,161 @@ export async function loadStudentRisProgress(
     progress,
     moduleProgress: computed.modules,
     progressPct: computed.progressPct,
-    publishedCards: cards.map((card) => ({
-      ...card,
-      reflection: reflectionByCardId.get(card.id) ?? null,
-    })),
+    publishedCards: cards.map((card) =>
+      toStudentPublishedCard(
+        card,
+        reflectionByCardId.get(card.id) ?? null,
+        responseByCardId.get(card.id) ?? null,
+      ),
+    ),
   };
+}
+
+export async function loadStudentRisLessonCardDetail(
+  client: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+  lessonId: string,
+): Promise<StudentRisLessonCardDetail> {
+  const settings = await loadTenantRisSettings(client, tenantId);
+  const catalog = await loadRisCatalog(client, settings.activeRisVersionId);
+  const { data: cardRaw, error: cardError } = await client
+    .from("ris_lesson_cards")
+    .select(
+      "id, tenant_id, lesson_id, student_id, instructor_id, ris_version_id, publication_status, student_friendly_summary, homework_or_next_focus, published_at, published_by",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId)
+    .eq("lesson_id", lessonId)
+    .in("publication_status", Array.from(STUDENT_VISIBLE_RIS_CARD_STATUSES))
+    .maybeSingle();
+
+  if (cardError) {
+    throw new Error(`RIS leskaart laden mislukt (lesson=${lessonId}): ${cardError.message}`);
+  }
+
+  const planningCard = await loadStudentPlanningCardForLesson(client, tenantId, studentId, lessonId);
+
+  if (!cardRaw) {
+    return { card: null, assessments: [], planningCard };
+  }
+
+  const card = mapLessonCard(cardRaw);
+  const [assessmentsRes, reflectionRes, responseRes] = await Promise.all([
+    client
+      .from("ris_script_assessments")
+      .select(
+        "id, lesson_card_id, script_id, script_variant_id, previous_ris_step, final_ris_step, status, is_attention_point, is_featured_for_lesson, should_repeat, ready_for_test, student_visible_note",
+      )
+      .eq("tenant_id", tenantId)
+      .eq("lesson_card_id", card.id)
+      .not("final_ris_step", "is", null),
+    client
+      .from("ris_guided_reflections")
+      .select(
+        "lesson_card_id, student_present, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
+      )
+      .eq("tenant_id", tenantId)
+      .eq("lesson_card_id", card.id)
+      .maybeSingle(),
+    client
+      .from("student_post_lesson_responses")
+      .select("id, lesson_card_id, student_id, comment_text, next_lesson_wish, skipped_response, submitted_at")
+      .eq("tenant_id", tenantId)
+      .eq("lesson_card_id", card.id)
+      .maybeSingle(),
+  ]);
+
+  if (assessmentsRes.error) {
+    throw new Error(`RIS leskaartonderdelen laden mislukt: ${assessmentsRes.error.message}`);
+  }
+  if (reflectionRes.error) {
+    throw new Error(`RIS reflectie laden mislukt: ${reflectionRes.error.message}`);
+  }
+  if (responseRes.error) {
+    throw new Error(`RIS leerlingreactie laden mislukt: ${responseRes.error.message}`);
+  }
+
+  const assessments = ((assessmentsRes.data ?? []) as Record<string, unknown>[]).map((row) => {
+    const mapped = mapAssessment(row);
+    const finalStep = mapped.finalRisStep;
+    const definition = translateRisStepForStudent(finalStep, catalog.steps);
+    return {
+      id: mapped.id,
+      lessonCardId: mapped.lessonCardId,
+      scriptId: mapped.scriptId,
+      scriptVariantId: mapped.scriptVariantId,
+      previousRisStep: mapped.previousRisStep,
+      finalRisStep: mapped.finalRisStep,
+      status: mapped.status,
+      isAttentionPoint: mapped.isAttentionPoint,
+      isFeaturedForLesson: mapped.isFeaturedForLesson,
+      shouldRepeat: mapped.shouldRepeat,
+      readyForTest: mapped.readyForTest,
+      studentVisibleNote: mapped.studentVisibleNote,
+      scriptTitle: scriptTitleForCatalog(catalog, mapped.scriptId),
+      moduleNumber: scriptModuleForCatalog(catalog, mapped.scriptId),
+      studentLabel: definition.studentLabel,
+    };
+  });
+
+  return {
+    card: toStudentPublishedCard(
+      card,
+      reflectionRes.data ? mapGuidedReflection(reflectionRes.data) : null,
+      responseRes.data ? mapStudentPostLessonResponse(responseRes.data) : null,
+    ),
+    assessments,
+    planningCard,
+  };
+}
+
+export async function loadStudentPlanningCardForLesson(
+  client: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+  lessonId: string,
+): Promise<PlanningCard | null> {
+  const { data: cardRaw, error: cardError } = await client
+    .from("planning_cards")
+    .select(
+      "id, tenant_id, student_id, instructor_id, next_lesson_id, previous_lesson_card_id, status, student_visible_summary, shared_with_student, shared_at, confirmed_at",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId)
+    .eq("next_lesson_id", lessonId)
+    .eq("shared_with_student", true)
+    .maybeSingle();
+
+  if (cardError) {
+    throw new Error(`Plankaart laden mislukt (lesson=${lessonId}): ${cardError.message}`);
+  }
+  if (!cardRaw) return null;
+  return hydratePlanningCard(client, cardRaw as Record<string, unknown>);
+}
+
+export async function loadLatestStudentPlanningCard(
+  client: SupabaseClient,
+  tenantId: string,
+  studentId: string,
+): Promise<PlanningCard | null> {
+  const { data: cardRaw, error } = await client
+    .from("planning_cards")
+    .select(
+      "id, tenant_id, student_id, instructor_id, next_lesson_id, previous_lesson_card_id, status, student_visible_summary, shared_with_student, shared_at, confirmed_at",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId)
+    .eq("shared_with_student", true)
+    .order("shared_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Laatste plankaart laden mislukt (student=${studentId}): ${error.message}`);
+  }
+  if (!cardRaw) return null;
+  return hydratePlanningCard(client, cardRaw as Record<string, unknown>);
 }
 
 export async function loadBackofficeRisOverview(
@@ -638,7 +917,9 @@ export async function loadBackofficeRisOverview(
     });
 
   const draftCards = cardRows
-    .filter((card) => card.publication_status === "draft")
+    .filter((card) =>
+      (STAFF_OPEN_RIS_CARD_STATUSES as readonly string[]).includes(card.publication_status),
+    )
     .slice(0, 12)
     .map((card) => ({
       id: card.id,
@@ -686,8 +967,12 @@ export async function loadBackofficeRisOverview(
 
   return {
     settings,
-    draftLessonCards: cardRows.filter((card) => card.publication_status === "draft").length,
-    publishedLessonCards: cardRows.filter((card) => card.publication_status === "published").length,
+    draftLessonCards: cardRows.filter((card) =>
+      (STAFF_OPEN_RIS_CARD_STATUSES as readonly string[]).includes(card.publication_status),
+    ).length,
+    publishedLessonCards: cardRows.filter((card) =>
+      (STUDENT_VISIBLE_RIS_CARD_STATUSES as readonly string[]).includes(card.publication_status),
+    ).length,
     attentionPoints: progressRows.filter((row) => row.is_attention_point).length,
     readyForModuleTest: progressRows.filter((row) => row.ready_for_module_test).length,
     moduleTestsPlanned: testRows.filter((test) => test.result === "planned").length,
@@ -855,7 +1140,9 @@ function buildInstructorFollowups({
   };
 
   for (const card of cardRows) {
-    if (card.publication_status !== "draft") continue;
+    if (!(STAFF_OPEN_RIS_CARD_STATUSES as readonly string[]).includes(card.publication_status)) {
+      continue;
+    }
     ensure(card.instructor_id).draftLessonCards++;
   }
 
@@ -1058,11 +1345,94 @@ function mapGuidedReflection(row: Record<string, unknown>): RisGuidedReflection 
   return {
     lessonCardId: row.lesson_card_id as string,
     studentPresent: row.student_present !== false,
+    overallRating: (row.overall_rating as RisReflectionRating | null) ?? null,
+    independenceRating: (row.independence_rating as RisReflectionRating | null) ?? null,
+    insightRating: (row.insight_rating as RisReflectionRating | null) ?? null,
+    confidenceRating: (row.confidence_rating as RisReflectionRating | null) ?? null,
+    oneSentenceReflection: (row.one_sentence_reflection as string | null) ?? null,
     ratingOverall: (row.rating_overall as number | null) ?? null,
     ratingIndependence: (row.rating_independence as number | null) ?? null,
     wentWellText: (row.went_well_text as string | null) ?? null,
     difficultText: (row.difficult_text as string | null) ?? null,
     nextLessonWish: (row.next_lesson_wish as string | null) ?? null,
     instructorContextNote: (row.instructor_context_note as string | null) ?? null,
+    capturedAt: (row.captured_at as string | null) ?? null,
+    publishedAt: (row.published_at as string | null) ?? null,
+  };
+}
+
+function toStudentPublishedCard(
+  card: RisLessonCard,
+  reflection: RisGuidedReflection | null,
+  response: StudentPostLessonResponse | null,
+): StudentRisPublishedCard {
+  const { internalSummary: _internalSummary, ...studentCard } = card;
+  return {
+    ...studentCard,
+    reflection,
+    response,
+  };
+}
+
+function mapStudentPostLessonResponse(
+  row: Record<string, unknown>,
+): StudentPostLessonResponse {
+  return {
+    id: row.id as string,
+    lessonCardId: row.lesson_card_id as string,
+    studentId: row.student_id as string,
+    commentText: (row.comment_text as string | null) ?? null,
+    nextLessonWish: (row.next_lesson_wish as string | null) ?? null,
+    skippedResponse: Boolean(row.skipped_response),
+    submittedAt: row.submitted_at as string,
+  };
+}
+
+function mapPlanningCard(row: Record<string, unknown>): PlanningCard {
+  return {
+    id: row.id as string,
+    tenantId: row.tenant_id as string,
+    studentId: row.student_id as string,
+    instructorId: row.instructor_id as string,
+    nextLessonId: (row.next_lesson_id as string | null) ?? null,
+    previousLessonCardId: (row.previous_lesson_card_id as string | null) ?? null,
+    status: row.status as PlanningCard["status"],
+    studentVisibleSummary: (row.student_visible_summary as string | null) ?? null,
+    sharedWithStudent: Boolean(row.shared_with_student),
+    sharedAt: (row.shared_at as string | null) ?? null,
+    confirmedAt: (row.confirmed_at as string | null) ?? null,
+    goals: [],
+  };
+}
+
+function mapPlanningCardGoal(row: Record<string, unknown>): PlanningCardGoal {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    description: (row.description as string | null) ?? null,
+    status: row.status as PlanningCardGoalStatus,
+    sortOrder: Number(row.sort_order ?? 0),
+  };
+}
+
+async function hydratePlanningCard(
+  client: SupabaseClient,
+  row: Record<string, unknown>,
+): Promise<PlanningCard> {
+  const card = mapPlanningCard(row);
+  const { data, error } = await client
+    .from("planning_card_goals")
+    .select("id, title, description, status, sort_order")
+    .eq("tenant_id", card.tenantId)
+    .eq("planning_card_id", card.id)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    throw new Error(`Plankaartdoelen laden mislukt: ${error.message}`);
+  }
+
+  return {
+    ...card,
+    goals: ((data ?? []) as Record<string, unknown>[]).map(mapPlanningCardGoal),
   };
 }

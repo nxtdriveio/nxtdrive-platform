@@ -9,7 +9,10 @@ import {
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { requireStudentBackofficeAccess } from "@/lib/students/access";
+import {
+  getActiveStudent,
+  requireStudentBackofficeAccess,
+} from "@/lib/students/access";
 import type { MemberRole } from "@/lib/types";
 import {
   normalizeRisStep,
@@ -20,11 +23,9 @@ import {
   loadInstructorRisLessonCard,
   type InstructorRisLessonCard,
   type LessonCardMode,
+  type PlanningCardGoalStatus,
+  type RisReflectionRating,
 } from "./data";
-import {
-  canActivateRisAfterMigration,
-  loadRisLegacyMigrationReport,
-} from "./migration";
 
 type ActionResult<T = undefined> =
   | (T extends undefined ? { error?: string } : { error?: string } & T)
@@ -108,62 +109,6 @@ export async function setTenantRisSettingsAction(input: {
   }
 }
 
-export async function activateRisAfterMigrationCheckAction(): Promise<ActionResult> {
-  try {
-    const { tenant } = await requireActiveTenant(["tenant_admin"]);
-    const service = createServiceRoleClient();
-    const report = await loadRisLegacyMigrationReport(service, tenant.id);
-
-    if (!canActivateRisAfterMigration(report)) {
-      return {
-        error:
-          report.blockingReasons[0] ??
-          "RIS kan nog niet worden geactiveerd. Controleer de migratiepreflight.",
-      };
-    }
-    if (!report.risVersionId) {
-      return { error: "Geen actieve RIS-versie gevonden." };
-    }
-    if (report.lessonCardMode === "ris") {
-      return {};
-    }
-
-    const result = await setTenantRisSettingsAction({
-      lessonCardMode: "ris",
-      activeRisVersionId: report.risVersionId,
-      aiAssistEnabled: true,
-    });
-    if (result.error) return result;
-
-    revalidatePath("/backoffice/ris");
-    revalidatePath("/backoffice/instellingen");
-    revalidatePath("/backoffice/leerlingen");
-    return {};
-  } catch (error) {
-    return { error: err(error) };
-  }
-}
-
-export async function activateRisCleanStartAction(): Promise<ActionResult> {
-  try {
-    const { tenant, user } = await requireActiveTenant(["tenant_admin"]);
-    const service = createServiceRoleClient();
-    const { error } = await service.rpc("activate_ris_clean_start", {
-      p_tenant_id: tenant.id,
-      p_actor: user.id,
-    });
-    if (error) return { error: error.message };
-
-    revalidatePath("/backoffice/ris");
-    revalidatePath("/backoffice/instellingen");
-    revalidatePath("/backoffice/leerlingen");
-    revalidatePath("/student/voortgang");
-    return {};
-  } catch (error) {
-    return { error: err(error) };
-  }
-}
-
 export async function setRisConceptScoreAction(input: {
   lessonId: string;
   scriptId: string;
@@ -212,12 +157,13 @@ export async function setRisConceptScoreAction(input: {
 export async function setGuidedReflectionAction(input: {
   lessonCardId: string;
   studentPresent?: boolean;
-  ratingOverall?: number | null;
-  ratingIndependence?: number | null;
-  wentWellText?: string | null;
-  difficultText?: string | null;
-  nextLessonWish?: string | null;
+  overallRating?: RisReflectionRating | null;
+  independenceRating?: RisReflectionRating | null;
+  insightRating?: RisReflectionRating | null;
+  confidenceRating?: RisReflectionRating | null;
+  oneSentenceReflection?: string | null;
   instructorContextNote?: string | null;
+  lessonId?: string | null;
 }): Promise<ActionResult> {
   try {
     const { tenant, user } = await requireActiveTenant([
@@ -225,21 +171,21 @@ export async function setGuidedReflectionAction(input: {
       "tenant_admin",
     ]);
     const service = createServiceRoleClient();
-    const { data, error } = await service.rpc("set_guided_reflection", {
+    const { error } = await service.rpc("set_ris_guided_reflection_v2", {
       p_lesson_card_id: requiredId(input.lessonCardId, "RIS-leskaart"),
       p_tenant_id: tenant.id,
       p_actor: user.id,
       p_student_present: input.studentPresent ?? true,
-      p_rating_overall: input.ratingOverall ?? null,
-      p_rating_independence: input.ratingIndependence ?? null,
-      p_went_well_text: input.wentWellText ?? null,
-      p_difficult_text: input.difficultText ?? null,
-      p_next_lesson_wish: input.nextLessonWish ?? null,
+      p_overall_rating: input.overallRating ?? null,
+      p_independence_rating: input.independenceRating ?? null,
+      p_insight_rating: input.insightRating ?? null,
+      p_confidence_rating: input.confidenceRating ?? null,
+      p_one_sentence_reflection: input.oneSentenceReflection ?? null,
       p_instructor_context_note: input.instructorContextNote ?? null,
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    void data;
+    if (input.lessonId) revalidatePath(`/instructor/${input.lessonId}`);
     return {};
   } catch (error) {
     return { error: err(error) };
@@ -272,10 +218,182 @@ export async function publishRisLessonCardAction(input: {
     revalidatePath("/instructor");
     if (input.lessonId) revalidatePath(`/instructor/${input.lessonId}`);
     if (input.studentId) {
+      revalidatePath("/student");
       revalidatePath("/student/voortgang");
+      if (input.lessonId) revalidatePath(`/student/lessons/${input.lessonId}`);
       revalidatePath(`/backoffice/leerlingen/${input.studentId}`);
     }
     return {};
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function submitStudentRisLessonResponseAction(input: {
+  lessonCardId: string;
+  commentText?: string | null;
+  nextLessonWish?: string | null;
+  skippedResponse?: boolean;
+  lessonId?: string | null;
+}): Promise<ActionResult<{ responseId?: string }>> {
+  try {
+    const { tenant, user, roles } = await requireActiveTenant([
+      "student",
+      "parent",
+    ]);
+    const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
+    if (needsChildPicker || !student) {
+      return { error: "Geen actief leerlingdossier gekozen." };
+    }
+
+    const service = createServiceRoleClient();
+    const { data, error } = await service.rpc("mark_ris_lesson_card_student_response", {
+      p_lesson_card_id: requiredId(input.lessonCardId, "RIS-leskaart"),
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_comment_text: input.commentText ?? null,
+      p_next_lesson_wish: input.nextLessonWish ?? null,
+      p_skipped_response: input.skippedResponse ?? false,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/student");
+    revalidatePath("/student/voortgang");
+    revalidatePath("/student/lessons");
+    if (input.lessonId) revalidatePath(`/student/lessons/${input.lessonId}`);
+    revalidatePath(`/backoffice/leerlingen/${student.id}`);
+    return { responseId: typeof data === "string" ? data : undefined };
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function upsertPlanningCardAction(input: {
+  id?: string | null;
+  studentId: string;
+  nextLessonId?: string | null;
+  previousLessonCardId?: string | null;
+  studentVisibleSummary?: string | null;
+  sharedWithStudent?: boolean;
+  goals?: Array<{
+    title: string;
+    description?: string | null;
+    status?: PlanningCardGoalStatus;
+  }>;
+}): Promise<ActionResult<{ planningCardId?: string }>> {
+  try {
+    const { tenant, user, roles } = await requireActiveTenant([
+      "instructor",
+      "tenant_admin",
+    ]);
+    const service = createServiceRoleClient();
+    const studentId = requiredId(input.studentId, "Leerling");
+
+    const { data: studentRaw, error: studentError } = await service
+      .from("students")
+      .select("id")
+      .eq("id", studentId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (studentError) return { error: studentError.message };
+    if (!studentRaw) return { error: "Leerling niet gevonden." };
+
+    if (input.nextLessonId) {
+      const { data: lessonRaw, error: lessonError } = await service
+        .from("lessons")
+        .select("id, instructor_id, student_id")
+        .eq("id", input.nextLessonId)
+        .eq("tenant_id", tenant.id)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (lessonError) return { error: lessonError.message };
+      const lesson = lessonRaw as {
+        id: string;
+        instructor_id: string | null;
+        student_id: string;
+      } | null;
+      if (!lesson) return { error: "Les voor deze plankaart niet gevonden." };
+      if (!roles.includes("tenant_admin") && lesson.instructor_id !== user.id) {
+        return { error: "Je kunt alleen plankaarten maken voor je eigen lessen." };
+      }
+    }
+
+    const shared = input.sharedWithStudent ?? true;
+    const row = {
+      tenant_id: tenant.id,
+      student_id: studentId,
+      instructor_id: user.id,
+      next_lesson_id: input.nextLessonId ?? null,
+      previous_lesson_card_id: input.previousLessonCardId ?? null,
+      status: shared ? "shared_with_student" : "draft",
+      student_visible_summary: input.studentVisibleSummary ?? null,
+      shared_with_student: shared,
+      shared_at: shared ? new Date().toISOString() : null,
+    };
+
+    let planningCardId = input.id ?? null;
+    if (!planningCardId && input.nextLessonId) {
+      const { data: existing, error: existingError } = await service
+        .from("planning_cards")
+        .select("id")
+        .eq("tenant_id", tenant.id)
+        .eq("next_lesson_id", input.nextLessonId)
+        .maybeSingle();
+      if (existingError) return { error: existingError.message };
+      planningCardId = (existing as { id: string } | null)?.id ?? null;
+    }
+
+    if (planningCardId) {
+      const { error } = await service
+        .from("planning_cards")
+        .update(row)
+        .eq("tenant_id", tenant.id)
+        .eq("id", planningCardId);
+      if (error) return { error: error.message };
+    } else {
+      const { data, error } = await service
+        .from("planning_cards")
+        .insert(row)
+        .select("id")
+        .single();
+      if (error) return { error: error.message };
+      planningCardId = (data as { id: string }).id;
+    }
+
+    if (input.goals) {
+      const { error: deleteError } = await service
+        .from("planning_card_goals")
+        .delete()
+        .eq("tenant_id", tenant.id)
+        .eq("planning_card_id", planningCardId);
+      if (deleteError) return { error: deleteError.message };
+
+      const goals = input.goals
+        .map((goal, index) => ({
+          tenant_id: tenant.id,
+          planning_card_id: planningCardId,
+          title: goal.title.trim().slice(0, 160),
+          description: goal.description?.trim().slice(0, 500) || null,
+          status: goal.status ?? "active",
+          sort_order: index,
+        }))
+        .filter((goal) => goal.title.length > 0);
+      if (goals.length > 0) {
+        const { error: insertError } = await service
+          .from("planning_card_goals")
+          .insert(goals);
+        if (insertError) return { error: insertError.message };
+      }
+    }
+
+    revalidatePath("/instructor");
+    if (input.nextLessonId) {
+      revalidatePath(`/instructor/${input.nextLessonId}`);
+      revalidatePath(`/student/lessons/${input.nextLessonId}`);
+    }
+    revalidatePath("/student");
+    revalidatePath(`/backoffice/leerlingen/${studentId}`);
+    return { planningCardId: planningCardId ?? undefined };
   } catch (error) {
     return { error: err(error) };
   }

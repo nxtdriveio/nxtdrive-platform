@@ -119,7 +119,11 @@ export function RisScriptScoring({
   const scoredCount = scripts.filter((item) => visibleStep(item.assessment) !== null).length;
   const focusCount = scripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
   const attentionCount = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
-  const locked = ris.card?.publicationStatus === "published" || ris.card?.publicationStatus === "archived";
+  const locked = ris.card
+    ? !["draft", "completion_in_progress", "ready_to_publish"].includes(
+        ris.card.publicationStatus,
+      )
+    : false;
 
   function saveScript(input: {
     script: RISTreeScript;

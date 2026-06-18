@@ -2,8 +2,6 @@
 
 import { redirect } from "next/navigation";
 import {
-  activateRisCleanStartAction,
-  activateRisAfterMigrationCheckAction,
   setRisModuleTestAction,
   type RisModuleTestResult,
   type RisModuleTestType,
@@ -92,33 +90,4 @@ export async function upsertRisModuleTestFromFormAction(formData: FormData) {
     redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
   }
   redirect(`${redirectTo}?ris_saved=module-test`);
-}
-
-export async function activateRisAfterMigrationCheckFromFormAction(formData: FormData) {
-  const redirectTo = redirectPath(formData.get("redirect_to"));
-  const result = await activateRisAfterMigrationCheckAction();
-
-  if (result.error) {
-    redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
-  }
-  redirect(`${redirectTo}?ris_saved=activated`);
-}
-
-export async function activateRisCleanStartFromFormAction(formData: FormData) {
-  const redirectTo = redirectPath(formData.get("redirect_to"));
-  const confirmation = text(formData.get("confirm_clean_start"), 40);
-  if (confirmation !== "SCHOON STARTEN") {
-    redirect(
-      `${redirectTo}?ris_error=${encodeURIComponent(
-        "Typ SCHOON STARTEN om legacy mock-scores te wissen en RIS te activeren.",
-      )}`,
-    );
-  }
-
-  const result = await activateRisCleanStartAction();
-
-  if (result.error) {
-    redirect(`${redirectTo}?ris_error=${encodeURIComponent(result.error)}`);
-  }
-  redirect(`${redirectTo}?ris_saved=clean-start`);
 }
