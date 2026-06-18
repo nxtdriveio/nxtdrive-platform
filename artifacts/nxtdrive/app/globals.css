@@ -45,10 +45,17 @@
   --color-brand-danger-foreground: var(--brand-danger-foreground);
   --color-brand-info: var(--brand-info);
   --color-brand-info-foreground: var(--brand-info-foreground);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-foreground: var(--brand-surface-foreground);
+  --color-brand-card: var(--brand-card);
+  --color-brand-card-foreground: var(--brand-card-foreground);
+  --color-brand-card-border: var(--brand-card-border);
   --color-brand-sidebar-background: var(--brand-sidebar-background);
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
+  --color-brand-sidebar-muted: var(--brand-sidebar-muted);
   --color-brand-sidebar-active: var(--brand-sidebar-active);
   --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
+  --color-brand-sidebar-border: var(--brand-sidebar-border);
 
   --color-brand-50: #f4f1ff;
   --color-brand-100: #e9e2ff;
@@ -773,10 +780,17 @@ body {
   --color-brand-muted-foreground: var(--brand-muted-foreground);
   --color-brand-border: var(--brand-border);
   --color-brand-ring: var(--brand-ring);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-foreground: var(--brand-surface-foreground);
+  --color-brand-card: var(--brand-card);
+  --color-brand-card-foreground: var(--brand-card-foreground);
+  --color-brand-card-border: var(--brand-card-border);
   --color-brand-sidebar-background: var(--brand-sidebar-background);
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
+  --color-brand-sidebar-muted: var(--brand-sidebar-muted);
   --color-brand-sidebar-active: var(--brand-sidebar-active);
   --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
+  --color-brand-sidebar-border: var(--brand-sidebar-border);
   background:
     radial-gradient(
       circle at 100% 0%,
@@ -796,13 +810,189 @@ body {
 }
 
 [data-management-shell] {
+  color-scheme: light;
+  --background: #f7f8fc;
+  --foreground: #101323;
+  --card: #ffffff;
+  --card-foreground: #101323;
+  --muted: #eef2f8;
+  --muted-foreground: #475467;
+  --border: #e2e7f0;
+  --input: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #101323;
+  --ring: var(--primary);
+  --primary-soft: color-mix(in oklab, var(--primary) 12%, white);
+  --brand-background: #f7f8fc;
+  --brand-foreground: #101323;
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-secondary: color-mix(in oklab, var(--primary) 34%, #38bdf8);
+  --brand-accent: color-mix(in oklab, var(--primary) 12%, white);
+  --brand-accent-foreground: #33257f;
+  --brand-muted: #eef2f8;
+  --brand-muted-foreground: #475467;
+  --brand-border: #e2e7f0;
+  --brand-ring: var(--primary);
+  --brand-sidebar-background: #071426;
+  --brand-sidebar-foreground: #d8deef;
+  --brand-sidebar-muted: #8d98ad;
+  --brand-sidebar-active: color-mix(in oklab, var(--primary) 82%, #2768ff);
+  --brand-sidebar-active-foreground: #ffffff;
+  --brand-sidebar-border: rgba(255, 255, 255, 0.09);
+  --brand-surface: #ffffff;
+  --brand-surface-foreground: #101323;
+  --brand-card: #ffffff;
+  --brand-card-foreground: #101323;
+  --brand-card-border: #e2e7f0;
+  --planning-lesson-bg: #eaf3ff;
+  --planning-lesson-border: #8bbdff;
+  --planning-trial-bg: #eaf8ef;
+  --planning-trial-border: #82d8a2;
+  --planning-exam-bg: #fff0f1;
+  --planning-exam-border: #ff9ca8;
+  --planning-ttt-bg: #f1ebff;
+  --planning-ttt-border: #b79cff;
+  --planning-block-bg: #eef1f6;
+  --planning-block-border: #bcc6d5;
+  --planning-private-bg: #f5f2ee;
+  --planning-private-border: #d4c7b8;
+  --planning-admin-bg: #fff3e4;
+  --planning-admin-border: #ffc478;
+  --planning-theory-bg: #e8fbff;
+  --planning-theory-border: #75d9ea;
+  --planning-cancelled-bg: #f2f4f8;
+  --planning-cancelled-border: #c7cfdb;
+  --surface-canvas: #f3f5fb;
+  --surface-1: #ffffff;
+  --surface-2: #f7f9fd;
+  --surface-3: #edf2fa;
+  --surface-raised: #ffffff;
+  --admin-header: rgba(255, 255, 255, 0.84);
+  --admin-sidebar: var(--brand-sidebar-background);
+  --admin-row-hover: color-mix(in oklab, var(--primary) 6%, #ffffff);
+  --admin-active: color-mix(in oklab, var(--primary) 12%, #ffffff);
+  --admin-card-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+  --admin-card-shadow-hover: 0 22px 54px rgba(15, 23, 42, 0.12);
+  --admin-grid-line: #dfe5ef;
+  --shadow-card: var(--admin-card-shadow);
+  --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.07);
+  --shadow-floating: 0 24px 64px rgba(15, 23, 42, 0.16);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-background: var(--brand-background);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-muted-foreground: var(--brand-muted-foreground);
+  --color-brand-border: var(--brand-border);
+  --color-brand-ring: var(--brand-ring);
+  --color-brand-sidebar-background: var(--brand-sidebar-background);
+  --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
+  --color-brand-sidebar-active: var(--brand-sidebar-active);
+  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
   background:
     radial-gradient(
-      circle at 8% 0%,
-      var(--shell-glow-faint),
+      circle at 78% 0%,
+      color-mix(in oklab, var(--brand-secondary) 12%, transparent),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 4% 0%,
+      color-mix(in oklab, var(--brand-primary) 10%, transparent),
       transparent 24%
     ),
-    linear-gradient(180deg, color-mix(in oklab, var(--background) 97%, #05070d), var(--background));
+    linear-gradient(180deg, #fbfcff 0%, var(--brand-background) 48%, #eef2f8 100%);
+}
+
+.bg-planning-lesson {
+  background-color: var(--planning-lesson-bg);
+}
+
+.border-planning-lesson {
+  border-color: var(--planning-lesson-border);
+}
+
+.bg-planning-trial {
+  background-color: var(--planning-trial-bg);
+}
+
+.border-planning-trial {
+  border-color: var(--planning-trial-border);
+}
+
+.bg-planning-exam {
+  background-color: var(--planning-exam-bg);
+}
+
+.border-planning-exam {
+  border-color: var(--planning-exam-border);
+}
+
+.bg-planning-ttt {
+  background-color: var(--planning-ttt-bg);
+}
+
+.border-planning-ttt {
+  border-color: var(--planning-ttt-border);
+}
+
+.bg-planning-admin {
+  background-color: var(--planning-admin-bg);
+}
+
+.border-planning-admin {
+  border-color: var(--planning-admin-border);
+}
+
+.bg-planning-block {
+  background-color: var(--planning-block-bg);
+}
+
+.border-planning-block {
+  border-color: var(--planning-block-border);
+}
+
+.bg-planning-private {
+  background-color: var(--planning-private-bg);
+}
+
+.border-planning-private {
+  border-color: var(--planning-private-border);
+}
+
+.bg-planning-theory {
+  background-color: var(--planning-theory-bg);
+}
+
+.border-planning-theory {
+  border-color: var(--planning-theory-border);
+}
+
+.bg-planning-cancelled {
+  background-color: var(--planning-cancelled-bg);
+}
+
+.border-planning-cancelled {
+  border-color: var(--planning-cancelled-border);
 }
 
 .theme-cta {

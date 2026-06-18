@@ -58,8 +58,8 @@ import {
   scheduleQueueDropAction,
 } from "./actions";
 
-const START_HOUR = 7;
-const END_HOUR = 21;
+const START_HOUR = 8;
+const END_HOUR = 18;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 30;
 const SLOT_WIDTH = 42;
@@ -77,24 +77,28 @@ const timeFormatter = createNlDateTimeFormatter({
 });
 
 const EVENT_LEGEND = [
-  { key: "lesson", label: "Rijles", className: "bg-blue-500" },
-  { key: "trial_lesson", label: "Proefles", className: "bg-emerald-500" },
-  { key: "interim_test", label: "TTT", className: "bg-orange-500" },
-  { key: "exam", label: "Examen", className: "bg-red-500" },
-  { key: "admin", label: "Administratie", className: "bg-slate-500" },
-  { key: "theory_guidance", label: "Theorie", className: "bg-pink-500" },
-  { key: "block", label: "Prive/pauze/blok", className: "bg-zinc-700" },
+  { key: "lesson", label: "Rijles", className: "bg-planning-lesson border-planning-lesson" },
+  { key: "trial_lesson", label: "Proefles", className: "bg-planning-trial border-planning-trial" },
+  { key: "interim_test", label: "TTT", className: "bg-planning-ttt border-planning-ttt" },
+  { key: "exam", label: "Examen", className: "bg-planning-exam border-planning-exam" },
+  { key: "admin", label: "Administratie", className: "bg-planning-admin border-planning-admin" },
+  { key: "theory_guidance", label: "Theorie", className: "bg-planning-theory border-planning-theory" },
+  { key: "block", label: "Prive/pauze/blok", className: "bg-planning-block border-planning-block" },
 ] as const;
 
 const AVAILABILITY_LEGEND = [
-  { key: "available", label: "Beschikbaar", className: "bg-emerald-500/35" },
+  {
+    key: "available",
+    label: "Beschikbaar",
+    className: "bg-[color-mix(in_oklab,var(--success)_18%,white)]",
+  },
   {
     key: "blocked",
     label: "Geblokkeerd",
     className:
-      "bg-red-500/20 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]",
+      "bg-[color-mix(in_oklab,var(--danger)_12%,white)] [background-image:repeating-linear-gradient(135deg,color-mix(in_oklab,var(--danger)_26%,transparent)_0,color-mix(in_oklab,var(--danger)_26%,transparent)_2px,transparent_2px,transparent_7px)]",
   },
-  { key: "closed", label: "Gesloten", className: "bg-muted/60" },
+  { key: "closed", label: "Gesloten", className: "bg-muted/70" },
 ] as const;
 
 type DragPayload =
@@ -303,24 +307,24 @@ function eventMatchesQueueItem(
 function eventTone(event: PlanningBoardEvent): string {
   const tone = planningBoardEventTone(event);
   if (tone === "lesson") {
-    return "border-blue-500/70 bg-blue-500/10 text-blue-950 dark:text-blue-100";
+    return "border-planning-lesson bg-planning-lesson text-foreground";
   }
   if (tone === "trial_lesson") {
-    return "border-emerald-500/70 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100";
+    return "border-planning-trial bg-planning-trial text-foreground";
   }
   if (tone === "exam") {
-    return "border-red-500/70 bg-red-500/10 text-red-950 dark:text-red-100";
+    return "border-planning-exam bg-planning-exam text-foreground";
   }
   if (tone === "interim_test") {
-    return "border-orange-500/70 bg-orange-500/10 text-orange-950 dark:text-orange-100";
+    return "border-planning-ttt bg-planning-ttt text-foreground";
   }
   if (tone === "theory") {
-    return "border-pink-500/70 bg-pink-500/10 text-pink-950 dark:text-pink-100";
+    return "border-planning-theory bg-planning-theory text-foreground";
   }
   if (tone === "admin") {
-    return "border-slate-500/70 bg-slate-500/10 text-slate-950 dark:text-slate-100";
+    return "border-planning-admin bg-planning-admin text-foreground";
   }
-  return "border-zinc-700/60 bg-zinc-700/10 text-zinc-950 dark:text-zinc-100";
+  return "border-planning-block bg-planning-block text-foreground";
 }
 
 function slotAvailability(
@@ -399,8 +403,8 @@ function AvailabilityBands({
             className={cn(
               "absolute inset-y-0",
               isBlocked
-                ? "bg-red-500/18 [background-image:repeating-linear-gradient(135deg,rgba(239,68,68,.35)_0,rgba(239,68,68,.35)_2px,transparent_2px,transparent_7px)]"
-                : "bg-emerald-500/14",
+                ? "bg-[color-mix(in_oklab,var(--danger)_10%,white)] [background-image:repeating-linear-gradient(135deg,color-mix(in_oklab,var(--danger)_24%,transparent)_0,color-mix(in_oklab,var(--danger)_24%,transparent)_2px,transparent_2px,transparent_7px)]"
+                : "bg-[color-mix(in_oklab,var(--success)_12%,white)]",
               availabilityFilter &&
                 ((availabilityFilter === "available" && isBlocked) ||
                   (availabilityFilter === "blocked" && !isBlocked)) &&

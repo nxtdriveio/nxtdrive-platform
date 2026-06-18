@@ -20,12 +20,12 @@ export function DashboardCard({
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-sm",
+        "flex flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+      <div className="flex items-center justify-between gap-2 border-b border-brand-border px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-black text-foreground">
           {title}
         </div>
         <div className="flex items-center gap-2">
@@ -33,7 +33,7 @@ export function DashboardCard({
           {actionLabel && actionHref && (
             <Link
               href={actionHref}
-              className="rounded-full border border-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="rounded-full border border-brand-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               {actionLabel}
             </Link>

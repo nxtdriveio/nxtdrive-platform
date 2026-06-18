@@ -39,9 +39,9 @@ export function UserMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Gebruikersmenu voor ${userLabel}`}
-        className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-10 items-center gap-2.5 rounded-full border border-brand-border bg-white py-1 pl-1 pr-3 shadow-sm transition-colors hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
           {initials || "?"}
         </span>
         <div className="hidden text-left sm:block">

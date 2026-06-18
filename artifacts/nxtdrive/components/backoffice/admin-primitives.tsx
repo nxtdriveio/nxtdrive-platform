@@ -15,7 +15,7 @@ export function AdminPage({
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto flex max-w-[1540px] flex-col gap-5", className)}>
+    <div className={cn("mx-auto flex max-w-[1540px] flex-col gap-4", className)}>
       {children}
     </div>
   );
@@ -35,16 +35,16 @@ export function AdminPageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-border bg-[var(--surface-1)] p-5 shadow-sm md:p-6">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+    <section>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0 space-y-3">
           {eyebrow ? (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               {eyebrow}
             </div>
           ) : null}
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            <h1 className="text-2xl font-black tracking-tight text-foreground md:text-3xl">
               {title}
             </h1>
             {description ? (
@@ -107,11 +107,11 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]",
+        "overflow-hidden rounded-2xl border border-brand-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
-      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <span className="truncate">{title}</span>
@@ -124,7 +124,7 @@ export function AdminPanel({
         {actionHref ? (
           <Link
             href={actionHref}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
           >
             {actionLabel}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />

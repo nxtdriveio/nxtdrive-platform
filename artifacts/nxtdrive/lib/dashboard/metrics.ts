@@ -76,6 +76,9 @@ export type DashboardKpis = {
   revenueThisMonthCents: number;
   leadsToFollowUp: number;
   openInvoices: number;
+  openInvoiceCents: number;
+  openTasks: number;
+  examsThisWeek: number;
 };
 
 /**
@@ -91,6 +94,7 @@ export async function getDashboardKpis(
   const todayYmd = amsterdamYmd(now);
   const todayStart = startOfDayUtc(todayYmd).toISOString();
   const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1)).toISOString();
+  const nextWeekStart = startOfDayUtc(addDays(todayYmd, 7)).toISOString();
   const monthStartYmd = `${todayYmd.slice(0, 7)}-01`;
   const monthStart = startOfDayUtc(monthStartYmd).toISOString();
   const nextMonthStart = startOfDayUtc(firstOfNextMonth(monthStartYmd)).toISOString();
@@ -101,6 +105,8 @@ export async function getDashboardKpis(
     openLeads,
     leadsToFollowUp,
     openInvoices,
+    openTasks,
+    examsThisWeek,
     paidThisMonth,
   ] = await Promise.all([
     supabase
@@ -127,9 +133,22 @@ export async function getDashboardKpis(
       .eq("status", "new"),
     supabase
       .from("invoices")
-      .select("id", { count: "exact", head: true })
+      .select("id, total_cents", { count: "exact" })
       .eq("tenant_id", tenantId)
       .eq("status", "open"),
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .is("archived_at", null),
+    supabase
+      .from("agenda_appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("type", "exam")
+      .gte("starts_at", todayStart)
+      .lt("starts_at", nextWeekStart)
+      .not("status", "in", "(cancelled,deleted)"),
     supabase
       .from("invoices")
       .select("total_cents")
@@ -151,6 +170,12 @@ export async function getDashboardKpis(
     revenueThisMonthCents,
     leadsToFollowUp: leadsToFollowUp.count ?? 0,
     openInvoices: openInvoices.count ?? 0,
+    openInvoiceCents: (openInvoices.data ?? []).reduce(
+      (sum, row) => sum + ((row.total_cents as number | null) ?? 0),
+      0,
+    ),
+    openTasks: openTasks.count ?? 0,
+    examsThisWeek: examsThisWeek.count ?? 0,
   };
 }
 
@@ -258,6 +283,18 @@ export type TodayLesson = {
   studentName: string;
 };
 
+export type WeekPlanningPoint = {
+  day: string;
+  label: string;
+  planned: number;
+};
+
+export type TodayCapacity = {
+  scheduledMinutes: number;
+  availableMinutes: number;
+  utilizationPercent: number | null;
+};
+
 /** Today's lessons (Amsterdam day), excluding cancelled ones, time-ordered. */
 export async function getTodayLessons(
   supabase: SupabaseServerClient,
@@ -300,6 +337,130 @@ export async function getTodayLessons(
     status: r.status as string,
     studentName: nameMap.get(r.student_id as string) ?? "Onbekend",
   }));
+}
+
+export async function getWeekPlanning(
+  supabase: SupabaseServerClient,
+  tenantId: string,
+): Promise<WeekPlanningPoint[]> {
+  const todayYmd = amsterdamYmd(new Date());
+  const start = startOfDayUtc(todayYmd).toISOString();
+  const end = startOfDayUtc(addDays(todayYmd, 7)).toISOString();
+  const days = Array.from({ length: 7 }, (_, index) => addDays(todayYmd, index));
+  const buckets = new Map(days.map((day) => [day, 0]));
+
+  const { data } = await supabase
+    .from("lessons")
+    .select("starts_at")
+    .eq("tenant_id", tenantId)
+    .gte("starts_at", start)
+    .lt("starts_at", end)
+    .not("status", "in", "(cancelled_with_refund,cancelled_no_refund)");
+
+  for (const row of data ?? []) {
+    const day = amsterdamYmd(new Date(row.starts_at as string));
+    if (buckets.has(day)) buckets.set(day, (buckets.get(day) ?? 0) + 1);
+  }
+
+  const fmt = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: TZ,
+    weekday: "short",
+  });
+
+  return days.map((day) => ({
+    day,
+    label: fmt.format(startOfDayUtc(day)),
+    planned: buckets.get(day) ?? 0,
+  }));
+}
+
+function weekdayForAmsterdamYmd(ymd: string): number {
+  return new Date(`${ymd}T12:00:00Z`).getUTCDay();
+}
+
+function durationMinutes(startsAt: string | null, endsAt: string | null): number {
+  if (!startsAt || !endsAt) return 0;
+  const start = Date.parse(startsAt);
+  const end = Date.parse(endsAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.round((end - start) / 60_000);
+}
+
+function exceptionMinutes(
+  startMin: number | null,
+  endMin: number | null,
+): number {
+  const start = startMin ?? 0;
+  const end = endMin ?? 1440;
+  return Math.max(0, Math.min(1440, end) - Math.max(0, start));
+}
+
+export async function getTodayCapacity(
+  supabase: SupabaseServerClient,
+  tenantId: string,
+): Promise<TodayCapacity> {
+  const todayYmd = amsterdamYmd(new Date());
+  const todayStart = startOfDayUtc(todayYmd).toISOString();
+  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1)).toISOString();
+  const weekday = weekdayForAmsterdamYmd(todayYmd);
+
+  const [lessons, weeklyAvailability, exceptions] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("starts_at, ends_at")
+      .eq("tenant_id", tenantId)
+      .gte("starts_at", todayStart)
+      .lt("starts_at", tomorrowStart)
+      .not("status", "in", "(cancelled_with_refund,cancelled_no_refund)"),
+    supabase
+      .from("instructor_availability")
+      .select("start_min, end_min")
+      .eq("tenant_id", tenantId)
+      .eq("weekday", weekday),
+    supabase
+      .from("instructor_availability_exception")
+      .select("kind, start_min, end_min")
+      .eq("tenant_id", tenantId)
+      .eq("exception_date", todayYmd),
+  ]);
+
+  const scheduledMinutes = (lessons.data ?? []).reduce(
+    (sum, row) =>
+      sum +
+      durationMinutes(
+        row.starts_at as string | null,
+        row.ends_at as string | null,
+      ),
+    0,
+  );
+  const baseAvailableMinutes = (weeklyAvailability.data ?? []).reduce(
+    (sum, row) =>
+      sum +
+      Math.max(
+        0,
+        ((row.end_min as number | null) ?? 0) -
+          ((row.start_min as number | null) ?? 0),
+      ),
+    0,
+  );
+  const exceptionDelta = (exceptions.data ?? []).reduce((sum, row) => {
+    const minutes = exceptionMinutes(
+      row.start_min as number | null,
+      row.end_min as number | null,
+    );
+    return row.kind === "available" ? sum + minutes : sum - minutes;
+  }, 0);
+  const availableMinutes = Math.max(0, baseAvailableMinutes + exceptionDelta);
+  const utilizationPercent =
+    availableMinutes > 0
+      ? Math.min(100, Math.round((scheduledMinutes / availableMinutes) * 100))
+      : null;
+
+  return {
+    scheduledMinutes,
+    availableMinutes,
+    utilizationPercent,
+  };
 }
 
 export const LEAD_PIPELINE_STAGES = [
