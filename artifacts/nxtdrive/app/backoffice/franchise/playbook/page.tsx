@@ -1,273 +1,230 @@
-import Link from "next/link";
 import {
-  AlertTriangle,
   BookOpenCheck,
-  CalendarDays,
   CheckCircle2,
-  Network,
+  ClipboardList,
+  FileText,
+  GitBranch,
   ShieldCheck,
-  TrendingUp,
-  Workflow,
+  Sparkles,
 } from "lucide-react";
-import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+import {
+  FranchiseActionLink,
+  FranchiseEmptyState,
+  FranchiseErrorState,
+  FranchiseKpiCard,
+  FranchiseModeBadge,
+  FranchisePage,
+  FranchisePageHeader,
+  FranchisePanel,
+  FranchiseProgressBar,
+  FranchiseSectionTabs,
+  FranchiseStatusBadge,
+} from "@/components/backoffice/franchise/franchise-primitives";
+import {
+  buildFranchiseControlCards,
+  type FranchiseControlStatus,
+} from "@/lib/franchise/admin";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
-import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 
 export const dynamic = "force-dynamic";
 
-function StatCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-}: {
-  title: string;
-  value: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-        </div>
-        <span className="rounded-full bg-primary-soft p-2 text-primary">
-          <Icon className="h-5 w-5" aria-hidden />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  );
+function statusTone(status: FranchiseControlStatus) {
+  if (status === "active" || status === "ready") return "success";
+  if (status === "review") return "warning";
+  if (status === "blocked") return "danger";
+  return "readonly";
 }
 
 export default async function FranchisePlaybookPage() {
-  const { tenant, franchiseAccess, readOnlyDowngrade } =
-    await requireFranchiseOperator();
-  let governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>> | null = null;
+  const { tenant, entitlementSnapshot } = await requireFranchiseOperator();
+  let data:
+    | [
+        Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
+        Awaited<ReturnType<typeof loadFranchiseTemplates>>,
+      ]
+    | null = null;
+
   try {
-    governance = await loadFranchiseGovernanceOverview(tenant.id);
+    data = await Promise.all([
+      loadFranchiseGovernanceOverview(tenant.id),
+      loadFranchiseTemplates(tenant.id),
+    ]);
   } catch (error) {
     console.error("[franchise/playbook] load failed", error);
   }
 
-  if (!governance) {
+  if (!data) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Link
-            href="/backoffice/franchise"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Terug naar franchise dashboard
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Franchise playbook
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Geen franchisecontext beschikbaar voor {tenant.name}.
-          </p>
-        </div>
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            Richt deze tenant eerst in als franchisegever of controleer of alle
-            franchise-migraties zijn uitgevoerd.
-          </CardContent>
-        </Card>
-      </div>
+      <FranchiseErrorState
+        title="Franchise Playbook"
+        description={`Het franchiseplaybook kon nog niet worden geladen voor ${tenant.name}.`}
+      />
     );
   }
 
+  const [governance, templates] = data;
+  const controlCards = buildFranchiseControlCards({
+    governance,
+    templates,
+    entitlementSnapshot,
+  });
+  const rolloutRate = governance.template_activation_rate;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <Link
-            href="/backoffice/franchise"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Terug naar franchise dashboard
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Franchise playbook
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Bestuurlijke cockpit voor {governance.franchisegever_name}. Combineer governance, template-adoptie, aandacht en planning in één read-only stuurlaag.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">Sprint 7 wrap-up</Badge>
-            <Badge variant="outline">Read-only governance</Badge>
-            <Badge variant="outline">Geen cross-tenant mutaties</Badge>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise/aandacht">
-            <Button variant="outline" size="sm">Aandacht</Button>
-          </Link>
-          <Link href="/backoffice/franchise/prestaties">
-            <Button variant="outline" size="sm">Prestaties</Button>
-          </Link>
-          <Link href="/backoffice/franchise/planning">
-            <Button variant="outline" size="sm">Planning</Button>
-          </Link>
-          <Link href="/backoffice/franchise/templates">
-            <Button variant="outline" size="sm">Templates</Button>
-          </Link>
-        </div>
-      </div>
+    <FranchisePage>
+      <FranchisePageHeader
+        eyebrow="Templates & playbook"
+        title="Playbook"
+        description="Het bestuurlijke handboek voor franchisebrede standaarden, lokale activatie, delegaties, audit en gecontroleerde rollout."
+        badges={
+          <>
+            <FranchiseModeBadge />
+            <FranchiseStatusBadge tone="success">Franchise canon</FranchiseStatusBadge>
+          </>
+        }
+        actions={
+          <>
+            <FranchiseActionLink href="/backoffice/franchise/templates">
+              Templates
+            </FranchiseActionLink>
+            <FranchiseActionLink href="/backoffice/franchise/governance" variant="primary">
+              Governance
+            </FranchiseActionLink>
+          </>
+        }
+      />
 
-      {readOnlyDowngrade ? (
-        <FranchiseDowngradeAlert
-          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
-        />
-      ) : null}
+      <FranchiseSectionTabs />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Template adoptie"
-          value={`${governance.template_activation_rate}%`}
-          description="Hoeveel franchisees minimaal één actieve template-activatie hebben."
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FranchiseKpiCard
+          label="Actieve standaarden"
+          value={governance.active_templates}
+          hint="templates actief"
           icon={BookOpenCheck}
+          tone="success"
         />
-        <StatCard
-          title="Directe aandacht"
-          value={String(governance.high_priority_count)}
-          description="Franchisees die nu eerst coaching of centrale opvolging nodig hebben."
-          icon={AlertTriangle}
+        <FranchiseKpiCard
+          label="Rollout"
+          value={`${rolloutRate}%`}
+          hint="franchisees geactiveerd"
+          icon={GitBranch}
+          tone="delegated"
         />
-        <StatCard
-          title="Planningsbasis"
-          value={String(governance.branches_without_lessons)}
-          description="Vestigingen zonder lessen in de komende 7 dagen."
-          icon={CalendarDays}
+        <FranchiseKpiCard
+          label="Open gaten"
+          value={governance.franchisees_without_template_activation}
+          hint="zonder activatie"
+          icon={ClipboardList}
+          tone={governance.franchisees_without_template_activation > 0 ? "warning" : "success"}
         />
-        <StatCard
-          title="Gem. bezetting"
-          value={
-            governance.average_capacity_utilisation === null
-              ? "—"
-              : `${governance.average_capacity_utilisation}%`
-          }
-          description="Gemiddelde capaciteit op netwerkniveau waar beschikbaarheidsdata aanwezig is."
-          icon={TrendingUp}
+        <FranchiseKpiCard
+          label="Governance"
+          value="Read-only"
+          hint="tenzij gedelegeerd"
+          icon={ShieldCheck}
+          tone="readonly"
         />
-      </div>
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Workflow className="h-4 w-4 text-muted-foreground" aria-hidden />
-              Besturingsmodel Sprint 7
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2 text-sm text-muted-foreground">
-            <div className="rounded-lg border border-border px-3 py-3">
-              <span className="block font-medium text-foreground">1. Eerst signaleren</span>
-              Start bij aandacht en prestaties om te zien welke franchisees achterblijven.
+      <section className="grid gap-4 xl:grid-cols-[0.42fr_1fr]">
+        <FranchisePanel title="Rollout status" description="Template-adoptie per netwerk.">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-brand-card-border bg-white p-4">
+              <p className="text-sm font-black text-foreground">Template adoptie</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {governance.franchisees_with_active_templates} van {governance.franchisees_total} franchisees hebben een actieve template.
+              </p>
+              <div className="mt-4">
+                <FranchiseProgressBar value={rolloutRate} tone="delegated" />
+              </div>
             </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              <span className="block font-medium text-foreground">2. Dan routeren</span>
-              Kies vervolgens de juiste route: coaching, lokale planning, kwaliteit of marketing.
-            </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              <span className="block font-medium text-foreground">3. Standaardiseren</span>
-              Gebruik templates om commerciële of operationele standaarden uit te rollen zonder aparte codepaden.
-            </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              <span className="block font-medium text-foreground">4. Governance bewaken</span>
-              Franchise blijft read-only over tenants heen; lokale uitvoering blijft binnen franchisee of vestiging.
-            </div>
-          </CardContent>
-        </Card>
+            {governance.rollout_gaps.map((gap) => (
+              <div key={gap.label} className="rounded-xl border border-brand-card-border bg-white px-3 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                  {gap.label}
+                </p>
+                <p className="mt-1 text-2xl font-black text-foreground">{gap.value}</p>
+                <p className="text-xs text-muted-foreground">{gap.detail}</p>
+              </div>
+            ))}
+          </div>
+        </FranchisePanel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
-              Governance status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <div className="rounded-lg border border-border px-3 py-3">
-              <div className="font-medium text-foreground">{governance.franchisees_total} franchisees in netwerk</div>
-              <div className="text-xs">{governance.franchisees_without_active_branches} zonder actieve vestigingsbasis.</div>
-            </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              <div className="font-medium text-foreground">{governance.active_templates} actieve templates</div>
-              <div className="text-xs">{governance.inactive_templates} inactief of nog niet bruikbaar voor uitrol.</div>
-            </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              <div className="font-medium text-foreground">{governance.attention_count} netwerkbrede signalen</div>
-              <div className="text-xs">Waarvan {governance.high_priority_count} direct prioriteit heeft.</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <FranchisePanel title="Playbook modules" description="Wat de franchisegever centraal mag bewaken.">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {controlCards.map((card) => (
+              <article key={card.title} className="rounded-2xl border border-brand-card-border bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-black text-foreground">{card.title}</h2>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {card.description}
+                    </p>
+                  </div>
+                  <FranchiseStatusBadge tone={statusTone(card.status)}>
+                    {card.value}
+                  </FranchiseStatusBadge>
+                </div>
+                <p className="mt-3 text-xs font-bold text-primary">{card.detail}</p>
+              </article>
+            ))}
+          </div>
+        </FranchisePanel>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Network className="h-4 w-4 text-muted-foreground" aria-hidden />
-            Rollout gaps
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {governance.rollout_gaps.map((gap) => (
-            <div key={gap.label} className="rounded-lg border border-border px-3 py-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">{gap.label}</div>
-              <div className="mt-1 text-2xl font-semibold text-foreground">{gap.value}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{gap.detail}</div>
+      <FranchisePanel title="Franchise flow" description="Van standaard naar lokale uitvoering.">
+        <div className="grid gap-3 md:grid-cols-5">
+          {[
+            ["1", "Standaard", "Franchisegever onderhoudt templates en werkwijze."],
+            ["2", "Distributie", "Template wordt zichtbaar voor gekozen franchisee."],
+            ["3", "Activatie", "Franchisee activeert lokaal naar pakket of proces."],
+            ["4", "Bewaking", "Cockpit meet adoptie, planning, prestaties en signalen."],
+            ["5", "Audit", "Afwijkingen, delegaties en mutaties blijven traceerbaar."],
+          ].map(([step, title, description]) => (
+            <div key={step} className="rounded-2xl border border-brand-card-border bg-white p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-accent text-sm font-black text-primary">
+                {step}
+              </span>
+              <h3 className="mt-3 font-black text-foreground">{title}</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {description}
+              </p>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </FranchisePanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Coaching targets</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {governance.coaching_targets.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-              Geen high-priority franchisees op dit moment. Gebruik prestaties en planning voor periodieke bewaking.
+      <FranchisePanel title="AI rol" description="Ondersteunend, nooit autonoom publicerend.">
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            {
+              icon: Sparkles,
+              title: "Samenvatten",
+              description: "AI helpt signalen kort te maken voor bestuur en coaching.",
+            },
+            {
+              icon: FileText,
+              title: "Voorstellen",
+              description: "AI kan conceptacties voorstellen, maar een beheerder beslist.",
+            },
+            {
+              icon: CheckCircle2,
+              title: "Controle",
+              description: "Geen publicatie of mutatie zonder expliciete bevestiging.",
+            },
+          ].map(({ icon: Icon, title, description }) => (
+            <div key={title} className="rounded-xl border border-brand-card-border bg-white px-3 py-3">
+              <Icon className="h-5 w-5 text-primary" aria-hidden />
+              <p className="mt-2 font-black text-foreground">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
             </div>
-          ) : (
-            governance.coaching_targets.map((target) => (
-              <div key={target.tenant_id} className="rounded-lg border border-border px-4 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="font-medium text-foreground">{target.tenant_name}</div>
-                    <div className="text-sm text-muted-foreground">{target.reason}</div>
-                  </div>
-                  <Badge variant="danger">Directe opvolging</Badge>
-                </div>
-                <div className="mt-3 text-sm text-muted-foreground">
-                  <strong className="text-foreground">Volgende stap:</strong> {target.next_step}
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span>
-          <strong>Sprint 7 canon</strong>: franchise is een tenant-overstijgende stuurlaag, geen gewone multi-vestiging met centrale schrijfbevoegdheid.
-        </span>
-        <span>
-          Gebruik deze playbook-pagina als ingang; voer daarna opvolging uit via aandacht, planning, prestaties of templates.
-        </span>
-      </div>
-    </div>
+          ))}
+        </div>
+      </FranchisePanel>
+    </FranchisePage>
   );
 }

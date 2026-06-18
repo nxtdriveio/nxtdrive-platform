@@ -863,6 +863,21 @@ body {
   --planning-theory-border: #75d9ea;
   --planning-cancelled-bg: #f2f4f8;
   --planning-cancelled-border: #c7cfdb;
+  --network-healthy: #dff8e8;
+  --network-healthy-foreground: #087443;
+  --network-watch: #fff2cf;
+  --network-watch-foreground: #9a5b00;
+  --network-risk: #ffe3e6;
+  --network-risk-foreground: #b42334;
+  --network-readonly: #eaf0ff;
+  --network-readonly-foreground: #3152b7;
+  --network-delegated: #dff8f0;
+  --network-delegated-foreground: #08705f;
+  --network-delegated-strong: #16a085;
+  --planning-calm-bg: #def7e8;
+  --planning-normal-bg: #e7f0ff;
+  --planning-busy-bg: #fff0d6;
+  --planning-critical-bg: #ffe1e4;
   --surface-canvas: #f3f5fb;
   --surface-1: #ffffff;
   --surface-2: #f7f9fd;
@@ -993,6 +1008,66 @@ body {
 
 .border-planning-cancelled {
   border-color: var(--planning-cancelled-border);
+}
+
+.bg-network-healthy {
+  background-color: var(--network-healthy);
+}
+
+.text-network-healthy-foreground {
+  color: var(--network-healthy-foreground);
+}
+
+.bg-network-watch {
+  background-color: var(--network-watch);
+}
+
+.text-network-watch-foreground {
+  color: var(--network-watch-foreground);
+}
+
+.bg-network-risk {
+  background-color: var(--network-risk);
+}
+
+.text-network-risk-foreground {
+  color: var(--network-risk-foreground);
+}
+
+.bg-network-readonly {
+  background-color: var(--network-readonly);
+}
+
+.text-network-readonly-foreground {
+  color: var(--network-readonly-foreground);
+}
+
+.bg-network-delegated {
+  background-color: var(--network-delegated);
+}
+
+.text-network-delegated-foreground {
+  color: var(--network-delegated-foreground);
+}
+
+.bg-network-delegated-strong {
+  background-color: var(--network-delegated-strong);
+}
+
+.bg-planning-calm {
+  background-color: var(--planning-calm-bg);
+}
+
+.bg-planning-normal {
+  background-color: var(--planning-normal-bg);
+}
+
+.bg-planning-busy {
+  background-color: var(--planning-busy-bg);
+}
+
+.bg-planning-critical {
+  background-color: var(--planning-critical-bg);
 }
 
 .theme-cta {

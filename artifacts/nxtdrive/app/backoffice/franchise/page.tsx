@@ -1,240 +1,149 @@
-import Link from "next/link";
 import {
   AlertTriangle,
-  BarChart3,
-  BookOpen,
-  BookOpenCheck,
   Building2,
   CalendarDays,
-  ExternalLink,
+  CheckCircle2,
   Gauge,
-  MapPin,
   Network,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
-  Users,
 } from "lucide-react";
+
+import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
+import {
+  FranchiseActionLink,
+  FranchiseEmptyState,
+  FranchiseErrorState,
+  FranchiseKpiCard,
+  FranchiseModeBadge,
+  FranchisePage,
+  FranchisePageHeader,
+  FranchisePanel,
+  FranchiseProgressBar,
+  FranchiseSectionTabs,
+  FranchiseStatusBadge,
+  FranchiseTableCell,
+  FranchiseMiniTable,
+  type FranchiseTone,
+} from "@/components/backoffice/franchise/franchise-primitives";
+import {
+  formatDateTime,
+  formatEuro,
+  formatPercent,
+  formatSignedPercent,
+  priorityTone,
+} from "@/components/backoffice/franchise/franchise-format";
+import {
+  buildFranchiseAIInsights,
+  buildFranchiseControlCards,
+  loadFranchiseAuditEvents,
+  type FranchiseControlStatus,
+} from "@/lib/franchise/admin";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchiseOverview } from "@/lib/franchise/overview";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
-import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { loadFranchisePlanningOverview } from "@/lib/franchise/planning";
+import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 import { PLAN_LABELS } from "@/lib/platform/features";
-import type { FranchiseeLocation } from "@/lib/franchise/overview";
-import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
-const euroFmt = new Intl.NumberFormat("nl-NL", {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-function formatRevenue(cents: number): string {
-  return euroFmt.format(cents / 100);
-}
-
-function PassRate({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-muted-foreground">-</span>;
-  const colour =
-    value >= 70 ? "text-green-500" : value >= 50 ? "text-yellow-500" : "text-red-400";
-  return <span className={colour}>{value}%</span>;
-}
-
-function CapacityBar({ value }: { value: number | null }) {
-  if (value === null) {
-    return <span className="text-xs text-muted-foreground">-</span>;
-  }
-
-  const colour =
-    value >= 80 ? "bg-green-500" : value >= 50 ? "bg-yellow-400" : "bg-red-400";
-  return (
-    <div className="flex items-center justify-end gap-2">
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${colour}`} style={{ width: `${value}%` }} />
-      </div>
-      <span className="w-8 text-right text-xs tabular-nums text-foreground">{value}%</span>
-    </div>
-  );
-}
-
-function FranchiseeRow({ loc }: { loc: FranchiseeLocation }) {
-  const activeBranches = loc.branches.filter((branch) => branch.is_active);
-
-  return (
-    <>
-      <tr className="border-t-2 border-border bg-muted/30">
-        <td className="px-4 py-2.5" colSpan={2}>
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="font-semibold text-foreground">{loc.tenant_name}</span>
-            {activeBranches.length > 0 ? (
-              <Badge variant="outline" className="text-[10px]">
-                {activeBranches.length}{" "}
-                {activeBranches.length === 1 ? "vestiging" : "vestigingen"}
-              </Badge>
-            ) : null}
-          </div>
-        </td>
-        <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-foreground">
-          {loc.active_students}
-        </td>
-        <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-foreground">
-          {loc.lessons_last_30d}
-        </td>
-        <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-foreground">
-          {formatRevenue(loc.revenue_last_30d_cents)}
-        </td>
-        <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
-          <PassRate value={loc.exam_pass_rate} />
-        </td>
-        <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-foreground">
-          {loc.lead_conversion_rate !== null ? `${loc.lead_conversion_rate}%` : "-"}
-        </td>
-        <td className="px-4 py-2.5 text-right">
-          <CapacityBar value={loc.capacity_utilisation} />
-        </td>
-        <td className="px-4 py-2.5 text-right">
-          <Link
-            href={`/backoffice/leads?franchise_tenant=${loc.tenant_id}`}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            Leads
-            <ExternalLink className="h-3 w-3" aria-hidden />
-          </Link>
-        </td>
-      </tr>
-
-      {activeBranches.length === 0 ? (
-        <tr className="border-t border-dashed border-border/50">
-          <td className="px-4 py-2 pl-10" colSpan={9}>
-            <span className="text-xs italic text-muted-foreground/60">
-              Geen actieve vestigingen geregistreerd
-            </span>
-          </td>
-        </tr>
-      ) : (
-        activeBranches.map((branch) => (
-          <tr
-            key={branch.id}
-            className="border-t border-dashed border-border/40 hover:bg-muted/10"
-          >
-            <td className="px-4 py-2 pl-10" colSpan={2}>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <MapPin className="h-3 w-3 shrink-0" aria-hidden />
-                <span className="text-xs">{branch.name}</span>
-                {branch.city ? (
-                  <span className="text-xs text-muted-foreground/60">- {branch.city}</span>
-                ) : null}
-              </div>
-            </td>
-            <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
-              {branch.active_students}
-            </td>
-            <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
-              {branch.lessons_last_30d}
-            </td>
-            <td className="px-4 py-2 text-right text-xs text-muted-foreground/40" colSpan={5}>
-              -
-            </td>
-          </tr>
-        ))
-      )}
-    </>
-  );
+function controlTone(status: FranchiseControlStatus): FranchiseTone {
+  if (status === "active" || status === "ready") return "success";
+  if (status === "review") return "warning";
+  if (status === "blocked") return "danger";
+  return "readonly";
 }
 
 export default async function FranchiseDashboardPage() {
-  const { tenant, franchiseAccess, readOnlyDowngrade } =
+  const { tenant, entitlementSnapshot, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
-  let overview: Awaited<ReturnType<typeof loadFranchiseOverview>> | null = null;
-  let performance: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>> | null = null;
-  let governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>> | null = null;
+
+  let data: [
+    Awaited<ReturnType<typeof loadFranchiseOverview>>,
+    Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
+    Awaited<ReturnType<typeof loadFranchisePlanningOverview>>,
+    Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
+    Awaited<ReturnType<typeof loadFranchiseTemplates>>,
+    Awaited<ReturnType<typeof loadFranchiseAuditEvents>>,
+  ] | null = null;
+
   try {
-    [overview, performance, governance] = await Promise.all([
+    data = await Promise.all([
       loadFranchiseOverview(tenant.id),
       loadFranchisePerformanceOverview(tenant.id),
+      loadFranchisePlanningOverview(tenant.id),
       loadFranchiseGovernanceOverview(tenant.id),
+      loadFranchiseTemplates(tenant.id),
+      loadFranchiseAuditEvents(tenant.id),
     ]);
   } catch (error) {
-    console.error("[franchise] dashboard load failed", error);
+    console.error("[franchise] cockpit load failed", error);
   }
-  if (!overview || !performance || !governance) {
+
+  if (!data) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Franchise Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            De franchisegegevens konden nog niet worden geladen voor {tenant.name}.
-          </p>
-        </div>
-        <Card>
-          <CardContent className="flex items-start gap-3 p-6">
-            <AlertTriangle className="h-5 w-5 text-warning" aria-hidden />
-            <div>
-              <p className="font-medium text-foreground">
-                Geen franchisecontext beschikbaar
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Controleer of deze tenant als franchisegever is ingericht en of
-                de franchise-tabellen/migraties actief zijn.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <FranchiseErrorState
+        title="Franchise Cockpit"
+        description={`De franchisegegevens konden nog niet worden geladen voor ${tenant.name}.`}
+      />
     );
   }
-  const hasFranchisees = overview.locations.length > 0;
+
+  const [overview, performance, planning, governance, templates, auditEvents] = data;
+  const controlCards = buildFranchiseControlCards({
+    governance,
+    templates,
+    entitlementSnapshot,
+  });
+  const aiInsights = buildFranchiseAIInsights({ performance, planning, governance });
+  const activeFranchisees = overview.locations.filter((location) =>
+    location.branches.some((branch) => branch.is_active),
+  ).length;
+  const avgLeadConversion =
+    overview.locations.length === 0
+      ? null
+      : Math.round(
+          overview.locations.reduce(
+            (sum, location) => sum + (location.lead_conversion_rate ?? 0),
+            0,
+          ) / overview.locations.length,
+        );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Franchise Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Overzicht van alle locaties binnen uw franchisenetwerk
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise/playbook">
-            <Button variant="outline" size="sm">
-              Franchise playbook
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/aandacht">
-            <Button variant="outline" size="sm">
-              Aandacht
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/prestaties">
-            <Button variant="outline" size="sm">
-              Prestaties
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/planning">
-            <Button variant="outline" size="sm">
-              Centrale planning
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/vergelijking">
-            <Button variant="outline" size="sm">
-              Vergelijking
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/templates">
-            <Button variant="outline" size="sm">
-              Templates beheren
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <FranchisePage>
+      <FranchisePageHeader
+        eyebrow="Franchise cockpit"
+        title="Franchise Cockpit"
+        description={`Netwerkoverzicht en centrale aansturing voor ${governance.franchisegever_name}. Deze laag blijft tenant-overstijgend leesgericht, met expliciete delegatie en audit waar beheer nodig is.`}
+        badges={
+          <>
+            <FranchiseModeBadge />
+            <FranchiseModeBadge mode="network" />
+            {readOnlyDowngrade ? (
+              <FranchiseStatusBadge tone="warning">
+                {PLAN_LABELS[franchiseAccess.requiredPlan]} vereist
+              </FranchiseStatusBadge>
+            ) : (
+              <FranchiseStatusBadge tone="success">Elite toegang</FranchiseStatusBadge>
+            )}
+          </>
+        }
+        actions={
+          <>
+            <FranchiseActionLink href="/backoffice/franchise/reports">
+              Exporteren
+            </FranchiseActionLink>
+            <FranchiseActionLink href="/backoffice/franchise/aandacht" variant="primary">
+              Signalen bekijken
+            </FranchiseActionLink>
+          </>
+        }
+      />
+
+      <FranchiseSectionTabs />
 
       {readOnlyDowngrade ? (
         <FranchiseDowngradeAlert
@@ -242,296 +151,326 @@ export default async function FranchiseDashboardPage() {
         />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-              <TrendingUp className="h-4 w-4" aria-hidden />
-              Omzettrend netwerk
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-foreground">
-              {performance.network.revenue_delta_pct === null
-                ? "-"
-                : `${performance.network.revenue_delta_pct}%`}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {formatRevenue(performance.network.current_revenue_cents)} in de laatste 30 dagen
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-              <AlertTriangle className="h-4 w-4" aria-hidden />
-              Directe aandacht
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-foreground">
-              {governance.high_priority_count}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              franchisees met directe centrale opvolging
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Gauge className="h-4 w-4" aria-hidden />
-              Gem. bezetting
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-foreground">
-              {governance.average_capacity_utilisation === null
-                ? "-"
-                : `${governance.average_capacity_utilisation}%`}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              gemiddelde netwerkcapaciteit op basis van beschikbaarheid
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-              <BookOpenCheck className="h-4 w-4" aria-hidden />
-              Template-adoptie
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-foreground">
-              {governance.template_activation_rate}%
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              franchisees met actieve template-activatie
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <FranchiseKpiCard
+          label="Franchisees actief"
+          value={`${activeFranchisees}`}
+          hint={`${overview.totals.franchisees} totaal`}
+          icon={Building2}
+          tone="primary"
+          href="/backoffice/franchise/vergelijking"
+        />
+        <FranchiseKpiCard
+          label="Vestigingen"
+          value={overview.locations.reduce(
+            (sum, location) => sum + location.branches.length,
+            0,
+          )}
+          hint="franchisebreed"
+          icon={Network}
+          tone="info"
+          href="/backoffice/franchise/vergelijking"
+        />
+        <FranchiseKpiCard
+          label="Netwerkcapaciteit"
+          value={performance.network.current_lessons}
+          hint="lessen in 30 dagen"
+          trend={formatSignedPercent(performance.network.revenue_delta_pct)}
+          icon={CalendarDays}
+          tone="delegated"
+          href="/backoffice/franchise/planning"
+        />
+        <FranchiseKpiCard
+          label="Leadconversie"
+          value={formatPercent(avgLeadConversion)}
+          hint="gemiddelde franchisee"
+          icon={TrendingUp}
+          tone="success"
+          href="/backoffice/franchise/prestaties"
+        />
+        <FranchiseKpiCard
+          label="Bezettingsgraad"
+          value={formatPercent(governance.average_capacity_utilisation)}
+          hint="beschikbaarheid vs lessen"
+          icon={Gauge}
+          tone="warning"
+          href="/backoffice/franchise/planning"
+        />
+        <FranchiseKpiCard
+          label="Open signalen"
+          value={performance.network.attention_count}
+          hint={`${performance.network.high_priority_count} hoog`}
+          icon={AlertTriangle}
+          tone={performance.network.high_priority_count > 0 ? "danger" : "success"}
+          href="/backoffice/franchise/aandacht"
+        />
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Network className="h-4 w-4 text-muted-foreground" aria-hidden />
-              Franchise is geen multi-vestiging
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-            <div className="rounded-lg border border-border px-3 py-3">
-              Een franchisegever stuurt op meerdere zelfstandige tenants onder een formule, niet
-              alleen op branches binnen een tenant.
+      <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr_0.95fr]">
+        <FranchisePanel
+          title="Netwerkoverzicht"
+          description="Echte franchisee-data, geaggregeerd over tenantgrenzen."
+          actionHref="/backoffice/franchise/vergelijking"
+          actionLabel="Vergelijk"
+          contentClassName="p-0"
+        >
+          {overview.locations.length === 0 ? (
+            <div className="p-4">
+              <FranchiseEmptyState
+                icon={Building2}
+                title="Nog geen franchisees gekoppeld"
+                description="Koppel franchisee-tenants via platformbeheer voordat deze cockpit netwerkdata kan tonen."
+              />
             </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              Deze cockpit geeft centraal inzicht, vergelijking en routing-signalen zonder
-              franchisee-data direct te muteren.
-            </div>
-            <div className="rounded-lg border border-border px-3 py-3">
-              Lokale uitvoering blijft bij franchisee, vestigingsmanager of planner. Dat houdt de
-              governance zuiver.
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Besturingsroutes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <Link
-              href="/backoffice/franchise/playbook"
-              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
+          ) : (
+            <FranchiseMiniTable
+              columns={["Franchisee", "Vest.", "Status", "Trend"]}
+              minWidth="620px"
             >
-              <span>
-                <span className="block font-medium text-foreground">Franchise playbook</span>
-                <span className="block text-xs">
-                  Gebruik een bestuurlijke ingang voor governance, template-uitrol en netwerk-readiness.
-                </span>
-              </span>
-              <BookOpenCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
-            <Link
-              href="/backoffice/franchise/aandacht"
-              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
-            >
-              <span>
-                <span className="block font-medium text-foreground">Franchise aandacht</span>
-                <span className="block text-xs">
-                  Prioriteer opvolging, coachingsroutes en lokale vervolgstappen per franchisee.
-                </span>
-              </span>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
-            <Link
-              href="/backoffice/franchise/prestaties"
-              className="flex items-center justify-between rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/40"
-            >
-              <span>
-                <span className="block font-medium text-foreground">Franchiseprestaties</span>
-                <span className="block text-xs">
-                  Volg omzet, lesvolume en netwerkbrede aandachtssignalen over 90 dagen.
-                </span>
-              </span>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
-            <div className="rounded-lg border border-dashed border-border px-3 py-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
-                Read-only governance
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Franchise-sturing blijft bewust leesgericht. Cross-tenant acties blijven expliciet
-                en auditbaar.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              {performance.franchisees.slice(0, 7).map((row) => (
+                <tr key={row.tenant_id}>
+                  <FranchiseTableCell>
+                    <p className="font-black text-foreground">{row.tenant_name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {row.active_students} leerlingen, {row.current_lessons} lessen
+                    </p>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell align="right">{row.branch_count}</FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <FranchiseStatusBadge tone={priorityTone(row.attention_priority)}>
+                      {row.attention_label}
+                    </FranchiseStatusBadge>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <FranchiseProgressBar
+                      value={row.capacity_utilisation}
+                      tone={row.capacity_utilisation !== null && row.capacity_utilisation < 45 ? "warning" : "primary"}
+                    />
+                  </FranchiseTableCell>
+                </tr>
+              ))}
+            </FranchiseMiniTable>
+          )}
+        </FranchisePanel>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-foreground">Netwerkgezondheid</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Een managementlaag voor omzet, capaciteit, adoptie en directe aandacht.
-            </p>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            {governance.rollout_gaps.map((item) => (
-              <div key={item.label} className="rounded-lg border border-border px-3 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {item.label}
-                </p>
-                <p className="mt-1 text-xl font-semibold text-foreground">{item.value}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-foreground">Coaching targets</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            {governance.coaching_targets.length === 0 ? (
-              <div className="rounded-lg border border-border px-3 py-3">
-                Geen directe coachingtargets. Het netwerk draait stabiel op de huidige signalen.
-              </div>
+        <FranchisePanel
+          title="Signalen & aandacht"
+          description="Gerouteerd op prestatie, planning en kwaliteit."
+          actionHref="/backoffice/franchise/aandacht"
+          actionLabel="Alle signalen"
+        >
+          <div className="space-y-3">
+            {performance.watchlists.attention.length === 0 ? (
+              <FranchiseEmptyState
+                title="Geen acute signalen"
+                description="Het netwerk heeft op dit moment geen franchisees met directe follow-up."
+              />
             ) : (
-              governance.coaching_targets.slice(0, 4).map((target) => (
-                <div key={target.tenant_id} className="rounded-lg border border-border px-3 py-3">
-                  <p className="font-medium text-foreground">{target.tenant_name}</p>
-                  <p className="mt-1 text-xs">{target.reason}</p>
-                  <p className="mt-2 text-xs text-muted-foreground/80">{target.next_step}</p>
+              performance.watchlists.attention.map((item) => (
+                <div
+                  key={item.tenant_id}
+                  className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-foreground">{item.tenant_name}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {item.attention_reason}
+                      </p>
+                    </div>
+                    <FranchiseStatusBadge tone={priorityTone(item.attention_priority)}>
+                      {item.attention_priority}
+                    </FranchiseStatusBadge>
+                  </div>
+                  <p className="mt-2 text-xs font-bold text-primary">{item.next_step}</p>
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          {
-            label: "Franchisees",
-            value: overview.totals.franchisees,
-            icon: Building2,
-          },
-          {
-            label: "Actieve leerlingen",
-            value: overview.totals.active_students,
-            icon: Users,
-          },
-          {
-            label: "Lessen (30 dgn)",
-            value: overview.totals.lessons_last_30d,
-            icon: BookOpen,
-          },
-          {
-            label: "Omzet (30 dgn)",
-            value: formatRevenue(overview.totals.revenue_last_30d_cents),
-            icon: TrendingUp,
-          },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="pb-1 pt-4">
-              <CardTitle className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <stat.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" aria-hidden />
-            Locaties per franchisee
-          </CardTitle>
-        </CardHeader>
-
-        {!hasFranchisees ? (
-          <CardContent>
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-center">
-              <Building2 className="h-8 w-8 text-muted-foreground/40" aria-hidden />
-              <p className="text-sm text-muted-foreground">Nog geen franchisees gekoppeld.</p>
-              <p className="text-xs text-muted-foreground/60">
-                Vraag een platformbeheerder om franchisees te koppelen via het admin-paneel.
-              </p>
-            </div>
-          </CardContent>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium" colSpan={2}>
-                    Franchisee / Locatie
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium">Leerlingen</th>
-                  <th className="px-4 py-3 text-right font-medium">Lessen (30 dgn)</th>
-                  <th className="px-4 py-3 text-right font-medium">Omzet (30 dgn)</th>
-                  <th className="px-4 py-3 text-right font-medium">Slagings%</th>
-                  <th className="px-4 py-3 text-right font-medium">Conversie%</th>
-                  <th className="px-4 py-3 text-right font-medium">
-                    <span className="inline-flex items-center justify-end gap-1">
-                      <Gauge className="h-3.5 w-3.5" aria-hidden />
-                      Bezetting
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 font-medium" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {overview.locations.map((loc) => (
-                  <FranchiseeRow key={loc.tenant_id} loc={loc} />
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </Card>
+        </FranchisePanel>
 
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span>
-          <strong>Bezetting</strong>: gereden lesminuten / beschikbare instructeurminuten
-          (30 dgn). Toont - als er geen beschikbaarheidsblokken zijn ingesteld.
-        </span>
-        <span>
-          Lessen- en omzetcijfers betreffen de afgelopen 30 dagen. Slagingspercentage toont alleen
-          voltooide examens met geregistreerde uitslag.
-        </span>
-      </div>
-    </div>
+        <FranchisePanel
+          title="Planning overzicht"
+          description="Komende 7 dagen per vestiging."
+          actionHref="/backoffice/franchise/planning"
+          actionLabel="Planning"
+        >
+          <div className="space-y-3">
+            {planning.branches.slice(0, 6).map((branch) => (
+              <div key={branch.branch_id} className="rounded-xl border border-brand-card-border bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-black text-foreground">{branch.tenant_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {branch.branch_name}{branch.city ? `, ${branch.city}` : ""}
+                    </p>
+                  </div>
+                  <FranchiseStatusBadge
+                    tone={branch.upcoming_lessons_7d === 0 ? "warning" : "success"}
+                  >
+                    {branch.upcoming_lessons_7d} lessen
+                  </FranchiseStatusBadge>
+                </div>
+                <div className="mt-3 grid grid-cols-7 gap-1">
+                  {branch.daily_lessons.map((day) => (
+                    <div
+                      key={day.date}
+                      title={`${day.label}: ${day.lessons} lessen`}
+                      className={`h-8 rounded-lg border border-white/70 text-center text-[10px] font-black leading-8 ${
+                        day.pressure === "critical"
+                          ? "bg-planning-critical text-red-900"
+                          : day.pressure === "busy"
+                            ? "bg-planning-busy text-orange-900"
+                            : day.pressure === "normal"
+                              ? "bg-planning-normal text-emerald-900"
+                              : "bg-planning-calm text-slate-500"
+                      }`}
+                    >
+                      {day.lessons}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </FranchisePanel>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <FranchisePanel
+          title="Prestaties vergelijking"
+          description="Netwerkbrede omzet, lessen en capaciteit."
+          actionHref="/backoffice/franchise/prestaties"
+          actionLabel="KPI's"
+        >
+          <div className="space-y-3">
+            {performance.franchisees.slice(0, 5).map((row, index) => (
+              <div key={row.tenant_id} className="grid grid-cols-[2rem_1fr] items-center gap-3">
+                <span className="text-center text-sm font-black text-muted-foreground">
+                  {index + 1}
+                </span>
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-black text-foreground">{row.tenant_name}</p>
+                    <p className="text-sm font-black text-foreground">
+                      {formatEuro(row.current_revenue_cents)}
+                    </p>
+                  </div>
+                  <FranchiseProgressBar
+                    value={row.capacity_utilisation}
+                    tone="delegated"
+                    label={formatPercent(row.capacity_utilisation)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </FranchisePanel>
+
+        <FranchisePanel
+          title="Governance & controles"
+          description="Franchise werkt met expliciete read-only en delegatiegrenzen."
+          actionHref="/backoffice/franchise/governance"
+          actionLabel="Governance"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            {controlCards.map((card) => (
+              <div
+                key={card.title}
+                className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black text-foreground">{card.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {card.description}
+                    </p>
+                  </div>
+                  <FranchiseStatusBadge tone={controlTone(card.status)}>
+                    {card.value}
+                  </FranchiseStatusBadge>
+                </div>
+                <p className="mt-2 text-xs font-bold text-primary">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+        </FranchisePanel>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <FranchisePanel
+          title="Recente activiteiten"
+          description="Auditlog uit franchisegever en franchisee-tenants."
+          actionHref="/backoffice/franchise/audit"
+          actionLabel="Auditlog"
+        >
+          <div className="space-y-2">
+            {auditEvents.length === 0 ? (
+              <FranchiseEmptyState
+                icon={ShieldCheck}
+                title="Nog geen audit-events"
+                description="Wanneer franchise-acties of tenantbeheer plaatsvinden verschijnen ze hier."
+              />
+            ) : (
+              auditEvents.slice(0, 6).map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-foreground">
+                      {event.action}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {event.target_type ?? "tenant"} {event.target_id ? `- ${event.target_id}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs font-bold text-muted-foreground">
+                    {formatDateTime(event.created_at)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </FranchisePanel>
+
+        <FranchisePanel
+          title="AI-inzichten"
+          description="AI helpt samenvatten en prioriteren, maar publiceert nooit autonoom."
+          actionHref="/backoffice/franchise/ai-insights"
+          actionLabel="AI"
+        >
+          <div className="space-y-3">
+            {aiInsights.slice(0, 4).map((insight) => (
+              <div
+                key={insight.title}
+                className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-primary">
+                    {insight.priority === "hoog" ? (
+                      <AlertTriangle className="h-4 w-4" aria-hidden />
+                    ) : insight.priority === "middel" ? (
+                      <Sparkles className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" aria-hidden />
+                    )}
+                  </span>
+                  <div>
+                    <p className="font-black text-foreground">{insight.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {insight.description}
+                    </p>
+                    <p className="mt-2 text-xs font-bold text-primary">
+                      {insight.action}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FranchisePanel>
+      </section>
+    </FranchisePage>
   );
 }
