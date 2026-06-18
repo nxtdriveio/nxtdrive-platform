@@ -300,11 +300,7 @@ export function BackofficeSidebar({
         />
       </div>
 
-      <div className="relative px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-sidebar-muted">
-        {tenantName}
-      </div>
-
-      <nav className="relative flex-1 overflow-y-auto px-3 pb-3">
+      <nav className="relative flex-1 overflow-x-hidden overflow-y-auto px-3 pb-3 pt-4 [scrollbar-color:rgba(255,255,255,0.34)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-white/28 [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-track]:bg-transparent">
         {NAV_SECTIONS.map((section) => {
           let sectionItems: NavItem[] = [];
           if (section.label === "Franchise" && !hasFranchise) {
