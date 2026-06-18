@@ -1,345 +1,285 @@
-import Link from "next/link";
-import { AlertTriangle, ArrowRight, CalendarDays, ShieldCheck, TrendingDown, Users } from "lucide-react";
-import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireFranchiseOperator } from "@/lib/franchise/access";
-import { PLAN_LABELS } from "@/lib/platform/features";
 import {
-  loadFranchisePerformanceOverview,
-  type FranchisePerformanceRow,
-} from "@/lib/franchise/performance";
+  AlertTriangle,
+  ArrowUpRight,
+  BadgeCheck,
+  ClipboardList,
+  Megaphone,
+  Route,
+  ShieldCheck,
+} from "lucide-react";
+
+import {
+  FranchiseActionLink,
+  FranchiseEmptyState,
+  FranchiseErrorState,
+  FranchiseKpiCard,
+  FranchiseModeBadge,
+  FranchisePage,
+  FranchisePageHeader,
+  FranchisePanel,
+  FranchiseSectionTabs,
+  FranchiseStatusBadge,
+} from "@/components/backoffice/franchise/franchise-primitives";
+import { formatEuro, priorityTone } from "@/components/backoffice/franchise/franchise-format";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
+import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
 
 export const dynamic = "force-dynamic";
 
-function routeLabel(route: FranchisePerformanceRow["follow_up_route"]) {
-  if (route === "franchise-coaching") return "Franchise-coaching";
-  if (route === "lokale-planning") return "Lokale planning";
-  if (route === "kwaliteit") return "Kwaliteitsopvolging";
-  if (route === "marketing") return "Marketing & intake";
-  return "Bewaken";
-}
-
-function priorityVariant(priority: FranchisePerformanceRow["attention_priority"]) {
-  if (priority === "hoog") return "danger" as const;
-  if (priority === "middel") return "warning" as const;
-  if (priority === "laag") return "outline" as const;
-  return "outline" as const;
-}
-
-function priorityLabel(priority: FranchisePerformanceRow["attention_priority"]) {
-  if (priority === "hoog") return "Hoge prioriteit";
-  if (priority === "middel") return "Middel";
-  if (priority === "laag") return "Laag";
-  return "Stabiel";
-}
-
-function AttentionCard({
-  title,
-  description,
-  items,
-}: {
-  title: string;
-  description: string;
-  items: FranchisePerformanceRow[];
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Geen franchisees in deze categorie.</p>
-        ) : (
-          items.map((item) => (
-            <div key={item.tenant_id} className="rounded-lg border border-border px-3 py-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-foreground">{item.tenant_name}</p>
-                  <p className="text-xs text-muted-foreground">{item.attention_reason}</p>
-                </div>
-                <Badge variant={priorityVariant(item.attention_priority)}>
-                  {priorityLabel(item.attention_priority)}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline">{routeLabel(item.follow_up_route)}</Badge>
-                <Badge variant="outline">{item.branch_count} vestiging(en)</Badge>
-                <Badge variant="outline">{item.active_students} leerlingen</Badge>
-              </div>
-              <p className="text-sm text-foreground">{item.next_step}</p>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AttentionUnavailableCard({ message }: { message: string }) {
-  return (
-    <Card className="border-danger/30 bg-danger/5">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-danger">
-          <AlertTriangle className="h-4 w-4" aria-hidden />
-          Franchise-aandacht tijdelijk niet beschikbaar
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm text-muted-foreground">
-        <p>
-          De franchise cockpit kon de prestatie- en aandachtssignalen niet
-          volledig laden. De toegang tot de stuurlaag is actief, maar een
-          onderliggende databron gaf een fout terug.
-        </p>
-        <p className="rounded-md border border-danger/20 bg-background px-3 py-2 text-danger">
-          {message}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise">
-            <Button variant="outline" size="sm">
-              Terug naar dashboard
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/planning">
-            <Button variant="outline" size="sm">
-              Centrale planning
-            </Button>
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+const ROUTE_LABELS: Record<string, string> = {
+  "franchise-coaching": "Franchise coaching",
+  "lokale-planning": "Lokale planning",
+  kwaliteit: "Kwaliteit",
+  marketing: "Marketing",
+  bewaken: "Bewaken",
+};
 
 export default async function FranchiseAttentionPage() {
-  const { tenant, franchiseAccess, readOnlyDowngrade } =
-    await requireFranchiseOperator();
-  let overview: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>> | null = null;
-  let loadError: string | null = null;
+  const { tenant } = await requireFranchiseOperator();
+  let data:
+    | [
+        Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
+        Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
+      ]
+    | null = null;
 
   try {
-    overview = await loadFranchisePerformanceOverview(tenant.id);
+    data = await Promise.all([
+      loadFranchisePerformanceOverview(tenant.id),
+      loadFranchiseGovernanceOverview(tenant.id),
+    ]);
   } catch (error) {
-    loadError =
-      error instanceof Error
-        ? error.message
-        : "Onbekende fout bij het laden van franchise-aandacht.";
     console.error("[franchise/aandacht] load failed", error);
   }
 
-  const mediumPriority =
-    overview?.franchisees.filter((item) => item.attention_priority === "middel") ?? [];
-  const lowPriority =
-    overview?.franchisees.filter((item) => item.attention_priority === "laag") ?? [];
+  if (!data) {
+    return (
+      <FranchiseErrorState
+        title="Franchise Aandacht"
+        description={`De aandachtssignalen konden nog niet worden geladen voor ${tenant.name}.`}
+      />
+    );
+  }
+
+  const [performance, governance] = data;
+  const routeCounts = performance.franchisees.reduce<Record<string, number>>(
+    (acc, row) => {
+      acc[row.follow_up_route] = (acc[row.follow_up_route] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <Link href="/backoffice/franchise" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Terug naar franchise dashboard
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Franchise aandacht</h1>
-            <p className="text-sm text-muted-foreground">
-              Bestuurscockpit voor opvolging binnen {tenant.name}. Combineer prestaties, planning en kwaliteitssignalen tot een duidelijke vervolgrichting per franchisee.
-            </p>
+    <FranchisePage>
+      <FranchisePageHeader
+        eyebrow="Franchise aandacht"
+        title="Aandacht"
+        description="Prioriteer franchisees op basis van omzet, lesvolume, capaciteit, conversie en kwaliteit. Follow-up blijft bestuurlijk: lokaal uitvoeren, centraal bewaken."
+        badges={
+          <>
+            <FranchiseModeBadge />
+            <FranchiseStatusBadge tone="danger">
+              {performance.network.high_priority_count} hoog
+            </FranchiseStatusBadge>
+            <FranchiseStatusBadge tone="warning">
+              {performance.network.attention_count} signalen
+            </FranchiseStatusBadge>
+          </>
+        }
+        actions={
+          <>
+            <FranchiseActionLink href="/backoffice/franchise/delegaties">
+              Delegatiepad
+            </FranchiseActionLink>
+            <FranchiseActionLink href="/backoffice/franchise/ai-insights" variant="primary">
+              AI-samenvatten
+            </FranchiseActionLink>
+          </>
+        }
+      />
+
+      <FranchiseSectionTabs />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FranchiseKpiCard
+          label="Directe aandacht"
+          value={performance.network.high_priority_count}
+          hint="hoog risico"
+          icon={AlertTriangle}
+          tone={performance.network.high_priority_count > 0 ? "danger" : "success"}
+        />
+        <FranchiseKpiCard
+          label="Alle signalen"
+          value={performance.network.attention_count}
+          hint="niet stabiel"
+          icon={ClipboardList}
+          tone="warning"
+        />
+        <FranchiseKpiCard
+          label="Coaching targets"
+          value={governance.coaching_targets.length}
+          hint="centrale opvolging"
+          icon={Megaphone}
+          tone="delegated"
+        />
+        <FranchiseKpiCard
+          label="Netwerkomzet"
+          value={formatEuro(performance.network.current_revenue_cents)}
+          hint="context voor prioriteit"
+          icon={BadgeCheck}
+          tone="info"
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1fr_0.55fr]">
+        <FranchisePanel
+          title="Aandachtspunten"
+          description="Gesorteerd op urgentie, daarna omzet en lesvolume."
+        >
+          <div className="space-y-3">
+            {performance.watchlists.attention.length === 0 ? (
+              <FranchiseEmptyState
+                icon={ShieldCheck}
+                title="Geen directe aandacht"
+                description="Het franchisenetwerk heeft op dit moment geen rode of oranje signalen."
+              />
+            ) : (
+              performance.watchlists.attention.map((item) => (
+                <div
+                  key={item.tenant_id}
+                  className="rounded-2xl border border-brand-card-border bg-white p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-base font-black text-foreground">
+                          {item.tenant_name}
+                        </h2>
+                        <FranchiseStatusBadge tone={priorityTone(item.attention_priority)}>
+                          {item.attention_label}
+                        </FranchiseStatusBadge>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {item.attention_reason}
+                      </p>
+                    </div>
+                    <div className="shrink-0 rounded-xl bg-brand-muted px-3 py-2 text-right">
+                      <p className="text-xs font-bold text-muted-foreground">Route</p>
+                      <p className="text-sm font-black text-foreground">
+                        {ROUTE_LABELS[item.follow_up_route] ?? item.follow_up_route}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <p className="text-xs font-bold text-muted-foreground">Omzet</p>
+                      <p className="mt-1 font-black text-foreground">
+                        {formatEuro(item.current_revenue_cents)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <p className="text-xs font-bold text-muted-foreground">Lessen</p>
+                      <p className="mt-1 font-black text-foreground">
+                        {item.current_lessons}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <p className="text-xs font-bold text-muted-foreground">Bezetting</p>
+                      <p className="mt-1 font-black text-foreground">
+                        {item.capacity_utilisation === null
+                          ? "-"
+                          : `${item.capacity_utilisation}%`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-xl border border-primary/15 bg-brand-accent px-3 py-3">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">
+                      Volgende stap
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-foreground">
+                      {item.next_step}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{overview?.network.attention_count ?? 0} actieve signalen</Badge>
-            <Badge variant="outline">{overview?.network.high_priority_count ?? 0} hoog</Badge>
-            <Badge variant="outline">Read-only governance</Badge>
-          </div>
+        </FranchisePanel>
+
+        <div className="space-y-4">
+          <FranchisePanel title="Follow-up routes" description="Automatisch afgeleid, lokaal uitgevoerd.">
+            <div className="space-y-3">
+              {Object.entries(ROUTE_LABELS).map(([key, label]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent text-primary">
+                      <Route className="h-4 w-4" aria-hidden />
+                    </span>
+                    <p className="font-black text-foreground">{label}</p>
+                  </div>
+                  <FranchiseStatusBadge tone={(routeCounts[key] ?? 0) > 0 ? "info" : "readonly"}>
+                    {routeCounts[key] ?? 0}
+                  </FranchiseStatusBadge>
+                </div>
+              ))}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Governance regels" description="Waarom dit geen directe mutatie doet.">
+            <div className="space-y-3 text-sm text-muted-foreground">
+              {[
+                "Franchisegever ziet signalen over tenants heen, maar neemt lokale data niet over.",
+                "Een vervolgactie vraagt expliciete eigenaar, scope en geldigheid.",
+                "Elke delegatie of wijziging moet auditbaar blijven.",
+              ].map((rule) => (
+                <div
+                  key={rule}
+                  className="flex items-start gap-3 rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                >
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <p>{rule}</p>
+                </div>
+              ))}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel
+            title="Coaching targets"
+            description="Vanuit governance-overzicht."
+            actionHref="/backoffice/franchise/governance"
+            actionLabel="Governance"
+          >
+            <div className="space-y-3">
+              {governance.coaching_targets.length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen coachingtargets"
+                  description="Er zijn geen franchisees die direct centrale coaching nodig hebben."
+                />
+              ) : (
+                governance.coaching_targets.map((target) => (
+                  <div
+                    key={target.tenant_id}
+                    className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-black text-foreground">{target.tenant_name}</p>
+                      <ArrowUpRight className="h-4 w-4 text-primary" aria-hidden />
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {target.reason}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </FranchisePanel>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise/prestaties">
-            <Button variant="outline" size="sm">Prestaties</Button>
-          </Link>
-          <Link href="/backoffice/franchise/planning">
-            <Button variant="outline" size="sm">Centrale planning</Button>
-          </Link>
-          <Link href="/backoffice/franchise/vergelijking">
-            <Button variant="outline" size="sm">Vergelijking</Button>
-          </Link>
-        </div>
-      </div>
-
-      {readOnlyDowngrade ? (
-        <FranchiseDowngradeAlert
-          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
-        />
-      ) : null}
-
-      {!overview ? (
-        <AttentionUnavailableCard
-          message={loadError ?? "Franchise-aandacht laden mislukt."}
-        />
-      ) : (
-        <>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Hoge prioriteit</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {overview.network.high_priority_count}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <AlertTriangle className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Directe aandacht nodig vanuit franchise-coaching of herstelsturing.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Planning-routes</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {overview.franchisees.filter((item) => item.follow_up_route === "lokale-planning").length}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <CalendarDays className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Signalen die lokaal vooral via planning of capaciteit opgepakt moeten worden.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Kwaliteit & coaching</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {overview.franchisees.filter((item) => item.follow_up_route === "kwaliteit" || item.follow_up_route === "franchise-coaching").length}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <ShieldCheck className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Franchisees die vooral instructiekwaliteit of direct coachingswerk vragen.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Marketing & intake</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {overview.franchisees.filter((item) => item.follow_up_route === "marketing").length}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <Users className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Conversie- of intakevraagstukken die niet eerst via planning opgelost worden.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Hoe je deze cockpit gebruikt</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3 text-sm text-muted-foreground">
-          <div className="rounded-lg border border-border px-3 py-3">
-            1. Kijk eerst naar hoge prioriteit en bepaal of directe franchise-coaching nodig is.
-          </div>
-          <div className="rounded-lg border border-border px-3 py-3">
-            2. Gebruik daarna de follow-up route om het signaal bij planning, kwaliteit of marketing te beleggen.
-          </div>
-          <div className="rounded-lg border border-border px-3 py-3">
-            3. Houd uitvoering lokaal: deze pagina helpt sturen, niet muteren over tenants heen.
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <AttentionCard
-          title="Directe aandacht"
-          description="Franchisees die het snelst bestuurlijke opvolging nodig hebben."
-          items={overview.watchlists.high_priority}
-        />
-        <AttentionCard
-          title="Operationele opvolging"
-          description="Middelprioriteit die vooral planning of kwaliteit lokaal moet oplossen."
-          items={mediumPriority}
-        />
-        <AttentionCard
-          title="Lichte signalen"
-          description="Lagere urgentie, vaak rond conversie of lichte terugval."
-          items={lowPriority}
-        />
-      </div>
-
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden />
-            Volledige opvolgmatrix
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Franchisee</th>
-                  <th className="px-4 py-3 font-medium">Prioriteit</th>
-                  <th className="px-4 py-3 font-medium">Route</th>
-                  <th className="px-4 py-3 text-right font-medium">Omzet delta</th>
-                  <th className="px-4 py-3 text-right font-medium">Lesdelta</th>
-                  <th className="px-4 py-3 text-right font-medium">Conversie</th>
-                  <th className="px-4 py-3 text-right font-medium">Slagings%</th>
-                  <th className="px-4 py-3 text-right font-medium">Bezetting</th>
-                  <th className="px-4 py-3 font-medium">Volgende stap</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {overview.franchisees.map((row) => (
-                  <tr key={row.tenant_id}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{row.tenant_name}</div>
-                      <div className="text-xs text-muted-foreground">{row.attention_reason}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={priorityVariant(row.attention_priority)}>
-                        {priorityLabel(row.attention_priority)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline">{routeLabel(row.follow_up_route)}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">{row.revenue_delta_pct === null ? "—" : `${row.revenue_delta_pct}%`}</td>
-                    <td className="px-4 py-3 text-right">{row.lesson_delta > 0 ? `+${row.lesson_delta}` : row.lesson_delta}</td>
-                    <td className="px-4 py-3 text-right">{row.lead_conversion_rate === null ? "—" : `${row.lead_conversion_rate}%`}</td>
-                    <td className="px-4 py-3 text-right">{row.exam_pass_rate === null ? "—" : `${row.exam_pass_rate}%`}</td>
-                    <td className="px-4 py-3 text-right">{row.capacity_utilisation === null ? "—" : `${row.capacity_utilisation}%`}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <span className="inline-flex items-start gap-2">
-                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                        <span>{row.next_step}</span>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-        </>
-      )}
-    </div>
+      </section>
+    </FranchisePage>
   );
 }

@@ -1,219 +1,205 @@
-import Link from "next/link";
-import { AlertTriangle, CalendarDays, Clock3, Network, ShieldCheck, TrendingUp } from "lucide-react";
-import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Gauge,
+  LockKeyhole,
+  MapPin,
+  Network,
+} from "lucide-react";
+
+import {
+  FranchiseActionLink,
+  FranchiseEmptyState,
+  FranchiseErrorState,
+  FranchiseKpiCard,
+  FranchiseModeBadge,
+  FranchisePage,
+  FranchisePageHeader,
+  FranchisePanel,
+  FranchiseProgressBar,
+  FranchiseSectionTabs,
+  FranchiseStatusBadge,
+  FranchiseTableCell,
+  FranchiseMiniTable,
+} from "@/components/backoffice/franchise/franchise-primitives";
+import { formatDateTime } from "@/components/backoffice/franchise/franchise-format";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
-import { loadFranchiseContext } from "@/lib/franchise/context";
-import { loadFranchisePlanningOverview } from "@/lib/franchise/planning";
-import { PLAN_LABELS } from "@/lib/platform/features";
+import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
+import {
+  loadFranchisePlanningOverview,
+  type FranchisePlanningPressure,
+} from "@/lib/franchise/planning";
 
 export const dynamic = "force-dynamic";
 
-const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function StatCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-}: {
-  title: string;
-  value: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-            {value}
-          </p>
-        </div>
-        <span className="rounded-full bg-primary-soft p-2 text-primary">
-          <Icon className="h-5 w-5" aria-hidden />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  );
+function pressureClass(pressure: FranchisePlanningPressure): string {
+  if (pressure === "critical") return "bg-planning-critical text-red-950";
+  if (pressure === "busy") return "bg-planning-busy text-orange-950";
+  if (pressure === "normal") return "bg-planning-normal text-emerald-950";
+  return "bg-planning-calm text-slate-500";
 }
 
 export default async function FranchisePlanningPage() {
-  const { tenant, franchiseAccess, readOnlyDowngrade } =
-    await requireFranchiseOperator();
+  const { tenant, readOnlyDowngrade } = await requireFranchiseOperator();
+  let data:
+    | [
+        Awaited<ReturnType<typeof loadFranchisePlanningOverview>>,
+        Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
+      ]
+    | null = null;
 
-  const [franchiseContext, planning] = await Promise.all([
-    loadFranchiseContext(tenant.id),
-    loadFranchisePlanningOverview(tenant.id),
-  ]);
+  try {
+    data = await Promise.all([
+      loadFranchisePlanningOverview(tenant.id),
+      loadFranchiseGovernanceOverview(tenant.id),
+    ]);
+  } catch (error) {
+    console.error("[franchise/planning] load failed", error);
+  }
+
+  if (!data) {
+    return (
+      <FranchiseErrorState
+        title="Franchise Planning"
+        description={`De franchiseplanning kon nog niet worden geladen voor ${tenant.name}.`}
+      />
+    );
+  }
+
+  const [planning, governance] = data;
+  const branchesWithLessons =
+    planning.branches.length - planning.branches_without_lessons;
+  const coverage =
+    planning.branches.length === 0
+      ? 0
+      : Math.round((branchesWithLessons / planning.branches.length) * 100);
+  const busiest = [...planning.branches].sort(
+    (left, right) => right.upcoming_lessons_7d - left.upcoming_lessons_7d,
+  )[0];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <Link
-            href="/backoffice/franchise"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Terug naar franchise dashboard
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Centrale planning
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Read-only planningsradar voor {franchiseContext.franchisegever_name}. Bekijk waar de komende {planning.horizon_days} dagen weinig of geen lesactiviteit staat.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="primary">{franchiseContext.franchisees.length} franchisees</Badge>
-            <Badge variant="outline">Read-only over tenants heen</Badge>
-            <Badge variant="outline">Geen cross-tenant mutaties</Badge>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise/aandacht">
-            <Button variant="outline" size="sm">
-              Aandacht
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/prestaties">
-            <Button variant="outline" size="sm">
-              Prestaties
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/vergelijking">
-            <Button variant="outline" size="sm">
-              Vergelijk franchisees
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/templates">
-            <Button variant="outline" size="sm">
-              Templates
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <FranchisePage>
+      <FranchisePageHeader
+        eyebrow="Franchise planning"
+        title="Planning"
+        description="Franchisebrede planningdruk per vestiging. De cockpit blijft read-only: plannen gebeurt lokaal of via expliciete delegatie."
+        badges={
+          <>
+            <FranchiseModeBadge />
+            {readOnlyDowngrade ? (
+              <FranchiseStatusBadge tone="warning">Downgrade read-only</FranchiseStatusBadge>
+            ) : (
+              <FranchiseStatusBadge tone="delegated">Delegatie vereist</FranchiseStatusBadge>
+            )}
+          </>
+        }
+        actions={
+          <>
+            <FranchiseActionLink href="/backoffice/franchise/delegaties">
+              Delegaties
+            </FranchiseActionLink>
+            <FranchiseActionLink href="/backoffice/planning-board" variant="primary">
+              Lokaal planboard
+            </FranchiseActionLink>
+          </>
+        }
+      />
 
-      {readOnlyDowngrade ? (
-        <FranchiseDowngradeAlert
-          planLabel={PLAN_LABELS[franchiseAccess.requiredPlan]}
-        />
-      ) : null}
+      <FranchiseSectionTabs />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Franchisees"
-          value={String(franchiseContext.franchisees.length)}
-          description="Alle gekoppelde franchisees in dit netwerk."
-          icon={Network}
-        />
-        <StatCard
-          title="Lessen 7 dagen"
-          value={String(planning.total_upcoming_lessons)}
-          description="Alle komende lessen over het hele franchisenetwerk."
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FranchiseKpiCard
+          label="Aankomende lessen"
+          value={planning.total_upcoming_lessons}
+          hint={`komende ${planning.horizon_days} dagen`}
           icon={CalendarDays}
+          tone="primary"
         />
-        <StatCard
-          title="Vestigingen zonder lessen"
-          value={String(planning.branches_without_lessons)}
-          description="Locaties die de komende week nog geen geplande lesactiviteit hebben."
-          icon={AlertTriangle}
+        <FranchiseKpiCard
+          label="Vestigingen"
+          value={planning.branches.length}
+          hint={`${branchesWithLessons} met planning`}
+          icon={Network}
+          tone="info"
         />
-        <StatCard
-          title="Governance"
-          value="Read-only"
-          description="Franchiseplanning geeft centraal inzicht, maar schrijft niet in franchisee-data."
-          icon={ShieldCheck}
+        <FranchiseKpiCard
+          label="Planningsgaten"
+          value={planning.branches_without_lessons}
+          hint="vestigingen zonder lessen"
+          icon={Clock}
+          tone={planning.branches_without_lessons > 0 ? "warning" : "success"}
         />
-      </div>
+        <FranchiseKpiCard
+          label="Coverage"
+          value={`${coverage}%`}
+          hint="vestigingsdekking"
+          icon={Gauge}
+          tone="delegated"
+        />
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Hoe je deze cockpit gebruikt</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3 text-sm text-muted-foreground">
-          <div className="rounded-lg border border-border px-3 py-3">
-            1. Kijk centraal welke franchisees of vestigingen te weinig lesactiviteit hebben.
-          </div>
-          <div className="rounded-lg border border-border px-3 py-3">
-            2. Gebruik dit om lokale planners of vestigingsmanagers te sturen, niet om hun planning direct over te nemen.
-          </div>
-          <div className="rounded-lg border border-border px-3 py-3">
-            3. Houd franchise-inzicht en multi-vestiging gescheiden: dit scherm werkt tenant-overstijgend, gewone vestigingsplanning niet.
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle>Vestigingen met laagste komende activiteit</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <section className="grid gap-4 xl:grid-cols-[1fr_0.42fr]">
+        <FranchisePanel
+          title="Franchise Planning"
+          description="Heatmap op basis van echte geplande lessen, gegroepeerd per franchisee en vestiging."
+          contentClassName="p-0"
+        >
           {planning.branches.length === 0 ? (
-            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-              Nog geen franchise-vestigingen beschikbaar.
+            <div className="p-4">
+              <FranchiseEmptyState
+                icon={MapPin}
+                title="Geen actieve vestigingen"
+                description="Zodra franchisees actieve vestigingen hebben verschijnt hier de planningdruk."
+              />
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-sm">
-                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+              <table className="w-full min-w-[940px] text-sm">
+                <thead className="border-b border-brand-card-border bg-brand-muted text-left text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Franchisee</th>
-                    <th className="px-4 py-3 font-medium">Vestiging</th>
-                    <th className="px-4 py-3 text-right font-medium">Komende lessen</th>
-                    <th className="px-4 py-3 text-right font-medium">Eerste les</th>
-                    <th className="px-4 py-3 text-right font-medium">Signaal</th>
+                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em]">
+                      Vestiging
+                    </th>
+                    {planning.branches[0]?.daily_lessons.map((day) => (
+                      <th
+                        key={day.date}
+                        className="px-2 py-3 text-center text-[11px] font-black uppercase tracking-[0.1em]"
+                      >
+                        {day.label}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-right text-[11px] font-black uppercase tracking-[0.14em]">
+                      Totaal
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-brand-card-border">
                   {planning.branches.map((branch) => (
                     <tr key={branch.branch_id}>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{branch.tenant_name}</div>
-                        <div className="text-xs text-muted-foreground">{branch.tenant_slug}</div>
+                        <p className="font-black text-foreground">{branch.tenant_name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {branch.branch_name}
+                          {branch.city ? `, ${branch.city}` : ""}
+                        </p>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{branch.branch_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {branch.city ?? "Plaats niet ingesteld"}
-                        </div>
-                      </td>
+                      {branch.daily_lessons.map((day) => (
+                        <td key={day.date} className="px-2 py-3">
+                          <div
+                            className={`mx-auto flex h-12 w-16 items-center justify-center rounded-xl border border-white/80 text-sm font-black ${pressureClass(day.pressure)}`}
+                            title={`${day.label}: ${day.lessons} lessen`}
+                          >
+                            {day.lessons}
+                          </div>
+                        </td>
+                      ))}
                       <td className="px-4 py-3 text-right">
-                        <Badge
-                          variant={branch.upcoming_lessons_7d === 0 ? "warning" : "outline"}
+                        <FranchiseStatusBadge
+                          tone={branch.upcoming_lessons_7d === 0 ? "warning" : "success"}
                         >
                           {branch.upcoming_lessons_7d}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
-                        {branch.next_lesson_at ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Clock3 className="h-3.5 w-3.5" aria-hidden />
-                            {dateTimeFmt.format(new Date(branch.next_lesson_at))}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-xs text-muted-foreground">
-                          {branch.upcoming_lessons_7d === 0
-                            ? "Lokale opvolging nodig"
-                            : "Binnen lokale planning"}
-                        </span>
+                        </FranchiseStatusBadge>
                       </td>
                     </tr>
                   ))}
@@ -221,17 +207,119 @@ export default async function FranchisePlanningPage() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </FranchisePanel>
 
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span>
-          <strong>Vervolgroute</strong>: combineer deze planningsradar met de aandacht-cockpit om prioriteit, coaching en lokale opvolging scherper te kiezen.
-        </span>
-        <span>
-          Gebruik lokale opvolging voor uitvoering; dit scherm blijft tenant-overstijgend read-only.
-        </span>
-      </div>
-    </div>
+        <div className="space-y-4">
+          <FranchisePanel title="Legenda" description="Planningdruk per dag.">
+            <div className="grid gap-2 text-sm">
+              {[
+                ["Rustig", "0-1 lessen", "bg-planning-calm"],
+                ["Normaal", "2-4 lessen", "bg-planning-normal"],
+                ["Druk", "5-7 lessen", "bg-planning-busy"],
+                ["Zeer druk", "8+ lessen", "bg-planning-critical"],
+              ].map(([label, description, className]) => (
+                <div key={label} className="flex items-center gap-3">
+                  <span className={`h-5 w-8 rounded-lg border border-white ${className}`} />
+                  <div>
+                    <p className="font-black text-foreground">{label}</p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Planning controles" description="Geen verborgen mutaties.">
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-brand-card-border bg-white px-3 py-3">
+                <div className="flex items-center gap-2 font-black text-foreground">
+                  <LockKeyhole className="h-4 w-4 text-primary" aria-hidden />
+                  Read-only standaard
+                </div>
+                <p className="mt-1 text-xs leading-5">
+                  Franchiseplanning toont druk en gaten, maar schrijft niet in lokale roosters.
+                </p>
+              </div>
+              <div className="rounded-xl border border-brand-card-border bg-white px-3 py-3">
+                <div className="flex items-center gap-2 font-black text-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+                  Delegatiepad
+                </div>
+                <p className="mt-1 text-xs leading-5">
+                  Wijzigen kan alleen via een expliciete delegatie met scope, geldigheid en audit.
+                </p>
+              </div>
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Busiest branch" description="Op basis van komende 7 dagen.">
+            {busiest ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-brand-card-border bg-white px-3 py-3">
+                  <p className="font-black text-foreground">{busiest.tenant_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {busiest.branch_name}{busiest.city ? `, ${busiest.city}` : ""}
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-foreground">
+                    {busiest.upcoming_lessons_7d} lessen
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Eerstvolgende: {formatDateTime(busiest.next_lesson_at)}
+                  </p>
+                </div>
+                <FranchiseProgressBar
+                  value={governance.average_capacity_utilisation}
+                  tone="delegated"
+                  label={
+                    governance.average_capacity_utilisation === null
+                      ? "-"
+                      : `${governance.average_capacity_utilisation}%`
+                  }
+                />
+              </div>
+            ) : (
+              <FranchiseEmptyState
+                title="Nog geen planningdruk"
+                description="Er is geen actieve vestiging met lessen in de gekozen horizon."
+              />
+            )}
+          </FranchisePanel>
+        </div>
+      </section>
+
+      <FranchisePanel
+        title="Planning details"
+        description="Alle actieve vestigingen met eerstvolgende lesmoment."
+        contentClassName="p-0"
+      >
+        <FranchiseMiniTable
+          columns={["Franchisee", "Vestiging", "Volgende les", "7 dagen", "Status"]}
+          minWidth="760px"
+        >
+          {planning.branches.map((branch) => (
+            <tr key={branch.branch_id}>
+              <FranchiseTableCell>
+                <p className="font-black text-foreground">{branch.tenant_name}</p>
+              </FranchiseTableCell>
+              <FranchiseTableCell>
+                {branch.branch_name}
+                {branch.city ? (
+                  <span className="text-muted-foreground">, {branch.city}</span>
+                ) : null}
+              </FranchiseTableCell>
+              <FranchiseTableCell>{formatDateTime(branch.next_lesson_at)}</FranchiseTableCell>
+              <FranchiseTableCell align="right">{branch.upcoming_lessons_7d}</FranchiseTableCell>
+              <FranchiseTableCell>
+                <FranchiseStatusBadge
+                  tone={branch.upcoming_lessons_7d === 0 ? "warning" : "success"}
+                >
+                  {branch.upcoming_lessons_7d === 0 ? "Aandacht" : "Gepland"}
+                </FranchiseStatusBadge>
+              </FranchiseTableCell>
+            </tr>
+          ))}
+        </FranchiseMiniTable>
+      </FranchisePanel>
+    </FranchisePage>
   );
 }

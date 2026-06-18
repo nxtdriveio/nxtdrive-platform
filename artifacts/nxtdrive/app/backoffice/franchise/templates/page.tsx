@@ -1,17 +1,25 @@
-import Link from "next/link";
-import { BookOpenCheck, Network, Package, ShieldCheck } from "lucide-react";
+import { BookOpenCheck, Package, Send, ShieldCheck, Sparkles } from "lucide-react";
+
 import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
-import { Badge } from "@/components/ui/badge";
+import {
+  FranchiseActionLink,
+  FranchiseKpiCard,
+  FranchiseModeBadge,
+  FranchisePage,
+  FranchisePageHeader,
+  FranchisePanel,
+  FranchiseSectionTabs,
+  FranchiseStatusBadge,
+} from "@/components/backoffice/franchise/franchise-primitives";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { requireFranchiseOperator } from "@/lib/franchise/access";
 import {
   createFranchiseTemplate,
   pushTemplateToFranchisee,
   updateFranchiseTemplate,
 } from "@/lib/franchise/actions";
+import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 import { PLAN_LABELS } from "@/lib/platform/features";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -19,14 +27,14 @@ import { formatTegoed } from "@/lib/students/types";
 
 export const dynamic = "force-dynamic";
 
-const euroFmt = new Intl.NumberFormat("nl-NL", {
+const euroFormatter = new Intl.NumberFormat("nl-NL", {
   style: "currency",
   currency: "EUR",
   minimumFractionDigits: 2,
 });
 
 function formatEuroCents(cents: number): string {
-  return euroFmt.format(cents / 100);
+  return euroFormatter.format(cents / 100);
 }
 
 export default async function FranchiseTemplatesPage({
@@ -40,14 +48,14 @@ export default async function FranchiseTemplatesPage({
   ]);
 
   const service = createServiceRoleClient();
-
-  const { data: franchisees } = await service
-    .from("tenants")
-    .select("id, name, slug")
-    .eq("parent_tenant_id", tenant.id)
-    .order("name");
-
-  const templates = await loadFranchiseTemplates(tenant.id);
+  const [{ data: franchisees }, templates] = await Promise.all([
+    service
+      .from("tenants")
+      .select("id, name, slug")
+      .eq("parent_tenant_id", tenant.id)
+      .order("name"),
+    loadFranchiseTemplates(tenant.id),
+  ]);
 
   const activeTemplates = templates.filter((template) => template.is_active);
   const activatedFranchiseeIds = new Set(
@@ -55,45 +63,35 @@ export default async function FranchiseTemplatesPage({
       template.activations.map((activation) => activation.franchisee_tenant_id),
     ),
   );
-
-  const hasError = !!sp.error;
-  const errorMsg = hasError ? decodeURIComponent(sp.error ?? "") : null;
+  const errorMsg = sp.error ? decodeURIComponent(sp.error) : null;
   const controlsDisabled = readOnlyDowngrade;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Franchise Templates</h1>
-          <p className="text-sm text-muted-foreground">
-            Beheer pakketsjablonen en stuur ze door naar franchisees
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="primary">{activeTemplates.length} actief</Badge>
-            <Badge variant="outline">
-              {activatedFranchiseeIds.size} franchisees geactiveerd
-            </Badge>
-            <Badge variant="outline">Read-only distributie, lokale activatie</Badge>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/backoffice/franchise/playbook">
-            <Button variant="outline" size="sm">
+    <FranchisePage>
+      <FranchisePageHeader
+        eyebrow="Templates & playbook"
+        title="Templates"
+        description="Beheer franchisebrede pakketsjablonen. Distributie maakt templates zichtbaar; franchisees activeren lokaal zodat tenantgrenzen intact blijven."
+        badges={
+          <>
+            <FranchiseModeBadge />
+            <FranchiseStatusBadge tone="success">{activeTemplates.length} actief</FranchiseStatusBadge>
+            <FranchiseStatusBadge tone="readonly">Lokale activatie</FranchiseStatusBadge>
+          </>
+        }
+        actions={
+          <>
+            <FranchiseActionLink href="/backoffice/franchise/playbook">
               Playbook
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise/aandacht">
-            <Button variant="outline" size="sm">
-              Aandacht
-            </Button>
-          </Link>
-          <Link href="/backoffice/franchise">
-            <Button variant="outline" size="sm">
-              Terug naar dashboard
-            </Button>
-          </Link>
-        </div>
-      </div>
+            </FranchiseActionLink>
+            <FranchiseActionLink href="/backoffice/franchise/governance" variant="primary">
+              Governance
+            </FranchiseActionLink>
+          </>
+        }
+      />
+
+      <FranchiseSectionTabs />
 
       {readOnlyDowngrade ? (
         <FranchiseDowngradeAlert
@@ -101,314 +99,228 @@ export default async function FranchiseTemplatesPage({
         />
       ) : null}
 
-      {sp.created ? (
-        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-          Template aangemaakt.
-        </div>
-      ) : null}
-      {sp.saved ? (
-        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-          Template opgeslagen.
-        </div>
-      ) : null}
-      {sp.pushed ? (
-        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-          Template doorgestuurd naar franchisee.
-        </div>
-      ) : null}
-      {hasError && errorMsg ? (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+      {errorMsg ? (
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">
           {errorMsg}
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Actieve templates</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {activeTemplates.length}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <Package className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Standaardpakketten die nu franchisebreed uit te rollen zijn.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Adoptie</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {activatedFranchiseeIds.size}/{franchisees?.length ?? 0}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <Network className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Hoeveel franchisees al minimaal een actief sjabloon ontvangen hebben.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Playbook route</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                Governance
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <BookOpenCheck className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Gebruik de playbook-pagina om template-adoptie te combineren met aandacht en planning.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <div>
-              <CardTitle>Governance</CardTitle>
-              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                {readOnlyDowngrade ? "Afschaalmodus" : "Read-only"}
-              </p>
-            </div>
-            <span className="rounded-full bg-primary-soft p-2 text-primary">
-              <ShieldCheck className="h-5 w-5" aria-hidden />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Doorsturen maakt sjablonen zichtbaar voor franchisees; lokale activatie blijft hun eigen actie.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FranchiseKpiCard
+          label="Templates"
+          value={templates.length}
+          hint="totaal"
+          icon={Package}
+          tone="primary"
+        />
+        <FranchiseKpiCard
+          label="Actief"
+          value={activeTemplates.length}
+          hint="beschikbaar voor distributie"
+          icon={BookOpenCheck}
+          tone="success"
+        />
+        <FranchiseKpiCard
+          label="Activatie"
+          value={`${activatedFranchiseeIds.size}/${franchisees?.length ?? 0}`}
+          hint="franchisees"
+          icon={Send}
+          tone="delegated"
+        />
+        <FranchiseKpiCard
+          label="Model"
+          value="Read-only"
+          hint="geen centrale pakketmutatie"
+          icon={ShieldCheck}
+          tone="readonly"
+        />
+      </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            Bestaande templates ({templates.length})
-          </h2>
-          {templates.length === 0 ? (
-            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-border text-center">
-              <p className="text-sm text-muted-foreground">
-                Nog geen templates. Maak er een aan.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {templates.map((template) => {
-                const credits = template.config.credits_total ?? 0;
-                const priceCents = template.config.price_cents ?? 0;
-                const validDays = template.config.valid_days;
+      <section className="grid gap-4 xl:grid-cols-[1fr_0.45fr]">
+        <FranchisePanel
+          title="Template catalogus"
+          description="Actieve en concept-templates met distributiestatus."
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            {templates.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-brand-border bg-brand-muted p-6 text-sm text-muted-foreground lg:col-span-2">
+                Nog geen templates. Maak rechts een eerste franchise-template aan.
+              </div>
+            ) : (
+              templates.map((template) => {
                 const activationCount = template.activations.length;
+                const credits = template.config.credits_total ?? 0;
+                const price = template.config.price_cents ?? 0;
+                const validDays = template.config.valid_days ?? null;
 
                 return (
-                  <Card
+                  <article
                     key={template.id}
-                    className={!template.is_active ? "opacity-60" : undefined}
+                    className="rounded-2xl border border-brand-card-border bg-white p-4 shadow-sm"
                   >
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate font-medium text-foreground">
-                              {template.name}
-                            </p>
-                            <Badge
-                              variant={template.is_active ? "primary" : "outline"}
-                              className="shrink-0 text-xs"
-                            >
-                              {template.is_active ? "Actief" : "Inactief"}
-                            </Badge>
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {formatTegoed(credits)} · {formatEuroCents(priceCents)} excl. BTW
-                            {validDays ? ` · ${validDays} dagen geldig` : ""}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground/70">
-                            {activationCount} franchisee
-                            {activationCount !== 1 ? "s" : ""} geactiveerd
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 flex-col gap-1.5">
-                          <form action={updateFranchiseTemplate}>
-                            <input type="hidden" name="template_id" value={template.id} />
-                            <input
-                              type="hidden"
-                              name="is_active"
-                              value={template.is_active ? "false" : "true"}
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              type="submit"
-                              className="h-7 text-xs"
-                              disabled={controlsDisabled}
-                            >
-                              {template.is_active ? "Deactiveer" : "Activeer"}
-                            </Button>
-                          </form>
-                        </div>
-                      </div>
-
-                      {template.is_active && (franchisees?.length ?? 0) > 0 ? (
-                        <form
-                          action={pushTemplateToFranchisee}
-                          className="mt-3 flex gap-2"
-                        >
-                          <input type="hidden" name="template_id" value={template.id} />
-                          <select
-                            name="franchisee_tenant_id"
-                            className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            required
-                            disabled={controlsDisabled}
-                          >
-                            <option value="">Kies franchisee...</option>
-                            {(franchisees ?? []).map((franchisee) => {
-                              const alreadyActivated = template.activations.some(
-                                (activation) =>
-                                  activation.franchisee_tenant_id === franchisee.id,
-                              );
-                              return (
-                                <option
-                                  key={franchisee.id}
-                                  value={franchisee.id}
-                                  disabled={alreadyActivated}
-                                >
-                                  {franchisee.name}
-                                  {alreadyActivated ? " (al actief)" : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            type="submit"
-                            className="h-7 shrink-0 text-xs"
-                            disabled={controlsDisabled}
-                          >
-                            Doorsturen
-                          </Button>
-                        </form>
-                      ) : null}
-
-                      {(franchisees?.length ?? 0) === 0 && template.is_active ? (
-                        <p className="mt-2 text-xs text-muted-foreground/60">
-                          Koppel eerst franchisees via het admin-paneel om sjablonen door te sturen.
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-black text-foreground">
+                          {template.name}
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {template.config.description ?? "Geen beschrijving ingesteld."}
                         </p>
-                      ) : null}
-                    </CardContent>
-                  </Card>
+                      </div>
+                      <FranchiseStatusBadge tone={template.is_active ? "success" : "readonly"}>
+                        {template.is_active ? "Actief" : "Concept"}
+                      </FranchiseStatusBadge>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+                      <div className="rounded-xl bg-brand-muted px-3 py-2">
+                        <p className="text-xs font-bold text-muted-foreground">Tegoed</p>
+                        <p className="font-black text-foreground">{formatTegoed(credits)}</p>
+                      </div>
+                      <div className="rounded-xl bg-brand-muted px-3 py-2">
+                        <p className="text-xs font-bold text-muted-foreground">Prijs</p>
+                        <p className="font-black text-foreground">{formatEuroCents(price)}</p>
+                      </div>
+                      <div className="rounded-xl bg-brand-muted px-3 py-2">
+                        <p className="text-xs font-bold text-muted-foreground">Geldig</p>
+                        <p className="font-black text-foreground">
+                          {validDays ? `${validDays} dgn` : "Onbeperkt"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <form action={updateFranchiseTemplate} className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <input type="hidden" name="template_id" value={template.id} />
+                      <input
+                        type="hidden"
+                        name="is_active"
+                        value={template.is_active ? "false" : "true"}
+                      />
+                      <div>
+                        <p className="text-sm font-black text-foreground">
+                          {activationCount} activaties
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Zichtbaar maken zonder lokaal pakket te wijzigen.
+                        </p>
+                      </div>
+                      <Button type="submit" size="sm" variant="outline" disabled={controlsDisabled}>
+                        {template.is_active ? "Deactiveren" : "Activeren"}
+                      </Button>
+                    </form>
+
+                    {template.is_active && (franchisees?.length ?? 0) > 0 ? (
+                      <form action={pushTemplateToFranchisee} className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input type="hidden" name="template_id" value={template.id} />
+                        <select
+                          name="franchisee_tenant_id"
+                          className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm text-foreground"
+                          disabled={controlsDisabled}
+                          required
+                        >
+                          <option value="">Kies franchisee...</option>
+                          {(franchisees ?? []).map((franchisee) => (
+                            <option key={franchisee.id} value={franchisee.id}>
+                              {franchisee.name}
+                            </option>
+                          ))}
+                        </select>
+                        <Button type="submit" size="sm" disabled={controlsDisabled}>
+                          Doorsturen
+                        </Button>
+                      </form>
+                    ) : null}
+                  </article>
                 );
-              })}
-            </div>
-          )}
-        </div>
+              })
+            )}
+          </div>
+        </FranchisePanel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Nieuw pakket-sjabloon</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {controlsDisabled ? (
-              <p className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
-                Nieuwe sjablonen en distributie zijn tijdelijk read-only totdat dit
-                netwerk weer het vereiste{" "}
-                {PLAN_LABELS[franchiseAccess.requiredPlan]}-abonnement heeft.
-              </p>
-            ) : null}
-
+        <div className="space-y-4">
+          <FranchisePanel title="Nieuw template" description="Franchisebreed sjabloon.">
             <form action={createFranchiseTemplate} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="name">
-                  Naam <span className="text-red-400">*</span>
-                </Label>
+                <Label htmlFor="name">Naam</Label>
                 <Input
                   id="name"
                   name="name"
-                  placeholder="bijv. Standaardpakket Franchise"
-                  required
+                  placeholder="Standaardpakket Franchise"
                   disabled={controlsDisabled}
+                  required
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="credits_total">
-                    Lesuren (minuten) <span className="text-red-400">*</span>
-                  </Label>
+                  <Label htmlFor="credits_total">Lesminuten</Label>
                   <Input
                     id="credits_total"
                     name="credits_total"
                     type="number"
-                    min="1"
-                    placeholder="1800"
-                    required
+                    min="0"
+                    step="30"
+                    defaultValue="2400"
                     disabled={controlsDisabled}
+                    required
                   />
-                  <p className="text-[10px] text-muted-foreground">
-                    Bijv. 1800 = 30 uur
-                  </p>
                 </div>
-
                 <div className="space-y-1.5">
-                  <Label htmlFor="price_excl_vat_euros">Prijs excl. BTW (EUR)</Label>
+                  <Label htmlFor="price_excl_vat_euros">Prijs in euro</Label>
                   <Input
                     id="price_excl_vat_euros"
                     name="price_excl_vat_euros"
-                    type="text"
-                    placeholder="1500,00"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue="2450"
                     disabled={controlsDisabled}
+                    required
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
-                <Label htmlFor="valid_days">Geldigheid (dagen)</Label>
+                <Label htmlFor="valid_days">Geldigheid in dagen</Label>
                 <Input
                   id="valid_days"
                   name="valid_days"
                   type="number"
-                  min="1"
-                  placeholder="365 (leeg = onbeperkt)"
+                  min="0"
+                  placeholder="Laat leeg voor onbeperkt"
                   disabled={controlsDisabled}
                 />
               </div>
-
               <div className="space-y-1.5">
-                <Label htmlFor="description">Omschrijving</Label>
+                <Label htmlFor="description">Beschrijving</Label>
                 <Textarea
                   id="description"
                   name="description"
-                  rows={2}
-                  placeholder="Optionele beschrijving voor dit sjabloon"
+                  rows={3}
+                  placeholder="Voor standaard rijopleiding binnen franchiseformule."
                   disabled={controlsDisabled}
                 />
               </div>
-
               <Button type="submit" className="w-full" disabled={controlsDisabled}>
-                Sjabloon aanmaken
+                Template aanmaken
               </Button>
             </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Playbook regels" description="Veilige template-uitrol.">
+            <div className="space-y-3 text-sm text-muted-foreground">
+              {[
+                "Templates blijven eigendom van de franchisegever.",
+                "Distributie maakt een template zichtbaar voor franchisee.",
+                "Franchisee activeert lokaal en maakt pas dan een echt pakket aan.",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-3 rounded-xl border border-brand-card-border bg-white px-3 py-3">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <p>{item}</p>
+                </div>
+              ))}
+            </div>
+          </FranchisePanel>
+        </div>
+      </section>
+    </FranchisePage>
   );
 }
