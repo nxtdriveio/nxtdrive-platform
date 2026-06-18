@@ -13,7 +13,6 @@ import {
   Gauge,
   ListTodo,
   Receipt,
-  RefreshCw,
   Route,
   UserPlus,
   Users,
@@ -117,7 +116,6 @@ export function DashboardSection({
   tenantId,
 }: Props) {
   const [data, setData] = useState<DashboardLiveData>(initial);
-  const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlightRef = useRef(false);
 
@@ -132,14 +130,12 @@ export function DashboardSection({
     if (inFlightRef.current) return;
     try {
       inFlightRef.current = true;
-      setRefreshing(true);
       const res = await fetch("/backoffice/dashboard", { cache: "no-store" });
       if (!res.ok) return;
       const json: DashboardLiveData = await res.json();
       setData(json);
     } finally {
       inFlightRef.current = false;
-      setRefreshing(false);
     }
   }, []);
 
@@ -207,7 +203,6 @@ export function DashboardSection({
     };
   }, [tenantId, fetchData]);
 
-  const lastUpdated = timeFmt.format(new Date(data.fetchedAt));
   const totalRevenue = monthlyRevenue.reduce((sum, point) => sum + point.cents, 0);
   const avgRevenue =
     monthlyRevenue.length > 0 ? Math.round(totalRevenue / monthlyRevenue.length) : 0;
@@ -254,25 +249,6 @@ export function DashboardSection({
 
   return (
     <>
-      <div className="flex items-center justify-end gap-1.5">
-        <span className="text-[11px] text-muted-foreground">
-          Bijgewerkt om {lastUpdated}
-        </span>
-        <button
-          onClick={() => {
-            void fetchData(true);
-          }}
-          disabled={refreshing}
-          aria-label="Nu vernieuwen"
-          className="flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-        >
-          <RefreshCw
-            className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
-            aria-hidden
-          />
-        </button>
-      </div>
-
       <div className="grid gap-4 xl:grid-cols-12">
         <DashboardCard
           className="xl:col-span-4"
@@ -398,17 +374,18 @@ export function DashboardSection({
         <DashboardCard
           className="xl:col-span-2"
           title="Snelle acties"
+          contentClassName="overflow-hidden p-3"
         >
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             {quickActions.map((action) => {
               const Icon = action.icon;
               return (
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-[var(--surface-2)] px-3 py-2 text-xs font-bold text-foreground transition hover:border-primary/35 hover:text-primary"
+                  className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-brand-border bg-[var(--surface-2)] px-2.5 text-[11px] font-bold text-foreground transition hover:border-primary/35 hover:text-primary"
                 >
-                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-accent text-primary">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-accent text-primary">
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1 truncate">{action.label}</span>
