@@ -120,7 +120,7 @@ export default async function InstructorLayout({
       <div
         data-instructor-shell=""
         data-pwa-copy=""
-        className="flex min-h-screen flex-col text-foreground xl:h-screen xl:overflow-hidden"
+        className="flex min-h-screen flex-col text-foreground xl:h-screen xl:flex-row xl:overflow-hidden"
       >
         <InstructorSidebar
           tenantName={tenant.name}
