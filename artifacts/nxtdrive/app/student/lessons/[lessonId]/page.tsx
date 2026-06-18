@@ -12,6 +12,7 @@ import { LessonSkillFeedbackCard } from "@/components/skills/LessonSkillFeedback
 import { StudentCategoryProgressCard } from "@/components/skills/StudentCategoryProgressCard";
 import { StudentTheoryHomeworkCard } from "@/components/student/TheoryHomeworkCard";
 import { StudentLessonContextCard } from "@/components/student/LessonContextCard";
+import { StudentPostLessonResponseForm } from "@/components/ris/StudentPostLessonResponseForm";
 import { getActiveStudent } from "@/lib/students/access";
 import { getInstructorNames } from "@/lib/students/instructor-names";
 import {
@@ -26,6 +27,10 @@ import {
   StudentShowcaseEmptyState,
 } from "@/components/student/Showcase";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import {
+  loadStudentRisLessonCardDetail,
+  RIS_REFLECTION_RATING_LABELS,
+} from "@/lib/ris/data";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import {
   VEHICLE_TRANSMISSION_LABEL,
@@ -63,13 +68,23 @@ export default async function StudentLessonDetailPage({
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
 
-  const [names, skillGroups, leskaart, homework] = await Promise.all([
+  const [names, skillGroups, leskaart, homework, risDetail] = await Promise.all([
     getInstructorNames([lesson.instructor_id]),
     loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
     loadStudentLeskaart(supabase, tenant.id, student.id),
     loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
+    loadStudentRisLessonCardDetail(supabase, tenant.id, student.id, lesson.id),
   ]);
   const instructorName = names.get(lesson.instructor_id);
+  const hasRisLessonCard = Boolean(risDetail.card);
+  const reflectionRatingRows = risDetail.card?.reflection
+    ? ([
+        ["Algemeen", risDetail.card.reflection.overallRating],
+        ["Zelfstandigheid", risDetail.card.reflection.independenceRating],
+        ["Inzicht", risDetail.card.reflection.insightRating],
+        ["Vertrouwen", risDetail.card.reflection.confidenceRating],
+      ] as const)
+    : [];
 
   // Student self-cancellation: only for a planned, future lesson. Refund preview
   // mirrors the tenant policy tier the student_cancel_lesson RPC will apply, and
@@ -203,18 +218,152 @@ export default async function StudentLessonDetailPage({
 
       <LessonHeaderCard lesson={lesson} instructorName={instructorName} />
 
-      <LessonPracticedChips skills={practiced} />
+      {risDetail.planningCard ? (
+        <StudentShowcaseCard title="Jouw plankaart" eyebrow="Voor deze les">
+          <div className="space-y-3">
+            {risDetail.planningCard.studentVisibleSummary ? (
+              <p className="text-sm leading-6 text-brand-muted-foreground">
+                {risDetail.planningCard.studentVisibleSummary}
+              </p>
+            ) : null}
+            {risDetail.planningCard.goals.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {risDetail.planningCard.goals.map((goal) => (
+                  <div
+                    key={goal.id}
+                    className="rounded-2xl border border-brand-border bg-white/75 p-3"
+                  >
+                    <p className="text-sm font-black text-brand-foreground">{goal.title}</p>
+                    {goal.description ? (
+                      <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
+                        {goal.description}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </StudentShowcaseCard>
+      ) : null}
 
-      <StudentCategoryProgressCard categories={leskaart.categories} />
+      {risDetail.card ? (
+        <StudentShowcaseCard title="RIS-leskaart" eyebrow="Gepubliceerde les">
+          <div className="space-y-4">
+            {risDetail.card.studentFriendlySummary ? (
+              <p className="text-sm leading-6 text-brand-foreground">
+                {risDetail.card.studentFriendlySummary}
+              </p>
+            ) : null}
 
-      <LessonSkillFeedbackCard groups={skillGroups} />
+            {risDetail.card.reflection ? (
+              <div className="rounded-2xl border border-brand-border bg-white/75 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+                  Samen gereflecteerd
+                </p>
+                {risDetail.card.reflection.oneSentenceReflection ? (
+                  <p className="mt-2 text-sm font-semibold leading-6 text-brand-foreground">
+                    {risDetail.card.reflection.oneSentenceReflection}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {reflectionRatingRows.map(([label, rating]) =>
+                    rating ? (
+                      <span
+                        key={label}
+                        className="rounded-full bg-brand-accent px-3 py-1 text-xs font-semibold text-brand-primary"
+                      >
+                        {label}: {RIS_REFLECTION_RATING_LABELS[rating]}
+                      </span>
+                    ) : null,
+                  )}
+                </div>
+              </div>
+            ) : null}
 
-      <LessonNotesCard
-        studentNote={lesson.student_note}
-        attentionPoints={lesson.attention_points}
-      />
+            {risDetail.assessments.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+                  Beoordeelde onderdelen
+                </p>
+                {risDetail.assessments.map((assessment) => (
+                  <div
+                    key={assessment.id}
+                    className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-white/75 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-brand-foreground">
+                        Module {assessment.moduleNumber} · {assessment.scriptTitle}
+                      </p>
+                      <p className="mt-1 text-sm text-brand-muted-foreground">
+                        {assessment.studentVisibleNote || assessment.studentLabel}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-brand-primary px-3 py-1 text-xs font-black text-white">
+                      {assessment.finalRisStep ? `Stap ${assessment.finalRisStep}` : "N"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-      <LessonAdviceCard advice={lesson.advice} />
+            {risDetail.card.homeworkOrNextFocus ? (
+              <div className="rounded-2xl border border-brand-primary/20 bg-brand-accent p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-primary">
+                  Volgende focus
+                </p>
+                <p className="mt-2 text-sm leading-6 text-brand-foreground">
+                  {risDetail.card.homeworkOrNextFocus}
+                </p>
+              </div>
+            ) : null}
+
+            {risDetail.card.response ? (
+              <div className="rounded-2xl border border-success/30 bg-success/10 p-3">
+                <p className="text-sm font-black text-success">
+                  Reactie ontvangen
+                </p>
+                {risDetail.card.response.skippedResponse ? (
+                  <p className="mt-1 text-sm text-brand-muted-foreground">
+                    Je hebt deze reactie overgeslagen.
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-1 text-sm leading-6 text-brand-muted-foreground">
+                    {risDetail.card.response.commentText ? (
+                      <p>{risDetail.card.response.commentText}</p>
+                    ) : null}
+                    {risDetail.card.response.nextLessonWish ? (
+                      <p>Volgende les: {risDetail.card.response.nextLessonWish}</p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <StudentPostLessonResponseForm
+                lessonCardId={risDetail.card.id}
+                lessonId={lesson.id}
+              />
+            )}
+          </div>
+        </StudentShowcaseCard>
+      ) : null}
+
+      {!hasRisLessonCard ? (
+        <>
+          <LessonPracticedChips skills={practiced} />
+
+          <StudentCategoryProgressCard categories={leskaart.categories} />
+
+          <LessonSkillFeedbackCard groups={skillGroups} />
+
+          <LessonNotesCard
+            studentNote={lesson.student_note}
+            attentionPoints={lesson.attention_points}
+          />
+
+          <LessonAdviceCard advice={lesson.advice} />
+        </>
+      ) : null}
 
       <StudentLessonContextCard
         vehicleLabel={vehicleLabel}

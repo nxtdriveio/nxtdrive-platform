@@ -39,6 +39,10 @@ import {
   StudentShowcaseCard,
   StudentShowcaseEmptyState,
 } from "@/components/student/Showcase";
+import {
+  loadLatestStudentPlanningCard,
+  loadStudentRisProgress,
+} from "@/lib/ris/data";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +115,8 @@ export default async function StudentHomePage() {
     completedLessonCountRes,
     milestoneAppointmentsRes,
     reviewNotif,
+    latestPlanningCard,
+    risProgress,
   ] = await Promise.all([
     supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
@@ -144,6 +150,8 @@ export default async function StudentHomePage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    loadLatestStudentPlanningCard(supabase, tenant.id, student.id),
+    loadStudentRisProgress(supabase, tenant.id, student.id),
   ]);
 
   const referralUrl = referralCode ? buildReferralUrl(origin, tenant.slug, referralCode) : null;
@@ -275,7 +283,7 @@ export default async function StudentHomePage() {
       ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 10) * 100)
       : null;
 
-  const coachTitle =
+  const fallbackCoachTitle =
     recentDeltaPct && recentDeltaPct > 0
       ? "Sterke vooruitgang deze week! 🚀"
       : readiness.advice === "bijna_examenrijp"
@@ -284,7 +292,7 @@ export default async function StudentHomePage() {
           ? "Je bent klaar voor de laatste stap"
           : "Je volgende slimme focus";
 
-  const coachBody =
+  const fallbackCoachBody =
     recentDeltaPct && recentDeltaPct > 0
       ? `Je gemiddelde lesniveau steeg ${recentDeltaPct}% in je laatste twee beoordeelde lessen.`
       : readiness.blockers[0]
@@ -292,6 +300,24 @@ export default async function StudentHomePage() {
         : weakestCategory
           ? `Focus de komende lessen extra op ${weakestCategory.label.toLowerCase()} om versneld door te groeien.`
           : `Je opbouw richting ${PHASE_LABELS[readiness.phase].toLowerCase()} ziet er stabiel uit.`;
+
+  const planningGoal = latestPlanningCard?.goals[0] ?? null;
+  const latestRisCard = risProgress.publishedCards[0] ?? null;
+  const coachTitle =
+    planningGoal?.title ??
+    (latestRisCard ? "Je volgende RIS-focus" : fallbackCoachTitle);
+  const coachBody =
+    latestPlanningCard?.studentVisibleSummary ??
+    planningGoal?.description ??
+    latestRisCard?.homeworkOrNextFocus ??
+    latestRisCard?.studentFriendlySummary ??
+    fallbackCoachBody;
+  const coachCtaHref =
+    latestPlanningCard?.nextLessonId
+      ? `/student/lessons/${latestPlanningCard.nextLessonId}`
+      : latestRisCard
+        ? `/student/lessons/${latestRisCard.lessonId}`
+        : "/student/voortgang";
 
   const journeyStatus =
     passedExam
@@ -324,9 +350,9 @@ export default async function StudentHomePage() {
           eta: examEta,
         }}
         coach={{
-          title: "Kijktechniek en rotondes",
-          body: "Je maakt mooie stappen. Werk aan je kijkgedrag op rotondes en voorsorteren.",
-          ctaHref: "/student/journey",
+          title: coachTitle,
+          body: coachBody,
+          ctaHref: coachCtaHref,
         }}
         messageUnreadCount={chatUnread}
         creditAvailableMinutes={breakdown?.available_minutes ?? 0}

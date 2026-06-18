@@ -22,8 +22,8 @@ export type StudentNavItem = {
 
 export const STUDENT_BOTTOM_NAV_ITEMS: StudentNavItem[] = [
   { href: "/student", label: "Home", icon: Home, exact: true },
-  { href: "/student/journey", label: "Mijn reis", icon: Route },
-  { href: "/student/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
+  { href: "/student/voortgang", label: "Voortgang", icon: Route },
   { href: "/student/theory", label: "Theorie", icon: BookOpen },
   { href: "/student/more", label: "Meer", icon: MoreHorizontal },
 ];

@@ -23,8 +23,10 @@ import {
 } from "@/lib/ris/actions";
 import type {
   InstructorRisLessonCard,
+  RisReflectionRating,
   RisScriptAssessment,
 } from "@/lib/ris/data";
+import { RIS_REFLECTION_RATING_LABELS } from "@/lib/ris/data";
 import type { RISStepValue } from "@workspace/leskaart";
 
 type ScriptMeta = {
@@ -37,7 +39,22 @@ type Suggestion = {
   studentSummary: string;
   homework: string;
   internalSummary: string;
+  oneSentence: string;
 };
+
+const OPEN_PUBLICATION_STATUSES = new Set([
+  "draft",
+  "completion_in_progress",
+  "ready_to_publish",
+]);
+
+const RATING_OPTIONS: RisReflectionRating[] = [
+  "very_insufficient",
+  "insufficient",
+  "moderate",
+  "sufficient",
+  "very_sufficient",
+];
 
 function stepLabel(step: RISStepValue | null): string {
   return step ? `Stap ${step}` : "Geen stap";
@@ -99,6 +116,7 @@ function buildSuggestion(
     studentSummary: `Je hebt vandaag gewerkt aan ${practicedText}. Je zet mooie stappen; we houden de volgende les vooral focus op ${nextText}.`,
     homework: `Neem voor de volgende les kort ${nextText} door. Dan pakken we het rustig en gericht weer op.`,
     internalSummary: `${assessments.length} RIS-script(s) beoordeeld. Focus: ${practicedText}. Volgende aandacht: ${nextText}.`,
+    oneSentence: `Je hebt gericht geoefend met ${practicedText} en neemt ${nextText} mee naar de volgende les.`,
   };
 }
 
@@ -132,28 +150,25 @@ export function RisLessonPublicationPanel({
 
   const card = ris.card;
   const reflection = ris.reflection;
-  const locked =
-    card?.publicationStatus === "published" ||
-    card?.publicationStatus === "archived";
-  const canPublish = Boolean(card) && conceptAssessments.length > 0 && !locked;
+  const locked = card ? !OPEN_PUBLICATION_STATUSES.has(card.publicationStatus) : false;
 
   const [studentPresent, setStudentPresent] = useState(
     reflection?.studentPresent ?? true,
   );
-  const [ratingOverall, setRatingOverall] = useState<number | null>(
-    reflection?.ratingOverall ?? null,
+  const [overallRating, setOverallRating] = useState<RisReflectionRating | null>(
+    reflection?.overallRating ?? null,
   );
-  const [ratingIndependence, setRatingIndependence] = useState<number | null>(
-    reflection?.ratingIndependence ?? null,
+  const [independenceRating, setIndependenceRating] = useState<RisReflectionRating | null>(
+    reflection?.independenceRating ?? null,
   );
-  const [wentWellText, setWentWellText] = useState(
-    reflection?.wentWellText ?? "",
+  const [insightRating, setInsightRating] = useState<RisReflectionRating | null>(
+    reflection?.insightRating ?? null,
   );
-  const [difficultText, setDifficultText] = useState(
-    reflection?.difficultText ?? "",
+  const [confidenceRating, setConfidenceRating] = useState<RisReflectionRating | null>(
+    reflection?.confidenceRating ?? null,
   );
-  const [nextLessonWish, setNextLessonWish] = useState(
-    reflection?.nextLessonWish ?? "",
+  const [oneSentenceReflection, setOneSentenceReflection] = useState(
+    reflection?.oneSentenceReflection ?? suggestion.oneSentence,
   );
   const [instructorContextNote, setInstructorContextNote] = useState(
     reflection?.instructorContextNote ?? "",
@@ -167,6 +182,12 @@ export function RisLessonPublicationPanel({
   const [internalSummary, setInternalSummary] = useState(
     card?.internalSummary ?? suggestion.internalSummary,
   );
+  const canPublish =
+    Boolean(card) &&
+    conceptAssessments.length > 0 &&
+    !locked &&
+    Boolean(studentFriendlySummary.trim()) &&
+    Boolean(oneSentenceReflection.trim());
 
   function publish() {
     if (!card) {
@@ -181,18 +202,23 @@ export function RisLessonPublicationPanel({
       setError("Vul eerst een leerlingvriendelijke samenvatting in.");
       return;
     }
+    if (!oneSentenceReflection.trim()) {
+      setError("Vul de gezamenlijke reflectie in één korte zin in.");
+      return;
+    }
 
     setError(null);
     setSuccess(null);
     startTransition(async () => {
       const reflectionResult = await setGuidedReflectionAction({
         lessonCardId: card.id,
+        lessonId,
         studentPresent,
-        ratingOverall,
-        ratingIndependence,
-        wentWellText: clampText(wentWellText),
-        difficultText: clampText(difficultText),
-        nextLessonWish: clampText(nextLessonWish),
+        overallRating,
+        independenceRating,
+        insightRating,
+        confidenceRating,
+        oneSentenceReflection: clampText(oneSentenceReflection, 500),
         instructorContextNote: clampText(instructorContextNote),
       });
       if (reflectionResult.error) {
@@ -237,6 +263,9 @@ export function RisLessonPublicationPanel({
       setInternalSummary(draft.internalSummary || suggestion.internalSummary);
       if (draft.internalAttentionPoints.length > 0) {
         setInstructorContextNote(draft.internalAttentionPoints.join("\n"));
+      }
+      if (!oneSentenceReflection.trim()) {
+        setOneSentenceReflection(suggestion.oneSentence);
       }
       setSuccess("AI-voorstel geladen. Controleer en pas aan voordat je publiceert.");
     });
@@ -381,33 +410,32 @@ export function RisLessonPublicationPanel({
                 </label>
 
                 <RatingRow
-                  label="Algemene lesreflectie"
-                  value={ratingOverall}
-                  onChange={setRatingOverall}
+                  label="Algemene reflectie"
+                  value={overallRating}
+                  onChange={setOverallRating}
                 />
                 <RatingRow
                   label="Zelfstandigheid"
-                  value={ratingIndependence}
-                  onChange={setRatingIndependence}
+                  value={independenceRating}
+                  onChange={setIndependenceRating}
+                />
+                <RatingRow
+                  label="Inzicht"
+                  value={insightRating}
+                  onChange={setInsightRating}
+                />
+                <RatingRow
+                  label="Vertrouwen"
+                  value={confidenceRating}
+                  onChange={setConfidenceRating}
                 />
 
                 <LabeledTextarea
-                  label="Wat ging goed?"
-                  value={wentWellText}
-                  onChange={setWentWellText}
-                  placeholder="Bijvoorbeeld: rustig gekeken bij rotondes en betere voertuigbeheersing."
-                />
-                <LabeledTextarea
-                  label="Wat was lastig?"
-                  value={difficultText}
-                  onChange={setDifficultText}
-                  placeholder="Bijvoorbeeld: invoegen op drukke momenten vraagt nog herhaling."
-                />
-                <LabeledTextarea
-                  label="Leerwens volgende les"
-                  value={nextLessonWish}
-                  onChange={setNextLessonWish}
-                  placeholder="Bijvoorbeeld: nog een keer parkeren en verkeersinzicht in de wijk."
+                  label="Reflectie in één zin"
+                  value={oneSentenceReflection}
+                  onChange={setOneSentenceReflection}
+                  placeholder="Bijvoorbeeld: Ik keek rustiger vooruit en hield beter overzicht bij rotondes."
+                  rows={3}
                 />
               </div>
 
@@ -486,7 +514,8 @@ export function RisLessonPublicationPanel({
             <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-soft/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-muted-foreground">
                 Publiceren maakt de conceptscores definitief. Daarna ziet de
-                leerling de voortgang en kun je de les afronden.
+                leerling de voortgang en vraagt NXTDRIVE om een korte reactie
+                of leerwens; daarna is de RIS-leskaart volledig afgerond.
               </div>
               <Button
                 type="button"
@@ -516,15 +545,18 @@ function PublishedSummary({
 }: {
   card: NonNullable<InstructorRisLessonCard["card"]>;
 }) {
+  const isDone = card.publicationStatus === "fully_completed";
   return (
     <div className="grid gap-3 lg:grid-cols-3">
       <div className="rounded-2xl border border-success/40 bg-success/10 p-4">
         <div className="mb-2 flex items-center gap-2 text-sm font-bold text-success">
           <Lock className="h-4 w-4" aria-hidden />
-          Gepubliceerd
+          {isDone ? "Volledig afgerond" : "Gepubliceerd"}
         </div>
         <p className="text-sm text-muted-foreground">
-          Deze RIS-leskaart is definitief en zichtbaar in de leerlingvoortgang.
+          {isDone
+            ? "De leerling heeft gereageerd of bewust overgeslagen. Deze RIS-leskaart is compleet."
+            : "Deze RIS-leskaart is zichtbaar voor de leerling en wacht eventueel nog op een korte leerlingreactie."}
         </p>
       </div>
       <div className="rounded-2xl border border-border bg-muted/20 p-4 lg:col-span-2">
@@ -581,28 +613,28 @@ function RatingRow({
   onChange,
 }: {
   label: string;
-  value: number | null;
-  onChange: (value: number | null) => void;
+  value: RisReflectionRating | null;
+  onChange: (value: RisReflectionRating | null) => void;
 }) {
   return (
     <div>
       <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
-        {Array.from({ length: 8 }, (_, index) => index + 1).map((step) => (
+      <div className="grid gap-1.5 sm:grid-cols-5">
+        {RATING_OPTIONS.map((rating) => (
           <button
-            key={step}
+            key={rating}
             type="button"
-            onClick={() => onChange(value === step ? null : step)}
+            onClick={() => onChange(value === rating ? null : rating)}
             className={cn(
-              "h-10 rounded-xl border text-sm font-black transition-colors",
-              value === step
+              "min-h-10 rounded-xl border px-2 py-2 text-xs font-black transition-colors",
+              value === rating
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground",
             )}
           >
-            {step}
+            {RIS_REFLECTION_RATING_LABELS[rating]}
           </button>
         ))}
       </div>
