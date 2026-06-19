@@ -258,7 +258,7 @@ export default async function StudentLessonDetailPage({
 
             {risDetail.card.reflection ? (
               <div className="rounded-2xl border border-brand-border bg-white/75 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+                <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
                   Samen gereflecteerd
                 </p>
                 {risDetail.card.reflection.oneSentenceReflection ? (
@@ -283,7 +283,7 @@ export default async function StudentLessonDetailPage({
 
             {risDetail.assessments.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+                <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
                   Beoordeelde onderdelen
                 </p>
                 {risDetail.assessments.map((assessment) => (
@@ -309,7 +309,7 @@ export default async function StudentLessonDetailPage({
 
             {risDetail.card.homeworkOrNextFocus ? (
               <div className="rounded-2xl border border-brand-primary/20 bg-brand-accent p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-primary">
+                <p className="text-xs font-semibold uppercase text-brand-primary">
                   Volgende focus
                 </p>
                 <p className="mt-2 text-sm leading-6 text-brand-foreground">

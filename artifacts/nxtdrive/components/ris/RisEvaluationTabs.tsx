@@ -174,7 +174,7 @@ function LessonInfoTab({ info }: { info: EvaluationLessonInfo }) {
       <Card className="overflow-hidden">
         <CardContent className="space-y-5 pt-5">
           <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-primary">
+            <div className="flex items-center gap-2 text-xs uppercase text-primary">
               <FileText className="h-4 w-4" aria-hidden />
               Lesinfo
             </div>
@@ -285,7 +285,7 @@ function InfoTile({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-muted/20 p-4">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
         <Icon className="h-4 w-4 text-primary" aria-hidden />
         {label}
       </div>

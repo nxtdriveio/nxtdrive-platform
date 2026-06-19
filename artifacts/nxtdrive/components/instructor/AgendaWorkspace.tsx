@@ -426,7 +426,7 @@ export function InstructorAgendaWorkspace({
                     gridTemplateColumns: `5.5rem repeat(${dayColumns.length}, minmax(0, 1fr))`,
                   }}
                 >
-                  <div className="border-b border-border/70 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  <div className="border-b border-border/70 px-3 py-3 text-[11px] font-semibold uppercase text-muted-foreground">
                     Tijd
                   </div>
                   {dayColumns.map((date) => (
@@ -548,7 +548,7 @@ export function InstructorAgendaWorkspace({
                               onDragEnd={() => setDragging(null)}
                               onClick={() => setSelectedEvent(event)}
                               className={cn(
-                                "absolute left-2 right-2 rounded-2xl border px-3 py-2 text-left shadow-sm transition hover:shadow-md",
+                                "absolute left-2 right-2 rounded-2xl border px-3 py-2 text-left shadow-sm transition-colors",
                                 className,
                               )}
                               style={{
@@ -654,7 +654,7 @@ function MonthGrid({
                       type="button"
                       onClick={() => onSelectEvent(event)}
                       className={cn(
-                        "w-full rounded-xl border px-3 py-2 text-left transition hover:shadow-sm",
+                        "w-full rounded-xl border px-3 py-2 text-left transition-colors",
                         className,
                       )}
                       style={style}
@@ -701,7 +701,7 @@ function EventOverlay({
         onClick={onClose}
         aria-label="Sluiten"
       />
-      <div className="relative z-10 w-full max-w-xl rounded-[1.75rem] border border-border/80 bg-card p-6 shadow-2xl">
+      <div className="relative z-10 w-full max-w-xl rounded-[1.75rem] border border-border/80 bg-card p-6 shadow-brand-card">
         <button
           type="button"
           onClick={onClose}
@@ -715,7 +715,7 @@ function EventOverlay({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{event.badge}</Badge>
-              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="text-xs uppercase text-muted-foreground">
                 {event.kind === "lesson"
                   ? "Les"
                   : event.kind === "trial"
@@ -741,7 +741,7 @@ function EventOverlay({
 
           {event.notes ? (
             <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
                 Notities
               </p>
               <p className="mt-2 text-sm leading-6 text-foreground">{event.notes}</p>
@@ -809,7 +809,7 @@ function EventOverlay({
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-sm text-foreground">{value}</p>

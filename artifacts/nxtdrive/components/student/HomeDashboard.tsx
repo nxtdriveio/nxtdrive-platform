@@ -95,7 +95,7 @@ function CardHeader({
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] bg-brand-accent text-brand-primary">
           {icon}
         </span>
-        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+        <span className="truncate text-[11px] font-semibold uppercase text-brand-muted-foreground">
           {label}
         </span>
       </div>
@@ -148,7 +148,7 @@ function ProgressRing({
         />
       </svg>
       <div className="absolute inset-[1.05rem] flex items-center justify-center rounded-full bg-white shadow-inner">
-        <span className="text-xl font-black tracking-tight text-brand-foreground">
+        <span className="text-xl font-black text-brand-foreground">
           {safe}%
         </span>
       </div>
@@ -193,7 +193,7 @@ function HeroRoad() {
       aria-hidden
     >
       <defs>
-        <linearGradient id="student-road-glow" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="student-road-gradient" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#7c5cff" />
           <stop offset="100%" stopColor="#38bdf8" />
         </linearGradient>
@@ -201,7 +201,7 @@ function HeroRoad() {
       <path
         d="M26 111 C82 76 93 74 119 63 C151 49 142 29 187 19 C213 13 236 17 252 23"
         fill="none"
-        stroke="url(#student-road-glow)"
+        stroke="url(#student-road-gradient)"
         strokeWidth="11"
         strokeLinecap="round"
         opacity="0.34"
@@ -224,17 +224,16 @@ function NextStepHero({ coach }: { coach: StudentCoachSummary }) {
   return (
     <section
       data-student-hero=""
-      className="relative overflow-hidden rounded-[1.35rem] border border-white/15 px-4 py-4 text-white shadow-brand-floating sm:rounded-[1.55rem] sm:px-5 sm:py-5 xl:px-6"
+      className="relative overflow-hidden rounded-[1.35rem] border border-white/15 px-4 py-4 text-white shadow-brand-card sm:rounded-[1.55rem] sm:px-5 sm:py-5 xl:px-6"
       style={{ background: "var(--brand-hero-background)" }}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(255,255,255,0.18),transparent_28%)]" />
       <HeroRoad />
       <div className="relative z-10 flex min-w-0 items-center justify-between gap-4">
         <div className="min-w-0 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/64">
+          <p className="text-[11px] font-semibold uppercase text-white/64">
             Jouw volgende stap
           </p>
-          <h2 className="text-lg font-black tracking-tight text-white sm:text-xl">
+          <h2 className="text-lg font-black text-white sm:text-xl">
             Kijktechniek en rotondes
           </h2>
           <p className="max-w-xl text-xs leading-5 text-white/78 sm:text-sm sm:leading-6">
@@ -270,7 +269,7 @@ function NextLessonCard({ nextLesson }: { nextLesson: StudentNextLessonSummary |
       {nextLesson ? (
         <div className="mt-4 space-y-3">
           <div>
-            <h3 className="text-lg font-black tracking-tight text-brand-foreground">
+            <h3 className="text-lg font-black text-brand-foreground">
               {nextLesson.dayLabel}
             </h3>
             <p className="mt-1 text-sm font-semibold text-brand-foreground">
@@ -296,7 +295,7 @@ function NextLessonCard({ nextLesson }: { nextLesson: StudentNextLessonSummary |
       ) : (
         <div className="mt-4 space-y-3">
           <div>
-            <h3 className="text-lg font-black tracking-tight text-brand-foreground">
+            <h3 className="text-lg font-black text-brand-foreground">
               Nog niet ingepland
             </h3>
             <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
@@ -331,7 +330,7 @@ function ProgressCard({
       <div className="mt-4 flex items-center gap-4">
         <ProgressRing pct={journeyPct} />
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-black tracking-tight text-brand-foreground">
+          <h3 className="text-base font-black text-brand-foreground">
             {journeyStatus}
           </h3>
           <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
@@ -366,10 +365,10 @@ function CoachCard({ coach }: { coach: StudentCoachSummary }) {
         }
       />
       <div className="mt-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+        <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
           Volgende focus
         </p>
-        <h3 className="mt-1 text-lg font-black tracking-tight text-brand-primary">
+        <h3 className="mt-1 text-lg font-black text-brand-primary">
           {cleanDisplayText(coach.title)}
         </h3>
         <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
@@ -404,7 +403,7 @@ function CreditBalanceCard({ availableMinutes }: { availableMinutes: number }) {
         }
       />
       <div className="mt-4">
-        <div className="text-2xl font-black tracking-tight text-brand-foreground">
+        <div className="text-2xl font-black text-brand-foreground">
           {formatHours(availableMinutes)}
         </div>
         <p className="mt-1 text-sm text-brand-muted-foreground">
@@ -438,7 +437,7 @@ function ExamCard({ examStatus }: { examStatus: StudentExamReadinessSummary }) {
       <div className="mt-4 flex items-center gap-4">
         <ProgressRing pct={examStatus.readinessPct} size={88} stroke={9} />
         <div className="min-w-0">
-          <h3 className="text-base font-black tracking-tight text-brand-foreground">
+          <h3 className="text-base font-black text-brand-foreground">
             {examStatus.title}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm leading-6 text-brand-muted-foreground">
@@ -465,10 +464,10 @@ function JourneyPanel({ steps }: { steps: StudentJourneyStep[] }) {
     <DashboardCard className="p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase text-brand-muted-foreground">
             Mijn reis
           </p>
-          <h2 className="mt-1 text-lg font-black tracking-tight text-brand-foreground">
+          <h2 className="mt-1 text-lg font-black text-brand-foreground">
             Jouw rijbewijsreis
           </h2>
         </div>
@@ -544,10 +543,10 @@ function ActivityPanel() {
   return (
     <DashboardCard className="p-4 sm:p-5">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase text-brand-muted-foreground">
           Activiteit
         </p>
-        <h2 className="mt-1 text-lg font-black tracking-tight text-brand-foreground">
+        <h2 className="mt-1 text-lg font-black text-brand-foreground">
           Laatste activiteit
         </h2>
       </div>
@@ -606,7 +605,7 @@ export function StudentHomeDashboard({
         <p className="text-sm font-semibold text-brand-muted-foreground">
           Wat gaan we vandaag doen?
         </p>
-        <h1 className="mt-1 text-[clamp(1.75rem,7vw,2.45rem)] font-black leading-[1.02] tracking-tight text-brand-foreground md:text-[2.35rem]">
+        <h1 className="mt-1 text-[1.65rem] font-black leading-tight text-brand-foreground sm:text-2xl xl:text-[2.35rem]">
           {greeting}, {firstName}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-brand-muted-foreground sm:text-[0.96rem]">

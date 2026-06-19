@@ -130,7 +130,7 @@ function PassedCard({
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-emerald-300">
+          <div className="flex items-center gap-2 text-xs uppercase text-emerald-300">
             <PartyPopper className="h-4 w-4" aria-hidden />
             Geslaagd
           </div>

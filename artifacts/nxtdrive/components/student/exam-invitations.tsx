@@ -93,7 +93,7 @@ export function ExamInvitations({
                 className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3"
               >
                 <div className="space-y-1">
-                  <div className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                  <div className="text-xs font-medium uppercase text-primary">
                     {noun}
                   </div>
                   <div className="text-sm font-medium capitalize text-white">

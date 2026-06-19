@@ -79,7 +79,7 @@ export function PlanningTabs({
       <div
         role="tablist"
         aria-label="Lessen"
-        className="grid grid-cols-2 rounded-[1.5rem] border border-border/60 bg-card/70 p-1 shadow-lg shadow-black/5 backdrop-blur-xl"
+        className="grid grid-cols-2 rounded-[1.5rem] border border-border/60 bg-card/70 p-1 shadow-brand-card backdrop-blur-xl"
       >
         <TabButton
           active={tab === "upcoming"}

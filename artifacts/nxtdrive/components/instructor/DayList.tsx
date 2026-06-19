@@ -221,7 +221,7 @@ export function InstructorDayList({
     return (
       <div className="flex items-center gap-2 overflow-x-auto py-1">
         <div className="shrink-0 text-right">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-[10px] uppercase text-muted-foreground">
             Vandaag
           </div>
           <div className="text-xs font-medium capitalize text-foreground">
@@ -264,7 +264,7 @@ export function InstructorDayList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="rounded-[1.2rem] border border-border/70 bg-background/55 px-3.5 py-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="text-[10px] font-semibold uppercase text-muted-foreground">
           Agenda
         </div>
         <div className="mt-1 text-sm font-semibold capitalize text-foreground">
@@ -294,7 +294,7 @@ export function InstructorDayList({
                   <Link
                     href={itemHref(item)}
                     className={cn(
-                      "group relative block overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/48 px-3.5 py-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background/72 hover:shadow-md",
+                      "group relative block overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/48 px-3.5 py-3.5 shadow-sm transition-colors hover:border-primary/30 hover:bg-background/72",
                       active ? "border-primary/45 bg-primary-soft/40" : "",
                     )}
                   >
@@ -328,7 +328,7 @@ export function InstructorDayList({
                           </div>
                           <span
                             className={cn(
-                              "shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold tracking-wide",
+                              "shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold",
                               visual.badgeClass,
                             )}
                           >

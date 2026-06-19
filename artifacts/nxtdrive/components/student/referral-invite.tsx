@@ -106,7 +106,7 @@ export function ReferralInvite({
         {summary && summary.total > 0 ? (
           <div className="space-y-2 border-t border-white/8 pt-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs uppercase tracking-wider text-white/42">
+              <span className="text-xs uppercase text-white/42">
                 Jouw aandragingen
               </span>
               <span className="text-xs text-white/46">

@@ -75,7 +75,7 @@ export function StudentProgressCard({
       <CardContent className="space-y-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            <div className="text-xs uppercase text-muted-foreground">
               Jouw les
             </div>
             <div className="mt-0.5 text-sm font-medium capitalize text-foreground">
@@ -126,7 +126,7 @@ export function StudentProgressCard({
 
         {lesson.progress_summary ? (
           <div className="space-y-1">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            <div className="text-xs uppercase text-muted-foreground">
               Toelichting van je instructeur
             </div>
             <p className="whitespace-pre-wrap text-sm text-foreground">

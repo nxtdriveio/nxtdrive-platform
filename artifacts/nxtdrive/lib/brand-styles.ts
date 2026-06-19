@@ -30,18 +30,8 @@ export function brandPrimaryGradient({
   return `linear-gradient(${angle}deg, color-mix(in oklab, var(--primary) ${startMix}%, white), ${endColor})`;
 }
 
-export function brandPrimaryGlowShadow({
-  x = 0,
-  y = 14,
-  blur = 28,
-  spread = 0,
-  strength,
-}: PrimaryShadowOptions = {}): string {
-  if (strength == null) {
-    return `${x}px ${y}px ${blur}px ${spread}px var(--cta-shadow-color)`;
-  }
-
-  return `${x}px ${y}px ${blur}px ${spread}px color-mix(in oklab, var(--primary) ${strength}%, transparent)`;
+export function brandPrimaryGlowShadow(_options: PrimaryShadowOptions = {}): string {
+  return "var(--shadow-soft)";
 }
 
 export function brandPrimaryCtaStyle(

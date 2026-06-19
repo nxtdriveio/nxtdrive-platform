@@ -106,10 +106,10 @@ function NavLink({ item, mobile = false }: { item: NavItem; mobile?: boolean }) 
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={cn(
-        "group flex items-center gap-3 rounded-[1.05rem] px-3 py-2.5 text-sm font-bold transition",
-        active
-          ? "bg-brand-sidebar-active text-brand-sidebar-active-foreground shadow-lg shadow-black/18"
+        className={cn(
+          "group flex items-center gap-3 rounded-[1.05rem] px-3 py-2.5 text-sm font-bold transition",
+          active
+          ? "bg-brand-sidebar-active text-brand-sidebar-active-foreground"
           : "text-brand-sidebar-foreground/78 hover:bg-white/8 hover:text-white",
       )}
     >
@@ -132,9 +132,8 @@ export function InstructorSidebar({
 }) {
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden bg-brand-sidebar-background text-brand-sidebar-foreground shadow-[28px_0_80px_rgba(10,20,44,0.18)] xl:flex xl:flex-col xl:w-[18.5rem]">
+      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden border-r border-white/10 bg-brand-sidebar-background text-brand-sidebar-foreground xl:flex xl:flex-col xl:w-[18.5rem]">
         <div className="relative flex min-h-0 flex-1 flex-col p-4">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(126,92,255,0.25),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(47,183,255,0.14),transparent_28%)]" />
           <div className="relative">
             <Link href="/instructor" className="inline-flex items-center">
               <NxtdriveLogo className="text-xl font-semibold text-white" logoUrl={logoUrl} brandName={tenantName} />
@@ -192,7 +191,7 @@ export function InstructorSidebar({
         className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 xl:hidden"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.55rem)" }}
       >
-        <ul className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 rounded-[1.45rem] border border-brand-border/80 bg-white/92 p-1.5 shadow-brand-floating backdrop-blur-xl">
+        <ul className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 rounded-[1.45rem] border border-brand-border/80 bg-white/92 p-1.5 shadow-brand-card backdrop-blur-xl">
           {MOBILE_NAV.map((item) => (
             <li key={item.href} className="min-w-0">
               <NavLink item={item} mobile />

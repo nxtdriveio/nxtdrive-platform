@@ -114,7 +114,7 @@ export function InstructorProgressCard({
         {/* Lesson timing + status */}
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <div className="text-[11px] uppercase text-muted-foreground">
               Les voortgang
             </div>
             <div className="mt-0.5 text-sm font-medium text-foreground">
@@ -134,7 +134,7 @@ export function InstructorProgressCard({
           <Ring pct={progress.ringPct} />
           <div className="flex-1 space-y-2.5">
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              <div className="text-[11px] uppercase text-muted-foreground">
                 Voortgang in lesuren
               </div>
               <div className="mt-0.5 text-base font-bold text-foreground">
@@ -146,7 +146,7 @@ export function InstructorProgressCard({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-2">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <div className="text-[10px] uppercase text-muted-foreground">
                   Gereden
                 </div>
                 <div className="mt-0.5 font-semibold tabular-nums text-foreground">
@@ -154,7 +154,7 @@ export function InstructorProgressCard({
                 </div>
               </div>
               <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-2">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <div className="text-[10px] uppercase text-muted-foreground">
                   Tegoed
                 </div>
                 <div className="mt-0.5 font-semibold tabular-nums text-primary">

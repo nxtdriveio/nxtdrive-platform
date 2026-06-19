@@ -51,7 +51,7 @@ export function PWAHero({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-2xl",
+        "relative overflow-hidden rounded-[1.75rem] border border-white/12 text-white shadow-brand-card",
         app === "student"
           ? "px-4 py-[1.125rem] sm:px-5 sm:py-[1.375rem]"
           : "px-[1.125rem] py-4 sm:px-6 sm:py-5 lg:px-7",
@@ -60,25 +60,24 @@ export function PWAHero({
       style={{
         background:
           app === "student"
-            ? "radial-gradient(circle at 16% 0%, rgba(255,255,255,0.24), transparent 28%), radial-gradient(circle at 100% 0%, rgba(255,255,255,0.1), transparent 30%), linear-gradient(145deg, var(--hero-surface-start), var(--hero-surface-mid) 60%, var(--hero-surface-end))"
-            : "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 28%), radial-gradient(circle at 100% 18%, var(--hero-accent-soft), transparent 32%), linear-gradient(140deg, var(--hero-surface-start), var(--hero-surface-mid) 58%, var(--hero-surface-end))",
+            ? "linear-gradient(145deg, var(--hero-surface-start), var(--hero-surface-mid) 60%, var(--hero-surface-end))"
+            : "linear-gradient(140deg, var(--hero-surface-start), var(--hero-surface-mid) 58%, var(--hero-surface-end))",
       }}
     >
       <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full border border-white/10" />
-      <div className="pointer-events-none absolute -bottom-24 left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
       <div className="relative flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 space-y-1.5">
           {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+            <p className="text-[11px] font-semibold uppercase text-white/60">
               {eyebrow}
             </p>
           ) : null}
           <h1
             className={cn(
-              "text-balance font-black leading-[1.02] tracking-tight text-white",
+              "text-balance font-black leading-[1.02] text-white",
               app === "student"
-                ? "text-[clamp(1.72rem,7vw,2.65rem)]"
-                : "text-[clamp(1.75rem,4vw,3.5rem)]",
+                ? "text-[1.72rem] sm:text-[2.15rem] xl:text-[2.65rem]"
+                : "text-[1.75rem] sm:text-[2.35rem] xl:text-[3.1rem]",
             )}
           >
             {title}
@@ -147,7 +146,7 @@ export function PWAKpiTile({
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="min-w-0 truncate text-[11px] font-semibold uppercase text-muted-foreground">
           {label}
         </p>
         {info ? (
@@ -156,7 +155,7 @@ export function PWAKpiTile({
           </InfoBubble>
         ) : null}
       </div>
-      <p className="mt-1 truncate text-[1.05rem] font-bold tracking-tight text-foreground sm:text-xl">
+      <p className="mt-1 truncate text-[1.05rem] font-bold text-foreground sm:text-xl">
         {value}
       </p>
       {hint ? (
@@ -279,16 +278,16 @@ export function PWAPageHeader({
     >
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">
             {eyebrow}
           </p>
         ) : null}
         <h1
           className={cn(
-            "flex min-w-0 items-center gap-2 tracking-tight text-foreground",
+            "flex min-w-0 items-center gap-2 leading-tight text-foreground",
             align === "wide"
-              ? "text-[clamp(1.7rem,3vw,2.4rem)] font-black"
-              : "text-lg font-black sm:text-2xl",
+              ? "text-[1.65rem] font-black sm:text-2xl xl:text-[2.35rem]"
+              : "text-[1.65rem] font-black sm:text-2xl xl:text-[2.35rem]",
           )}
         >
           {icon ? (

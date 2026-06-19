@@ -108,7 +108,7 @@ export function RescheduleLessonButton({
       icon={<CalendarClock className="h-5 w-5" aria-hidden />}
     >
       <label className="block space-y-1">
-        <span className="text-xs uppercase tracking-[0.18em] text-white/42">
+        <span className="text-xs uppercase text-white/42">
           Nieuwe datum en tijd
         </span>
         <input

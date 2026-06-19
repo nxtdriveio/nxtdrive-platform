@@ -94,7 +94,7 @@ export function ExamPrepCard({
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary">
+          <div className="flex items-center gap-2 text-xs uppercase text-primary">
             <GraduationCap className="h-4 w-4" aria-hidden />
             {noun} gepland
           </div>
@@ -131,7 +131,7 @@ export function ExamPrepCard({
         ) : null}
 
         <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-          <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+          <div className="mb-3 flex items-center gap-2 text-[11px] uppercase text-white/42">
             <ListChecks className="h-3.5 w-3.5 text-primary" aria-hidden />
             Controles
           </div>
@@ -165,7 +165,7 @@ export function ExamPrepCard({
 
         {prep.policy.exam_day_tips.length > 0 ? (
           <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase text-white/42">
               <Lightbulb className="h-3.5 w-3.5 text-primary" aria-hidden />
               Tips voor de examendag
             </div>
@@ -182,7 +182,7 @@ export function ExamPrepCard({
 
         {prep.recentLessons.length > 0 ? (
           <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase text-white/42">
               <History className="h-3.5 w-3.5 text-primary" aria-hidden />
               Laatste lessen
             </div>

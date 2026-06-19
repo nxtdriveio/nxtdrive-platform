@@ -38,7 +38,7 @@ export function InstructorStudentCard({
       <CardContent className="pt-5">
         <div className="flex items-start gap-4">
           {/* Amber initials avatar */}
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold tracking-tight select-none">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold select-none">
             {initials || "?"}
           </div>
 

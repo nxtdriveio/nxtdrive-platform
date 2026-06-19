@@ -71,7 +71,7 @@ export function LessonContextPanel({
   return (
     <Card>
       <CardContent className="space-y-4 pt-5">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="text-xs uppercase text-muted-foreground">
           Lescontext
         </div>
 
@@ -235,7 +235,7 @@ function TopicPicker({
         <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-border p-3">
           {leskaart.categories.map((cat) => (
             <div key={cat.id} className="space-y-1.5">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="text-xs font-semibold uppercase text-muted-foreground">
                 {cat.label}
               </div>
               {cat.subcategories.map((sub) => (
