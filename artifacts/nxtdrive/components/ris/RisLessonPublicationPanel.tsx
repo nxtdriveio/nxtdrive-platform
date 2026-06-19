@@ -328,6 +328,10 @@ export function RisLessonPublicationPanel({
       setError("Vul de gezamenlijke reflectie in een korte zin in.");
       return;
     }
+    const confirmed = window.confirm(
+      "Weet je zeker dat je deze leskaart definitief wilt afronden en publiceren? Daarna worden de scores vastgezet en kan deze leskaart niet meer direct worden bewerkt.",
+    );
+    if (!confirmed) return;
 
     setError(null);
     setSuccess(null);

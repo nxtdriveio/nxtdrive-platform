@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowLeft,
   ArrowRight,
   BarChart3,
   Bell,
@@ -160,6 +161,7 @@ function InstructorCard({
   icon: Icon,
   right,
   className,
+  headerClassName,
   contentClassName,
 }: {
   children: React.ReactNode;
@@ -167,6 +169,7 @@ function InstructorCard({
   icon?: IconComponent;
   right?: React.ReactNode;
   className?: string;
+  headerClassName?: string;
   contentClassName?: string;
 }) {
   return (
@@ -177,7 +180,7 @@ function InstructorCard({
       )}
     >
       {title ? (
-        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-brand-border/70 px-4 py-3.5">
+        <div className={cn("flex min-w-0 items-center justify-between gap-3 border-b border-brand-border/70 px-4 py-3.5", headerClassName)}>
           <div className="flex min-w-0 items-center gap-2.5">
             {Icon ? (
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
@@ -861,22 +864,43 @@ export function InstructorMessagesView({
   threadId?: string;
   data?: InstructorExperience;
 }) {
+  const hasSelectedThread = Boolean(threadId);
   const active =
     data.messages.find((thread) => thread.id === threadId) ??
     data.messages[0] ??
     getInstructorMessageThread(threadId);
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Communicatie" title="Berichten" subtitle="Gesprekken met leerlingen, planning en team in een overzichtelijke split-view." />
-      <div className="grid gap-4 xl:grid-cols-[22rem_1fr]">
-        <InstructorCard title="Gesprekken" icon={MessageCircle}>
+      <div className={cn(hasSelectedThread && "hidden md:block")}>
+        <PageHeader
+          eyebrow="Communicatie"
+          title="Berichten"
+          subtitle="Gesprekken met leerlingen, planning en team in een overzichtelijke split-view."
+        />
+      </div>
+      <div className="grid gap-3 md:h-[calc(100dvh-12rem)] md:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
+        <InstructorCard
+          title="Gesprekken"
+          icon={MessageCircle}
+          className={cn(hasSelectedThread && "hidden md:block", "md:h-full")}
+          contentClassName="p-3 md:h-[calc(100%-4.25rem)] md:overflow-y-auto"
+        >
           <div className="space-y-2">
             {data.messages.length > 0 ? data.messages.map((thread) => (
-              <Link key={thread.id} href={`/instructor/messages/${thread.id}`} className={cn("flex items-center gap-3 rounded-2xl border p-3", thread.id === active.id ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white")}>
-                <Avatar name={thread.name} className="h-10 w-10 text-xs" />
+              <Link
+                key={thread.id}
+                href={`/instructor/messages/${thread.id}`}
+                className={cn(
+                  "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
+                  thread.id === active.id
+                    ? "border-brand-primary bg-brand-accent"
+                    : "border-brand-border bg-white",
+                )}
+              >
+                <Avatar name={thread.name} className="h-11 w-11 text-xs" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-foreground">{thread.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{thread.preview}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{thread.preview}</p>
                 </div>
                 {thread.unread ? <Badge variant="primary">{thread.unread}</Badge> : null}
               </Link>
@@ -887,23 +911,45 @@ export function InstructorMessagesView({
             )}
           </div>
         </InstructorCard>
-        <InstructorCard title={active.name} icon={User} right={<Badge variant="success">Online</Badge>}>
-          <div className="flex min-h-[28rem] flex-col">
-            <div className="flex-1 space-y-3">
+        <InstructorCard
+          title={active.name}
+          icon={User}
+          right={<Badge variant="success">Online</Badge>}
+          className={cn(!hasSelectedThread && "hidden md:block", "md:h-full")}
+          headerClassName="hidden md:flex"
+          contentClassName="flex min-h-[calc(100dvh-8.5rem)] flex-col p-0 md:h-[calc(100%-4.25rem)] md:min-h-0"
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
+              <Link
+                href="/instructor/messages"
+                aria-label="Terug naar gesprekken"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+              </Link>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-foreground">{active.name}</p>
+                <p className="text-xs text-success">Online</p>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {active.messages.map((message) => (
                 <div key={message.id} className={cn("flex", message.sender === "instructor" ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm", message.sender === "instructor" ? "bg-brand-primary text-white" : "bg-brand-muted text-foreground")}>
+                  <div className={cn("max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm md:max-w-[68%]", message.sender === "instructor" ? "bg-brand-primary text-white" : "bg-brand-muted text-foreground")}>
                     <p>{message.body}</p>
                     <p className={cn("mt-1 text-[10px]", message.sender === "instructor" ? "text-white/70" : "text-muted-foreground")}>{message.time}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-brand-border bg-white p-2">
-              <Input placeholder="Typ een bericht..." className="border-0 shadow-none focus-visible:ring-0" />
-              <button className={buttonVariants({ size: "icon" })} aria-label="Versturen">
-                <Send className="h-4 w-4" aria-hidden />
-              </button>
+            <div className="border-t border-brand-border/70 bg-white/95 p-3">
+              <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-white p-2">
+                <Input placeholder="Typ een bericht..." className="border-0 shadow-none focus-visible:ring-0" />
+                <button className={buttonVariants({ size: "icon" })} aria-label="Versturen">
+                  <Send className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
             </div>
           </div>
         </InstructorCard>

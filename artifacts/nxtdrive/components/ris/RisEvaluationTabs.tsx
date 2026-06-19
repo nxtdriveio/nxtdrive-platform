@@ -60,6 +60,12 @@ const TABS: Array<{
   { key: "summary", label: "Samenvatting / Afronding", icon: ClipboardList },
 ];
 
+const OPEN_RIS_CARD_STATUSES = new Set([
+  "draft",
+  "completion_in_progress",
+  "ready_to_publish",
+]);
+
 export function RisEvaluationTabs({
   lessonId,
   studentId,
@@ -89,6 +95,10 @@ export function RisEvaluationTabs({
   function updateAssessments(assessments: RisScriptAssessment[]) {
     setRisState((current) => ({ ...current, assessments }));
   }
+
+  const lessonCardLocked = Boolean(
+    risState.card && !OPEN_RIS_CARD_STATUSES.has(risState.card.publicationStatus),
+  );
 
   return (
     <div className="space-y-4">
@@ -125,6 +135,7 @@ export function RisEvaluationTabs({
           planningCard={planningCard}
           goalOptions={goalOptions}
           studentLearningWish={studentLearningWish}
+          lessonCardLocked={lessonCardLocked}
         />
       ) : null}
       {activeTab === "scoring" ? (
