@@ -380,7 +380,7 @@ export default async function StudentVoortgangPage({
                 <div className="rounded-[1.2rem] border border-primary/20 bg-primary/10 px-3.5 py-3.5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/68">
+                      <div className="text-xs font-semibold uppercase text-primary/68">
                         Laatste les
                       </div>
                       <div className="mt-1 text-lg font-semibold text-white">

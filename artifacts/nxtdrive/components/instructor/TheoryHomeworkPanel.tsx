@@ -59,7 +59,7 @@ export function TheoryHomeworkPanel({
   return (
     <Card>
       <CardContent className="space-y-4 pt-5">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
           <BookOpen className="h-4 w-4" aria-hidden /> Theoriehuiswerk
         </div>
 

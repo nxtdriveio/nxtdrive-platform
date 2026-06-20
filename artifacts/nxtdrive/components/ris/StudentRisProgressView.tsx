@@ -289,7 +289,7 @@ function ModuleSummaryCard({
     <div className="rounded-[1.1rem] border border-white/10 bg-white/[0.035] px-3 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
+          <div className="text-[11px] font-semibold uppercase text-white/42">
             Module {module.moduleNumber}
           </div>
           <div className="mt-1 text-lg font-black leading-none text-white">{module.progressPct}%</div>
@@ -383,7 +383,7 @@ function PublishedLessonCard({
           <div className="flex items-start gap-2.5">
             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/72">
+              <div className="text-xs font-semibold uppercase text-primary/72">
                 Huiswerk / volgende focus
               </div>
               <p className="mt-1 text-sm leading-6 text-white/70">{card.homeworkOrNextFocus}</p>
@@ -413,7 +413,7 @@ function ReflectionSnippet({
   if (!value) return null;
   return (
     <div className="rounded-[0.95rem] border border-white/10 bg-black/10 px-3 py-2.5">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/36">
+      <div className="text-[10px] font-semibold uppercase text-white/36">
         {label}
       </div>
       <p className="mt-1 text-xs leading-5 text-white/62">{value}</p>

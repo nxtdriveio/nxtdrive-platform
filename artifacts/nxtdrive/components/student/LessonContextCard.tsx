@@ -24,7 +24,7 @@ export function StudentLessonContextCard({
           <div className="grid gap-2 sm:grid-cols-2">
             {vehicleLabel ? (
               <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+                <div className="flex items-center gap-2 text-[11px] uppercase text-white/42">
                   <Car className="h-3.5 w-3.5 text-primary" aria-hidden />
                   Voertuig
                 </div>
@@ -33,7 +33,7 @@ export function StudentLessonContextCard({
             ) : null}
             {locationName ? (
               <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+                <div className="flex items-center gap-2 text-[11px] uppercase text-white/42">
                   <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden />
                   Locatie
                 </div>
@@ -45,7 +45,7 @@ export function StudentLessonContextCard({
 
         {topics.length > 0 ? (
           <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-3">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+            <div className="flex items-center gap-2 text-[11px] uppercase text-white/42">
               <ListChecks className="h-3.5 w-3.5 text-primary" aria-hidden />
               Behandelde onderdelen
             </div>

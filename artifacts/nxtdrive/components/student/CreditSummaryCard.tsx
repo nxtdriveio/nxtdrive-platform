@@ -31,7 +31,7 @@ export function CreditSummaryCard({
 
   return (
     <Link href="/student/betalingen" className="block min-w-0">
-      <PWACard className="transition hover:-translate-y-0.5 hover:border-muted-foreground/40 hover:shadow-lg">
+      <PWACard className="transition-colors hover:border-muted-foreground/40">
         <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
           <PWASectionHeader
             icon={<Wallet className="h-3.5 w-3.5" aria-hidden />}
@@ -44,7 +44,7 @@ export function CreditSummaryCard({
 
         <div className="min-w-0 space-y-3">
           <div className="flex min-w-0 items-end justify-between gap-2">
-            <div className={`text-4xl font-black tabular-nums tracking-tight ${tone.text}`}>
+            <div className={`text-4xl font-black tabular-nums ${tone.text}`}>
               {formatTegoed(Math.max(0, availableMinutes))}
             </div>
             {purchasedMinutes > 0 ? (

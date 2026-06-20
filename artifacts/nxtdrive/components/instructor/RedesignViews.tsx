@@ -137,11 +137,11 @@ function PageHeader({
     <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase text-muted-foreground">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 text-[clamp(1.65rem,4vw,2.45rem)] font-black leading-tight tracking-tight text-foreground">
+        <h1 className="mt-1 text-[1.65rem] font-black leading-tight text-foreground sm:text-2xl xl:text-[2.35rem]">
           {title}
         </h1>
         {subtitle ? (
@@ -286,7 +286,7 @@ function AppointmentCard({
     <Link
       href={appointment.href}
       className={cn(
-        "relative block overflow-hidden rounded-[1.15rem] border border-brand-border bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/35 hover:shadow-brand-card",
+        "relative block overflow-hidden rounded-[1.15rem] border border-brand-border bg-white p-3.5 shadow-sm transition-colors hover:border-brand-primary/35",
         compact && "p-3",
       )}
     >
@@ -695,7 +695,7 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-brand-border bg-white p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
       <p className="mt-2 text-sm font-black text-foreground">{value}</p>
     </div>
   );

@@ -12,7 +12,7 @@ export default function StudentTheoryPage() {
             <BookOpen className="h-6 w-6" aria-hidden />
           </span>
           <div className="min-w-0">
-            <h1 className="text-2xl font-black tracking-tight text-brand-foreground">
+            <h1 className="text-2xl font-black text-brand-foreground">
               Binnenkort beschikbaar
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-brand-muted-foreground">

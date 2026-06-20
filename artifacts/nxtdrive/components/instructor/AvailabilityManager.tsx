@@ -32,10 +32,10 @@ export async function InstructorAvailabilityManager({
     <div className="min-w-0 space-y-4 md:space-y-5">
       <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase text-muted-foreground">
             Beschikbaarheid
           </p>
-          <h1 className="mt-1 text-[clamp(1.65rem,4vw,2.35rem)] font-black leading-tight tracking-tight text-foreground">
+          <h1 className="mt-1 text-[1.65rem] font-black leading-tight text-foreground sm:text-2xl xl:text-[2.35rem]">
             Mijn agenda-uren
           </h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">

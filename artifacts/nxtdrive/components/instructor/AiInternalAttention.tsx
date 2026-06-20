@@ -35,7 +35,7 @@ export function AiInternalAttention({ lessonId }: { lessonId: string }) {
     <Card className="border-warning/40 bg-warning/5">
       <CardContent className="space-y-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-warning">
+          <div className="flex items-center gap-2 text-xs uppercase text-warning">
             <Lock className="h-4 w-4" aria-hidden />
             Interne aandachtspunten
           </div>
@@ -77,7 +77,7 @@ export function AiInternalAttention({ lessonId }: { lessonId: string }) {
 
             {attention.terugkerendePunten.length > 0 ? (
               <section className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-medium uppercase text-muted-foreground">
                   <Repeat className="h-3.5 w-3.5" aria-hidden />
                   Terugkerende punten
                 </div>
@@ -103,7 +103,7 @@ export function AiInternalAttention({ lessonId }: { lessonId: string }) {
 
             {attention.adviesVolgendeLes.length > 0 ? (
               <section className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-medium uppercase text-muted-foreground">
                   <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                   Advies volgende les
                 </div>

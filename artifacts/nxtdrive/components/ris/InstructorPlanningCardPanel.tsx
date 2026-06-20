@@ -157,7 +157,7 @@ export function InstructorPlanningCardPanel({
       <CardContent className="space-y-4 pt-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-primary">
+            <div className="flex items-center gap-2 text-xs uppercase text-primary">
               <Target className="h-4 w-4" aria-hidden />
               Plankaart
             </div>

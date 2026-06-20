@@ -143,7 +143,7 @@ export function InstructorQuickSearch() {
           ref={panelRef}
           role="listbox"
           aria-label="Zoekresultaten"
-          className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-popover shadow-xl"
+          className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-popover shadow-brand-card"
         >
           {flat.length === 0 && !loading ? (
             <p className="px-4 py-3 text-sm text-muted-foreground">
@@ -159,7 +159,7 @@ export function InstructorQuickSearch() {
                 sectionOffset += items.length;
                 return (
                   <div key={section}>
-                    <div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase text-muted-foreground">
                       <Icon className="h-3 w-3" aria-hidden />
                       {label}
                     </div>

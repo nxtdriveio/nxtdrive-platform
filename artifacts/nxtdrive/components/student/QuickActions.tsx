@@ -39,7 +39,7 @@ export function QuickActions({
   return (
     <section className="space-y-2">
       <div className="px-1">
-        <h2 className="text-[1.02rem] font-bold tracking-tight text-brand-foreground sm:text-[1.16rem]">
+        <h2 className="text-[1.02rem] font-bold text-brand-foreground sm:text-[1.16rem]">
           Snelle acties
         </h2>
       </div>
@@ -51,7 +51,7 @@ export function QuickActions({
             <Link
               key={shortcut.href}
               href={shortcut.href}
-              className="group relative flex min-h-[5.2rem] min-w-0 flex-col items-center justify-center gap-2 rounded-[1.05rem] border border-brand-border/80 bg-white px-2.5 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary/35 hover:shadow-brand-card"
+              className="group relative flex min-h-[5.2rem] min-w-0 flex-col items-center justify-center gap-2 rounded-[1.05rem] border border-brand-border/80 bg-white px-2.5 py-3 text-center shadow-sm transition-colors hover:border-brand-primary/35"
             >
               {shortcut.badge ? (
                 <span className="absolute right-2 top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[10px] font-semibold leading-5 text-brand-primary-foreground">

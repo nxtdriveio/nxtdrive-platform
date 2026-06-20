@@ -195,11 +195,11 @@ export function FinishLessonFlow({
           aria-modal="true"
           aria-label="Les afronden"
         >
-          <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-card shadow-2xl sm:h-[min(92vh,52rem)] sm:max-w-5xl sm:rounded-2xl sm:border sm:border-border">
+          <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-card shadow-brand-card sm:h-[min(92vh,52rem)] sm:max-w-5xl sm:rounded-2xl sm:border sm:border-border">
             {/* Header */}
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                <div className="text-xs uppercase text-muted-foreground">
                   Les afronden
                 </div>
                 <div className="truncate text-sm font-semibold text-foreground">
@@ -397,7 +397,7 @@ function SkillsStep({
         <div className="space-y-5">
           {leskaart.categories.map((cat) => (
             <div key={cat.id}>
-              <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
                 {cat.label}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -560,7 +560,7 @@ function NoteStep({
       </div>
 
       <div>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
           Lesscore (1–10)
         </div>
         <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
@@ -590,7 +590,7 @@ function NoteStep({
       <div>
         <label
           htmlFor="finish-summary"
-          className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
+          className="mb-2 block text-xs font-medium uppercase text-muted-foreground"
         >
           Toelichting
         </label>
@@ -631,7 +631,7 @@ function ConfirmStep({
       </div>
 
       <div className="rounded-xl border border-border p-4">
-        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
           <Gauge className="h-4 w-4" aria-hidden />
           Lesscore
         </div>
@@ -649,7 +649,7 @@ function ConfirmStep({
       </div>
 
       <div className="rounded-xl border border-border p-4">
-        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
           <ListChecks className="h-4 w-4" aria-hidden />
           Beoordeelde onderdelen ({selectedLeaves.length})
         </div>

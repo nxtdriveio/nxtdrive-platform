@@ -410,7 +410,7 @@ export default async function StudentLessonsPage({
                 </a>
               </div>
 
-              <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-white/34">
+              <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold uppercase text-white/34">
                 {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((label) => (
                   <div key={label}>{label}</div>
                 ))}
@@ -432,7 +432,7 @@ export default async function StudentLessonsPage({
                       className={[
                         "rounded-[1rem] border px-1.5 py-2 text-center transition",
                         selected
-                          ? "border-primary/40 bg-primary/16 text-white shadow-[0_12px_24px_color-mix(in_oklab,var(--primary)_22%,transparent)]"
+                          ? "border-primary/40 bg-primary/16 text-white shadow-sm"
                           : "border-white/8 bg-white/[0.02] text-white/76 hover:border-white/14",
                         !inMonth ? "opacity-45" : "",
                       ].join(" ")}

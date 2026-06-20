@@ -40,7 +40,7 @@ export function StudentCbrCard({ summary }: { summary: CbrStudentSummary }) {
     <Card>
       <CardContent className="space-y-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
             <BadgeCheck className="h-4 w-4" aria-hidden />
             CBR-status
           </div>

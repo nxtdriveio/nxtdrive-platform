@@ -96,7 +96,7 @@ export function RefillOptInForm({
         {enabled ? (
           <div className="space-y-3">
             <div>
-              <div className="mb-1.5 text-xs font-medium uppercase tracking-[0.18em] text-white/42">
+              <div className="mb-1.5 text-xs font-medium uppercase text-white/42">
                 Voorkeursmomenten (optioneel)
               </div>
               <div className="flex flex-wrap gap-2">

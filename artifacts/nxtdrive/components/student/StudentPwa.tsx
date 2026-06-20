@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -152,11 +152,11 @@ export function StudentPageHeader({
     >
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase text-brand-muted-foreground">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-brand-foreground sm:text-3xl">
+        <h1 className="mt-1 text-[1.65rem] font-black leading-tight text-brand-foreground sm:text-2xl xl:text-[2.35rem]">
           {title}
         </h1>
         {subtitle ? (
@@ -284,7 +284,7 @@ export function StudentHeroNextStepCard({
   const progress = Math.round((progressCurrent / progressTotal) * 100);
 
   return (
-    <StudentCard className="relative border-white/10 bg-brand-primary text-brand-primary-foreground shadow-brand-floating">
+    <StudentCard className="relative border-white/10 bg-brand-primary text-brand-primary-foreground shadow-brand-card">
       <div className="absolute inset-0" style={{ background: "var(--brand-hero-background)" }} />
       <svg
         viewBox="0 0 360 160"
@@ -307,10 +307,10 @@ export function StudentHeroNextStepCard({
       </svg>
       <div className="relative grid min-w-0 gap-4 p-4 sm:grid-cols-[1fr_auto] sm:p-5">
         <div className="min-w-0 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/64">
+          <p className="text-[11px] font-semibold uppercase text-white/64">
             Volgende focus
           </p>
-          <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
+          <h2 className="text-xl font-black text-white">{title}</h2>
           <p className="max-w-lg text-sm leading-6 text-white/78">{body}</p>
           <Link
             href={href}
@@ -355,14 +355,14 @@ export function StudentStatCard({
   href?: string;
 }) {
   const content = (
-    <StudentCard className="h-full p-4 transition hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-brand-soft">
+    <StudentCard className="h-full p-4 transition-colors hover:border-brand-primary/40">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         {href ? <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden /> : null}
       </div>
-      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-brand-muted-foreground">
+      <p className="mt-4 text-xs font-semibold uppercase text-brand-muted-foreground">
         {label}
       </p>
       <p className="mt-1 truncate text-lg font-black text-brand-foreground">{value}</p>
@@ -392,7 +392,7 @@ export function StudentQuickActionGrid({
           <Link
             key={action.href}
             href={action.href}
-            className="group min-w-0 rounded-[var(--radius-card)] border border-brand-border/80 bg-card/90 p-4 shadow-brand-card transition hover:-translate-y-0.5 hover:border-brand-primary/40"
+            className="group min-w-0 rounded-[var(--radius-card)] border border-brand-border/80 bg-card/90 p-4 shadow-brand-card transition-colors hover:border-brand-primary/40"
           >
             <div className="flex items-center justify-between gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
@@ -418,12 +418,12 @@ export function StudentAICoachCard() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-muted-foreground">
+            <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
               AI Coach
             </p>
             <Badge variant="primary">Nieuw</Badge>
           </div>
-          <h3 className="mt-2 text-lg font-black tracking-tight text-brand-primary">
+          <h3 className="mt-2 text-lg font-black text-brand-primary">
             Kijktechniek en rotondes
           </h3>
           <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
@@ -591,10 +591,10 @@ export function StudentReadinessCard({
 export function StudentLessonCard({ lesson }: { lesson: StudentLesson }) {
   return (
     <Link href={lesson.href} className="block">
-      <StudentCard className="p-4 transition hover:-translate-y-0.5 hover:border-brand-primary/40">
+      <StudentCard className="p-4 transition-colors hover:border-brand-primary/40">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-muted-foreground">
+            <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
               {lesson.title}
             </p>
             <h3 className="mt-1 text-lg font-black text-brand-foreground">{lesson.dateLabel}</h3>
@@ -628,7 +628,7 @@ export function StudentLessonTable({ lessons }: { lessons: StudentLesson[] }) {
   return (
     <StudentCard className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b border-brand-border/80 text-xs uppercase tracking-[0.14em] text-brand-muted-foreground">
+        <thead className="border-b border-brand-border/80 text-xs uppercase text-brand-muted-foreground">
           <tr>
             <th className="px-4 py-3 font-extrabold">Datum</th>
             <th className="px-4 py-3 font-extrabold">Locatie</th>
@@ -754,10 +754,10 @@ export function StudentPaymentBalanceCard({
     <StudentCard className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-muted-foreground">
+          <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
             Tegoed
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-brand-foreground">
+          <p className="mt-2 text-3xl font-black text-brand-foreground">
             {balance.creditLabel}
           </p>
           <p className="mt-1 text-sm text-brand-muted-foreground">

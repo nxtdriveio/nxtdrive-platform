@@ -114,7 +114,7 @@ export function InstructorActionsPanel({
   return (
     <Card id="acties" className="scroll-mt-20">
       <CardContent className="space-y-3 pt-5">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="text-xs uppercase text-muted-foreground">
           Acties
         </div>
 

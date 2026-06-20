@@ -17,7 +17,7 @@ export const STUDENT_PANEL_SURFACE =
   "linear-gradient(180deg, #ffffff, color-mix(in oklab, var(--brand-background) 62%, #ffffff))";
 
 export const STUDENT_ACCENT_SURFACE =
-  "radial-gradient(circle at 12% 0%, color-mix(in oklab, var(--brand-primary) 10%, transparent), transparent 32%), linear-gradient(180deg, #ffffff, color-mix(in oklab, var(--brand-accent) 34%, #ffffff))";
+  "linear-gradient(180deg, #ffffff, color-mix(in oklab, var(--brand-accent) 34%, #ffffff))";
 
 export type StudentTabItem = {
   key: string;
@@ -121,7 +121,7 @@ export function StudentShowcaseCard({
         <div className="flex items-center justify-between gap-3 border-b border-brand-border/70 px-3.5 py-3 sm:px-4 sm:py-3.5">
           <div className="min-w-0">
             {eyebrow ? (
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-muted-foreground">
+              <div className="text-[10px] font-semibold uppercase text-brand-muted-foreground">
                 {eyebrow}
               </div>
             ) : null}
@@ -178,7 +178,7 @@ export function StudentShowcaseMetric({
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <div className="min-w-0">
-        <div className="text-[1.45rem] font-black leading-none tracking-tight text-brand-foreground">
+        <div className="text-[1.45rem] font-black leading-none text-brand-foreground">
           {value}
         </div>
         <div className="truncate text-sm font-semibold text-brand-foreground">{label}</div>
@@ -236,7 +236,7 @@ export function StudentRing({
         />
       </svg>
       <div className="absolute inset-[1.1rem] flex flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
-        <div className="text-[1.75rem] font-black leading-none tracking-tight text-brand-foreground">
+        <div className="text-[1.75rem] font-black leading-none text-brand-foreground">
           {safe}%
         </div>
         <div className="mt-0.5 text-[11px] text-brand-muted-foreground sm:mt-1 sm:text-xs">

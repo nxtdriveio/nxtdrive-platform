@@ -543,7 +543,7 @@ export function RisLessonPublicationPanel({
                         className="rounded-xl border border-border bg-muted/20 p-3"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <span className="text-xs font-semibold uppercase text-muted-foreground">
                             {meta ? `Module ${meta.moduleNumber}` : "RIS"}
                           </span>
                           <Badge variant="primary">
@@ -681,7 +681,7 @@ function PanelHeader({
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-primary">
+        <div className="flex items-center gap-2 text-xs uppercase text-primary">
           <Icon className="h-4 w-4" aria-hidden />
           {eyebrow}
         </div>
@@ -728,7 +728,7 @@ function PublishedSummary({
         </p>
       </div>
       <div className="rounded-2xl border border-border bg-muted/20 p-4 lg:col-span-2">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="text-xs uppercase text-muted-foreground">
           Samenvatting leerling
         </div>
         <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
@@ -788,7 +788,7 @@ function RatingRow({
 }) {
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
         {label}
       </div>
       <div className="grid gap-1.5 sm:grid-cols-5">
@@ -848,7 +848,7 @@ function LabeledTextarea({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="mb-2 block text-xs font-semibold uppercase text-muted-foreground">
         {label}
       </span>
       <Textarea

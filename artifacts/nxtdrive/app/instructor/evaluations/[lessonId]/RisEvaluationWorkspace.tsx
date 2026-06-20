@@ -214,7 +214,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
               <Badge variant="info">Eerstvolgende open leskaart</Badge>
             ) : null}
           </div>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground">
+          <h1 className="mt-3 text-[1.65rem] font-black leading-tight text-foreground sm:text-2xl xl:text-[2.35rem]">
             Lesevaluatie
           </h1>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">

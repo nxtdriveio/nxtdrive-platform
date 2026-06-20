@@ -252,7 +252,7 @@ export function RisScriptScoring({
       <CardContent className="space-y-5 pt-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-primary">
+            <div className="flex items-center gap-2 text-xs uppercase text-primary">
               <BookOpenCheck className="h-4 w-4" aria-hidden />
               RIS-leskaart
             </div>
@@ -428,7 +428,7 @@ function Metric({ value, label }: { value: number; label: string }) {
   return (
     <div className="rounded-xl border border-border bg-muted/30 p-3">
       <div className="text-lg font-black text-foreground">{value}</div>
-      <div className="text-[0.68rem] uppercase tracking-wider text-muted-foreground">
+      <div className="text-[0.68rem] uppercase text-muted-foreground">
         {label}
       </div>
     </div>
@@ -491,7 +491,7 @@ function SummaryTagDropdown({
         </span>
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" aria-hidden />
       </summary>
-      <div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-2xl border border-border bg-popover p-2 shadow-brand-floating">
+      <div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-2xl border border-border bg-popover p-2 shadow-brand-card">
         {options.map((option) => (
           <button
             key={option.label}
