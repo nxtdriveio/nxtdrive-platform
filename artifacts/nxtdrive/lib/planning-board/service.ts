@@ -99,6 +99,28 @@ function unique(values: readonly (string | null | undefined)[]): string[] {
   );
 }
 
+function planningBoardPerspective(
+  filters: PlanningBoardFilters,
+): NonNullable<PlanningBoardFilters["perspective"]> {
+  return filters.perspective ?? "instructor";
+}
+
+function perspectiveMatchesQueueItem(
+  item: PlanningQueueListItem,
+  filters: PlanningBoardFilters,
+): boolean {
+  if (filters.perspective === "exam") {
+    return (
+      item.appointment_type === "exam" ||
+      item.appointment_type === "interim_test"
+    );
+  }
+  if (filters.perspective === "trial_lesson") {
+    return item.appointment_type === "trial_lesson";
+  }
+  return true;
+}
+
 async function namesById(
   client: SupabaseClient,
   table: string,
@@ -134,8 +156,19 @@ async function loadEvents(
   const branchIds =
     branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
   if (branchIds && branchIds.length === 0) return [];
+  const perspective = planningBoardPerspective(filters);
+  const appointmentTypeFilter = filters.appointmentType;
+  const loadLessons = appointmentTypeFilter
+    ? appointmentTypeFilter === "lesson"
+    : perspective !== "exam" && perspective !== "trial_lesson";
+  const loadTrials = appointmentTypeFilter
+    ? appointmentTypeFilter === "trial_lesson"
+    : perspective !== "exam";
+  const loadAppointments = appointmentTypeFilter
+    ? appointmentTypeFilter !== "lesson" && appointmentTypeFilter !== "trial_lesson"
+    : perspective !== "trial_lesson";
 
-  const applyEventFilters = (query: any, kind: string) => {
+  const applyEventFilters = (query: any) => {
     let next = query
       .eq("tenant_id", tenantId)
       .in("instructor_id", [...instructorIds])
@@ -147,19 +180,11 @@ async function loadEvents(
       next = next.eq("pickup_service_area_id", filters.serviceAreaId);
     }
     if (filters.vehicleId) next = next.eq("vehicle_id", filters.vehicleId);
-    if (
-      filters.appointmentType &&
-      kind === "agenda_appointment" &&
-      filters.appointmentType !== "lesson" &&
-      filters.appointmentType !== "trial_lesson"
-    ) {
-      next = next.eq("type", filters.appointmentType);
-    }
     return next.order("starts_at", { ascending: true });
   };
 
   const [lessons, trials, appointments] = await Promise.all([
-    filters.appointmentType && filters.appointmentType !== "lesson"
+    !loadLessons
       ? Promise.resolve({ data: [], error: null })
       : applyEventFilters(
       client
@@ -168,9 +193,8 @@ async function loadEvents(
           "id, tenant_id, branch_id, instructor_id, student_id, starts_at, ends_at, duration_min, buffer_min, status, vehicle_id, pickup_service_area_id",
         )
         .eq("status", "planned"),
-        "lesson",
       ),
-    filters.appointmentType && filters.appointmentType !== "trial_lesson"
+    !loadTrials
       ? Promise.resolve({ data: [], error: null })
       : applyEventFilters(
       client
@@ -179,21 +203,27 @@ async function loadEvents(
           "id, tenant_id, branch_id, instructor_id, lead_id, starts_at, ends_at, duration_min, status, vehicle_id, pickup_service_area_id",
         )
         .in("status", ["provisional", "confirmed"]),
-        "trial_lesson",
       ),
-    filters.appointmentType &&
-    (filters.appointmentType === "lesson" ||
-      filters.appointmentType === "trial_lesson")
+    !loadAppointments
       ? Promise.resolve({ data: [], error: null })
-      : applyEventFilters(
-      client
-        .from("agenda_appointments")
-        .select(
-          "id, tenant_id, branch_id, instructor_id, student_id, type, title, starts_at, ends_at, duration_min, buffer_min, status, vehicle_id, pickup_service_area_id",
-        )
-        .eq("status", "planned"),
-        "agenda_appointment",
-      ),
+      : (() => {
+          let query = client
+            .from("agenda_appointments")
+            .select(
+              "id, tenant_id, branch_id, instructor_id, student_id, type, title, starts_at, ends_at, duration_min, buffer_min, status, vehicle_id, pickup_service_area_id",
+            )
+            .eq("status", "planned");
+          if (
+            appointmentTypeFilter &&
+            appointmentTypeFilter !== "lesson" &&
+            appointmentTypeFilter !== "trial_lesson"
+          ) {
+            query = query.eq("type", appointmentTypeFilter);
+          } else if (perspective === "exam") {
+            query = query.in("type", ["exam", "interim_test"]);
+          }
+          return applyEventFilters(query);
+        })(),
   ]);
 
   for (const result of [lessons, trials, appointments]) {
@@ -221,12 +251,18 @@ async function loadEvents(
     ...trialRows.map((row) => row.pickup_service_area_id),
     ...appointmentRows.map((row) => row.pickup_service_area_id),
   ]);
+  const eventBranchIds = unique([
+    ...lessonRows.map((row) => row.branch_id),
+    ...trialRows.map((row) => row.branch_id),
+    ...appointmentRows.map((row) => row.branch_id),
+  ]);
 
-  const [students, leads, vehicleNames, areaNames] = await Promise.all([
+  const [students, leads, vehicleNames, areaNames, branchNames] = await Promise.all([
     namesById(client, "students", studentIds, "full_name"),
     namesById(client, "leads", leadIds, "full_name"),
     namesById(client, "vehicles", vehicleIds, "license_plate"),
     namesById(client, "service_areas", serviceAreaIds, "name"),
+    namesById(client, "branches", eventBranchIds, "name"),
   ]);
 
   const mapEvent = (
@@ -270,6 +306,7 @@ async function loadEvents(
       vehicleLabel: row.vehicle_id
         ? (vehicleNames.get(row.vehicle_id) ?? null)
         : null,
+      branchLabel: row.branch_id ? (branchNames.get(row.branch_id) ?? null) : null,
       serviceAreaId: row.pickup_service_area_id ?? null,
       serviceAreaName: row.pickup_service_area_id
         ? (areaNames.get(row.pickup_service_area_id) ?? null)
@@ -484,6 +521,7 @@ export async function loadPlanningBoardData(
     },
   );
   const filteredQueue = queueItems.filter((item) => {
+    if (!perspectiveMatchesQueueItem(item, filters)) return false;
     if (filters.capabilityId) {
       const hasCapability =
         item.required_capabilities.includes(filters.capabilityId) ||

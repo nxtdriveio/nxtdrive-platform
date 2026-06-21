@@ -7,6 +7,7 @@ export type {
   PlanningBoardInstructor,
   PlanningBoardOption,
   PlanningBoardPreviewResult,
+  PlanningBoardPerspective,
   PlanningBoardView,
 } from "./types";
 export { loadPlanningBoardData } from "./service";

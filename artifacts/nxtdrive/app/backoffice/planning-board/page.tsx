@@ -9,7 +9,11 @@ import {
   APPOINTMENT_TYPE_SHORT,
 } from "@/lib/agenda/types";
 import { amsterdamYmd } from "@/lib/datetime";
-import { loadPlanningBoardData } from "@/lib/planning-board";
+import {
+  loadPlanningBoardData,
+  type PlanningBoardPerspective,
+  type PlanningBoardView,
+} from "@/lib/planning-board";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -42,6 +46,22 @@ function todayYmd(): string {
   return amsterdamYmd(new Date());
 }
 
+function viewParam(value: string | null): PlanningBoardView {
+  return value === "week" ? "week" : "day";
+}
+
+function perspectiveParam(value: string | null): PlanningBoardPerspective {
+  if (
+    value === "branch" ||
+    value === "vehicle" ||
+    value === "exam" ||
+    value === "trial_lesson"
+  ) {
+    return value;
+  }
+  return "instructor";
+}
+
 function PlanboardFilterForm({
   filters,
   data,
@@ -56,6 +76,29 @@ function PlanboardFilterForm({
       <div className="space-y-1.5">
         <Label>Datum</Label>
         <Input name="date" type="date" defaultValue={filters.date} className="h-9" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label>Weergave</Label>
+          <Select name="view" defaultValue={filters.view} className="h-9">
+            <option value="day">Dag</option>
+            <option value="week">Week</option>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Perspectief</Label>
+          <Select
+            name="perspective"
+            defaultValue={filters.perspective ?? "instructor"}
+            className="h-9"
+          >
+            <option value="instructor">Instructeur</option>
+            <option value="branch">Vestiging</option>
+            <option value="vehicle">Voertuig</option>
+            <option value="exam">Examen</option>
+            <option value="trial_lesson">Proefles</option>
+          </Select>
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label>Vestiging</Label>
@@ -189,7 +232,8 @@ export default async function PlanningBoardPage({
   const status = rawParam(sp, "status");
   const filters = {
     date: param(sp, "date") ?? todayYmd(),
-    view: "day" as const,
+    view: viewParam(param(sp, "view")),
+    perspective: perspectiveParam(param(sp, "perspective")),
     branchId: param(sp, "branch"),
     appointmentType: param(sp, "appointment_type"),
     serviceAreaId: param(sp, "rayon"),
