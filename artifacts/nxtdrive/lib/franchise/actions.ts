@@ -598,104 +598,16 @@ export async function routeFranchiseLead(formData: FormData) {
 
   const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
 
-  const [{ data: lead, error: leadError }, { data: branch, error: branchError }] =
-    await Promise.all([
-      service
-        .from("leads")
-        .select("id, tenant_id, full_name, branch_id")
-        .eq("id", leadId)
-        .maybeSingle(),
-      service
-        .from("branches")
-        .select("id, tenant_id, name, is_active")
-        .eq("id", branchId)
-        .maybeSingle(),
-    ]);
-
-  if (leadError) redirectWith(returnTo, "error", leadError.message.slice(0, 200));
-  if (branchError) redirectWith(returnTo, "error", branchError.message.slice(0, 200));
-  if (!lead) redirectWith(returnTo, "error", "lead_not_found");
-  if (!branch || !branch.is_active) redirectWith(returnTo, "error", "branch_not_found");
-  if (lead.branch_id) redirectWith(returnTo, "error", "lead_already_routed");
-  if (lead.tenant_id !== branch.tenant_id) {
-    redirectWith(returnTo, "error", "lead_branch_tenant_mismatch");
-  }
-
-  const { data: leadTenant, error: leadTenantError } = await service
-    .from("tenants")
-    .select("id, parent_tenant_id, name")
-    .eq("id", lead.tenant_id)
-    .maybeSingle();
-  if (leadTenantError) {
-    redirectWith(returnTo, "error", leadTenantError.message.slice(0, 200));
-  }
-  if (
-    !leadTenant ||
-    (leadTenant.id !== tenant.id && leadTenant.parent_tenant_id !== tenant.id)
-  ) {
-    redirectWith(returnTo, "error", "lead_not_in_network");
-  }
-
-  if (leadTenant.id !== tenant.id) {
-    let leadDelegation: Awaited<ReturnType<typeof loadDelegation>>;
-    try {
-      leadDelegation = await loadDelegation(service, tenant.id, leadTenant.id as string);
-    } catch (error) {
-      redirectWith(
-        returnTo,
-        "error",
-        error instanceof Error ? error.message.slice(0, 200) : "delegation_load_failed",
-      );
-    }
-    if (!leadDelegation?.can_manage_leads) {
-      redirectWith(returnTo, "error", "lead_delegation_required");
-    }
-  }
-
-  const { error: updateError } = await service
-    .from("leads")
-    .update({ branch_id: branch.id })
-    .eq("id", lead.id)
-    .eq("tenant_id", lead.tenant_id);
-  if (updateError) redirectWith(returnTo, "error", updateError.message.slice(0, 200));
-
-  const { error: eventError } = await service.from("lead_events").insert({
-    lead_id: lead.id,
-    tenant_id: lead.tenant_id,
-    actor_user_id: user.id,
-    event_type: "assigned",
-    payload: {
-      action: "franchise_route_to_branch",
-      branch_id: branch.id,
-      branch_name: branch.name,
-      franchise_root_tenant_id: tenant.id,
-    },
+  const { error } = await service.rpc("route_franchise_lead_to_owner", {
+    p_franchise_root_tenant_id: tenant.id,
+    p_lead_id: leadId,
+    p_branch_id: branchId,
+    p_actor: user.id,
   });
-  if (eventError) redirectWith(returnTo, "error", eventError.message.slice(0, 200));
-
-  try {
-    await auditFranchiseAction(service, {
-      actorUserId: user.id,
-      tenantId: lead.tenant_id as string,
-      action: "franchise.lead_routed",
-      targetType: "lead",
-      targetId: lead.id as string,
-      payload: {
-        branch_id: branch.id,
-        branch_name: branch.name,
-        franchise_root_tenant_id: tenant.id,
-      },
-    });
-  } catch (error) {
-    redirectWith(
-      returnTo,
-      "error",
-      error instanceof Error ? error.message.slice(0, 200) : "audit_failed",
-    );
-  }
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
 
   revalidateFranchiseControlPaths();
-  revalidatePath(`/backoffice/leads/${lead.id}`);
+  revalidatePath(`/backoffice/leads/${leadId}`);
   redirectWith(returnTo, "lead_routed");
 }
 

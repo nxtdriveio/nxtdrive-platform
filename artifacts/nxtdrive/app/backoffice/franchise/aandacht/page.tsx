@@ -266,18 +266,24 @@ export default async function FranchiseAttentionPage({
         </FranchisePanel>
 
         <div className="space-y-4">
-          <FranchisePanel title="Lead routing" description="Open leads zonder vestiging.">
+          <FranchisePanel title="Lead routing" description="Centrale intake met lokale eigenaar.">
             <div className="space-y-3">
               {leadRouting.leads.length === 0 ? (
                 <FranchiseEmptyState
                   title="Geen routeerbare leads"
-                  description="Alle open leads zijn al aan een vestiging gekoppeld."
+                  description="Alle open leads zijn al gekoppeld, toegewezen of wachten op delegatie."
                 />
               ) : (
                 leadRouting.leads.map((lead) => {
                   const branchOptions = leadRouting.branches.filter(
-                    (branch) => branch.tenant_id === lead.tenant_id,
+                    (branch) => lead.target_tenant_ids.includes(branch.tenant_id),
                   );
+                  const canRoute = lead.can_manage && branchOptions.length > 0;
+                  const routeBadge = !lead.can_manage
+                    ? "Delegatie nodig"
+                    : branchOptions.length > 0
+                      ? "Routing"
+                      : "Geen vestiging";
                   return (
                     <form
                       key={lead.id}
@@ -299,21 +305,21 @@ export default async function FranchiseAttentionPage({
                             {lead.tenant_name} - {lead.source}
                           </p>
                         </div>
-                        <FranchiseStatusBadge tone={lead.can_manage ? "delegated" : "readonly"}>
-                          {lead.can_manage ? "Routing" : "Delegatie nodig"}
+                        <FranchiseStatusBadge tone={canRoute ? "delegated" : "readonly"}>
+                          {routeBadge}
                         </FranchiseStatusBadge>
                       </div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                         <select
                           name="branch_id"
-                          disabled={!lead.can_manage || branchOptions.length === 0}
+                          disabled={!canRoute}
                           required
                           className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
                         >
-                          <option value="">Kies vestiging...</option>
+                          <option value="">Kies lokale eigenaar...</option>
                           {branchOptions.map((branch) => (
                             <option key={branch.id} value={branch.id}>
-                              {branch.name}
+                              {branch.tenant_name} - {branch.name}
                               {branch.city ? `, ${branch.city}` : ""}
                             </option>
                           ))}
@@ -321,7 +327,7 @@ export default async function FranchiseAttentionPage({
                         <Button
                           type="submit"
                           size="sm"
-                          disabled={!lead.can_manage || branchOptions.length === 0}
+                          disabled={!canRoute}
                         >
                           Routeer
                         </Button>

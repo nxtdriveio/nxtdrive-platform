@@ -51,6 +51,7 @@ export type FranchiseLeadRoutingLead = {
   source: string;
   created_at: string;
   can_manage: boolean;
+  target_tenant_ids: string[];
 };
 
 export type FranchiseLeadRoutingBranch = {
@@ -192,38 +193,50 @@ export async function loadFranchiseLeadRoutingState(
     ...delegations.map((delegation) => delegation.franchisee_tenant_id),
   ];
 
-  const [{ data: rootTenant }, { data: leads, error: leadError }, { data: branches, error: branchError }] =
-    await Promise.all([
-      service
-        .from("tenants")
-        .select("id, name, slug")
-        .eq("id", franchiseRootTenantId)
-        .maybeSingle(),
-      tenantIds.length === 0
-        ? Promise.resolve({ data: [], error: null })
-        : service
-            .from("leads")
-            .select("id, tenant_id, status, source, full_name, branch_id, created_at")
-            .in("tenant_id", tenantIds)
-            .in("status", ["new", "contacted", "package_advised"])
-            .is("branch_id", null)
-            .order("created_at", { ascending: false })
-            .limit(12),
-      tenantIds.length === 0
-        ? Promise.resolve({ data: [], error: null })
-        : service
-            .from("branches")
-            .select("id, tenant_id, name, city, is_active")
-            .in("tenant_id", tenantIds)
-            .eq("is_active", true)
-            .order("name"),
-    ]);
+  const [
+    { data: rootTenant },
+    { data: leads, error: leadError },
+    { data: branches, error: branchError },
+    { data: assignments, error: assignmentError },
+  ] = await Promise.all([
+    service
+      .from("tenants")
+      .select("id, name, slug")
+      .eq("id", franchiseRootTenantId)
+      .maybeSingle(),
+    tenantIds.length === 0
+      ? Promise.resolve({ data: [], error: null })
+      : service
+          .from("leads")
+          .select("id, tenant_id, status, source, full_name, branch_id, created_at")
+          .in("tenant_id", tenantIds)
+          .in("status", ["new", "contacted", "package_advised"])
+          .is("branch_id", null)
+          .order("created_at", { ascending: false })
+          .limit(40),
+    tenantIds.length === 0
+      ? Promise.resolve({ data: [], error: null })
+      : service
+          .from("branches")
+          .select("id, tenant_id, name, city, is_active")
+          .in("tenant_id", tenantIds)
+          .eq("is_active", true)
+          .order("name"),
+    service
+      .from("franchise_lead_assignments")
+      .select("id, lead_id, owner_tenant_id, branch_id, status")
+      .eq("franchise_root_tenant_id", franchiseRootTenantId)
+      .in("status", ["assigned", "accepted"]),
+  ]);
 
   if (leadError) {
     throw new Error(`Leads voor routing laden mislukt: ${leadError.message}`);
   }
   if (branchError) {
     throw new Error(`Vestigingen voor routing laden mislukt: ${branchError.message}`);
+  }
+  if (assignmentError) {
+    throw new Error(`Lead assignments laden mislukt: ${assignmentError.message}`);
   }
 
   const tenantNameById = new Map<string, string>();
@@ -240,6 +253,17 @@ export async function loadFranchiseLeadRoutingState(
       delegation,
     ]),
   );
+  const manageableLeadTenantIds = new Set<string>([franchiseRootTenantId]);
+  for (const delegation of delegations) {
+    if (delegation.can_manage_leads) {
+      manageableLeadTenantIds.add(delegation.franchisee_tenant_id);
+    }
+  }
+  const activeAssignmentLeadIds = new Set(
+    ((assignments ?? []) as Array<{ lead_id: string }>).map(
+      (assignment) => assignment.lead_id,
+    ),
+  );
 
   return {
     leads: ((leads ?? []) as Array<{
@@ -249,21 +273,26 @@ export async function loadFranchiseLeadRoutingState(
       source: string;
       full_name: string;
       created_at: string;
-    }>).map((lead) => {
-      const delegation = delegationByTenant.get(lead.tenant_id);
-      return {
-        id: lead.id,
-        tenant_id: lead.tenant_id,
-        tenant_name: tenantNameById.get(lead.tenant_id) ?? "Onbekende tenant",
-        full_name: lead.full_name,
-        status: lead.status,
-        source: lead.source,
-        created_at: lead.created_at,
-        can_manage:
+    }>)
+      .filter((lead) => !activeAssignmentLeadIds.has(lead.id))
+      .slice(0, 12)
+      .map((lead) => {
+        const delegation = delegationByTenant.get(lead.tenant_id);
+        const canManage =
           lead.tenant_id === franchiseRootTenantId ||
-          Boolean(delegation?.can_manage_leads),
-      };
-    }),
+          Boolean(delegation?.can_manage_leads);
+        return {
+          id: lead.id,
+          tenant_id: lead.tenant_id,
+          tenant_name: tenantNameById.get(lead.tenant_id) ?? "Onbekende tenant",
+          full_name: lead.full_name,
+          status: lead.status,
+          source: lead.source,
+          created_at: lead.created_at,
+          can_manage: canManage,
+          target_tenant_ids: canManage ? Array.from(manageableLeadTenantIds) : [],
+        };
+      }),
     branches: ((branches ?? []) as Array<{
       id: string;
       tenant_id: string;
