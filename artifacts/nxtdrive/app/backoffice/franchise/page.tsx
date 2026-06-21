@@ -436,7 +436,7 @@ export default async function FranchiseDashboardPage() {
 
         <FranchisePanel
           title="AI-inzichten"
-          description="AI helpt samenvatten en prioriteren, maar publiceert nooit autonoom."
+          description="AI zet signalen om naar opvolgbare acties, zonder autonome publicatie."
           actionHref="/backoffice/franchise/ai-insights"
           actionLabel="AI"
         >
@@ -456,14 +456,31 @@ export default async function FranchiseDashboardPage() {
                       <CheckCircle2 className="h-4 w-4" aria-hidden />
                     )}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-black text-foreground">{insight.title}</p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
                       {insight.description}
                     </p>
-                    <p className="mt-2 text-xs font-bold text-primary">
+                    <p className="mt-2 text-xs font-bold text-foreground">
                       {insight.action}
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <FranchiseStatusBadge
+                        tone={insight.action_type === "monitoring" ? "success" : "info"}
+                      >
+                        {insight.owner_label}
+                      </FranchiseStatusBadge>
+                      <FranchiseStatusBadge
+                        tone={insight.priority === "hoog" ? "danger" : "warning"}
+                      >
+                        {insight.due_label}
+                      </FranchiseStatusBadge>
+                    </div>
+                    <div className="mt-3">
+                      <FranchiseActionLink href={insight.action_href} variant="primary">
+                        {insight.action_label}
+                      </FranchiseActionLink>
+                    </div>
                   </div>
                 </div>
               </div>

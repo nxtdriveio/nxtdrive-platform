@@ -188,7 +188,32 @@ export type FranchiseAIInsight = {
   priority: "hoog" | "middel" | "laag";
   source: string;
   action: string;
+  action_label: string;
+  action_href: string;
+  action_type:
+    | "benchmark_action"
+    | "planning_action"
+    | "template_rollout"
+    | "monitoring";
+  owner_label: string;
+  due_label: string;
+  signal_key: string;
+  secondary_action_label?: string;
+  secondary_action_href?: string;
 };
+
+function franchiseActionHref(
+  pathname: string,
+  params: Record<string, string | number | null | undefined> = {},
+) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === "") continue;
+    query.set(key, String(value));
+  }
+  const serialized = query.toString();
+  return serialized ? `${pathname}?${serialized}` : pathname;
+}
 
 export async function loadFranchiseAuditEvents(
   franchisegeverTenantId: string,
@@ -353,6 +378,18 @@ export function buildFranchiseAIInsights(input: {
       priority: "hoog",
       source: "Prestaties",
       action: item.next_step,
+      action_label: "Maak benchmarktaak",
+      action_href: franchiseActionHref("/backoffice/franchise/aandacht", {
+        franchisee: item.tenant_id,
+        route: item.follow_up_route,
+        priority: item.attention_priority,
+      }),
+      action_type: "benchmark_action",
+      owner_label: "Franchise manager",
+      due_label: "Vandaag opvolgen",
+      signal_key: `benchmark:${item.tenant_id}:${item.follow_up_route}:${item.attention_priority}`,
+      secondary_action_label: "Bekijk prestaties",
+      secondary_action_href: "/backoffice/franchise/prestaties",
     });
   }
 
@@ -363,6 +400,16 @@ export function buildFranchiseAIInsights(input: {
       priority: planning.branches_without_lessons > 3 ? "hoog" : "middel",
       source: "Planning",
       action: "Vraag lokale planners om beschikbare capaciteit en vraaguitval te controleren.",
+      action_label: "Stuur planningactie",
+      action_href: franchiseActionHref("/backoffice/franchise/planning", {
+        action: "capacity_request",
+      }),
+      action_type: "planning_action",
+      owner_label: "Planning lead",
+      due_label: planning.branches_without_lessons > 3 ? "Vandaag opvolgen" : "Binnen 48 uur",
+      signal_key: `planning:branches_without_lessons:${planning.branches_without_lessons}`,
+      secondary_action_label: "Open planboard",
+      secondary_action_href: "/backoffice/planning-board",
     });
   }
 
@@ -373,6 +420,14 @@ export function buildFranchiseAIInsights(input: {
       priority: "middel",
       source: "Templates",
       action: "Bereid een gecontroleerde rollout voor en laat franchisees lokaal activeren.",
+      action_label: "Start template-rollout",
+      action_href: "/backoffice/franchise/templates",
+      action_type: "template_rollout",
+      owner_label: "Franchise admin",
+      due_label: "Deze week",
+      signal_key: `template_rollout:inactive:${governance.franchisees_without_template_activation}`,
+      secondary_action_label: "Controleer delegaties",
+      secondary_action_href: "/backoffice/franchise/delegaties",
     });
   }
 
@@ -383,6 +438,14 @@ export function buildFranchiseAIInsights(input: {
       priority: "laag",
       source: "Netwerk",
       action: "Blijf monitoren via de reguliere cockpit.",
+      action_label: "Open cockpit",
+      action_href: "/backoffice/franchise",
+      action_type: "monitoring",
+      owner_label: "Franchise admin",
+      due_label: "Regulier monitoren",
+      signal_key: "network:healthy",
+      secondary_action_label: "Bekijk rapportages",
+      secondary_action_href: "/backoffice/franchise/reports",
     });
   }
 
