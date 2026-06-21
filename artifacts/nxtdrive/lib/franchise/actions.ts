@@ -10,6 +10,7 @@ import {
 } from "@/lib/platform/entitlements";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { PLAN_LABELS } from "@/lib/platform/features";
+import { benchmarkSignalKey } from "@/lib/franchise/benchmark-actions";
 
 function redirectPlanRequired(path: string, plan: keyof typeof PLAN_LABELS) {
   redirect(`${path}?error=plan_required&plan=${plan}`);
@@ -80,7 +81,8 @@ function safeReturnPath(formData: FormData, fallback: string): string {
   const submitted = cleanField(formData, "return_to", 300);
   if (
     submitted.startsWith("/backoffice/franchise") ||
-    submitted.startsWith("/backoffice/leads")
+    submitted.startsWith("/backoffice/leads") ||
+    submitted.startsWith("/backoffice/taken")
   ) {
     return submitted;
   }
@@ -183,59 +185,6 @@ async function auditFranchiseAction(
     payload: input.payload,
   });
   if (error) throw new Error(error.message);
-}
-
-async function ensureTaskColumnForDepartment(
-  service: ReturnType<typeof createServiceRoleClient>,
-  tenantId: string,
-  actorUserId: string,
-  departmentKey: string,
-) {
-  const { error: defaultsError } = await service.rpc("ensure_default_task_setup", {
-    p_tenant_id: tenantId,
-    p_actor: actorUserId,
-  });
-  if (defaultsError) throw new Error(defaultsError.message);
-
-  const { data: department, error: departmentError } = await service
-    .from("task_departments")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("key", departmentKey)
-    .maybeSingle();
-  if (departmentError) throw new Error(departmentError.message);
-  if (!department) throw new Error("task_department_missing");
-
-  const { data: board, error: boardError } = await service
-    .from("task_boards")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("department_id", department.id)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (boardError) throw new Error(boardError.message);
-  if (!board) throw new Error("task_board_missing");
-
-  const { data: column, error: columnError } = await service
-    .from("task_columns")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("board_id", board.id)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (columnError) throw new Error(columnError.message);
-  if (!column) throw new Error("task_column_missing");
-
-  return { boardId: board.id as string, columnId: column.id as string };
-}
-
-function departmentForFollowUpRoute(route: string): string {
-  if (route === "lokale-planning") return "planning";
-  if (route === "marketing") return "marketing";
-  if (route === "kwaliteit") return "examenbeheer";
-  return "support";
 }
 
 function taskPriorityForFranchisePriority(priority: string) {
@@ -632,40 +581,24 @@ export async function createFranchiseBenchmarkTask(formData: FormData) {
   const description =
     cleanField(formData, "description", 1600) ||
     "Benchmarksignaal vraagt centrale opvolging.";
+  const signalKey =
+    cleanField(formData, "signal_key", 180) ||
+    benchmarkSignalKey(franchisee.id, followUpRoute, attentionPriority);
 
   try {
-    const taskTarget = await ensureTaskColumnForDepartment(
-      service,
-      tenant.id,
-      user.id,
-      departmentForFollowUpRoute(followUpRoute),
-    );
-    const { error } = await service.rpc("create_task", {
-      p_tenant_id: tenant.id,
+    const { error } = await service.rpc("create_franchise_benchmark_action", {
+      p_franchise_root_tenant_id: tenant.id,
+      p_franchisee_tenant_id: franchisee.id,
       p_actor: user.id,
-      p_board_id: taskTarget.boardId,
-      p_column_id: taskTarget.columnId,
       p_title: title,
       p_description: `${description}\n\nFranchisee: ${franchisee.name}`,
       p_priority: taskPriorityForFranchisePriority(attentionPriority),
       p_due_date: cleanField(formData, "due_date", 10) || null,
-      p_assignee_user_id: null,
-      p_department_id: null,
+      p_follow_up_route: followUpRoute,
+      p_attention_priority: attentionPriority,
+      p_signal_key: signalKey,
     });
     if (error) throw new Error(error.message);
-
-    await auditFranchiseAction(service, {
-      actorUserId: user.id,
-      tenantId: tenant.id,
-      action: "franchise.benchmark_task_created",
-      targetType: "franchisee_tenant",
-      targetId: franchisee.id,
-      payload: {
-        franchisee_name: franchisee.name,
-        follow_up_route: followUpRoute,
-        attention_priority: attentionPriority,
-      },
-    });
   } catch (error) {
     redirectWith(
       returnTo,
@@ -677,6 +610,87 @@ export async function createFranchiseBenchmarkTask(formData: FormData) {
   revalidateFranchiseControlPaths();
   revalidatePath("/backoffice/taken");
   redirectWith(returnTo, "benchmark_task_created");
+}
+
+export async function acceptFranchiseBenchmarkAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("accept_franchise_benchmark_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_note: cleanField(formData, "note", 2000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_accepted");
+}
+
+export async function declineFranchiseBenchmarkAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("decline_franchise_benchmark_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_reason: cleanField(formData, "reason", 2000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_declined");
+}
+
+export async function completeFranchiseBenchmarkAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("complete_franchise_benchmark_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_resolution: cleanField(formData, "resolution", 4000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_completed");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

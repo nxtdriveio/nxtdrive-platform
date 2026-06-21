@@ -30,6 +30,10 @@ import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
 import { loadFranchiseLeadRoutingState } from "@/lib/franchise/steering";
+import {
+  benchmarkSignalKey,
+  loadFranchiseBenchmarkActionsForRoot,
+} from "@/lib/franchise/benchmark-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +59,7 @@ export default async function FranchiseAttentionPage({
         Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
         Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
         Awaited<ReturnType<typeof loadFranchiseLeadRoutingState>>,
+        Awaited<ReturnType<typeof loadFranchiseBenchmarkActionsForRoot>>,
       ]
     | null = null;
 
@@ -63,6 +68,7 @@ export default async function FranchiseAttentionPage({
       loadFranchisePerformanceOverview(tenant.id),
       loadFranchiseGovernanceOverview(tenant.id),
       loadFranchiseLeadRoutingState(tenant.id),
+      loadFranchiseBenchmarkActionsForRoot(tenant.id),
     ]);
   } catch (error) {
     console.error("[franchise/aandacht] load failed", error);
@@ -77,8 +83,23 @@ export default async function FranchiseAttentionPage({
     );
   }
 
-  const [performance, governance, leadRouting] = data;
+  const [performance, governance, leadRouting, benchmarkActions] = data;
   const errorMsg = sp.error ? decodeURIComponent(sp.error) : null;
+  const activeBenchmarkBySignal = new Map(
+    benchmarkActions
+      .filter((action) =>
+        ["created", "accepted", "in_progress"].includes(action.status),
+      )
+      .map((action) => [action.signal_key, action]),
+  );
+  const benchmarkStatusLabel: Record<string, string> = {
+    created: "Wacht op acceptatie",
+    accepted: "Lokaal geaccepteerd",
+    in_progress: "In uitvoering",
+    completed: "Afgerond",
+    declined: "Afgewezen",
+    cancelled: "Geannuleerd",
+  };
   const routeCounts = performance.franchisees.reduce<Record<string, number>>(
     (acc, row) => {
       acc[row.follow_up_route] = (acc[row.follow_up_route] ?? 0) + 1;
@@ -168,11 +189,19 @@ export default async function FranchiseAttentionPage({
                 description="Het franchisenetwerk heeft op dit moment geen rode of oranje signalen."
               />
             ) : (
-              performance.watchlists.attention.map((item) => (
-                <div
-                  key={item.tenant_id}
-                  className="rounded-2xl border border-brand-card-border bg-white p-4"
-                >
+              performance.watchlists.attention.map((item) => {
+                const signalKey = benchmarkSignalKey(
+                  item.tenant_id,
+                  item.follow_up_route,
+                  item.attention_priority,
+                );
+                const activeBenchmarkAction =
+                  activeBenchmarkBySignal.get(signalKey);
+                return (
+                  <div
+                    key={item.tenant_id}
+                    className="rounded-2xl border border-brand-card-border bg-white p-4"
+                  >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -182,6 +211,12 @@ export default async function FranchiseAttentionPage({
                         <FranchiseStatusBadge tone={priorityTone(item.attention_priority)}>
                           {item.attention_label}
                         </FranchiseStatusBadge>
+                        {activeBenchmarkAction ? (
+                          <FranchiseStatusBadge tone="info">
+                            {benchmarkStatusLabel[activeBenchmarkAction.status] ??
+                              activeBenchmarkAction.status}
+                          </FranchiseStatusBadge>
+                        ) : null}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         {item.attention_reason}
@@ -247,6 +282,11 @@ export default async function FranchiseAttentionPage({
                     />
                     <input
                       type="hidden"
+                      name="signal_key"
+                      value={signalKey}
+                    />
+                    <input
+                      type="hidden"
                       name="title"
                       value={`Franchise opvolging: ${item.tenant_name} - ${item.attention_label}`}
                     />
@@ -255,12 +295,17 @@ export default async function FranchiseAttentionPage({
                       name="description"
                       value={`${item.attention_reason}\n\nVolgende stap: ${item.next_step}`}
                     />
-                    <Button type="submit" size="sm">
-                      Stuuractie maken
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={Boolean(activeBenchmarkAction)}
+                    >
+                      {activeBenchmarkAction ? "Opvolging loopt" : "Stuuractie maken"}
                     </Button>
                   </form>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
         </FranchisePanel>
@@ -357,6 +402,50 @@ export default async function FranchiseAttentionPage({
                   </FranchiseStatusBadge>
                 </div>
               ))}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Lokale uitvoering" description="Acceptatie en afhandeling door franchisees.">
+            <div className="space-y-3">
+              {benchmarkActions.filter((action) =>
+                ["created", "accepted", "in_progress"].includes(action.status),
+              ).length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen lopende benchmarkacties"
+                  description="Maak vanuit een aandachtspunt een stuuractie om lokale uitvoering te volgen."
+                />
+              ) : (
+                benchmarkActions
+                  .filter((action) =>
+                    ["created", "accepted", "in_progress"].includes(action.status),
+                  )
+                  .slice(0, 6)
+                  .map((action) => (
+                    <div
+                      key={action.id}
+                      className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-foreground">
+                            {action.franchisee_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {action.title}
+                          </p>
+                        </div>
+                        <FranchiseStatusBadge tone="info">
+                          {benchmarkStatusLabel[action.status] ?? action.status}
+                        </FranchiseStatusBadge>
+                      </div>
+                      {action.local_response ? (
+                        <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                          {action.local_response}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+              )}
             </div>
           </FranchisePanel>
 
