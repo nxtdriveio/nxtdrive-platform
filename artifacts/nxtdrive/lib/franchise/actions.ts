@@ -578,121 +578,13 @@ export async function applyFranchiseTemplateToFranchisee(formData: FormData) {
     returnTo,
   );
 
-  let templateDelegation: Awaited<ReturnType<typeof loadDelegation>>;
-  try {
-    templateDelegation = await loadDelegation(service, tenant.id, franchisee.id);
-  } catch (error) {
-    redirectWith(
-      returnTo,
-      "error",
-      error instanceof Error ? error.message.slice(0, 200) : "delegation_load_failed",
-    );
-  }
-  if (!templateDelegation?.can_manage_templates) {
-    redirectWith(returnTo, "error", "template_delegation_required");
-  }
-
-  const { data: template, error: templateError } = await service
-    .from("franchise_templates")
-    .select("*")
-    .eq("id", templateId)
-    .eq("tenant_id", tenant.id)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (templateError) redirectWith(returnTo, "error", templateError.message.slice(0, 200));
-  if (!template) redirectWith(returnTo, "error", "template_not_found");
-
-  const distribution = await service.rpc("distribute_franchise_template", {
+  const { error } = await service.rpc("apply_franchise_template_as_franchisegever", {
     p_template_id: templateId,
     p_franchisee_tenant_id: franchisee.id,
     p_actor: user.id,
   });
 
-  if (distribution.error) {
-    redirectWith(returnTo, "error", distribution.error.message.slice(0, 200));
-  }
-
-  const { data: activation, error: activationError } = await service
-    .from("franchise_template_activations")
-    .select("id, resulting_package_id")
-    .eq("franchise_template_id", templateId)
-    .eq("franchisee_tenant_id", franchisee.id)
-    .maybeSingle();
-
-  if (activationError) {
-    redirectWith(returnTo, "error", activationError.message.slice(0, 200));
-  }
-  if (activation?.resulting_package_id) {
-    redirectWith(returnTo, "template_already_applied");
-  }
-
-  const templateRow = template as {
-    name: string;
-    config: {
-      credits_total?: number;
-      price_cents?: number;
-      valid_days?: number | null;
-    };
-  };
-  const rawCreditsTotal = Number(templateRow.config.credits_total ?? 60);
-  const rawPriceCents = Number(templateRow.config.price_cents ?? 0);
-  const creditsTotal =
-    Number.isFinite(rawCreditsTotal) && rawCreditsTotal > 0 ? rawCreditsTotal : 60;
-  const priceCents =
-    Number.isFinite(rawPriceCents) && rawPriceCents >= 0 ? rawPriceCents : 0;
-  const validDays =
-    typeof templateRow.config.valid_days === "number" &&
-    templateRow.config.valid_days > 0
-      ? templateRow.config.valid_days
-      : null;
-
-  const { data: packageRow, error: packageError } = await service
-    .from("packages")
-    .insert({
-      tenant_id: franchisee.id,
-      name: templateRow.name,
-      credits_total: creditsTotal,
-      price_cents: priceCents,
-      valid_days: validDays,
-      active: true,
-      category: "pakket",
-      visible_in_app: true,
-      visible_on_website: false,
-    })
-    .select("id")
-    .single();
-
-  if (packageError) redirectWith(returnTo, "error", packageError.message.slice(0, 200));
-
-  const { error: updateError } = await service
-    .from("franchise_template_activations")
-    .update({ resulting_package_id: packageRow.id })
-    .eq("franchise_template_id", templateId)
-    .eq("franchisee_tenant_id", franchisee.id);
-
-  if (updateError) redirectWith(returnTo, "error", updateError.message.slice(0, 200));
-
-  try {
-    await auditFranchiseAction(service, {
-      actorUserId: user.id,
-      tenantId: franchisee.id,
-      action: "franchise_template.applied_by_franchisegever",
-      targetType: "package",
-      targetId: packageRow.id as string,
-      payload: {
-        template_id: templateId,
-        franchise_root_tenant_id: tenant.id,
-        franchisee_name: franchisee.name,
-      },
-    });
-  } catch (error) {
-    redirectWith(
-      returnTo,
-      "error",
-      error instanceof Error ? error.message.slice(0, 200) : "audit_failed",
-    );
-  }
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
 
   revalidateFranchiseControlPaths();
   redirectWith(returnTo, "template_applied");
