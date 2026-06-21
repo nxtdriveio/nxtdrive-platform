@@ -8,12 +8,163 @@ import type { FranchiseTemplateWithActivations } from "@/lib/franchise/templates
 export type FranchiseAuditEvent = {
   id: string;
   tenant_id: string | null;
+  tenant_name: string | null;
   action: string;
+  action_label: string;
+  category: FranchiseAuditCategory;
   target_type: string | null;
   target_id: string | null;
   created_at: string;
   payload: Record<string, unknown>;
 };
+
+export type FranchiseAuditCategory =
+  | "tenant"
+  | "template"
+  | "delegation"
+  | "lead_routing"
+  | "benchmark"
+  | "planning"
+  | "other";
+
+export type FranchiseAuditFilters = {
+  category?: FranchiseAuditCategory;
+  action?: string;
+  tenantId?: string;
+  targetType?: string;
+  targetId?: string;
+  from?: string;
+  to?: string;
+};
+
+export type FranchiseAuditTenantOption = {
+  id: string;
+  name: string;
+};
+
+type FranchiseAuditLoadOptions = {
+  limit?: number;
+  filters?: FranchiseAuditFilters;
+};
+
+export const FRANCHISE_AUDIT_CATEGORY_OPTIONS: Array<{
+  value: FranchiseAuditCategory;
+  label: string;
+}> = [
+  { value: "tenant", label: "Tenant" },
+  { value: "template", label: "Templates" },
+  { value: "delegation", label: "Delegaties" },
+  { value: "lead_routing", label: "Lead routing" },
+  { value: "benchmark", label: "Benchmark" },
+  { value: "planning", label: "Planning" },
+  { value: "other", label: "Overig" },
+];
+
+export const FRANCHISE_AUDIT_ACTION_OPTIONS: Array<{
+  value: string;
+  label: string;
+  category: FranchiseAuditCategory;
+}> = [
+  { value: "franchise.parent_set", label: "Franchise parent gekoppeld", category: "tenant" },
+  { value: "franchise_template.created", label: "Template aangemaakt", category: "template" },
+  { value: "franchise_template.updated", label: "Template bijgewerkt", category: "template" },
+  { value: "franchise_template.distributed", label: "Template gedistribueerd", category: "template" },
+  { value: "franchise_template.activated", label: "Template lokaal geactiveerd", category: "template" },
+  {
+    value: "franchise_template.applied_by_franchisegever",
+    label: "Template centraal toegepast",
+    category: "template",
+  },
+  { value: "franchise.delegation.created", label: "Delegatie aangemaakt", category: "delegation" },
+  { value: "franchise.delegation.updated", label: "Delegatie bijgewerkt", category: "delegation" },
+  { value: "franchise.delegation.revoked", label: "Delegatie ingetrokken", category: "delegation" },
+  { value: "franchise.delegation.reactivated", label: "Delegatie heractiveerd", category: "delegation" },
+  { value: "franchise.delegation.deleted", label: "Delegatie verwijderd", category: "delegation" },
+  { value: "franchise.lead_routed", label: "Lead gerouteerd", category: "lead_routing" },
+  { value: "franchise.lead_route_confirmed", label: "Leadroute bevestigd", category: "lead_routing" },
+  { value: "lead.routed_to_branch", label: "Lead naar vestiging", category: "lead_routing" },
+  {
+    value: "franchise.benchmark_action_created",
+    label: "Benchmarkactie aangemaakt",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_action_accepted",
+    label: "Benchmarkactie geaccepteerd",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_action_declined",
+    label: "Benchmarkactie geweigerd",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_action_completed",
+    label: "Benchmarkactie afgerond",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.planning_action_created",
+    label: "Planningactie aangemaakt",
+    category: "planning",
+  },
+  {
+    value: "franchise.planning_action_accepted",
+    label: "Planningactie geaccepteerd",
+    category: "planning",
+  },
+  {
+    value: "franchise.planning_action_declined",
+    label: "Planningactie geweigerd",
+    category: "planning",
+  },
+  {
+    value: "franchise.planning_action_completed",
+    label: "Planningactie afgerond",
+    category: "planning",
+  },
+];
+
+const ACTION_BY_VALUE = new Map(
+  FRANCHISE_AUDIT_ACTION_OPTIONS.map((option) => [option.value, option]),
+);
+
+const ACTIONS_BY_CATEGORY = FRANCHISE_AUDIT_CATEGORY_OPTIONS.reduce(
+  (acc, category) => {
+    acc[category.value] = FRANCHISE_AUDIT_ACTION_OPTIONS.filter(
+      (option) => option.category === category.value,
+    ).map((option) => option.value);
+    return acc;
+  },
+  {} as Record<FranchiseAuditCategory, string[]>,
+);
+
+export function franchiseAuditCategoryLabel(category: FranchiseAuditCategory) {
+  return (
+    FRANCHISE_AUDIT_CATEGORY_OPTIONS.find((option) => option.value === category)
+      ?.label ?? "Overig"
+  );
+}
+
+export function franchiseAuditActionLabel(action: string) {
+  return ACTION_BY_VALUE.get(action)?.label ?? action;
+}
+
+export function franchiseAuditCategoryForAction(
+  action: string,
+): FranchiseAuditCategory {
+  return ACTION_BY_VALUE.get(action)?.category ?? "other";
+}
+
+export function isFranchiseAuditCategory(
+  value: string | undefined,
+): value is FranchiseAuditCategory {
+  return FRANCHISE_AUDIT_CATEGORY_OPTIONS.some((option) => option.value === value);
+}
+
+export function isFranchiseAuditAction(value: string | undefined) {
+  return Boolean(value && ACTION_BY_VALUE.has(value));
+}
 
 export type FranchiseControlStatus =
   | "active"
@@ -41,29 +192,46 @@ export type FranchiseAIInsight = {
 
 export async function loadFranchiseAuditEvents(
   franchisegeverTenantId: string,
-  limit = 8,
+  options: number | FranchiseAuditLoadOptions = 8,
 ): Promise<FranchiseAuditEvent[]> {
   const service = createServiceRoleClient();
-  const { data: franchisees, error: franchiseesError } = await service
-    .from("tenants")
-    .select("id")
-    .eq("parent_tenant_id", franchisegeverTenantId);
+  const limit = typeof options === "number" ? options : (options.limit ?? 8);
+  const filters = typeof options === "number" ? undefined : options.filters;
+  const tenantOptions = await loadFranchiseAuditTenantOptions(franchisegeverTenantId);
+  const tenantIds = tenantOptions.map((tenant) => tenant.id);
+  const tenantNameById = new Map(tenantOptions.map((tenant) => [tenant.id, tenant.name]));
 
-  if (franchiseesError) {
-    throw new Error(`Franchisees voor audit laden mislukt: ${franchiseesError.message}`);
+  if (filters?.tenantId && !tenantIds.includes(filters.tenantId)) {
+    return [];
   }
 
-  const tenantIds = [
-    franchisegeverTenantId,
-    ...((franchisees ?? []).map((row) => row.id as string)),
-  ];
-
-  const { data, error } = await service
+  let query = service
     .from("audit_log")
     .select("id, tenant_id, action, target_type, target_id, payload, created_at")
     .in("tenant_id", tenantIds)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+
+  if (filters?.tenantId) query = query.eq("tenant_id", filters.tenantId);
+  if (filters?.action && isFranchiseAuditAction(filters.action)) {
+    query = query.eq("action", filters.action);
+  } else if (filters?.category) {
+    const actions = ACTIONS_BY_CATEGORY[filters.category];
+    if (filters.category === "other") {
+      query = query.not(
+        "action",
+        "in",
+        `(${FRANCHISE_AUDIT_ACTION_OPTIONS.map((option) => `"${option.value}"`).join(",")})`,
+      );
+    } else if (actions.length > 0) {
+      query = query.in("action", actions);
+    }
+  }
+  if (filters?.targetType) query = query.eq("target_type", filters.targetType);
+  if (filters?.targetId) query = query.ilike("target_id", `%${filters.targetId}%`);
+  if (filters?.from) query = query.gte("created_at", `${filters.from}T00:00:00.000Z`);
+  if (filters?.to) query = query.lte("created_at", `${filters.to}T23:59:59.999Z`);
+
+  const { data, error } = await query.limit(limit);
 
   if (error) {
     throw new Error(`Auditlog laden mislukt: ${error.message}`);
@@ -72,11 +240,34 @@ export async function loadFranchiseAuditEvents(
   return (data ?? []).map((row) => ({
     id: row.id as string,
     tenant_id: (row.tenant_id as string | null) ?? null,
+    tenant_name: row.tenant_id ? (tenantNameById.get(row.tenant_id as string) ?? null) : null,
     action: row.action as string,
+    action_label: franchiseAuditActionLabel(row.action as string),
+    category: franchiseAuditCategoryForAction(row.action as string),
     target_type: (row.target_type as string | null) ?? null,
     target_id: (row.target_id as string | null) ?? null,
     created_at: row.created_at as string,
     payload: ((row.payload as Record<string, unknown> | null) ?? {}),
+  }));
+}
+
+export async function loadFranchiseAuditTenantOptions(
+  franchisegeverTenantId: string,
+): Promise<FranchiseAuditTenantOption[]> {
+  const service = createServiceRoleClient();
+  const { data, error } = await service
+    .from("tenants")
+    .select("id, name")
+    .or(`id.eq.${franchisegeverTenantId},parent_tenant_id.eq.${franchisegeverTenantId}`)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Franchisees voor audit laden mislukt: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<{ id: string; name: string | null }>).map((tenant) => ({
+    id: tenant.id,
+    name: tenant.name ?? tenant.id,
   }));
 }
 
