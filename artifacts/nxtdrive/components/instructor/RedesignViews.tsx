@@ -13,6 +13,7 @@ import {
   FileText,
   Flag,
   Home,
+  Info as InfoIcon,
   ListTodo,
   Mail,
   MessageCircle,
@@ -36,10 +37,6 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
-  getInstructorEvaluation,
-  getInstructorExperience,
-  getInstructorMessageThread,
-  getInstructorStudent,
   type InstructorAppointment,
   type InstructorAppointmentType,
   type InstructorEvaluation,
@@ -194,6 +191,25 @@ function InstructorCard({
       ) : null}
       <div className={cn("min-w-0 p-4", contentClassName)}>{children}</div>
     </section>
+  );
+}
+
+function DataUnavailableState({
+  title = "Geen gegevens beschikbaar",
+  subtitle = "Deze pagina heeft geen instructeursdata ontvangen.",
+}: {
+  title?: string;
+  subtitle?: string;
+}) {
+  return (
+    <InstructorPage>
+      <PageHeader eyebrow="Instructeur" title={title} subtitle={subtitle} />
+      <InstructorCard icon={InfoIcon} title="Lege status">
+        <p className="text-sm leading-6 text-muted-foreground">
+          Er wordt geen voorbeelddata getoond. Zodra er echte gegevens beschikbaar zijn, verschijnt deze pagina automatisch gevuld.
+        </p>
+      </InstructorCard>
+    </InstructorPage>
   );
 }
 
@@ -375,7 +391,8 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
   );
 }
 
-export function InstructorCockpitView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorCockpitView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Cockpit niet beschikbaar" />;
   const firstName = data.profile.name.split(" ")[0] ?? data.profile.name;
 
   return (
@@ -521,7 +538,8 @@ export function InstructorCockpitView({ data = getInstructorExperience() }: { da
   );
 }
 
-export function InstructorAgendaView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorAgendaView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
 
   return (
     <InstructorPage>
@@ -621,7 +639,8 @@ function StudentListItem({ student, active }: { student: InstructorStudent; acti
   );
 }
 
-export function InstructorStudentsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorStudentsView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Leerlingen niet beschikbaar" />;
   const active = data.students[0] ?? null;
 
   return (
@@ -708,11 +727,17 @@ export function InstructorStudentDetailView({
   studentId?: string;
   data?: InstructorExperience;
 }) {
-  const student =
-    data?.students.find((item) => item.id === studentId) ??
-    data?.students[0] ??
-    getInstructorStudent(studentId);
-  const studentEvaluation = data?.evaluations.find((item) => item.studentId === student.id) ?? data?.evaluations[0];
+  if (!data) return <DataUnavailableState title="Leerling niet beschikbaar" />;
+  const student = data.students.find((item) => item.id === studentId);
+  if (!student) {
+    return (
+      <DataUnavailableState
+        title="Leerling niet gevonden"
+        subtitle="Deze leerling is niet gekoppeld aan jouw instructeursoverzicht."
+      />
+    );
+  }
+  const studentEvaluation = data.evaluations.find((item) => item.studentId === student.id);
   return (
     <InstructorPage>
       <PageHeader eyebrow="Leerlingdossier" title={student.name} subtitle="Overzicht, voortgang, lessen, planning en dossierinformatie in een tablet-first detailview." />
@@ -720,15 +745,25 @@ export function InstructorStudentDetailView({
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <InstructorCard title="Modulevoortgang" icon={Route}>
           <div className="space-y-4">
-            {["Voertuigbeheersing", "Verkeersinzicht", "Verkeershandelen", "Risicoperceptie"].map((module, index) => (
-              <div key={module}>
-                <div className="flex justify-between text-sm">
-                  <span className="font-bold text-foreground">{module}</span>
-                  <span className="text-muted-foreground">{[82, 68, 54, 42][index]}%</span>
-                </div>
-                <Progress value={[82, 68, 54, 42][index]!} className="mt-2" />
-              </div>
-            ))}
+            {studentEvaluation?.modules.length ? (
+              studentEvaluation.modules.map((module) => {
+                const progress =
+                  module.total > 0 ? Math.round((module.completed / module.total) * 100) : 0;
+                return (
+                  <div key={module.id}>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-bold text-foreground">{module.name}</span>
+                      <span className="text-muted-foreground">{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="mt-2" />
+                  </div>
+                );
+              })
+            ) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm leading-6 text-muted-foreground">
+                Nog geen RIS-modulevoortgang beschikbaar voor deze leerling.
+              </p>
+            )}
           </div>
         </InstructorCard>
         <InstructorCard title="AI coachnotitie" icon={Sparkles}>
@@ -746,7 +781,8 @@ export function InstructorStudentDetailView({
   );
 }
 
-export function InstructorEvaluationsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorEvaluationsView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Lesevaluaties niet beschikbaar" />;
   return (
     <InstructorPage>
       <PageHeader eyebrow="RIS" title="Lesevaluaties" subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft." />
@@ -786,10 +822,16 @@ export function InstructorEvaluationDetailView({
   lessonId?: string;
   data?: InstructorExperience;
 }) {
-  const evaluation =
-    data?.evaluations.find((item) => item.id === lessonId) ??
-    data?.evaluations[0] ??
-    getInstructorEvaluation(lessonId);
+  if (!data) return <DataUnavailableState title="Lesevaluatie niet beschikbaar" />;
+  const evaluation = data.evaluations.find((item) => item.id === lessonId);
+  if (!evaluation) {
+    return (
+      <DataUnavailableState
+        title="Lesevaluatie niet gevonden"
+        subtitle="Deze leskaart staat niet in jouw instructeursoverzicht."
+      />
+    );
+  }
   return (
     <InstructorPage>
       <PageHeader
@@ -808,7 +850,7 @@ export function InstructorEvaluationDetailView({
             ))}
           </div>
           <div className="space-y-4">
-            {evaluation.modules.map((module) => (
+            {evaluation.modules.length > 0 ? evaluation.modules.map((module) => (
               <div key={module.id} className="rounded-[1.25rem] border border-brand-border bg-white">
                 <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
                   <p className="font-black text-foreground">{module.name}</p>
@@ -830,16 +872,18 @@ export function InstructorEvaluationDetailView({
                   ))}
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm leading-6 text-muted-foreground">
+                Deze oude detailweergave heeft geen RIS-modules ontvangen. Open de volledige leskaart via de lesevaluatie-route om met de actuele RIS-data te werken.
+              </p>
+            )}
           </div>
         </InstructorCard>
         <div className="space-y-4">
           <InstructorCard title="Samenvatting concept" icon={Sparkles}>
-            <div className="space-y-4 text-sm leading-6 text-muted-foreground">
-              <p><strong className="text-foreground">Wat ging goed?</strong><br />Je keek goed op tijd en hebt overzicht gehouden.</p>
-              <p><strong className="text-foreground">Waar werken we aan?</strong><br />Let op risico's bij kruispunten en stem je snelheid eerder af.</p>
-              <p><strong className="text-foreground">Volgende focus</strong><br />Kijktechniek bij kruispunten en voorrangssituaties.</p>
-            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Er is nog geen conceptsamenvatting opgeslagen voor deze leskaart.
+            </p>
           </InstructorCard>
           <InstructorCard title="Publiceren" icon={Send}>
             <p className="text-sm leading-6 text-muted-foreground">
@@ -859,16 +903,17 @@ export function InstructorEvaluationDetailView({
 
 export function InstructorMessagesView({
   threadId,
-  data = getInstructorExperience(),
+  data,
 }: {
   threadId?: string;
   data?: InstructorExperience;
 }) {
+  if (!data) return <DataUnavailableState title="Berichten niet beschikbaar" />;
   const hasSelectedThread = Boolean(threadId);
   const active =
     data.messages.find((thread) => thread.id === threadId) ??
-    data.messages[0] ??
-    getInstructorMessageThread(threadId);
+    (hasSelectedThread ? null : data.messages[0]) ??
+    null;
   return (
     <InstructorPage>
       <div className={cn(hasSelectedThread && "hidden md:block")}>
@@ -892,7 +937,7 @@ export function InstructorMessagesView({
                 href={`/instructor/messages/${thread.id}`}
                 className={cn(
                   "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
-                  thread.id === active.id
+                  thread.id === active?.id
                     ? "border-brand-primary bg-brand-accent"
                     : "border-brand-border bg-white",
                 )}
@@ -911,6 +956,7 @@ export function InstructorMessagesView({
             )}
           </div>
         </InstructorCard>
+        {active ? (
         <InstructorCard
           title={active.name}
           icon={User}
@@ -953,12 +999,25 @@ export function InstructorMessagesView({
             </div>
           </div>
         </InstructorCard>
+        ) : (
+          <InstructorCard
+            title="Geen gesprek geselecteerd"
+            icon={User}
+            className={cn(!hasSelectedThread && "hidden md:block", "md:h-full")}
+            contentClassName="flex min-h-[calc(100dvh-8.5rem)] items-center justify-center p-6 md:h-[calc(100%-4.25rem)] md:min-h-0"
+          >
+            <p className="max-w-sm text-center text-sm leading-6 text-muted-foreground">
+              Er zijn nog geen gesprekken voor deze instructeur.
+            </p>
+          </InstructorCard>
+        )}
       </div>
     </InstructorPage>
   );
 }
 
-export function InstructorTasksView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorTasksView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Taken niet beschikbaar" />;
   return (
     <InstructorPage>
       <PageHeader eyebrow="Taken" title="Openstaande taken" subtitle="Werk acties af rond lessen, leerlingen, voertuigen en planning." />
@@ -986,7 +1045,8 @@ export function InstructorTasksView({ data = getInstructorExperience() }: { data
   );
 }
 
-export function InstructorVehiclesView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorVehiclesView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Voertuigen niet beschikbaar" />;
   return (
     <InstructorPage>
       <PageHeader eyebrow="Voertuigen" title="Voertuigen" subtitle="Bekijk je gekoppelde lesauto's, status, APK en onderhoudscontext." />
@@ -1031,12 +1091,13 @@ export function InstructorVehiclesView({ data = getInstructorExperience() }: { d
   );
 }
 
-export function InstructorReportsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorReportsView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Rapportages niet beschikbaar" />;
   const lessonsToday = data.stats.find((stat) => stat.label === "Rijlessen")?.value ?? "0";
   const openTasks = data.tasks.length;
   const attentionCount = data.radar.length;
   const activeVehicles = data.vehicles.filter((vehicle) => vehicle.status === "active").length;
-  const trendValues = data.stats.map((stat) => Math.max(8, Math.min(100, Number(stat.value) * 16 || 8)));
+  const trendValues = data.stats.map((stat) => Math.max(0, Math.min(100, Number(stat.value) * 16 || 0)));
 
   return (
     <InstructorPage>
@@ -1061,7 +1122,8 @@ export function InstructorReportsView({ data = getInstructorExperience() }: { da
   );
 }
 
-export function InstructorSettingsView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorSettingsView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Instellingen niet beschikbaar" />;
   return (
     <InstructorPage>
       <PageHeader eyebrow="Instellingen" title="Instellingen" subtitle="Profiel, agenda-uren, notificaties, app instellingen en thema." />
@@ -1088,7 +1150,8 @@ export function InstructorSettingsView({ data = getInstructorExperience() }: { d
   );
 }
 
-export function InstructorProfileView({ data = getInstructorExperience() }: { data?: InstructorExperience }) {
+export function InstructorProfileView({ data }: { data?: InstructorExperience }) {
+  if (!data) return <DataUnavailableState title="Profiel niet beschikbaar" />;
   return (
     <InstructorPage>
       <PageHeader eyebrow="Profiel" title={data.profile.name} subtitle={`${data.profile.role} - ${data.profile.tenantName}`} />

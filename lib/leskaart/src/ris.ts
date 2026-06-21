@@ -1,16 +1,26 @@
 // RIS lesson card foundation.
 //
 // Pure helpers only: no IO, no Supabase dependency. The database stores RIS
-// steps as text (`N` or `1`..`8`) so concepts, published scores and student
-// translations use exactly the same contract.
+// scores as text (`1`..`10`). An empty/null value means "not assessed yet";
+// concepts, published scores and student translations use the same contract.
 
-export type RISStep = "N" | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-export type RISStepValue = "N" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
+export type RISStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type RISStepValue =
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "10";
 
 export type RISPhase = "geen_score" | "cognitief" | "associatief" | "geautomatiseerd";
 
 export type RISStepDefinition = {
-  stepValue: RISStepValue;
+  stepValue: RISStepValue | null;
   instructorLabel: string;
   studentLabel: string;
   explanation: string;
@@ -128,86 +138,106 @@ export type RISModuleReadiness = {
   averageStep: number | null;
 };
 
+export const RIS_SCORE_MAX = 10;
+export const RIS_READY_SCORE = 8;
+
+export const RIS_UNASSESSED_STEP_DEFINITION: RISStepDefinition = {
+  stepValue: null,
+  instructorLabel: "Niet beoordeeld",
+  studentLabel: "Nog niet beoordeeld",
+  explanation: "Er is nog geen betrouwbare beoordeling vastgelegd.",
+  phase: "geen_score",
+  sortOrder: 0,
+};
+
 export const RIS_STEP_DEFINITIONS: RISStepDefinition[] = [
   {
-    stepValue: "N",
-    instructorLabel: "Niet beoordeeld",
-    studentLabel: "Nog niet beoordeeld",
-    explanation: "Er is nog geen betrouwbare beoordeling vastgelegd.",
-    phase: "geen_score",
-    sortOrder: 0,
-  },
-  {
     stepValue: "1",
-    instructorLabel: "Kennismaken",
+    instructorLabel: "Startniveau",
     studentLabel: "Je maakt kennis met dit onderdeel",
-    explanation: "Je weet nog niet goed wat dit onderdeel inhoudt.",
+    explanation: "De leerling herkent het onderdeel, maar voert het nog niet betrouwbaar uit.",
     phase: "cognitief",
     sortOrder: 10,
   },
   {
     stepValue: "2",
-    instructorLabel: "Uitleg begrijpen",
-    studentLabel: "Je begrijpt de uitleg steeds beter",
-    explanation: "Je begrijpt wat de bedoeling is, maar voert het nog niet zelfstandig uit.",
+    instructorLabel: "Met veel hulp",
+    studentLabel: "Je oefent dit met veel hulp",
+    explanation: "De leerling voert het onderdeel alleen uit met voortdurende aanwijzingen.",
     phase: "cognitief",
     sortOrder: 20,
   },
   {
     stepValue: "3",
-    instructorLabel: "Met veel begeleiding",
-    studentLabel: "Je oefent dit met veel hulp",
-    explanation: "Je kunt dit uitvoeren met duidelijke hulp van je instructeur.",
+    instructorLabel: "Met hulp",
+    studentLabel: "Je voert dit met hulp uit",
+    explanation: "De leerling begrijpt de opdracht en voert uit met duidelijke begeleiding.",
     phase: "cognitief",
     sortOrder: 30,
   },
   {
     stepValue: "4",
-    instructorLabel: "Begin uitvoering",
-    studentLabel: "Je voert dit al deels zelf uit",
-    explanation: "Je bent begonnen met zelfstandig uitvoeren, maar het is nog wisselend.",
+    instructorLabel: "Onder begeleiding",
+    studentLabel: "Je doet dit al deels zelf",
+    explanation: "De leerling voert delen zelfstandig uit, maar correctie blijft nodig.",
     phase: "associatief",
     sortOrder: 40,
   },
   {
     stepValue: "5",
-    instructorLabel: "Bijna zelfstandig",
-    studentLabel: "Je doet dit bijna zelfstandig",
-    explanation: "Je hebt nog af en toe hulp nodig, maar de basis staat goed.",
+    instructorLabel: "Redelijk zelfstandig",
+    studentLabel: "Je rijdt dit redelijk zelfstandig",
+    explanation: "De leerling voert de basis meestal zelfstandig uit met beperkte aanwijzingen.",
     phase: "associatief",
     sortOrder: 50,
   },
   {
     stepValue: "6",
-    instructorLabel: "Zelfstandig uitvoeren",
+    instructorLabel: "Voldoende",
     studentLabel: "Je kunt dit zelfstandig uitvoeren",
-    explanation: "Je voert dit zelfstandig uit zonder aanwijzingen.",
+    explanation: "De leerling voert het onderdeel zelfstandig, veilig en voldoende stabiel uit.",
     phase: "associatief",
     sortOrder: 60,
   },
   {
     stepValue: "7",
-    instructorLabel: "Toepassen in gewijzigde situaties",
-    studentLabel: "Je past dit toe in andere situaties",
-    explanation: "Je kunt dit ook toepassen wanneer de situatie iets verandert.",
+    instructorLabel: "Goed",
+    studentLabel: "Je past dit goed toe",
+    explanation: "De leerling past het onderdeel goed toe in verschillende situaties.",
     phase: "geautomatiseerd",
     sortOrder: 70,
   },
   {
     stepValue: "8",
-    instructorLabel: "Geautomatiseerd in wisselende situaties",
-    studentLabel: "Je beheerst dit in wisselende situaties",
-    explanation: "Je past dit zelfstandig, veilig en stabiel toe in wisselende situaties.",
+    instructorLabel: "Examenwaardig",
+    studentLabel: "Je beheerst dit examenwaardig",
+    explanation: "De leerling voert het onderdeel zelfstandig, veilig en examenwaardig uit.",
     phase: "geautomatiseerd",
     sortOrder: 80,
+  },
+  {
+    stepValue: "9",
+    instructorLabel: "Sterk zelfstandig",
+    studentLabel: "Je beheerst dit sterk zelfstandig",
+    explanation: "De leerling handelt ruim boven voldoende, anticiperend en consistent.",
+    phase: "geautomatiseerd",
+    sortOrder: 90,
+  },
+  {
+    stepValue: "10",
+    instructorLabel: "Volledig beheerst",
+    studentLabel: "Je beheerst dit volledig",
+    explanation: "De leerling beheerst het onderdeel volledig en blijft stabiel onder druk.",
+    phase: "geautomatiseerd",
+    sortOrder: 100,
   },
 ];
 
 export function normalizeRisStep(value: unknown): RISStepValue | null {
   if (value === null || value === undefined || value === "") return null;
-  if (value === "N") return "N";
+  if (String(value).toUpperCase() === "N") return null;
   const asNumber = typeof value === "number" ? value : Number(value);
-  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= 8) {
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= RIS_SCORE_MAX) {
     return String(asNumber) as RISStepValue;
   }
   return null;
@@ -215,7 +245,7 @@ export function normalizeRisStep(value: unknown): RISStepValue | null {
 
 export function risStepNumber(step: RISStepValue | null | undefined): number | null {
   const normalized = normalizeRisStep(step);
-  if (normalized === null || normalized === "N") return null;
+  if (normalized === null) return null;
   return Number(normalized);
 }
 
@@ -223,10 +253,13 @@ export function translateRisStepForStudent(
   step: RISStepValue | null | undefined,
   definitions: readonly RISStepDefinition[] = RIS_STEP_DEFINITIONS,
 ): RISStepDefinition {
-  const normalized = normalizeRisStep(step) ?? "N";
+  const normalized = normalizeRisStep(step);
+  if (!normalized) {
+    return RIS_UNASSESSED_STEP_DEFINITION;
+  }
   return (
     definitions.find((definition) => definition.stepValue === normalized) ??
-    RIS_STEP_DEFINITIONS[0]
+    RIS_UNASSESSED_STEP_DEFINITION
   );
 }
 
@@ -310,7 +343,7 @@ export function computeRisProgress(input: readonly RISProgressInput[]): RISOvera
     .map((item) => risStepNumber(item.step))
     .filter((step): step is number => step !== null);
   const averageStep = assessed.length > 0 ? round1(mean(assessed)) : null;
-  const progressPct = totalScripts === 0 ? 0 : Math.round((sum(assessed) / (totalScripts * 8)) * 100);
+  const progressPct = totalScripts === 0 ? 0 : Math.round((sum(assessed) / (totalScripts * RIS_SCORE_MAX)) * 100);
 
   return {
     totalScripts,
@@ -339,7 +372,7 @@ export function computeRisModuleReadiness(
     return step === null || step < minimumStep;
   }).length;
   if (below > 0) {
-    blockers.push(`${below} ${below === 1 ? "script staat" : "scripts staan"} nog onder stap ${minimumStep}.`);
+    blockers.push(`${below} ${below === 1 ? "script staat" : "scripts staan"} nog onder score ${minimumStep}.`);
   }
   if (progress.attentionPoints > 0) {
     blockers.push(`${progress.attentionPoints} aandachtspunt${progress.attentionPoints === 1 ? "" : "en"} open.`);
@@ -364,7 +397,7 @@ function computeRisModuleProgress(
     .filter((step): step is number => step !== null);
   const totalScripts = items.length;
   const averageStep = assessed.length > 0 ? round1(mean(assessed)) : null;
-  const progressPct = totalScripts === 0 ? 0 : Math.round((sum(assessed) / (totalScripts * 8)) * 100);
+  const progressPct = totalScripts === 0 ? 0 : Math.round((sum(assessed) / (totalScripts * RIS_SCORE_MAX)) * 100);
   const attentionPoints = items.filter((item) => item.isAttentionPoint).length;
 
   return {
@@ -378,7 +411,7 @@ function computeRisModuleProgress(
       totalScripts > 0 &&
       items.every((item) => {
         const step = risStepNumber(item.step);
-        return step !== null && step >= 6;
+        return step !== null && step >= RIS_READY_SCORE;
       }) &&
       attentionPoints === 0,
   };

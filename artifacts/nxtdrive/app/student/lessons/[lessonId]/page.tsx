@@ -300,7 +300,7 @@ export default async function StudentLessonDetailPage({
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-brand-primary px-3 py-1 text-xs font-black text-white">
-                      {assessment.finalRisStep ? `Stap ${assessment.finalRisStep}` : "N"}
+                      {assessment.finalRisStep ? `Score ${assessment.finalRisStep}/10` : "Nog niet beoordeeld"}
                     </span>
                   </div>
                 ))}

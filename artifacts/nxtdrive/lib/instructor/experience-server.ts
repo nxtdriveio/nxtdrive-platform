@@ -5,6 +5,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadAgendaAppointments, type AgendaAppointmentView } from "@/lib/agenda/appointments";
 import { APPOINTMENT_TYPE_LABEL, APPOINTMENT_TYPE_SHORT, durationMinutes } from "@/lib/agenda/types";
 import { loadAgendaTrialLessons, type AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
+import { loadWeeklyAvailability } from "@/lib/availability/service";
+import {
+  minutesToHHMM,
+  WEEKDAY_LABEL,
+  WEEKDAY_ORDER,
+  type WeeklyAvailability,
+} from "@/lib/availability/types";
 import { loadInstructorConversations, loadThreadMessages } from "@/lib/chat/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import { VEHICLE_TRANSMISSION_LABEL, type Lesson, type Vehicle } from "@/lib/lessons/types";
@@ -19,9 +26,9 @@ import {
   startOfAmsterdamDayUtc,
 } from "@/lib/datetime";
 import {
-  getInstructorExperience,
   type InstructorAppointment,
   type InstructorAppointmentType,
+  type InstructorAvailabilityDay,
   type InstructorEvaluation,
   type InstructorExperience,
   type InstructorMessageThread,
@@ -190,11 +197,44 @@ function mapTask(task: DashboardTask): InstructorTask {
   };
 }
 
+function mapAvailabilityDays(weekly: readonly WeeklyAvailability[]): InstructorAvailabilityDay[] {
+  const blocksByWeekday = new Map<number, WeeklyAvailability[]>();
+  for (const block of weekly) {
+    const list = blocksByWeekday.get(block.weekday) ?? [];
+    list.push(block);
+    blocksByWeekday.set(block.weekday, list);
+  }
+
+  return WEEKDAY_ORDER.map((weekday) => {
+    const blocks = (blocksByWeekday.get(weekday) ?? []).sort((a, b) => a.start_min - b.start_min);
+
+    if (blocks.length === 0) {
+      return {
+        day: WEEKDAY_LABEL[weekday],
+        active: false,
+        start: "-",
+        end: "-",
+        breakLabel: "Niet ingesteld",
+      };
+    }
+
+    const start = Math.min(...blocks.map((block) => block.start_min));
+    const end = Math.max(...blocks.map((block) => block.end_min));
+
+    return {
+      day: WEEKDAY_LABEL[weekday],
+      active: true,
+      start: minutesToHHMM(start),
+      end: minutesToHHMM(end),
+      breakLabel: blocks.length > 1 ? `${blocks.length} blokken` : "Een blok",
+    };
+  });
+}
+
 export async function loadInstructorExperience(): Promise<InstructorExperience> {
   const { user, tenant, roles } = await requireActiveTenant(["instructor", "tenant_admin"]);
   const supabase = await createServerSupabaseClient();
   const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
-  const fallback = getInstructorExperience();
   const now = new Date();
   const todayYmd = amsterdamYmd(now);
   const dayStart = startOfAmsterdamDayUtc(todayYmd);
@@ -209,6 +249,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     appointmentWindow,
     conversations,
     vehicles,
+    weeklyAvailability,
   ] = await Promise.all([
     supabase
       .from("lessons")
@@ -251,6 +292,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       isAdmin,
     }),
     loadVehicles(supabase, tenant.id, { includeShared: true }),
+    loadWeeklyAvailability(supabase, tenant.id, user.id),
   ]);
 
   const lessonWindow = (lessonWindowResult.data ?? []) as Lesson[];
@@ -297,7 +339,6 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   ].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   const activeVehicles = vehicles.filter((vehicle) => vehicle.active);
-  const evaluationModules = fallback.evaluations[0]?.modules ?? [];
   const evaluations: InstructorEvaluation[] = lessonWindow.slice(0, 8).map((lesson) => {
     const student = studentMap.get(lesson.student_id);
     return {
@@ -308,7 +349,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       lessonDate: `${dateLabel(lesson.starts_at)} - ${timeFmt.format(new Date(lesson.starts_at))}`,
       status: lesson.status === "completed" ? "published" : "todo",
       mode: "ris",
-      modules: evaluationModules,
+      modules: [],
     };
   });
   const conversationMessages = await Promise.all(
@@ -368,7 +409,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       maintenance: vehicle.status === "maintenance" ? "In onderhoud" : "Geen melding",
     })),
     evaluations,
-    availability: fallback.availability,
+    availability: mapAvailabilityDays(weeklyAvailability),
     radar,
   };
 }

@@ -399,7 +399,7 @@ export async function loadRisCatalog(
   if (categoriesRes.error) throw new Error(`RIS categorieen laden mislukt (${ctx}): ${categoriesRes.error.message}`);
   if (scriptsRes.error) throw new Error(`RIS scripts laden mislukt (${ctx}): ${scriptsRes.error.message}`);
   if (variantsRes.error) throw new Error(`RIS varianten laden mislukt (${ctx}): ${variantsRes.error.message}`);
-  if (stepsRes.error) throw new Error(`RIS stappen laden mislukt (${ctx}): ${stepsRes.error.message}`);
+  if (stepsRes.error) throw new Error(`RIS-scoredefinities laden mislukt (${ctx}): ${stepsRes.error.message}`);
 
   const moduleIds = new Set((modulesRes.data ?? []).map((row) => row.id as string));
   const scriptIds = new Set((scriptsRes.data ?? []).map((row) => row.id as string));
@@ -1082,7 +1082,7 @@ function scriptModuleForCatalog(catalog: RisCatalog, scriptId: string): number {
 }
 
 function risStepRank(step: RISStepValue | null): number {
-  if (step == null || step === "N") return 0;
+  if (step == null) return 0;
   return typeof step === "number" ? step : Number(step) || 0;
 }
 
@@ -1212,7 +1212,7 @@ function buildBackofficeRisReport({
         studentLabel: definition.studentLabel,
         reason: row.is_attention_point
           ? "Aandachtspunt"
-          : "Lage RIS-stap",
+          : "Lage RIS-score",
       };
     });
 

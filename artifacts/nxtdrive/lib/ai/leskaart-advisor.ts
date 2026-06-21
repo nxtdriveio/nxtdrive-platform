@@ -407,7 +407,7 @@ export async function generateRisLessonPublicationDraft(
     "studentSummary: 2 tot 4 korte zinnen, positief en coachend.",
     "homeworkOrNextFocus: concrete focus voor de volgende les.",
     "internalSummary: korte staff-only samenvatting.",
-    "weakScripts: maximaal 5 scripts met aandacht/herhalen/lage stap.",
+    "weakScripts: maximaal 5 scripts met aandacht/herhalen/lage score.",
     "moduleAdvice: 2 tot 4 modulegerichte adviezen.",
     "internalAttentionPoints: 2 tot 5 staff-only opvolgpunten.",
   ].join(" ");
@@ -422,8 +422,8 @@ export async function generateRisLessonPublicationDraft(
       item.readyForTest ? "toetsklaar" : "",
     ].filter(Boolean);
     lines.push(
-      `- Module ${item.moduleNumber} ${item.code} ${item.title}: stap ${
-        item.risStep ?? "N"
+      `- Module ${item.moduleNumber} ${item.code} ${item.title}: score ${
+        item.risStep ? `${item.risStep}/10` : "nog niet beoordeeld"
       } (${item.studentLabel})${flags.length ? `; ${flags.join(", ")}` : ""}.`,
     );
     if (item.instructorNote) lines.push(`  Interne notitie: ${item.instructorNote}`);
