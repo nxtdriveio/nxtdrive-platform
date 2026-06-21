@@ -125,6 +125,18 @@ export type InstructorAvailabilityDay = {
   start: string;
   end: string;
   breakLabel: string;
+  date?: string;
+  sourceLabel?: string;
+  availableMinutes?: number;
+  intervals?: string[];
+};
+
+export type InstructorAvailabilityToday = {
+  availableMinutes: number;
+  bookedMinutes: number;
+  utilizationPct: number;
+  intervalLabel: string;
+  sourceLabel: string;
 };
 
 export type InstructorExperience = {
@@ -149,6 +161,7 @@ export type InstructorExperience = {
   vehicles: InstructorVehicle[];
   evaluations: InstructorEvaluation[];
   availability: InstructorAvailabilityDay[];
+  availabilityToday: InstructorAvailabilityToday;
   radar: Array<{
     id: string;
     student: string;

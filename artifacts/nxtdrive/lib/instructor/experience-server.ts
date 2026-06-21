@@ -5,13 +5,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loadAgendaAppointments, type AgendaAppointmentView } from "@/lib/agenda/appointments";
 import { APPOINTMENT_TYPE_LABEL, APPOINTMENT_TYPE_SHORT, durationMinutes } from "@/lib/agenda/types";
 import { loadAgendaTrialLessons, type AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
-import { loadWeeklyAvailability } from "@/lib/availability/service";
 import {
-  minutesToHHMM,
-  WEEKDAY_LABEL,
-  WEEKDAY_ORDER,
-  type WeeklyAvailability,
-} from "@/lib/availability/types";
+  loadExceptions,
+  loadWeeklyAvailability,
+  resolveAvailabilityDays,
+  type ResolvedAvailabilityDay,
+} from "@/lib/availability/service";
+import { minutesToHHMM } from "@/lib/availability/types";
 import { loadInstructorConversations, loadThreadMessages } from "@/lib/chat/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import { VEHICLE_TRANSMISSION_LABEL, type Lesson, type Vehicle } from "@/lib/lessons/types";
@@ -197,36 +197,21 @@ function mapTask(task: DashboardTask): InstructorTask {
   };
 }
 
-function mapAvailabilityDays(weekly: readonly WeeklyAvailability[]): InstructorAvailabilityDay[] {
-  const blocksByWeekday = new Map<number, WeeklyAvailability[]>();
-  for (const block of weekly) {
-    const list = blocksByWeekday.get(block.weekday) ?? [];
-    list.push(block);
-    blocksByWeekday.set(block.weekday, list);
-  }
-
-  return WEEKDAY_ORDER.map((weekday) => {
-    const blocks = (blocksByWeekday.get(weekday) ?? []).sort((a, b) => a.start_min - b.start_min);
-
-    if (blocks.length === 0) {
-      return {
-        day: WEEKDAY_LABEL[weekday],
-        active: false,
-        start: "-",
-        end: "-",
-        breakLabel: "Niet ingesteld",
-      };
-    }
-
-    const start = Math.min(...blocks.map((block) => block.start_min));
-    const end = Math.max(...blocks.map((block) => block.end_min));
+function mapAvailabilityDays(days: readonly ResolvedAvailabilityDay[]): InstructorAvailabilityDay[] {
+  return days.map((day) => {
+    const first = day.intervals[0];
+    const last = day.intervals[day.intervals.length - 1];
 
     return {
-      day: WEEKDAY_LABEL[weekday],
-      active: true,
-      start: minutesToHHMM(start),
-      end: minutesToHHMM(end),
-      breakLabel: blocks.length > 1 ? `${blocks.length} blokken` : "Een blok",
+      day: day.dayLabel,
+      active: day.active,
+      start: first ? minutesToHHMM(first.start_min) : "-",
+      end: last ? minutesToHHMM(last.end_min) : "-",
+      breakLabel: day.intervalLabel,
+      date: day.date,
+      sourceLabel: day.sourceLabel,
+      availableMinutes: day.availableMinutes,
+      intervals: day.intervals.map((interval) => `${minutesToHHMM(interval.start_min)}-${minutesToHHMM(interval.end_min)}`),
     };
   });
 }
@@ -240,6 +225,8 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const dayStart = startOfAmsterdamDayUtc(todayYmd);
   const dayEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 1));
   const horizonEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 15));
+  const availabilityFrom = new Date(`${todayYmd}T12:00:00`);
+  const availabilityTo = new Date(`${addDaysYmd(todayYmd, 15)}T12:00:00`);
 
   const [
     lessonWindowResult,
@@ -250,6 +237,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     conversations,
     vehicles,
     weeklyAvailability,
+    availabilityExceptions,
   ] = await Promise.all([
     supabase
       .from("lessons")
@@ -293,7 +281,14 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     }),
     loadVehicles(supabase, tenant.id, { includeShared: true }),
     loadWeeklyAvailability(supabase, tenant.id, user.id),
+    loadExceptions(supabase, tenant.id, user.id, {
+      from: availabilityFrom,
+      to: availabilityTo,
+    }),
   ]);
+  if (lessonWindowResult.error) throw lessonWindowResult.error;
+  if (openTasksResult.error) throw openTasksResult.error;
+  if (openTaskCountResult.error) throw openTaskCountResult.error;
 
   const lessonWindow = (lessonWindowResult.data ?? []) as Lesson[];
   const todayLessons = lessonWindow.filter((lesson) => isSameAmsterdamDay(new Date(lesson.starts_at), now));
@@ -309,22 +304,27 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     ]),
   );
 
-  const [{ data: studentsRaw }, { data: balancesRaw }] = await Promise.all([
+  const [
+    { data: studentsRaw, error: studentsError },
+    { data: balancesRaw, error: balancesError },
+  ] = await Promise.all([
     studentIds.length
       ? supabase
           .from("students")
           .select("id, full_name, phone, postcode, email")
           .eq("tenant_id", tenant.id)
           .in("id", studentIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     studentIds.length
       ? supabase
           .from("student_credit_balance")
           .select("student_id, balance")
           .eq("tenant_id", tenant.id)
           .in("student_id", studentIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  if (studentsError) throw studentsError;
+  if (balancesError) throw balancesError;
 
   const students = (studentsRaw ?? []) as StudentSummary[];
   const studentMap = new Map(students.map((student) => [student.id, student]));
@@ -378,6 +378,16 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const radar = mapStudentsForRadar(students, lessonWindow, balanceMap);
   const profileName = user.profile?.full_name ?? user.email ?? "Instructeur";
   const examTodayCount = todayAppointments.filter((appointment) => appointment.type === "exam" || appointment.type === "interim_test").length;
+  const resolvedAvailability = resolveAvailabilityDays(weeklyAvailability, availabilityExceptions, {
+    from: availabilityFrom,
+    days: 7,
+  });
+  const todayAvailability = resolvedAvailability[0];
+  const bookedTodayMinutes =
+    todayLessons.reduce((sum, lesson) => sum + durationMinutes(lesson.starts_at, lesson.ends_at), 0) +
+    todayTrials.reduce((sum, trial) => sum + Math.max(0, trial.duration_min), 0) +
+    todayAppointments.reduce((sum, appointment) => sum + durationMinutes(appointment.starts_at, appointment.ends_at), 0);
+  const availableTodayMinutes = todayAvailability?.availableMinutes ?? 0;
 
   return {
     profile: {
@@ -409,7 +419,17 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       maintenance: vehicle.status === "maintenance" ? "In onderhoud" : "Geen melding",
     })),
     evaluations,
-    availability: mapAvailabilityDays(weeklyAvailability),
+    availability: mapAvailabilityDays(resolvedAvailability),
+    availabilityToday: {
+      availableMinutes: availableTodayMinutes,
+      bookedMinutes: bookedTodayMinutes,
+      utilizationPct:
+        availableTodayMinutes > 0
+          ? Math.min(100, Math.round((bookedTodayMinutes / availableTodayMinutes) * 100))
+          : 0,
+      intervalLabel: todayAvailability?.intervalLabel ?? "Geen beschikbaarheid",
+      sourceLabel: todayAvailability?.sourceLabel ?? "Geen schema",
+    },
     radar,
   };
 }

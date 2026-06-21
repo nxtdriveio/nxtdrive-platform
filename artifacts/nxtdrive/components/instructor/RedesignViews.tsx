@@ -245,6 +245,15 @@ function ProgressRing({
   );
 }
 
+function minutesLabel(minutes: number): string {
+  if (minutes <= 0) return "0 min";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  if (rest === 0) return `${hours} uur`;
+  return `${hours}u ${rest}m`;
+}
+
 function StatCard({
   label,
   value,
@@ -515,15 +524,22 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
 
         <InstructorCard title="Dagoverzicht" icon={BarChart3}>
           <div className="flex items-center gap-5">
-            <ProgressRing value={Math.min(100, Number(data.stats[0]?.value ?? 0) * 12)} label="Vandaag" />
+            <ProgressRing value={data.availabilityToday.utilizationPct} label="Bezet" />
             <div className="min-w-0 flex-1 space-y-2">
-              {data.stats.map((stat, index) => (
-                <div key={stat.label} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className={cn("h-2 w-2 rounded-full", index === 1 ? "bg-emerald-500" : index === 2 ? "bg-violet-500" : index === 3 ? "bg-amber-500" : "bg-blue-500")} />
-                    {stat.label}
+              {[
+                ["Beschikbaar", minutesLabel(data.availabilityToday.availableMinutes), "bg-emerald-500"],
+                ["Gepland", minutesLabel(data.availabilityToday.bookedMinutes), "bg-violet-500"],
+                ["Schema", data.availabilityToday.sourceLabel, "bg-blue-500"],
+                ["Tijden", data.availabilityToday.intervalLabel, "bg-amber-500"],
+              ].map(([label, value, tone]) => (
+                <div key={label} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", tone)} />
+                    <span className="truncate">{label}</span>
                   </span>
-                  <span className="font-black text-foreground">{stat.value}</span>
+                  <span className="max-w-[11rem] truncate text-right font-black text-foreground">
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
