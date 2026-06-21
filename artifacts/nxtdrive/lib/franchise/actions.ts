@@ -16,7 +16,10 @@ function redirectPlanRequired(path: string, plan: keyof typeof PLAN_LABELS) {
   redirect(`${path}?error=plan_required&plan=${plan}`);
 }
 
-function redirectFeatureRequired(path: string, requiredPlan: keyof typeof PLAN_LABELS) {
+function redirectFeatureRequired(
+  path: string,
+  requiredPlan: keyof typeof PLAN_LABELS,
+) {
   redirectPlanRequired(path, requiredPlan);
 }
 
@@ -25,6 +28,7 @@ const FRANCHISE_REVALIDATE_PATHS = [
   "/backoffice/franchise/aandacht",
   "/backoffice/franchise/delegaties",
   "/backoffice/franchise/governance",
+  "/backoffice/franchise/planning",
   "/backoffice/franchise/playbook",
   "/backoffice/franchise/prestaties",
   "/backoffice/franchise/templates",
@@ -38,7 +42,9 @@ function checked(formData: FormData, key: string): boolean {
 }
 
 function cleanField(formData: FormData, key: string, max = 240): string {
-  return String(formData.get(key) ?? "").trim().slice(0, max);
+  return String(formData.get(key) ?? "")
+    .trim()
+    .slice(0, max);
 }
 
 function cleanOptionalField(formData: FormData, key: string, max = 240) {
@@ -61,6 +67,13 @@ function parseDateBoundary(value: string | null, boundary: "start" | "end") {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function parsePositiveNumber(formData: FormData, key: string) {
+  const raw = cleanField(formData, key, 40).replace(",", ".");
+  if (!raw) return null;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function delegationIsActive(
   delegation: {
     revoked_at?: string | null;
@@ -70,10 +83,15 @@ function delegationIsActive(
 ) {
   if (!delegation || delegation.revoked_at) return false;
   const now = Date.now();
-  const validFrom = delegation.valid_from ? Date.parse(delegation.valid_from) : null;
-  const validUntil = delegation.valid_until ? Date.parse(delegation.valid_until) : null;
+  const validFrom = delegation.valid_from
+    ? Date.parse(delegation.valid_from)
+    : null;
+  const validUntil = delegation.valid_until
+    ? Date.parse(delegation.valid_until)
+    : null;
   if (validFrom && Number.isFinite(validFrom) && validFrom > now) return false;
-  if (validUntil && Number.isFinite(validUntil) && validUntil <= now) return false;
+  if (validUntil && Number.isFinite(validUntil) && validUntil <= now)
+    return false;
   return true;
 }
 
@@ -150,18 +168,16 @@ async function loadDelegation(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  const delegation = data as
-    | {
-        revoked_at?: string | null;
-        valid_from?: string | null;
-        valid_until?: string | null;
-        can_manage_planning: boolean;
-        can_manage_leads: boolean;
-        can_manage_templates: boolean;
-        can_manage_fleet: boolean;
-        can_manage_instructor_availability: boolean;
-      }
-    | null;
+  const delegation = data as {
+    revoked_at?: string | null;
+    valid_from?: string | null;
+    valid_until?: string | null;
+    can_manage_planning: boolean;
+    can_manage_leads: boolean;
+    can_manage_templates: boolean;
+    can_manage_fleet: boolean;
+    can_manage_instructor_availability: boolean;
+  } | null;
   return delegationIsActive(delegation) ? delegation : null;
 }
 
@@ -201,7 +217,9 @@ function taskPriorityForFranchisePriority(priority: string) {
 export async function setFranchiseeParent(formData: FormData) {
   const user = await requirePlatformAdmin();
   const franchisee_id = String(formData.get("franchisee_id") ?? "").trim();
-  const franchisegever_id = String(formData.get("franchisegever_id") ?? "").trim();
+  const franchisegever_id = String(
+    formData.get("franchisegever_id") ?? "",
+  ).trim();
 
   if (!franchisee_id) {
     redirect(`/admin/tenants/${franchisee_id}?error=missing_fields`);
@@ -209,7 +227,7 @@ export async function setFranchiseeParent(formData: FormData) {
 
   const service = createServiceRoleClient();
   const { error } = await service.rpc("set_franchisee_parent", {
-    p_franchisee_tenant_id:    franchisee_id,
+    p_franchisee_tenant_id: franchisee_id,
     p_franchisegever_tenant_id: franchisegever_id || null,
     p_actor: user.id,
   });
@@ -234,15 +252,20 @@ export async function createFranchiseTemplate(formData: FormData) {
     "franchise_admin",
   ]);
 
-  const name          = String(formData.get("name") ?? "").trim();
-  const credits_total = parseInt(String(formData.get("credits_total") ?? ""), 10);
-  const price_cents   = Math.round(
-    parseFloat(String(formData.get("price_excl_vat_euros") ?? "0").replace(",", ".")) *
-      100,
+  const name = String(formData.get("name") ?? "").trim();
+  const credits_total = parseInt(
+    String(formData.get("credits_total") ?? ""),
+    10,
+  );
+  const price_cents = Math.round(
+    parseFloat(
+      String(formData.get("price_excl_vat_euros") ?? "0").replace(",", "."),
+    ) * 100,
   );
   const valid_days_raw = String(formData.get("valid_days") ?? "").trim();
-  const valid_days    = valid_days_raw ? parseInt(valid_days_raw, 10) : null;
-  const description   = String(formData.get("description") ?? "").trim() || undefined;
+  const valid_days = valid_days_raw ? parseInt(valid_days_raw, 10) : null;
+  const description =
+    String(formData.get("description") ?? "").trim() || undefined;
 
   if (!name || isNaN(credits_total) || credits_total <= 0) {
     redirect("/backoffice/franchise/templates?error=missing_fields");
@@ -258,8 +281,8 @@ export async function createFranchiseTemplate(formData: FormData) {
   }
   const { error } = await service.rpc("create_franchise_template", {
     p_tenant_id: tenant.id,
-    p_type:      "package",
-    p_name:      name,
+    p_type: "package",
+    p_name: name,
     p_config: {
       credits_total,
       price_cents,
@@ -281,14 +304,18 @@ export async function createFranchiseTemplate(formData: FormData) {
 }
 
 export async function updateFranchiseTemplate(formData: FormData) {
-  const { user, tenant } = await requireActiveTenant(["tenant_admin", "franchise_admin"]);
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+  ]);
 
-  const template_id  = String(formData.get("template_id") ?? "").trim();
-  const name         = String(formData.get("name") ?? "").trim() || null;
+  const template_id = String(formData.get("template_id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim() || null;
   const is_active_raw = formData.get("is_active");
-  const is_active    = is_active_raw !== null ? is_active_raw === "true" : null;
+  const is_active = is_active_raw !== null ? is_active_raw === "true" : null;
 
-  if (!template_id) redirect("/backoffice/franchise/templates?error=missing_fields");
+  if (!template_id)
+    redirect("/backoffice/franchise/templates?error=missing_fields");
 
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
@@ -300,10 +327,10 @@ export async function updateFranchiseTemplate(formData: FormData) {
   }
   const { error } = await service.rpc("update_franchise_template", {
     p_template_id: template_id,
-    p_name:        name,
-    p_config:      null,
-    p_is_active:   is_active,
-    p_actor:       user.id,
+    p_name: name,
+    p_config: null,
+    p_is_active: is_active,
+    p_actor: user.id,
   });
 
   if (error) {
@@ -328,8 +355,10 @@ export async function pushTemplateToFranchisee(formData: FormData) {
     "franchise_admin",
   ]);
 
-  const template_id          = String(formData.get("template_id") ?? "").trim();
-  const franchisee_tenant_id = String(formData.get("franchisee_tenant_id") ?? "").trim();
+  const template_id = String(formData.get("template_id") ?? "").trim();
+  const franchisee_tenant_id = String(
+    formData.get("franchisee_tenant_id") ?? "",
+  ).trim();
 
   if (!template_id || !franchisee_tenant_id) {
     redirect("/backoffice/franchise/templates?error=missing_fields");
@@ -344,9 +373,9 @@ export async function pushTemplateToFranchisee(formData: FormData) {
     );
   }
   const { error } = await service.rpc("distribute_franchise_template", {
-    p_template_id:          template_id,
+    p_template_id: template_id,
     p_franchisee_tenant_id: franchisee_tenant_id,
-    p_actor:                user.id,
+    p_actor: user.id,
   });
 
   if (error) {
@@ -388,9 +417,9 @@ export async function activateFranchiseTemplateAsPackage(formData: FormData) {
   }
 
   const { error } = await service.rpc("activate_franchise_template", {
-    p_template_id:          template_id,
+    p_template_id: template_id,
     p_franchisee_tenant_id: tenant.id,
-    p_actor:                user.id,
+    p_actor: user.id,
   });
 
   if (error) {
@@ -426,12 +455,18 @@ export async function upsertFranchiseDelegation(formData: FormData) {
     "can_manage_instructor_availability",
   );
   const scopeType = cleanField(formData, "scope_type", 40) || "tenant";
-  if (!["tenant", "branches", "rayons", "capabilities", "custom"].includes(scopeType)) {
+  if (
+    !["tenant", "branches", "rayons", "capabilities", "custom"].includes(
+      scopeType,
+    )
+  ) {
     redirectWith(returnTo, "error", "invalid_scope");
   }
   const validFrom =
-    parseDateBoundary(cleanOptionalField(formData, "valid_from", 10), "start") ??
-    new Date().toISOString();
+    parseDateBoundary(
+      cleanOptionalField(formData, "valid_from", 10),
+      "start",
+    ) ?? new Date().toISOString();
   const validUntil = parseDateBoundary(
     cleanOptionalField(formData, "valid_until", 10),
     "end",
@@ -527,11 +562,14 @@ export async function applyFranchiseTemplateToFranchisee(formData: FormData) {
     returnTo,
   );
 
-  const { error } = await service.rpc("apply_franchise_template_as_franchisegever", {
-    p_template_id: templateId,
-    p_franchisee_tenant_id: franchisee.id,
-    p_actor: user.id,
-  });
+  const { error } = await service.rpc(
+    "apply_franchise_template_as_franchisegever",
+    {
+      p_template_id: templateId,
+      p_franchisee_tenant_id: franchisee.id,
+      p_actor: user.id,
+    },
+  );
 
   if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
 
@@ -603,13 +641,162 @@ export async function createFranchiseBenchmarkTask(formData: FormData) {
     redirectWith(
       returnTo,
       "error",
-      error instanceof Error ? error.message.slice(0, 200) : "task_create_failed",
+      error instanceof Error
+        ? error.message.slice(0, 200)
+        : "task_create_failed",
     );
   }
 
   revalidateFranchiseControlPaths();
   revalidatePath("/backoffice/taken");
   redirectWith(returnTo, "benchmark_task_created");
+}
+
+export async function createFranchisePlanningAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/planning");
+  const franchiseeTenantId = cleanField(formData, "franchisee_tenant_id", 120);
+  const actionType = cleanField(formData, "action_type", 80);
+  if (!franchiseeTenantId || !actionType) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const franchisee = await loadFranchiseeOrRedirect(
+    service,
+    tenant.id,
+    franchiseeTenantId,
+    returnTo,
+  );
+
+  const title =
+    cleanField(formData, "title", 180) ||
+    `Franchise planning: ${franchisee.name}`;
+  const description =
+    cleanField(formData, "description", 1600) ||
+    "Planningsturing vanuit de franchisegever.";
+
+  try {
+    const { error } = await service.rpc("create_franchise_planning_action", {
+      p_franchise_root_tenant_id: tenant.id,
+      p_franchisee_tenant_id: franchisee.id,
+      p_actor: user.id,
+      p_action_type: actionType,
+      p_title: title,
+      p_description: description,
+      p_priority: taskPriorityForFranchisePriority(
+        cleanField(formData, "priority", 40),
+      ),
+      p_due_date: cleanField(formData, "due_date", 10) || null,
+      p_branch_id: cleanField(formData, "branch_id", 120) || null,
+      p_instructor_user_id:
+        cleanField(formData, "instructor_user_id", 120) || null,
+      p_requested_capacity_hours: parsePositiveNumber(
+        formData,
+        "requested_capacity_hours",
+      ),
+      p_requested_date: cleanField(formData, "requested_date", 10) || null,
+      p_request_key: cleanField(formData, "request_key", 220) || null,
+    });
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    redirectWith(
+      returnTo,
+      "error",
+      error instanceof Error
+        ? error.message.slice(0, 200)
+        : "planning_action_create_failed",
+    );
+  }
+
+  revalidateFranchiseControlPaths();
+  revalidatePath("/backoffice/planning-board");
+  revalidatePath("/backoffice/planning-queue");
+  redirectWith(returnTo, "planning_action_created");
+}
+
+export async function acceptFranchisePlanningAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "instructor",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("accept_franchise_planning_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_note: cleanField(formData, "note", 2000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidatePath("/backoffice/planning-board");
+  revalidatePath("/backoffice/planning-queue");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "planning_accepted");
+}
+
+export async function declineFranchisePlanningAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "instructor",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("decline_franchise_planning_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_reason: cleanField(formData, "reason", 2000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "planning_declined");
+}
+
+export async function completeFranchisePlanningAction(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/taken");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "instructor",
+  ]);
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("complete_franchise_planning_action", {
+    p_action_id: actionId,
+    p_franchisee_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_resolution: cleanField(formData, "resolution", 4000) || null,
+  });
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  revalidatePath("/backoffice/taken");
+  revalidatePath("/backoffice/planning-board");
+  revalidatePath("/backoffice/planning-queue");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "planning_completed");
 }
 
 export async function acceptFranchiseBenchmarkAction(formData: FormData) {
@@ -703,7 +890,7 @@ export async function routeLeadToBranch(formData: FormData) {
     "franchise_admin",
   ]);
 
-  const lead_id   = String(formData.get("lead_id") ?? "").trim();
+  const lead_id = String(formData.get("lead_id") ?? "").trim();
   const branch_id = String(formData.get("branch_id") ?? "").trim();
 
   if (!lead_id || !branch_id) {
@@ -719,9 +906,9 @@ export async function routeLeadToBranch(formData: FormData) {
     );
   }
   const { error } = await service.rpc("route_lead_to_branch", {
-    p_lead_id:   lead_id,
+    p_lead_id: lead_id,
     p_branch_id: branch_id,
-    p_actor:     user.id,
+    p_actor: user.id,
   });
 
   if (error) {
