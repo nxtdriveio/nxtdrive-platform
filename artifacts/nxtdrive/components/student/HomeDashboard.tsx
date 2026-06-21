@@ -234,11 +234,10 @@ function NextStepHero({ coach }: { coach: StudentCoachSummary }) {
             Jouw volgende stap
           </p>
           <h2 className="text-lg font-black text-white sm:text-xl">
-            Kijktechniek en rotondes
+            {cleanDisplayText(coach.title)}
           </h2>
           <p className="max-w-xl text-xs leading-5 text-white/78 sm:text-sm sm:leading-6">
-            Blijf werken aan je kijktechniek en voorsorteren. Kleine stappen,
-            groot resultaat.
+            {coach.body}
           </p>
           <Link
             href={coach.ctaHref}
@@ -250,9 +249,11 @@ function NextStepHero({ coach }: { coach: StudentCoachSummary }) {
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1.5 backdrop-blur sm:p-2">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-cyan-300/70 text-base font-black text-white sm:h-16 sm:w-16 sm:text-lg">
-            2/3
+            Focus
           </div>
-          <span className="text-[9px] font-semibold text-white/70 sm:text-[10px]">Deze week</span>
+          <span className="text-[9px] font-semibold text-white/70 sm:text-[10px]">
+            Volgende stap
+          </span>
         </div>
       </div>
     </section>

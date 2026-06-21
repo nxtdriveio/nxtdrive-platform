@@ -37,9 +37,15 @@ export default async function StudentJourneyPage() {
           </StudentSection>
           <StudentSection title="Recente lessen">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-              {experience.previousLessons.map((lesson) => (
-                <StudentLessonCard key={lesson.id} lesson={lesson} />
-              ))}
+              {experience.previousLessons.length > 0 ? (
+                experience.previousLessons.map((lesson) => (
+                  <StudentLessonCard key={lesson.id} lesson={lesson} />
+                ))
+              ) : (
+                <div className="rounded-[var(--radius-card)] border border-dashed border-brand-border bg-white p-5 text-sm leading-6 text-brand-muted-foreground">
+                  Zodra je eerste les is afgerond verschijnt je lesgeschiedenis hier.
+                </div>
+              )}
             </div>
           </StudentSection>
         </div>
@@ -50,7 +56,11 @@ export default async function StudentJourneyPage() {
             readiness={experience.cbr.readiness}
             copy={experience.cbr.readinessCopy}
           />
-          <StudentAICoachCard />
+          <StudentAICoachCard
+            title={experience.nextStep.title}
+            body={experience.nextStep.body}
+            href={experience.nextStep.href}
+          />
           <StudentSection title="Klaar voor de volgende stap?" icon={BadgeCheck}>
             <div className="grid gap-3 sm:grid-cols-2">
               <Link href="/student/agenda" className={buttonVariants({ className: "w-full" })}>

@@ -53,22 +53,6 @@ function invoiceStatus(status: InvoiceStatus, dueDate: string | null): StudentIn
   return "open";
 }
 
-function emptyLesson(studentName: string): StudentLesson {
-  return {
-    id: "no-upcoming-lesson",
-    title: "Nog niet ingepland",
-    dateLabel: "Geen les gepland",
-    timeLabel: "Plan je volgende les",
-    location: "Locatie volgt",
-    instructor: studentName,
-    vehicle: "Voertuig volgt",
-    lessonType: "Rijles",
-    status: "pending",
-    href: "/student/agenda",
-    preparation: ["Je rijschool plant hier je volgende les zodra er een afspraak staat."],
-  };
-}
-
 function mapLesson(
   lesson: Lesson,
   instructorName: string,
@@ -215,9 +199,9 @@ export async function getStudentExperience({
     mappedLessons.find((lesson) => {
       const raw = lessons.find((item) => item.id === lesson.id);
       return raw ? raw.status !== "completed" && new Date(raw.starts_at).toISOString() >= nowIso : false;
-    }) ?? emptyLesson(studentName);
+    }) ?? null;
   const previousLessons = mappedLessons
-    .filter((lesson) => lesson.id !== nextLesson.id && lesson.status !== "planned")
+    .filter((lesson) => lesson.id !== nextLesson?.id && lesson.status !== "planned")
     .reverse()
     .slice(0, 8);
 
@@ -285,8 +269,8 @@ export async function getStudentExperience({
         : "Je volgende focus verschijnt zodra je instructeur de leskaart bijwerkt.",
       ctaLabel: "Bekijk plan",
       href: "/student/journey",
-      progressLabel: nextLesson.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
-      progressCurrent: nextLesson.status === "planned" ? 1 : 0,
+      progressLabel: nextLesson?.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
+      progressCurrent: nextLesson?.status === "planned" ? 1 : 0,
       progressTotal: 1,
     },
     quickActions,
@@ -433,7 +417,7 @@ function buildEmptyExperience({
       progressTotal: 1,
     },
     quickActions,
-    nextLesson: emptyLesson(studentName),
+    nextLesson: null,
     previousLessons: [],
     journeyModules: [],
     journeyTrend: [{ label: "Start", module1: 0, module2: 0, module3: 0, module4: 0, module5: 0 }],
@@ -536,8 +520,10 @@ export function findLessonById(
   data: StudentExperience,
   lessonId: string,
 ) {
-  const lessons = [data.nextLesson, ...data.previousLessons];
-  return lessons.find((lesson) => lesson.id === lessonId) ?? data.nextLesson;
+  const lessons = [data.nextLesson, ...data.previousLessons].filter(
+    (lesson): lesson is StudentLesson => Boolean(lesson),
+  );
+  return lessons.find((lesson) => lesson.id === lessonId) ?? null;
 }
 
 export function findMessageThreadById(

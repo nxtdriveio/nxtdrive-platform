@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MessageCircle, Route } from "lucide-react";
 import { getStudentPwaContext } from "@/lib/student-pwa/context";
 import { findLessonById } from "@/lib/student-pwa/service";
@@ -20,6 +21,8 @@ export default async function StudentLessonDetailPage({
   const { lessonId } = await params;
   const { experience } = await getStudentPwaContext();
   const lesson = findLessonById(experience, lessonId);
+
+  if (!lesson) notFound();
 
   return (
     <div className="min-w-0 space-y-4 lg:space-y-6">

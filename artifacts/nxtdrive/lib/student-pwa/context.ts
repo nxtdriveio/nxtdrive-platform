@@ -16,7 +16,7 @@ export async function getStudentPwaContext() {
   if (needsChildPicker) redirect("/student/select-child");
 
   const displayName =
-    student?.full_name ?? user.profile?.full_name ?? user.email ?? "Emma de Vries";
+    student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";
 
   const experience = await getStudentExperience({
     studentName: displayName,
