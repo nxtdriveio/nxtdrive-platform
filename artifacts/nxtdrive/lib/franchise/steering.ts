@@ -5,6 +5,17 @@ export type FranchiseDelegationState = {
   franchisee_tenant_id: string;
   franchisee_name: string;
   franchisee_slug: string;
+  scope_type: FranchiseDelegationScopeType;
+  scope_refs: string[];
+  valid_from: string | null;
+  valid_until: string | null;
+  grant_reason: string | null;
+  granted_by: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  revoke_reason: string | null;
+  status: FranchiseDelegationStatus;
+  is_active: boolean;
   can_view_planning: boolean;
   can_manage_planning: boolean;
   can_manage_leads: boolean;
@@ -16,6 +27,20 @@ export type FranchiseDelegationState = {
   created_at: string | null;
   updated_at: string | null;
 };
+
+export type FranchiseDelegationScopeType =
+  | "tenant"
+  | "branches"
+  | "rayons"
+  | "capabilities"
+  | "custom";
+
+export type FranchiseDelegationStatus =
+  | "active"
+  | "scheduled"
+  | "expired"
+  | "revoked"
+  | "readonly";
 
 export type FranchiseLeadRoutingLead = {
   id: string;
@@ -50,6 +75,15 @@ type TenantRow = {
 type PermissionRow = {
   id: string;
   franchisee_tenant_id: string;
+  scope_type: FranchiseDelegationScopeType | null;
+  scope_refs: unknown;
+  valid_from: string | null;
+  valid_until: string | null;
+  grant_reason: string | null;
+  granted_by: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  revoke_reason: string | null;
   can_view_planning: boolean;
   can_manage_planning: boolean;
   can_manage_leads: boolean;
@@ -61,6 +95,24 @@ type PermissionRow = {
   created_at: string;
   updated_at: string;
 };
+
+function normalizeScopeRefs(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
+function delegationStatus(permission: PermissionRow | undefined): FranchiseDelegationStatus {
+  if (!permission) return "readonly";
+  const now = Date.now();
+  const validFrom = permission.valid_from ? Date.parse(permission.valid_from) : null;
+  const validUntil = permission.valid_until ? Date.parse(permission.valid_until) : null;
+  if (permission.revoked_at) return "revoked";
+  if (validFrom && Number.isFinite(validFrom) && validFrom > now) return "scheduled";
+  if (validUntil && Number.isFinite(validUntil) && validUntil <= now) return "expired";
+  return "active";
+}
 
 export async function loadFranchiseDelegations(
   franchiseRootTenantId: string,
@@ -96,21 +148,34 @@ export async function loadFranchiseDelegations(
 
   return ((franchisees ?? []) as TenantRow[]).map((franchisee) => {
     const permission = permissionByTenant.get(franchisee.id);
+    const status = delegationStatus(permission);
+    const isActive = status === "active";
     return {
       permission_id: permission?.id ?? null,
       franchisee_tenant_id: franchisee.id,
       franchisee_name: franchisee.name,
       franchisee_slug: franchisee.slug,
-      can_view_planning: permission?.can_view_planning ?? false,
-      can_manage_planning: permission?.can_manage_planning ?? false,
-      can_manage_leads: permission?.can_manage_leads ?? false,
-      can_manage_templates: permission?.can_manage_templates ?? false,
-      can_view_fleet: permission?.can_view_fleet ?? false,
-      can_manage_fleet: permission?.can_manage_fleet ?? false,
+      scope_type: permission?.scope_type ?? "tenant",
+      scope_refs: normalizeScopeRefs(permission?.scope_refs),
+      valid_from: permission?.valid_from ?? null,
+      valid_until: permission?.valid_until ?? null,
+      grant_reason: permission?.grant_reason ?? null,
+      granted_by: permission?.granted_by ?? null,
+      revoked_at: permission?.revoked_at ?? null,
+      revoked_by: permission?.revoked_by ?? null,
+      revoke_reason: permission?.revoke_reason ?? null,
+      status,
+      is_active: isActive,
+      can_view_planning: isActive ? (permission?.can_view_planning ?? false) : false,
+      can_manage_planning: isActive ? (permission?.can_manage_planning ?? false) : false,
+      can_manage_leads: isActive ? (permission?.can_manage_leads ?? false) : false,
+      can_manage_templates: isActive ? (permission?.can_manage_templates ?? false) : false,
+      can_view_fleet: isActive ? (permission?.can_view_fleet ?? false) : false,
+      can_manage_fleet: isActive ? (permission?.can_manage_fleet ?? false) : false,
       can_view_instructor_availability:
-        permission?.can_view_instructor_availability ?? false,
+        isActive ? (permission?.can_view_instructor_availability ?? false) : false,
       can_manage_instructor_availability:
-        permission?.can_manage_instructor_availability ?? false,
+        isActive ? (permission?.can_manage_instructor_availability ?? false) : false,
       created_at: permission?.created_at ?? null,
       updated_at: permission?.updated_at ?? null,
     };

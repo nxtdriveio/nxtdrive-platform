@@ -40,6 +40,42 @@ function cleanField(formData: FormData, key: string, max = 240): string {
   return String(formData.get(key) ?? "").trim().slice(0, max);
 }
 
+function cleanOptionalField(formData: FormData, key: string, max = 240) {
+  const value = cleanField(formData, key, max);
+  return value.length > 0 ? value : null;
+}
+
+function parseScopeRefs(formData: FormData) {
+  return cleanField(formData, "scope_refs", 1200)
+    .split(/[\n,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 40);
+}
+
+function parseDateBoundary(value: string | null, boundary: "start" | "end") {
+  if (!value) return null;
+  const suffix = boundary === "start" ? "T00:00:00.000Z" : "T23:59:59.999Z";
+  const date = new Date(`${value}${suffix}`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function delegationIsActive(
+  delegation: {
+    revoked_at?: string | null;
+    valid_from?: string | null;
+    valid_until?: string | null;
+  } | null,
+) {
+  if (!delegation || delegation.revoked_at) return false;
+  const now = Date.now();
+  const validFrom = delegation.valid_from ? Date.parse(delegation.valid_from) : null;
+  const validUntil = delegation.valid_until ? Date.parse(delegation.valid_until) : null;
+  if (validFrom && Number.isFinite(validFrom) && validFrom > now) return false;
+  if (validUntil && Number.isFinite(validUntil) && validUntil <= now) return false;
+  return true;
+}
+
 function safeReturnPath(formData: FormData, fallback: string): string {
   const submitted = cleanField(formData, "return_to", 300);
   if (
@@ -112,8 +148,11 @@ async function loadDelegation(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return data as
+  const delegation = data as
     | {
+        revoked_at?: string | null;
+        valid_from?: string | null;
+        valid_until?: string | null;
         can_manage_planning: boolean;
         can_manage_leads: boolean;
         can_manage_templates: boolean;
@@ -121,6 +160,7 @@ async function loadDelegation(
         can_manage_instructor_availability: boolean;
       }
     | null;
+  return delegationIsActive(delegation) ? delegation : null;
 }
 
 async function auditFranchiseAction(
@@ -436,6 +476,23 @@ export async function upsertFranchiseDelegation(formData: FormData) {
     formData,
     "can_manage_instructor_availability",
   );
+  const scopeType = cleanField(formData, "scope_type", 40) || "tenant";
+  if (!["tenant", "branches", "rayons", "capabilities", "custom"].includes(scopeType)) {
+    redirectWith(returnTo, "error", "invalid_scope");
+  }
+  const validFrom =
+    parseDateBoundary(cleanOptionalField(formData, "valid_from", 10), "start") ??
+    new Date().toISOString();
+  const validUntil = parseDateBoundary(
+    cleanOptionalField(formData, "valid_until", 10),
+    "end",
+  );
+  if (validUntil && Date.parse(validUntil) <= Date.parse(validFrom)) {
+    redirectWith(returnTo, "error", "invalid_validity_window");
+  }
+  const grantReason = cleanOptionalField(formData, "grant_reason", 500);
+  if (!grantReason) redirectWith(returnTo, "error", "grant_reason_required");
+  const scopeRefs = parseScopeRefs(formData);
 
   const { error } = await service
     .from("franchise_operations_permissions")
@@ -443,6 +500,15 @@ export async function upsertFranchiseDelegation(formData: FormData) {
       {
         franchise_root_tenant_id: tenant.id,
         franchisee_tenant_id: franchisee.id,
+        scope_type: scopeType,
+        scope_refs: scopeRefs,
+        valid_from: validFrom,
+        valid_until: validUntil,
+        grant_reason: grantReason,
+        granted_by: user.id,
+        revoked_at: null,
+        revoked_by: null,
+        revoke_reason: null,
         can_view_planning: true,
         can_manage_planning: canManagePlanning,
         can_manage_leads: canManageLeads,
@@ -456,30 +522,6 @@ export async function upsertFranchiseDelegation(formData: FormData) {
     );
 
   if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
-
-  try {
-    await auditFranchiseAction(service, {
-      actorUserId: user.id,
-      tenantId: tenant.id,
-      action: "franchise.delegation.upserted",
-      targetType: "franchisee_tenant",
-      targetId: franchisee.id,
-      payload: {
-        franchisee_name: franchisee.name,
-        can_manage_planning: canManagePlanning,
-        can_manage_leads: canManageLeads,
-        can_manage_templates: canManageTemplates,
-        can_manage_fleet: canManageFleet,
-        can_manage_instructor_availability: canManageInstructorAvailability,
-      },
-    });
-  } catch (error) {
-    redirectWith(
-      returnTo,
-      "error",
-      error instanceof Error ? error.message.slice(0, 200) : "audit_failed",
-    );
-  }
 
   revalidateFranchiseControlPaths();
   redirectWith(returnTo, "delegation_saved");
@@ -497,31 +539,24 @@ export async function revokeFranchiseDelegation(formData: FormData) {
     franchiseeTenantId,
     returnTo,
   );
+  const revokeReason = cleanOptionalField(formData, "revoke_reason", 500);
+  if (!revokeReason) redirectWith(returnTo, "error", "revoke_reason_required");
 
-  const { error } = await service
+  const { data: revoked, error } = await service
     .from("franchise_operations_permissions")
-    .delete()
+    .update({
+      revoked_at: new Date().toISOString(),
+      revoked_by: user.id,
+      revoke_reason: revokeReason,
+    })
     .eq("franchise_root_tenant_id", tenant.id)
-    .eq("franchisee_tenant_id", franchisee.id);
+    .eq("franchisee_tenant_id", franchisee.id)
+    .is("revoked_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
-
-  try {
-    await auditFranchiseAction(service, {
-      actorUserId: user.id,
-      tenantId: tenant.id,
-      action: "franchise.delegation.revoked",
-      targetType: "franchisee_tenant",
-      targetId: franchisee.id,
-      payload: { franchisee_name: franchisee.name },
-    });
-  } catch (error) {
-    redirectWith(
-      returnTo,
-      "error",
-      error instanceof Error ? error.message.slice(0, 200) : "audit_failed",
-    );
-  }
+  if (!revoked) redirectWith(returnTo, "error", "active_delegation_not_found");
 
   revalidateFranchiseControlPaths();
   redirectWith(returnTo, "delegation_revoked");

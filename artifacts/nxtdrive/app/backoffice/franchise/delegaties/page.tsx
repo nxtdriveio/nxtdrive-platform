@@ -32,6 +32,38 @@ const PERMISSIONS = [
   ["can_manage_instructor_availability", "Beschikbaarheid beheren"],
 ] as const;
 
+const SCOPE_OPTIONS = [
+  ["tenant", "Hele franchisee"],
+  ["branches", "Specifieke vestigingen"],
+  ["rayons", "Specifieke rayons"],
+  ["capabilities", "Specifieke capabilities"],
+  ["custom", "Custom scope"],
+] as const;
+
+function statusLabel(status: FranchiseDelegationState["status"]) {
+  if (status === "active") return "Actief";
+  if (status === "scheduled") return "Ingepland";
+  if (status === "expired") return "Verlopen";
+  if (status === "revoked") return "Ingetrokken";
+  return "Read-only";
+}
+
+function statusTone(status: FranchiseDelegationState["status"]) {
+  if (status === "active") return "delegated";
+  if (status === "scheduled") return "info";
+  if (status === "expired" || status === "revoked") return "warning";
+  return "readonly";
+}
+
+function dateInputValue(value: string | null) {
+  return value ? value.slice(0, 10) : "";
+}
+
+function displayDate(value: string | null) {
+  if (!value) return "Geen einddatum";
+  return new Date(value).toLocaleDateString("nl-NL");
+}
+
 function PermissionCheckbox({
   name,
   label,
@@ -58,6 +90,13 @@ function PermissionCheckbox({
 }
 
 function DelegationBadges({ delegation }: { delegation: FranchiseDelegationState }) {
+  if (!delegation.is_active) {
+    return (
+      <FranchiseStatusBadge tone={statusTone(delegation.status)}>
+        {statusLabel(delegation.status)}
+      </FranchiseStatusBadge>
+    );
+  }
   const activeLabels = PERMISSIONS.filter(([key]) => delegation[key]).map(([, label]) => label);
   if (activeLabels.length === 0) {
     return <FranchiseStatusBadge tone="readonly">Read-only</FranchiseStatusBadge>;
@@ -76,6 +115,116 @@ function DelegationBadges({ delegation }: { delegation: FranchiseDelegationState
   );
 }
 
+function DelegationGovernanceSummary({
+  delegation,
+}: {
+  delegation: FranchiseDelegationState;
+}) {
+  return (
+    <dl className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+      <div className="rounded-xl border border-brand-card-border bg-white px-3 py-2">
+        <dt className="font-black uppercase tracking-[0.12em]">Scope</dt>
+        <dd className="mt-1 font-bold text-foreground">
+          {SCOPE_OPTIONS.find(([key]) => key === delegation.scope_type)?.[1] ?? "Custom"}
+        </dd>
+      </div>
+      <div className="rounded-xl border border-brand-card-border bg-white px-3 py-2">
+        <dt className="font-black uppercase tracking-[0.12em]">Geldig tot</dt>
+        <dd className="mt-1 font-bold text-foreground">
+          {displayDate(delegation.valid_until)}
+        </dd>
+      </div>
+      <div className="rounded-xl border border-brand-card-border bg-white px-3 py-2">
+        <dt className="font-black uppercase tracking-[0.12em]">Reden</dt>
+        <dd className="mt-1 line-clamp-2 font-bold text-foreground">
+          {delegation.revoked_at
+            ? delegation.revoke_reason ?? "Geen reden vastgelegd"
+            : delegation.grant_reason ?? "Geen reden vastgelegd"}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function DelegationGovernanceFields({
+  delegation,
+  controlsDisabled,
+}: {
+  delegation?: FranchiseDelegationState;
+  controlsDisabled: boolean;
+}) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      <label className="block space-y-1.5">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+          Scope
+        </span>
+        <select
+          name="scope_type"
+          defaultValue={delegation?.scope_type ?? "tenant"}
+          disabled={controlsDisabled}
+          className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+        >
+          {SCOPE_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+          Scope referenties
+        </span>
+        <input
+          name="scope_refs"
+          defaultValue={delegation?.scope_refs.join(", ") ?? ""}
+          disabled={controlsDisabled}
+          placeholder="Optioneel: vestiging-, rayon- of capability-id's"
+          className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+          Geldig vanaf
+        </span>
+        <input
+          type="date"
+          name="valid_from"
+          defaultValue={dateInputValue(delegation?.valid_from ?? null)}
+          disabled={controlsDisabled}
+          className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+          Geldig tot
+        </span>
+        <input
+          type="date"
+          name="valid_until"
+          defaultValue={dateInputValue(delegation?.valid_until ?? null)}
+          disabled={controlsDisabled}
+          className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+        />
+      </label>
+      <label className="block space-y-1.5 lg:col-span-2">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+          Reden voor delegatie
+        </span>
+        <textarea
+          name="grant_reason"
+          required
+          defaultValue={delegation?.grant_reason ?? ""}
+          disabled={controlsDisabled}
+          placeholder="Bijvoorbeeld: centrale leadrouting tijdelijk toegestaan voor vestiging Noord."
+          className="min-h-20 w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm font-bold text-foreground"
+        />
+      </label>
+    </div>
+  );
+}
+
 export default async function FranchiseDelegationsPage({
   searchParams,
 }: {
@@ -86,7 +235,7 @@ export default async function FranchiseDelegationsPage({
     requireFranchiseOperator(),
   ]);
   const delegations = await loadFranchiseDelegations(tenant.id);
-  const activeDelegations = delegations.filter((delegation) => delegation.permission_id);
+  const activeDelegations = delegations.filter((delegation) => delegation.is_active);
   const leadDelegations = delegations.filter((delegation) => delegation.can_manage_leads);
   const templateDelegations = delegations.filter(
     (delegation) => delegation.can_manage_templates,
@@ -152,8 +301,8 @@ export default async function FranchiseDelegationsPage({
         />
         <FranchiseKpiCard
           label="Default"
-          value="Read-only"
-          hint="totdat delegatie bestaat"
+          value="Governed"
+          hint="scope, reden en audit"
           icon={LockKeyhole}
           tone="readonly"
         />
@@ -189,6 +338,7 @@ export default async function FranchiseDelegationsPage({
                       </p>
                     ) : null}
                   </div>
+                  <DelegationGovernanceSummary delegation={delegation} />
 
                   <form action={upsertFranchiseDelegation} className="mt-4 space-y-3">
                     <input
@@ -212,6 +362,23 @@ export default async function FranchiseDelegationsPage({
                         />
                       ))}
                     </div>
+                    <DelegationGovernanceFields
+                      delegation={delegation}
+                      controlsDisabled={controlsDisabled}
+                    />
+                    {delegation.permission_id ? (
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
+                          Reden bij intrekken
+                        </span>
+                        <input
+                          name="revoke_reason"
+                          disabled={controlsDisabled}
+                          placeholder="Verplicht wanneer je deze delegatie intrekt."
+                          className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                        />
+                      </label>
+                    ) : null}
                     <div className="flex flex-wrap justify-end gap-2">
                       {delegation.permission_id ? (
                         <Button
@@ -270,6 +437,7 @@ export default async function FranchiseDelegationsPage({
                 />
               ))}
             </div>
+            <DelegationGovernanceFields controlsDisabled={controlsDisabled} />
             <Button type="submit" className="w-full" disabled={controlsDisabled}>
               Delegatie aanmaken
             </Button>
