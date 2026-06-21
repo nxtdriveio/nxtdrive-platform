@@ -15,11 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  applyFranchiseTemplateToFranchisee,
   createFranchiseTemplate,
   pushTemplateToFranchisee,
   updateFranchiseTemplate,
 } from "@/lib/franchise/actions";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { loadFranchiseDelegations } from "@/lib/franchise/steering";
 import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 import { PLAN_LABELS } from "@/lib/platform/features";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -48,13 +50,14 @@ export default async function FranchiseTemplatesPage({
   ]);
 
   const service = createServiceRoleClient();
-  const [{ data: franchisees }, templates] = await Promise.all([
+  const [{ data: franchisees }, templates, delegations] = await Promise.all([
     service
       .from("tenants")
       .select("id, name, slug")
       .eq("parent_tenant_id", tenant.id)
       .order("name"),
     loadFranchiseTemplates(tenant.id),
+    loadFranchiseDelegations(tenant.id),
   ]);
 
   const activeTemplates = templates.filter((template) => template.is_active);
@@ -65,13 +68,19 @@ export default async function FranchiseTemplatesPage({
   );
   const errorMsg = sp.error ? decodeURIComponent(sp.error) : null;
   const controlsDisabled = readOnlyDowngrade;
+  const delegationByTenant = new Map(
+    delegations.map((delegation) => [
+      delegation.franchisee_tenant_id,
+      delegation,
+    ]),
+  );
 
   return (
     <FranchisePage>
       <FranchisePageHeader
         eyebrow="Templates & playbook"
         title="Templates"
-        description="Beheer franchisebrede pakketsjablonen. Distributie maakt templates zichtbaar; franchisees activeren lokaal zodat tenantgrenzen intact blijven."
+        description="Beheer franchisebrede pakketsjablonen. Distributie maakt templates zichtbaar; toepassen maakt een echt pakket aan wanneer template-delegatie actief is."
         badges={
           <>
             <FranchiseModeBadge />
@@ -129,10 +138,10 @@ export default async function FranchiseTemplatesPage({
         />
         <FranchiseKpiCard
           label="Model"
-          value="Read-only"
-          hint="geen centrale pakketmutatie"
+          value="Gestuurd"
+          hint="met template-delegatie"
           icon={ShieldCheck}
-          tone="readonly"
+          tone="delegated"
         />
       </section>
 
@@ -149,6 +158,9 @@ export default async function FranchiseTemplatesPage({
             ) : (
               templates.map((template) => {
                 const activationCount = template.activations.length;
+                const appliedCount = template.activations.filter(
+                  (activation) => activation.resulting_package_id,
+                ).length;
                 const credits = template.config.credits_total ?? 0;
                 const price = template.config.price_cents ?? 0;
                 const validDays = template.config.valid_days ?? null;
@@ -198,10 +210,10 @@ export default async function FranchiseTemplatesPage({
                       />
                       <div>
                         <p className="text-sm font-black text-foreground">
-                          {activationCount} activaties
+                          {activationCount} distributies, {appliedCount} toegepast
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Zichtbaar maken zonder lokaal pakket te wijzigen.
+                          Activeren/deactiveren beinvloedt nieuwe distributie.
                         </p>
                       </div>
                       <Button type="submit" size="sm" variant="outline" disabled={controlsDisabled}>
@@ -226,7 +238,43 @@ export default async function FranchiseTemplatesPage({
                           ))}
                         </select>
                         <Button type="submit" size="sm" disabled={controlsDisabled}>
-                          Doorsturen
+                          Distribueren
+                        </Button>
+                      </form>
+                    ) : null}
+
+                    {template.is_active && (franchisees?.length ?? 0) > 0 ? (
+                      <form action={applyFranchiseTemplateToFranchisee} className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                          type="hidden"
+                          name="return_to"
+                          value="/backoffice/franchise/templates"
+                        />
+                        <input type="hidden" name="template_id" value={template.id} />
+                        <select
+                          name="franchisee_tenant_id"
+                          className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm text-foreground"
+                          disabled={controlsDisabled}
+                          required
+                        >
+                          <option value="">Toepassen bij...</option>
+                          {(franchisees ?? []).map((franchisee) => {
+                            const delegation = delegationByTenant.get(franchisee.id);
+                            const allowed = Boolean(delegation?.can_manage_templates);
+                            return (
+                              <option
+                                key={franchisee.id}
+                                value={franchisee.id}
+                                disabled={!allowed}
+                              >
+                                {franchisee.name}
+                                {allowed ? "" : " - template-delegatie nodig"}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <Button type="submit" size="sm" disabled={controlsDisabled}>
+                          Toepassen
                         </Button>
                       </form>
                     ) : null}
@@ -310,7 +358,7 @@ export default async function FranchiseTemplatesPage({
               {[
                 "Templates blijven eigendom van de franchisegever.",
                 "Distributie maakt een template zichtbaar voor franchisee.",
-                "Franchisee activeert lokaal en maakt pas dan een echt pakket aan.",
+                "Toepassen maakt centraal een pakket aan wanneer template-delegatie actief is.",
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-xl border border-brand-card-border bg-white px-3 py-3">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />

@@ -20,10 +20,16 @@ import {
   FranchiseSectionTabs,
   FranchiseStatusBadge,
 } from "@/components/backoffice/franchise/franchise-primitives";
+import { Button } from "@/components/ui/button";
 import { formatEuro, priorityTone } from "@/components/backoffice/franchise/franchise-format";
+import {
+  createFranchiseBenchmarkTask,
+  routeFranchiseLead,
+} from "@/lib/franchise/actions";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
+import { loadFranchiseLeadRoutingState } from "@/lib/franchise/steering";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +41,20 @@ const ROUTE_LABELS: Record<string, string> = {
   bewaken: "Bewaken",
 };
 
-export default async function FranchiseAttentionPage() {
-  const { tenant } = await requireFranchiseOperator();
+export default async function FranchiseAttentionPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const [sp, { tenant }] = await Promise.all([
+    searchParams,
+    requireFranchiseOperator(),
+  ]);
   let data:
     | [
         Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
         Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
+        Awaited<ReturnType<typeof loadFranchiseLeadRoutingState>>,
       ]
     | null = null;
 
@@ -48,6 +62,7 @@ export default async function FranchiseAttentionPage() {
     data = await Promise.all([
       loadFranchisePerformanceOverview(tenant.id),
       loadFranchiseGovernanceOverview(tenant.id),
+      loadFranchiseLeadRoutingState(tenant.id),
     ]);
   } catch (error) {
     console.error("[franchise/aandacht] load failed", error);
@@ -62,7 +77,8 @@ export default async function FranchiseAttentionPage() {
     );
   }
 
-  const [performance, governance] = data;
+  const [performance, governance, leadRouting] = data;
+  const errorMsg = sp.error ? decodeURIComponent(sp.error) : null;
   const routeCounts = performance.franchisees.reduce<Record<string, number>>(
     (acc, row) => {
       acc[row.follow_up_route] = (acc[row.follow_up_route] ?? 0) + 1;
@@ -101,6 +117,12 @@ export default async function FranchiseAttentionPage() {
       />
 
       <FranchiseSectionTabs />
+
+      {errorMsg ? (
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">
+          {errorMsg}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <FranchiseKpiCard
@@ -202,6 +224,41 @@ export default async function FranchiseAttentionPage() {
                       {item.next_step}
                     </p>
                   </div>
+                  <form action={createFranchiseBenchmarkTask} className="mt-3 flex justify-end">
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/franchise/aandacht"
+                    />
+                    <input
+                      type="hidden"
+                      name="franchisee_tenant_id"
+                      value={item.tenant_id}
+                    />
+                    <input
+                      type="hidden"
+                      name="attention_priority"
+                      value={item.attention_priority}
+                    />
+                    <input
+                      type="hidden"
+                      name="follow_up_route"
+                      value={item.follow_up_route}
+                    />
+                    <input
+                      type="hidden"
+                      name="title"
+                      value={`Franchise opvolging: ${item.tenant_name} - ${item.attention_label}`}
+                    />
+                    <input
+                      type="hidden"
+                      name="description"
+                      value={`${item.attention_reason}\n\nVolgende stap: ${item.next_step}`}
+                    />
+                    <Button type="submit" size="sm">
+                      Stuuractie maken
+                    </Button>
+                  </form>
                 </div>
               ))
             )}
@@ -209,6 +266,73 @@ export default async function FranchiseAttentionPage() {
         </FranchisePanel>
 
         <div className="space-y-4">
+          <FranchisePanel title="Lead routing" description="Open leads zonder vestiging.">
+            <div className="space-y-3">
+              {leadRouting.leads.length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen routeerbare leads"
+                  description="Alle open leads zijn al aan een vestiging gekoppeld."
+                />
+              ) : (
+                leadRouting.leads.map((lead) => {
+                  const branchOptions = leadRouting.branches.filter(
+                    (branch) => branch.tenant_id === lead.tenant_id,
+                  );
+                  return (
+                    <form
+                      key={lead.id}
+                      action={routeFranchiseLead}
+                      className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="return_to"
+                        value="/backoffice/franchise/aandacht"
+                      />
+                      <input type="hidden" name="lead_id" value={lead.id} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-foreground">
+                            {lead.full_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {lead.tenant_name} - {lead.source}
+                          </p>
+                        </div>
+                        <FranchiseStatusBadge tone={lead.can_manage ? "delegated" : "readonly"}>
+                          {lead.can_manage ? "Routing" : "Delegatie nodig"}
+                        </FranchiseStatusBadge>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <select
+                          name="branch_id"
+                          disabled={!lead.can_manage || branchOptions.length === 0}
+                          required
+                          className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                        >
+                          <option value="">Kies vestiging...</option>
+                          {branchOptions.map((branch) => (
+                            <option key={branch.id} value={branch.id}>
+                              {branch.name}
+                              {branch.city ? `, ${branch.city}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!lead.can_manage || branchOptions.length === 0}
+                        >
+                          Routeer
+                        </Button>
+                      </div>
+                    </form>
+                  );
+                })
+              )}
+            </div>
+          </FranchisePanel>
+
           <FranchisePanel title="Follow-up routes" description="Automatisch afgeleid, lokaal uitgevoerd.">
             <div className="space-y-3">
               {Object.entries(ROUTE_LABELS).map(([key, label]) => (
