@@ -5,9 +5,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
 import { SlotRecoveryInvitations } from "@/components/student/slot-recovery-invitations";
+import { NextLessonProposals } from "@/components/student/next-lesson-proposals";
 import { ExamInvitations } from "@/components/student/exam-invitations";
 import { listOpenInvitationsForStudent } from "@/lib/lesson-refill/invitations";
 import { listOpenSlotRecoveryInvitationsForStudent } from "@/lib/slot-recovery/invitations";
+import { listOpenNextLessonProposalsForStudent } from "@/lib/end-of-lesson-scheduling/proposals";
 import { listOpenExamInvitationsForStudent } from "@/lib/exam-invitations/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { ReferralInvite } from "@/components/student/referral-invite";
@@ -122,6 +124,7 @@ export default async function StudentHomePage() {
     breakdownRes,
     refillInvitations,
     slotRecoveryInvitations,
+    nextLessonProposals,
     examInvitations,
     origin,
     referralCode,
@@ -140,6 +143,7 @@ export default async function StudentHomePage() {
     supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
     listOpenSlotRecoveryInvitationsForStudent(service, tenant.id, student.id),
+    listOpenNextLessonProposalsForStudent(service, tenant.id, student.id),
     listOpenExamInvitationsForStudent(service, tenant.id, student.id),
     getPublicOrigin(),
     ensureStudentReferralCode(service, tenant.id, student.id, user.id),
@@ -387,6 +391,7 @@ export default async function StudentHomePage() {
 
       <RefillInvitations invitations={refillInvitations} />
       <SlotRecoveryInvitations invitations={slotRecoveryInvitations} />
+      <NextLessonProposals proposals={nextLessonProposals} />
       <ExamInvitations invitations={examInvitations} />
 
       {referralUrl ? (

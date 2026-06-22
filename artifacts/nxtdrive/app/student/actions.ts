@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  completeInstructorNextLessonBooking,
+  respondBookingConfirmation,
+} from "@/lib/smart-booking/service";
 import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
 import {
   getPlanningPreview,
@@ -435,6 +439,62 @@ export async function expressSlotRecoveryInterestAction(
     p_metadata: { surface: "student_pwa" },
   });
   if (error) return { error: error.message };
+
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+export async function respondInstructorNextLessonProposalAction(
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { tenant, user } = await requireActiveTenant(["student", "parent"]);
+  const bookingConfirmationId = String(
+    formData.get("booking_confirmation_id") ?? "",
+  ).trim();
+  const bookingCandidateId = String(
+    formData.get("booking_candidate_id") ?? "",
+  ).trim();
+  const response = String(formData.get("response") ?? "").trim();
+  if (!bookingConfirmationId) {
+    return { error: "booking_confirmation_id ontbreekt" };
+  }
+  if (!bookingCandidateId) return { error: "booking_candidate_id ontbreekt" };
+  if (!["accept", "decline"].includes(response)) {
+    return { error: "Ongeldige keuze" };
+  }
+
+  const service = createServiceRoleClient();
+  const status = await respondBookingConfirmation(service, {
+    tenantId: tenant.id,
+    bookingConfirmationId,
+    actor: user.id,
+    response: response === "accept" ? "accepted" : "declined",
+    metadata: { surface: "student_pwa", source: "instructor_next_lesson" },
+  }).catch((error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : "Voorstel beantwoorden mislukt.";
+    return `error:${message}`;
+  });
+  if (status.startsWith("error:")) {
+    return { error: status.slice("error:".length) };
+  }
+
+  if (response === "accept" && status === "candidates_ready") {
+    try {
+      await completeInstructorNextLessonBooking(service, {
+        tenantId: tenant.id,
+        bookingCandidateId,
+        actor: user.id,
+      });
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Les bevestigen is mislukt.",
+      };
+    }
+  }
 
   revalidatePath("/student", "layout");
   return {};

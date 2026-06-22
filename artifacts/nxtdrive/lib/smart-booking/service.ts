@@ -341,3 +341,23 @@ export async function completeSlotRecoveryBooking(
   if (error) throw rpcError("complete_slot_recovery_booking", error);
   return assertString(data, "complete_slot_recovery_booking");
 }
+
+export async function completeInstructorNextLessonBooking(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingCandidateId: string;
+    actor: string;
+  },
+): Promise<string> {
+  const { data, error } = await service.rpc(
+    "complete_instructor_next_lesson_booking",
+    {
+      p_booking_candidate_id: args.bookingCandidateId,
+      p_tenant_id: args.tenantId,
+      p_actor: args.actor,
+    },
+  );
+  if (error) throw rpcError("complete_instructor_next_lesson_booking", error);
+  return assertString(data, "complete_instructor_next_lesson_booking");
+}

@@ -5,7 +5,9 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { CBR_EXAM_STATUS_LABEL } from "@/lib/cbr/derive";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { MACHTIGING_STATUS_LABEL } from "@/lib/cbr/types";
+import { loadEndOfLessonSchedulingState } from "@/lib/end-of-lesson-scheduling/service";
 import { LESSON_STATUS_LABEL, type LessonStatus } from "@/lib/lessons/types";
+import type { PlanningActorAccess } from "@/lib/planning-core";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   loadInstructorRisLessonCard,
@@ -20,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 const LESSON_SELECT =
-  "id, student_id, instructor_id, vehicle_id, status, starts_at, ends_at, duration_min, location, notes, progress_score, progress_summary, location_id, pickup_service_area_id, student_note, attention_points, advice";
+  "id, branch_id, student_id, instructor_id, vehicle_id, status, starts_at, ends_at, duration_min, location, notes, progress_score, progress_summary, location_id, pickup_service_area_id, student_note, attention_points, advice";
 
 const OPEN_LESSON_STATUSES = ["planned", "in_progress"] as const;
 
@@ -41,6 +43,7 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 
 type LessonRow = {
   id: string;
+  branch_id: string | null;
   student_id: string;
   instructor_id: string | null;
   vehicle_id: string | null;
@@ -108,6 +111,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
     studentRisProgress,
     cbrSummary,
     latestResponseRes,
+    endOfLessonScheduling,
   ] = await Promise.all([
     service
       .from("students")
@@ -149,6 +153,16 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
       .order("submitted_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    loadEndOfLessonSchedulingState(service, {
+      tenant,
+      lessonId: lesson.id,
+      actor: planningActor({
+        userId: user.id,
+        tenantId: tenant.id,
+        roles,
+        isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+      }),
+    }),
   ]);
   if (studentRes.error) throw new Error(`Leerling laden mislukt: ${studentRes.error.message}`);
   if (vehicleRes.error) throw new Error(`Voertuig laden mislukt: ${vehicleRes.error.message}`);
@@ -249,6 +263,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
         goalOptions={goalOptions}
         lessonInfo={lessonInfo}
         studentLearningWish={studentLearningWish}
+        endOfLessonScheduling={endOfLessonScheduling}
       />
     </div>
   );
@@ -292,6 +307,23 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
         : null)
     );
   }
+}
+
+function planningActor(ctx: {
+  userId: string;
+  tenantId: string;
+  roles: readonly string[];
+  isPlatformAdmin: boolean;
+}): PlanningActorAccess {
+  const canManageTenant =
+    ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
+  return {
+    userId: ctx.userId,
+    roles: ctx.roles as PlanningActorAccess["roles"],
+    isPlatformAdmin: ctx.isPlatformAdmin,
+    tenantIds: canManageTenant ? [ctx.tenantId] : [],
+    branchAccess: [{ tenantId: ctx.tenantId, branchIds: "all" }],
+  };
 }
 
 function buildLessonInfo({
