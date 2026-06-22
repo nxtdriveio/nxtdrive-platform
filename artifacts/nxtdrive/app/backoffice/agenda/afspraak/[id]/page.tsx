@@ -33,14 +33,32 @@ import {
   isResultableType,
 } from "@/lib/agenda/types";
 import type { Student } from "@/lib/students/types";
+import {
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+  zonedYmd,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    dateStyle: "full",
-    timeStyle: "short",
-  }).format(new Date(value));
+function createAppointmentFormatters(timeZone: string) {
+  return {
+    dateTimeFmt: createNlDateTimeFormatter(
+      {
+        dateStyle: "full",
+        timeStyle: "short",
+      },
+      timeZone,
+    ),
+    timeInputFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        hourCycle: "h23",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
 }
 
 export default async function EditAppointmentPage({
@@ -64,6 +82,8 @@ export default async function EditAppointmentPage({
   if (!appt) notFound();
 
   const { user, organization: tenant, roles } = context;
+  const timeZone = resolveTenantTimeZone(tenant);
+  const { dateTimeFmt, timeInputFmt } = createAppointmentFormatters(timeZone);
   const canSelectInstructor =
     !!user.profile?.is_platform_admin ||
     rolesGrantPermission(roles, "planning:manage");
@@ -296,8 +316,8 @@ export default async function EditAppointmentPage({
                 vehicleId: appt.vehicle_id,
                 pickupServiceAreaId: appt.pickup_service_area_id,
                 studentId: appt.student_id,
-                date: appt.starts_at.slice(0, 10),
-                time: appt.starts_at.slice(11, 16),
+                date: zonedYmd(new Date(appt.starts_at), timeZone),
+                time: timeInputFmt.format(new Date(appt.starts_at)),
                 durationMin: appointmentDurationMinutes(appt),
                 bufferMin: appointmentBufferMinutes(appt),
                 title: appt.title,
@@ -315,11 +335,11 @@ export default async function EditAppointmentPage({
               <dl className="grid gap-2 sm:grid-cols-2">
                 <div>
                   <dt className="font-medium text-foreground">Start</dt>
-                  <dd>{formatDateTime(appt.starts_at)}</dd>
+                  <dd>{dateTimeFmt.format(new Date(appt.starts_at))}</dd>
                 </div>
                 <div>
                   <dt className="font-medium text-foreground">Einde</dt>
-                  <dd>{formatDateTime(appt.ends_at)}</dd>
+                  <dd>{dateTimeFmt.format(new Date(appt.ends_at))}</dd>
                 </div>
                 {appt.location ? (
                   <div>

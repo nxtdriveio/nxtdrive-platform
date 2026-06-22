@@ -3,10 +3,15 @@ import { ArrowLeft, CalendarClock, Clock3 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { WeeklyEditor } from "@/components/availability/WeeklyEditor";
-import { ExceptionsManager } from "@/components/availability/ExceptionsManager";
+import { AvailabilityCalendar } from "@/components/availability/AvailabilityCalendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { loadExceptions, loadWeeklyAvailability, summarizeAvailability } from "@/lib/availability/service";
+import {
+  loadExceptions,
+  loadWeeklyAvailability,
+  resolveAvailabilityDays,
+  summarizeAvailability,
+} from "@/lib/availability/service";
 import {
   addAvailabilityException,
   deleteAvailabilityException,
@@ -22,11 +27,18 @@ export async function InstructorAvailabilityManager({
 }) {
   const { tenant, user } = await requireActiveTenant(["instructor", "tenant_admin"]);
   const supabase = await createServerSupabaseClient();
+  const today = new Date();
+  const rangeEnd = new Date(today);
+  rangeEnd.setDate(rangeEnd.getDate() + 62);
   const [weekly, exceptions] = await Promise.all([
     loadWeeklyAvailability(supabase, tenant.id, user.id),
-    loadExceptions(supabase, tenant.id, user.id),
+    loadExceptions(supabase, tenant.id, user.id, { from: today, to: rangeEnd }),
   ]);
   const summary = summarizeAvailability(weekly, exceptions);
+  const calendarDays = resolveAvailabilityDays(weekly, exceptions, {
+    from: today,
+    days: 21,
+  });
 
   return (
     <div className="min-w-0 space-y-4 md:space-y-5">
@@ -60,6 +72,23 @@ export async function InstructorAvailabilityManager({
         </div>
       ) : null}
 
+      <Card className="rounded-[1.35rem] border-brand-border/80 bg-white/92 shadow-brand-card">
+        <CardHeader>
+          <CardTitle>Kalenderweergave</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AvailabilityCalendar
+            days={calendarDays}
+            exceptions={exceptions}
+            instructorId={user.id}
+            branchId={null}
+            redirectTo={redirectTo}
+            addAction={addAvailabilityException}
+            deleteAction={deleteAvailabilityException}
+          />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
         <Card className="rounded-[1.35rem] border-brand-border/80 bg-white/92 shadow-brand-card">
           <CardHeader>
@@ -77,22 +106,6 @@ export async function InstructorAvailabilityManager({
         </Card>
 
         <div className="space-y-4">
-          <Card className="rounded-[1.35rem] border-brand-border/80 bg-white/92 shadow-brand-card">
-            <CardHeader>
-              <CardTitle>Uitzonderingen</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExceptionsManager
-                exceptions={exceptions}
-                instructorId={user.id}
-                branchId={null}
-                redirectTo={redirectTo}
-                addAction={addAvailabilityException}
-                deleteAction={deleteAvailabilityException}
-              />
-            </CardContent>
-          </Card>
-
           <Card className="rounded-[1.35rem] border-brand-border/80 bg-white/92 shadow-brand-card">
             <CardContent className="space-y-3 p-4">
               <Badge variant={summary.weeklyMinutes > 0 ? "success" : "warning"}>

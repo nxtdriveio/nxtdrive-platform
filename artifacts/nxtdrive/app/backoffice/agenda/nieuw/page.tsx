@@ -18,6 +18,11 @@ import {
   LESSON_DURATION_OPTIONS,
   loadTenantPlanningSettings,
 } from "@/lib/planning-settings/service";
+import {
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+  zonedYmd,
+} from "@/lib/datetime";
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { scheduleLesson } from "../actions";
 import { LessonLocationField } from "./location-field";
@@ -25,6 +30,17 @@ import { LessonLocationField } from "./location-field";
 export const dynamic = "force-dynamic";
 
 type Instructor = { id: string; full_name: string | null };
+
+function tenantTimeInput(date: Date, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      hour: "2-digit",
+      hourCycle: "h23",
+      minute: "2-digit",
+    },
+    timeZone,
+  ).format(date);
+}
 
 export default async function NewLessonPage({
   searchParams,
@@ -46,6 +62,7 @@ export default async function NewLessonPage({
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
   const { user, organization: tenant, roles } = context;
+  const timeZone = resolveTenantTimeZone(tenant);
   const planningSettings = await loadTenantPlanningSettings(service, tenant.id);
   const branchFilterIds =
     branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
@@ -93,17 +110,16 @@ export default async function NewLessonPage({
     ]),
   );
 
-  const now = new Date();
-  now.setMinutes(0, 0, 0);
-  now.setHours(now.getHours() + 1);
+  const nextRoundHour = new Date(Date.now() + 60 * 60_000);
+  nextRoundHour.setUTCMinutes(0, 0, 0);
   // Prefill from query params (e.g. the "stel leerling voor" flow), validated
   // before use; fall back to the next round hour.
   const prefillDate = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "")
     ? sp.date!
-    : now.toISOString().slice(0, 10);
+    : zonedYmd(nextRoundHour, timeZone);
   const prefillTime = /^\d{2}:\d{2}$/.test(sp.time ?? "")
     ? sp.time!
-    : now.toISOString().slice(11, 16);
+    : tenantTimeInput(nextRoundHour, timeZone);
   const defaultDate = prefillDate;
   const defaultTime = prefillTime;
   const prefillInstructorId =

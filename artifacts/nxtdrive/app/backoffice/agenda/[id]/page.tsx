@@ -23,17 +23,25 @@ import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { formatTegoed } from "@/lib/students/types";
 import { SlotStudentSuggestions } from "@/components/agenda/slot-student-suggestions";
 import { cancelLesson, completeLesson } from "../actions";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dtFmt = new Intl.DateTimeFormat("nl-NL", {
-  weekday: "long",
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createDetailFormatters(timeZone: string) {
+  return {
+    dtFmt: createNlDateTimeFormatter(
+      {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 export default async function LessonDetailPage({
   params,
@@ -55,6 +63,7 @@ export default async function LessonDetailPage({
   if (!lesson) notFound();
 
   const tenant = context.organization;
+  const { dtFmt } = createDetailFormatters(resolveTenantTimeZone(tenant));
   const canManageLesson = canManageAgendaRow(context, branchScope, lesson);
 
   const taskLaunch = await loadTaskLaunchData(service, tenant.id);

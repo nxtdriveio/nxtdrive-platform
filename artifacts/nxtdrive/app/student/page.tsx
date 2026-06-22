@@ -19,7 +19,12 @@ import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
 import { countStudentUnread } from "@/lib/chat/service";
 import { PWAEmptyState, PWAPage } from "@/components/pwa/primitives";
-import { createNlDateTimeFormatter, amsterdamHour, isSameAmsterdamDay } from "@/lib/datetime";
+import {
+  createNlDateTimeFormatter,
+  isSameZonedDay,
+  resolveTenantTimeZone,
+  zonedHour,
+} from "@/lib/datetime";
 import type { Lesson } from "@/lib/lessons/types";
 import {
   VEHICLE_TRANSMISSION_LABEL,
@@ -46,23 +51,32 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const lessonTimeFmt = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const shortDateFmt = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
+function createStudentHomeFormatters(timeZone: string) {
+  return {
+    lessonTimeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+    shortDateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      },
+      timeZone,
+    ),
+  };
+}
 
 function capitalize(text: string) {
   return text.length > 0 ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text;
 }
 
-function greetingFor(date: Date) {
-  const hour = amsterdamHour(date);
+function greetingFor(date: Date, timeZone: string) {
+  const hour = zonedHour(date, timeZone);
   if (hour < 12) return "Goedemorgen";
   if (hour < 18) return "Goedemiddag";
   return "Goedenavond";
@@ -70,6 +84,8 @@ function greetingFor(date: Date) {
 
 export default async function StudentHomePage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const timeZone = resolveTenantTimeZone(tenant);
+  const { lessonTimeFmt, shortDateFmt } = createStudentHomeFormatters(timeZone);
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
 
@@ -238,7 +254,7 @@ export default async function StudentHomePage() {
   const nextLessonSummary = nextLesson
     ? {
         href: `/student/agenda/${nextLesson.id}`,
-        dayLabel: isSameAmsterdamDay(new Date(nextLesson.starts_at), now)
+        dayLabel: isSameZonedDay(new Date(nextLesson.starts_at), now, timeZone)
           ? "Vandaag"
           : capitalize(shortDateFmt.format(new Date(nextLesson.starts_at))),
         timeLabel: lessonTimeFmt.format(new Date(nextLesson.starts_at)),
@@ -331,7 +347,7 @@ export default async function StudentHomePage() {
   return (
     <PWAPage app="student" contentClassName="space-y-4 sm:space-y-5">
       <StudentHomeDashboard
-        greeting={greetingFor(now)}
+      greeting={greetingFor(now, timeZone)}
         firstName={firstName}
         journeyPct={journeyPct}
         journeyStatus={journeyStatus}

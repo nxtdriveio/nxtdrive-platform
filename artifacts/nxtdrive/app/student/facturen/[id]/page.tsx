@@ -35,21 +35,32 @@ import { brandPrimaryProgressStyle } from "@/lib/brand-styles";
 import { payStudentInvoice } from "../payment-actions";
 import { PaymentStatusBanner } from "./payment-status-banner";
 import { derivePaymentReturnStatus } from "@/lib/invoices/payment-return";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
-const dtFmt = new Intl.DateTimeFormat("nl-NL", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createInvoiceFormatters(timeZone: string) {
+  return {
+    dateFmt: createNlDateTimeFormatter(
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+      timeZone,
+    ),
+    dtFmt: createNlDateTimeFormatter(
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 export default async function StudentInvoiceDetailPage({
   params,
@@ -69,6 +80,7 @@ export default async function StudentInvoiceDetailPage({
     "student",
     "parent",
   ]);
+  const { dateFmt, dtFmt } = createInvoiceFormatters(resolveTenantTimeZone(tenant));
   const { student, needsChildPicker } = await getActiveStudent(
     user,
     tenant.id,

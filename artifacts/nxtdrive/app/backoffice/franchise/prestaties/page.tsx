@@ -24,12 +24,14 @@ import {
   FranchiseTableCell,
   FranchiseMiniTable,
 } from "@/components/backoffice/franchise/franchise-primitives";
+import { Button } from "@/components/ui/button";
 import {
   formatEuro,
   formatPercent,
   formatSignedPercent,
   priorityTone,
 } from "@/components/backoffice/franchise/franchise-format";
+import { createFranchiseBenchmarkTask } from "@/lib/franchise/actions";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
 import {
   loadFranchisePerformanceOverview,
@@ -201,8 +203,8 @@ export default async function FranchisePerformancePage() {
           contentClassName="p-0"
         >
           <FranchiseMiniTable
-            columns={["Franchisee", "Omzet", "Lessen", "Conversie", "Slaging", "Bezetting", "Status"]}
-            minWidth="980px"
+            columns={["Franchisee", "Omzet", "Lessen", "Conversie", "Slaging", "Bezetting", "Status", "Actie"]}
+            minWidth="1080px"
           >
             {overview.franchisees.map((row) => (
               <tr key={row.tenant_id}>
@@ -238,6 +240,43 @@ export default async function FranchisePerformancePage() {
                   <FranchiseStatusBadge tone={priorityTone(row.attention_priority)}>
                     {row.attention_label}
                   </FranchiseStatusBadge>
+                </FranchiseTableCell>
+                <FranchiseTableCell align="right">
+                  <form action={createFranchiseBenchmarkTask}>
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/franchise/prestaties"
+                    />
+                    <input
+                      type="hidden"
+                      name="franchisee_tenant_id"
+                      value={row.tenant_id}
+                    />
+                    <input
+                      type="hidden"
+                      name="attention_priority"
+                      value={row.attention_priority}
+                    />
+                    <input
+                      type="hidden"
+                      name="follow_up_route"
+                      value={row.follow_up_route}
+                    />
+                    <input
+                      type="hidden"
+                      name="title"
+                      value={`Benchmark opvolging: ${row.tenant_name}`}
+                    />
+                    <input
+                      type="hidden"
+                      name="description"
+                      value={`${row.attention_reason}\n\nVolgende stap: ${row.next_step}`}
+                    />
+                    <Button type="submit" size="sm" variant="outline">
+                      Taak
+                    </Button>
+                  </form>
                 </FranchiseTableCell>
               </tr>
             ))}

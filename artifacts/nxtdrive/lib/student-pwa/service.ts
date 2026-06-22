@@ -9,6 +9,7 @@ import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { VEHICLE_TRANSMISSION_LABEL, type Lesson, type VehicleTransmission } from "@/lib/lessons/types";
 import type { InvoiceStatus } from "@/lib/invoices/types";
 import type { StudentExperience, StudentInvoiceStatus, StudentLesson, StudentMessageThread } from "./types";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 const quickActions: StudentExperience["quickActions"] = [
   { label: "Planning", href: "/student/agenda", description: "Je lessen en tijden", iconName: "calendar" },
@@ -19,22 +20,39 @@ const quickActions: StudentExperience["quickActions"] = [
   { label: "Berichten", href: "/student/messages", description: "Chat met je rijschool", iconName: "message" },
 ];
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
+type StudentFormatters = {
+  dateFmt: Intl.DateTimeFormat;
+  dateLongFmt: Intl.DateTimeFormat;
+  timeFmt: Intl.DateTimeFormat;
+};
 
-const dateLongFmt = new Intl.DateTimeFormat("nl-NL", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createStudentFormatters(timeZone: string): StudentFormatters {
+  return {
+    dateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      },
+      timeZone,
+    ),
+    dateLongFmt: createNlDateTimeFormatter(
+      {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      },
+      timeZone,
+    ),
+    timeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || "Leerling";
@@ -53,34 +71,19 @@ function invoiceStatus(status: InvoiceStatus, dueDate: string | null): StudentIn
   return "open";
 }
 
-function emptyLesson(studentName: string): StudentLesson {
-  return {
-    id: "no-upcoming-lesson",
-    title: "Nog niet ingepland",
-    dateLabel: "Geen les gepland",
-    timeLabel: "Plan je volgende les",
-    location: "Locatie volgt",
-    instructor: studentName,
-    vehicle: "Voertuig volgt",
-    lessonType: "Rijles",
-    status: "pending",
-    href: "/student/agenda",
-    preparation: ["Je rijschool plant hier je volgende les zodra er een afspraak staat."],
-  };
-}
-
 function mapLesson(
   lesson: Lesson,
   instructorName: string,
   vehicle: { label: string; transmission: VehicleTransmission | null } | null,
+  formatters: StudentFormatters,
 ): StudentLesson {
   const start = new Date(lesson.starts_at);
   const end = new Date(lesson.ends_at);
   return {
     id: lesson.id,
     title: lesson.status === "completed" ? "Les afgerond" : "Rijles",
-    dateLabel: dateFmt.format(start),
-    timeLabel: `${timeFmt.format(start)} - ${timeFmt.format(end)}`,
+    dateLabel: formatters.dateFmt.format(start),
+    timeLabel: `${formatters.timeFmt.format(start)} - ${formatters.timeFmt.format(end)}`,
     location: lesson.location ?? "Locatie volgt",
     instructor: instructorName,
     vehicle: vehicle
@@ -124,6 +127,7 @@ export async function getStudentExperience({
   phone,
   tenantId,
   studentId,
+  timeZone,
 }: {
   studentName: string;
   tenantName: string;
@@ -131,8 +135,10 @@ export async function getStudentExperience({
   phone?: string | null;
   tenantId?: string;
   studentId?: string | null;
+  timeZone?: string | null;
 }): Promise<StudentExperience> {
   const first = firstName(studentName);
+  const formatters = createStudentFormatters(resolveTenantTimeZone(timeZone));
 
   if (!tenantId || !studentId) {
     return buildEmptyExperience({ studentName, tenantName, email, phone, first });
@@ -209,15 +215,16 @@ export async function getStudentExperience({
       lesson,
       instructorNames.get(lesson.instructor_id) ?? tenantName,
       lesson.vehicle_id ? vehiclesById.get(lesson.vehicle_id) ?? null : null,
+      formatters,
     ),
   );
   const nextLesson =
     mappedLessons.find((lesson) => {
       const raw = lessons.find((item) => item.id === lesson.id);
       return raw ? raw.status !== "completed" && new Date(raw.starts_at).toISOString() >= nowIso : false;
-    }) ?? emptyLesson(studentName);
+    }) ?? null;
   const previousLessons = mappedLessons
-    .filter((lesson) => lesson.id !== nextLesson.id && lesson.status !== "planned")
+    .filter((lesson) => lesson.id !== nextLesson?.id && lesson.status !== "planned")
     .reverse()
     .slice(0, 8);
 
@@ -232,7 +239,7 @@ export async function getStudentExperience({
   }>).map((invoice) => ({
     id: invoice.id,
     invoiceNumber: String(invoice.invoice_no),
-    dateLabel: invoice.issued_at ? dateLongFmt.format(new Date(invoice.issued_at)) : "Datum volgt",
+    dateLabel: invoice.issued_at ? formatters.dateLongFmt.format(new Date(invoice.issued_at)) : "Datum volgt",
     amountLabel: euros(invoice.total_cents),
     status: invoiceStatus(invoice.status, invoice.due_date),
     href: "/student/payments",
@@ -242,6 +249,7 @@ export async function getStudentExperience({
     tenantId,
     studentId,
     studentName: first,
+    formatters,
   });
 
   const journeyModules = leskaart.categories.map((category) => ({
@@ -252,7 +260,7 @@ export async function getStudentExperience({
     status: category.progressPct >= 100 ? "done" : category.progressPct > 0 ? "active" : "todo",
   } as const));
   const journeyTrend = leskaart.history.slice(-3).map((point, index) => ({
-    label: dateFmt.format(new Date(point.startsAt)),
+    label: formatters.dateFmt.format(new Date(point.startsAt)),
     module1: journeyModules[0]?.progress ?? 0,
     module2: journeyModules[1]?.progress ?? 0,
     module3: journeyModules[2]?.progress ?? 0,
@@ -285,8 +293,8 @@ export async function getStudentExperience({
         : "Je volgende focus verschijnt zodra je instructeur de leskaart bijwerkt.",
       ctaLabel: "Bekijk plan",
       href: "/student/journey",
-      progressLabel: nextLesson.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
-      progressCurrent: nextLesson.status === "planned" ? 1 : 0,
+      progressLabel: nextLesson?.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
+      progressCurrent: nextLesson?.status === "planned" ? 1 : 0,
       progressTotal: 1,
     },
     quickActions,
@@ -300,8 +308,8 @@ export async function getStudentExperience({
       reflection: leskaart.recent
         ? {
             title: "Laatste leskaartupdate",
-            lessonLabel: dateFmt.format(new Date(leskaart.recent.startsAt)),
-            publishedAt: leskaart.recent.isToday ? "Vandaag" : dateFmt.format(new Date(leskaart.recent.startsAt)),
+            lessonLabel: formatters.dateFmt.format(new Date(leskaart.recent.startsAt)),
+            publishedAt: leskaart.recent.isToday ? "Vandaag" : formatters.dateFmt.format(new Date(leskaart.recent.startsAt)),
             whatWentWell: leskaart.recent.skills[0]?.label ?? "Nieuwe score toegevoegd",
             workingOn: leskaart.recent.skills[1]?.label ?? "Volgende focus volgt vanuit je instructeur",
             nextFocus: leskaart.recent.skills[2]?.label ?? "Blijf consequent oefenen",
@@ -361,7 +369,7 @@ export async function getStudentExperience({
           title: "Praktijkexamen",
           status: cbrSummary.derived.nextAppointmentType === "exam" ? "planned" : "not_planned",
           explanation: cbrSummary.derived.nextAppointmentAt
-            ? `Gepland op ${dateLongFmt.format(new Date(cbrSummary.derived.nextAppointmentAt))}.`
+            ? `Gepland op ${formatters.dateLongFmt.format(new Date(cbrSummary.derived.nextAppointmentAt))}.`
             : "Nog niet gepland.",
         },
       ],
@@ -379,7 +387,7 @@ export async function getStudentExperience({
       kind: notification.type === "review_request" ? "feedback" : notification.type === "invoice" ? "payment" : "lesson",
       title: notification.title,
       body: notification.body ?? "",
-      timeLabel: dateFmt.format(new Date(notification.created_at)),
+      timeLabel: formatters.dateFmt.format(new Date(notification.created_at)),
       unread: !notification.read_at,
       href: notification.type === "invoice" ? "/student/payments" : "/student/notifications",
     })),
@@ -433,7 +441,7 @@ function buildEmptyExperience({
       progressTotal: 1,
     },
     quickActions,
-    nextLesson: emptyLesson(studentName),
+    nextLesson: null,
     previousLessons: [],
     journeyModules: [],
     journeyTrend: [{ label: "Start", module1: 0, module2: 0, module3: 0, module4: 0, module5: 0 }],
@@ -456,10 +464,12 @@ async function loadStudentMessageThreads({
   tenantId,
   studentId,
   studentName,
+  formatters,
 }: {
   tenantId: string;
   studentId: string;
   studentName: string;
+  formatters: StudentFormatters;
 }): Promise<StudentMessageThread[]> {
   const service = createServiceRoleClient();
   const { data: conversationsRaw } = await service
@@ -518,7 +528,7 @@ async function loadStudentMessageThreads({
       name,
       role: "Instructeur",
       latestMessage: conversation.last_message_preview ?? "Nog geen berichten.",
-      timeLabel: conversation.last_message_at ? timeFmt.format(new Date(conversation.last_message_at)) : "Nieuw",
+      timeLabel: conversation.last_message_at ? formatters.timeFmt.format(new Date(conversation.last_message_at)) : "Nieuw",
       unreadCount,
       href: `/student/messages/${conversation.id}`,
       messages: messages.map((message) => ({
@@ -526,7 +536,7 @@ async function loadStudentMessageThreads({
         sender: message.sender_side === "student" ? "student" : "school",
         senderName: message.sender_side === "student" ? studentName : name,
         body: message.body,
-        timeLabel: timeFmt.format(new Date(message.created_at)),
+        timeLabel: formatters.timeFmt.format(new Date(message.created_at)),
       })),
     };
   });
@@ -536,8 +546,10 @@ export function findLessonById(
   data: StudentExperience,
   lessonId: string,
 ) {
-  const lessons = [data.nextLesson, ...data.previousLessons];
-  return lessons.find((lesson) => lesson.id === lessonId) ?? data.nextLesson;
+  const lessons = [data.nextLesson, ...data.previousLessons].filter(
+    (lesson): lesson is StudentLesson => Boolean(lesson),
+  );
+  return lessons.find((lesson) => lesson.id === lessonId) ?? null;
 }
 
 export function findMessageThreadById(

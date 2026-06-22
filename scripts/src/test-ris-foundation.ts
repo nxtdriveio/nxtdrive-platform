@@ -27,6 +27,9 @@ const migration = source(
 const cleanStartMigration = source(
   "supabase/migrations/20260616181232_ris_clean_start_default.sql",
 );
+const scoreModelMigration = source(
+  "supabase/migrations/20260621123000_ris_score_model_1_to_10.sql",
+);
 const leskaartIndex = source("lib/leskaart/src/index.ts");
 const risEngine = source("lib/leskaart/src/ris.ts");
 const risData = source("artifacts/nxtdrive/lib/ris/data.ts");
@@ -96,9 +99,11 @@ check(
     migration.includes("public.student_guardians"),
 );
 check(
-  "concept/final scores use N or 1..8",
+  "concept/final scores use canonical 1..10 validation",
   migration.includes("check (public._ris_step_valid(concept_ris_step))") &&
-    migration.includes("check (public._ris_step_valid(final_ris_step))"),
+    migration.includes("check (public._ris_step_valid(final_ris_step))") &&
+    scoreModelMigration.includes("p_step ~ '^(10|[1-9])$'") &&
+    scoreModelMigration.includes("where concept_ris_step = 'N'"),
 );
 
 check("leskaart package exports RIS helpers", leskaartIndex.includes('export * from "./ris"'));
@@ -110,12 +115,12 @@ check(
     risEngine.includes("buildRisTree"),
 );
 check(
-  "N is not treated as zero in progress math",
-  normalizeRisStep("N") === "N" &&
+  "N is normalized to unassessed and progress uses 1..10",
+  normalizeRisStep("N") === null &&
     computeRisProgress([
-      { scriptId: "a", moduleNumber: 1, step: "N" },
-      { scriptId: "b", moduleNumber: 1, step: "8" },
-    ]).averageStep === 8,
+      { scriptId: "a", moduleNumber: 1, step: null },
+      { scriptId: "b", moduleNumber: 1, step: "10" },
+    ]).averageStep === 10,
 );
 check(
   "RIS readiness blocks unassessed scripts",
@@ -126,7 +131,7 @@ check(
 );
 check(
   "student translation is friendly and deterministic",
-  translateRisStepForStudent("5").studentLabel.includes("bijna zelfstandig"),
+  translateRisStepForStudent("5").studentLabel.includes("redelijk zelfstandig"),
 );
 check(
   "RIS tree groups modules/categories/scripts/variants",

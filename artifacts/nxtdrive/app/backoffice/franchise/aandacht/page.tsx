@@ -6,6 +6,7 @@ import {
   Megaphone,
   Route,
   ShieldCheck,
+  Target,
 } from "lucide-react";
 
 import {
@@ -17,13 +18,40 @@ import {
   FranchisePage,
   FranchisePageHeader,
   FranchisePanel,
+  FranchiseProgressBar,
   FranchiseSectionTabs,
   FranchiseStatusBadge,
 } from "@/components/backoffice/franchise/franchise-primitives";
-import { formatEuro, priorityTone } from "@/components/backoffice/franchise/franchise-format";
+import { Button } from "@/components/ui/button";
+import {
+  formatEuro,
+  formatPercent,
+  priorityTone,
+} from "@/components/backoffice/franchise/franchise-format";
+import {
+  createFranchiseBenchmarkTask,
+  routeFranchiseLead,
+  upsertFranchiseBenchmarkTarget,
+  upsertFranchiseDelegation,
+} from "@/lib/franchise/actions";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import {
+  FRANCHISE_BENCHMARK_METRICS,
+  delegationMatchesSuggestion,
+  loadFranchiseBenchmarkTargets,
+  scoreLeadRoutes,
+  suggestedDelegationForRoute,
+} from "@/lib/franchise/command-center";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
+import {
+  loadFranchiseDelegations,
+  loadFranchiseLeadRoutingState,
+} from "@/lib/franchise/steering";
+import {
+  benchmarkSignalKey,
+  loadFranchiseBenchmarkActionsForRoot,
+} from "@/lib/franchise/benchmark-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,20 +63,59 @@ const ROUTE_LABELS: Record<string, string> = {
   bewaken: "Bewaken",
 };
 
-export default async function FranchiseAttentionPage() {
-  const { tenant } = await requireFranchiseOperator();
-  let data:
-    | [
-        Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
-        Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
-      ]
-    | null = null;
+function formatTargetValue(value: number | null, unit: string) {
+  if (value === null) return "-";
+  if (unit === "euro_cents") return formatEuro(value);
+  if (unit === "percent") return formatPercent(value);
+  return `${value}`;
+}
+
+export default async function FranchiseAttentionPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const [sp, { tenant }] = await Promise.all([
+    searchParams,
+    requireFranchiseOperator(),
+  ]);
+  let data: {
+    performance: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>;
+    governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>;
+    leadRouting: Awaited<ReturnType<typeof loadFranchiseLeadRoutingState>>;
+    benchmarkActions: Awaited<ReturnType<typeof loadFranchiseBenchmarkActionsForRoot>>;
+    delegations: Awaited<ReturnType<typeof loadFranchiseDelegations>>;
+    benchmarkTargets: Awaited<ReturnType<typeof loadFranchiseBenchmarkTargets>>;
+    leadRecommendations: ReturnType<typeof scoreLeadRoutes>;
+  } | null = null;
 
   try {
-    data = await Promise.all([
+    const [
+      performance,
+      governance,
+      leadRouting,
+      benchmarkActions,
+      delegations,
+    ] = await Promise.all([
       loadFranchisePerformanceOverview(tenant.id),
       loadFranchiseGovernanceOverview(tenant.id),
+      loadFranchiseLeadRoutingState(tenant.id),
+      loadFranchiseBenchmarkActionsForRoot(tenant.id),
+      loadFranchiseDelegations(tenant.id),
     ]);
+    const benchmarkTargets = await loadFranchiseBenchmarkTargets(
+      tenant.id,
+      performance,
+    );
+    data = {
+      performance,
+      governance,
+      leadRouting,
+      benchmarkActions,
+      delegations,
+      benchmarkTargets,
+      leadRecommendations: scoreLeadRoutes(leadRouting, performance),
+    };
   } catch (error) {
     console.error("[franchise/aandacht] load failed", error);
   }
@@ -62,7 +129,39 @@ export default async function FranchiseAttentionPage() {
     );
   }
 
-  const [performance, governance] = data;
+  const {
+    performance,
+    governance,
+    benchmarkActions,
+    delegations,
+    benchmarkTargets,
+    leadRecommendations,
+  } = data;
+  const errorMsg = sp.error ? decodeURIComponent(sp.error) : null;
+  const delegationByTenant = new Map(
+    delegations.map((delegation) => [delegation.franchisee_tenant_id, delegation]),
+  );
+  const targetsByTenant = new Map<string, typeof benchmarkTargets>();
+  for (const target of benchmarkTargets) {
+    const list = targetsByTenant.get(target.franchisee_tenant_id) ?? [];
+    list.push(target);
+    targetsByTenant.set(target.franchisee_tenant_id, list);
+  }
+  const activeBenchmarkBySignal = new Map(
+    benchmarkActions
+      .filter((action) =>
+        ["created", "accepted", "in_progress"].includes(action.status),
+      )
+      .map((action) => [action.signal_key, action]),
+  );
+  const benchmarkStatusLabel: Record<string, string> = {
+    created: "Wacht op acceptatie",
+    accepted: "Lokaal geaccepteerd",
+    in_progress: "In uitvoering",
+    completed: "Afgerond",
+    declined: "Afgewezen",
+    cancelled: "Geannuleerd",
+  };
   const routeCounts = performance.franchisees.reduce<Record<string, number>>(
     (acc, row) => {
       acc[row.follow_up_route] = (acc[row.follow_up_route] ?? 0) + 1;
@@ -101,6 +200,12 @@ export default async function FranchiseAttentionPage() {
       />
 
       <FranchiseSectionTabs />
+
+      {errorMsg ? (
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">
+          {errorMsg}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <FranchiseKpiCard
@@ -146,11 +251,47 @@ export default async function FranchiseAttentionPage() {
                 description="Het franchisenetwerk heeft op dit moment geen rode of oranje signalen."
               />
             ) : (
-              performance.watchlists.attention.map((item) => (
-                <div
-                  key={item.tenant_id}
-                  className="rounded-2xl border border-brand-card-border bg-white p-4"
-                >
+              performance.watchlists.attention.map((item) => {
+                const signalKey = benchmarkSignalKey(
+                  item.tenant_id,
+                  item.follow_up_route,
+                  item.attention_priority,
+                );
+                const activeBenchmarkAction =
+                  activeBenchmarkBySignal.get(signalKey);
+                const suggestedDelegation = suggestedDelegationForRoute(
+                  item.follow_up_route,
+                );
+                const currentDelegation = delegationByTenant.get(item.tenant_id);
+                const delegationReady = delegationMatchesSuggestion(
+                  currentDelegation,
+                  suggestedDelegation,
+                );
+                const combinedDelegation = {
+                  can_manage_planning:
+                    Boolean(currentDelegation?.can_manage_planning) ||
+                    suggestedDelegation.can_manage_planning,
+                  can_manage_leads:
+                    Boolean(currentDelegation?.can_manage_leads) ||
+                    suggestedDelegation.can_manage_leads,
+                  can_manage_templates:
+                    Boolean(currentDelegation?.can_manage_templates) ||
+                    suggestedDelegation.can_manage_templates,
+                  can_manage_fleet:
+                    Boolean(currentDelegation?.can_manage_fleet) ||
+                    suggestedDelegation.can_manage_fleet,
+                  can_manage_instructor_availability:
+                    Boolean(
+                      currentDelegation?.can_manage_instructor_availability,
+                    ) ||
+                    suggestedDelegation.can_manage_instructor_availability,
+                };
+                const tenantTargets = targetsByTenant.get(item.tenant_id) ?? [];
+                return (
+                  <div
+                    key={item.tenant_id}
+                    className="rounded-2xl border border-brand-card-border bg-white p-4"
+                  >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -160,6 +301,12 @@ export default async function FranchiseAttentionPage() {
                         <FranchiseStatusBadge tone={priorityTone(item.attention_priority)}>
                           {item.attention_label}
                         </FranchiseStatusBadge>
+                        {activeBenchmarkAction ? (
+                          <FranchiseStatusBadge tone="info">
+                            {benchmarkStatusLabel[activeBenchmarkAction.status] ??
+                              activeBenchmarkAction.status}
+                          </FranchiseStatusBadge>
+                        ) : null}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         {item.attention_reason}
@@ -202,13 +349,318 @@ export default async function FranchiseAttentionPage() {
                       {item.next_step}
                     </p>
                   </div>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                            Delegatie-wizard
+                          </p>
+                          <p className="mt-1 font-black text-foreground">
+                            {suggestedDelegation.label}
+                          </p>
+                        </div>
+                        <FranchiseStatusBadge
+                          tone={delegationReady ? "success" : "warning"}
+                        >
+                          {delegationReady ? "Actief" : "Voorstel"}
+                        </FranchiseStatusBadge>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        {suggestedDelegation.reason}
+                      </p>
+                      <form
+                        action={upsertFranchiseDelegation}
+                        className="mt-3 flex justify-end"
+                      >
+                        <input
+                          type="hidden"
+                          name="return_to"
+                          value="/backoffice/franchise/aandacht"
+                        />
+                        <input
+                          type="hidden"
+                          name="franchisee_tenant_id"
+                          value={item.tenant_id}
+                        />
+                        <input type="hidden" name="scope_type" value="tenant" />
+                        <input
+                          type="hidden"
+                          name="grant_reason"
+                          value={`Voorgesteld vanuit signaal ${item.attention_label}: ${suggestedDelegation.reason}`}
+                        />
+                        {combinedDelegation.can_manage_planning ? (
+                          <input
+                            type="hidden"
+                            name="can_manage_planning"
+                            value="true"
+                          />
+                        ) : null}
+                        {combinedDelegation.can_manage_leads ? (
+                          <input
+                            type="hidden"
+                            name="can_manage_leads"
+                            value="true"
+                          />
+                        ) : null}
+                        {combinedDelegation.can_manage_templates ? (
+                          <input
+                            type="hidden"
+                            name="can_manage_templates"
+                            value="true"
+                          />
+                        ) : null}
+                        {combinedDelegation.can_manage_fleet ? (
+                          <input
+                            type="hidden"
+                            name="can_manage_fleet"
+                            value="true"
+                          />
+                        ) : null}
+                        {combinedDelegation.can_manage_instructor_availability ? (
+                          <input
+                            type="hidden"
+                            name="can_manage_instructor_availability"
+                            value="true"
+                          />
+                        ) : null}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          variant="outline"
+                          disabled={delegationReady}
+                        >
+                          {delegationReady ? "Delegatie staat goed" : "Pas voorstel toe"}
+                        </Button>
+                      </form>
+                    </div>
+
+                    <div className="rounded-xl border border-brand-card-border bg-brand-muted px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                            Benchmark target
+                          </p>
+                          <p className="mt-1 font-black text-foreground">
+                            Doelwaarde instellen
+                          </p>
+                        </div>
+                        <Target className="h-4 w-4 text-primary" aria-hidden />
+                      </div>
+                      {tenantTargets.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {tenantTargets.slice(0, 2).map((target) => (
+                            <div key={target.id}>
+                              <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="font-bold text-foreground">
+                                  {target.metric_label}
+                                </span>
+                                <span className="font-black text-muted-foreground">
+                                  {formatTargetValue(target.current_value, target.unit)} / {formatTargetValue(target.target_value, target.unit)}
+                                </span>
+                              </div>
+                              <FranchiseProgressBar
+                                value={target.progress}
+                                tone={target.tone}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <form
+                        action={upsertFranchiseBenchmarkTarget}
+                        className="mt-3 grid gap-2"
+                      >
+                        <input
+                          type="hidden"
+                          name="return_to"
+                          value="/backoffice/franchise/aandacht"
+                        />
+                        <input
+                          type="hidden"
+                          name="franchisee_tenant_id"
+                          value={item.tenant_id}
+                        />
+                        <select
+                          name="metric_key"
+                          className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          defaultValue={
+                            item.follow_up_route === "marketing"
+                              ? "lead_conversion_rate"
+                              : item.follow_up_route === "lokale-planning"
+                                ? "capacity_utilisation"
+                                : "current_lessons"
+                          }
+                        >
+                          {FRANCHISE_BENCHMARK_METRICS.map((metric) => (
+                            <option key={metric.key} value={metric.key}>
+                              {metric.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
+                          <input
+                            name="target_value"
+                            type="number"
+                            min="1"
+                            step="0.01"
+                            placeholder="Doelwaarde"
+                            required
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <Button type="submit" size="sm" variant="outline">
+                            Opslaan
+                          </Button>
+                        </div>
+                        <input
+                          type="hidden"
+                          name="reason"
+                          value={`Target vanuit command-signaal: ${item.attention_reason}`}
+                        />
+                      </form>
+                    </div>
+                  </div>
+                  <form action={createFranchiseBenchmarkTask} className="mt-3 flex justify-end">
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/franchise/aandacht"
+                    />
+                    <input
+                      type="hidden"
+                      name="franchisee_tenant_id"
+                      value={item.tenant_id}
+                    />
+                    <input
+                      type="hidden"
+                      name="attention_priority"
+                      value={item.attention_priority}
+                    />
+                    <input
+                      type="hidden"
+                      name="follow_up_route"
+                      value={item.follow_up_route}
+                    />
+                    <input
+                      type="hidden"
+                      name="signal_key"
+                      value={signalKey}
+                    />
+                    <input
+                      type="hidden"
+                      name="title"
+                      value={`Franchise opvolging: ${item.tenant_name} - ${item.attention_label}`}
+                    />
+                    <input
+                      type="hidden"
+                      name="description"
+                      value={`${item.attention_reason}\n\nVolgende stap: ${item.next_step}`}
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={Boolean(activeBenchmarkAction)}
+                    >
+                      {activeBenchmarkAction ? "Opvolging loopt" : "Stuuractie maken"}
+                    </Button>
+                  </form>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
         </FranchisePanel>
 
         <div className="space-y-4">
+          <FranchisePanel title="Lead routing" description="Centrale intake met lokale eigenaar.">
+            <div className="space-y-3">
+              {leadRecommendations.length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen routeerbare leads"
+                  description="Alle open leads zijn al gekoppeld, toegewezen of wachten op delegatie."
+                />
+              ) : (
+                leadRecommendations.map((lead) => {
+                  const branchOptions = lead.route_scores;
+                  const canRoute = lead.can_manage && branchOptions.length > 0;
+                  const routeBadge = !lead.can_manage
+                    ? "Delegatie nodig"
+                    : branchOptions.length > 0
+                      ? `Score ${lead.best_score?.total_score ?? 0}`
+                      : "Geen vestiging";
+                  return (
+                    <form
+                      key={lead.id}
+                      action={routeFranchiseLead}
+                      className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="return_to"
+                        value="/backoffice/franchise/aandacht"
+                      />
+                      <input type="hidden" name="lead_id" value={lead.id} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-foreground">
+                            {lead.full_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {lead.tenant_name} - {lead.city ?? lead.postcode ?? lead.source}
+                          </p>
+                        </div>
+                        <FranchiseStatusBadge tone={canRoute ? "delegated" : "readonly"}>
+                          {routeBadge}
+                        </FranchiseStatusBadge>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <select
+                          name="branch_id"
+                          disabled={!canRoute}
+                          required
+                          className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                        >
+                          <option value="">Kies lokale eigenaar...</option>
+                          {branchOptions.map((score) => (
+                            <option key={score.branch_id} value={score.branch_id}>
+                              {score.total_score} - {score.tenant_name} - {score.branch_label}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!canRoute}
+                        >
+                          Routeer
+                        </Button>
+                      </div>
+                      {lead.best_score ? (
+                        <div className="mt-3 rounded-xl border border-brand-card-border bg-brand-muted px-3 py-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                              Beste match
+                            </p>
+                            <p className="text-xs font-black text-primary">
+                              {lead.best_score.tenant_name}
+                            </p>
+                          </div>
+                          <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[10px] font-black text-muted-foreground">
+                            <span>Cap {lead.best_score.capacity_score}</span>
+                            <span>Rayon {lead.best_score.rayon_score}</span>
+                            <span>Vrij {lead.best_score.availability_score}</span>
+                            <span>Conv {lead.best_score.conversion_score}</span>
+                            <span>Resp {lead.best_score.response_score}</span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </form>
+                  );
+                })
+              )}
+            </div>
+          </FranchisePanel>
+
           <FranchisePanel title="Follow-up routes" description="Automatisch afgeleid, lokaal uitgevoerd.">
             <div className="space-y-3">
               {Object.entries(ROUTE_LABELS).map(([key, label]) => (
@@ -227,6 +679,50 @@ export default async function FranchiseAttentionPage() {
                   </FranchiseStatusBadge>
                 </div>
               ))}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel title="Lokale uitvoering" description="Acceptatie en afhandeling door franchisees.">
+            <div className="space-y-3">
+              {benchmarkActions.filter((action) =>
+                ["created", "accepted", "in_progress"].includes(action.status),
+              ).length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen lopende benchmarkacties"
+                  description="Maak vanuit een aandachtspunt een stuuractie om lokale uitvoering te volgen."
+                />
+              ) : (
+                benchmarkActions
+                  .filter((action) =>
+                    ["created", "accepted", "in_progress"].includes(action.status),
+                  )
+                  .slice(0, 6)
+                  .map((action) => (
+                    <div
+                      key={action.id}
+                      className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-foreground">
+                            {action.franchisee_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {action.title}
+                          </p>
+                        </div>
+                        <FranchiseStatusBadge tone="info">
+                          {benchmarkStatusLabel[action.status] ?? action.status}
+                        </FranchiseStatusBadge>
+                      </div>
+                      {action.local_response ? (
+                        <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                          {action.local_response}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+              )}
             </div>
           </FranchisePanel>
 

@@ -6,12 +6,13 @@ import {
   StudentPageHeader,
   StudentSection,
 } from "@/components/student/StudentPwa";
+import { PWAEmptyState } from "@/components/pwa/primitives";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentAgendaPage() {
   const { experience } = await getStudentPwaContext();
-  const upcoming = [experience.nextLesson];
+  const upcoming = experience.nextLesson ? [experience.nextLesson] : [];
   const previous = experience.previousLessons;
 
   return (
@@ -25,17 +26,25 @@ export default async function StudentAgendaPage() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <StudentSection title="Komende lessen" icon={CalendarDays}>
           <div className="space-y-3">
-            {upcoming.map((lesson) => (
-              <StudentLessonCard key={lesson.id} lesson={lesson} />
-            ))}
+            {upcoming.length > 0 ? (
+              upcoming.map((lesson) => (
+                <StudentLessonCard key={lesson.id} lesson={lesson} />
+              ))
+            ) : (
+              <PWAEmptyState message="Er staan nog geen komende lessen in je agenda." />
+            )}
           </div>
         </StudentSection>
 
         <StudentSection title="Vorige lessen" icon={CalendarDays}>
           <div className="space-y-3 lg:hidden">
-            {previous.map((lesson) => (
-              <StudentLessonCard key={lesson.id} lesson={lesson} />
-            ))}
+            {previous.length > 0 ? (
+              previous.map((lesson) => (
+                <StudentLessonCard key={lesson.id} lesson={lesson} />
+              ))
+            ) : (
+              <PWAEmptyState message="Zodra je eerste les is afgerond verschijnt die hier." />
+            )}
           </div>
           <StudentLessonTable lessons={previous} />
         </StudentSection>

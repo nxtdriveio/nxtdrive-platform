@@ -31,34 +31,35 @@ type ScriptView = {
   assessment: RisScriptAssessment | null;
 };
 
-const MIN_STEP_INDEX = 0;
-const MAX_STEP_INDEX = 8;
+const MIN_SCORE = 1;
+const MAX_SCORE = 10;
 
 function statusForStep(
   step: RISStepValue,
 ): NonNullable<Parameters<typeof setRisConceptScoreAction>[0]["status"]> {
-  if (step === "N") return "not_started";
   const numeric = Number(step);
   if (numeric <= 2) return "prepared";
   if (numeric <= 4) return "practiced";
-  if (numeric === 5) return "progressing";
-  if (numeric === 6) return "independent";
-  if (numeric === 7) return "mastered";
+  if (numeric <= 5) return "progressing";
+  if (numeric <= 6) return "independent";
+  if (numeric <= 7) return "mastered";
   return "ready_for_test";
 }
 
 function stepIndex(step: RISStepValue | null): number {
-  if (!step || step === "N") return MIN_STEP_INDEX;
+  if (!step) return 0;
   return Number(step);
 }
 
-function stepFromIndex(index: number): RISStepValue {
-  if (index <= MIN_STEP_INDEX) return "N";
-  return String(Math.min(MAX_STEP_INDEX, Math.max(1, index))) as RISStepValue;
+function stepFromIndex(index: number): RISStepValue | null {
+  if (index < MIN_SCORE) return null;
+  return String(Math.min(MAX_SCORE, Math.max(MIN_SCORE, index))) as RISStepValue;
 }
 
-function shiftStep(step: RISStepValue, delta: -1 | 1): RISStepValue {
-  return stepFromIndex(stepIndex(step) + delta);
+function shiftStep(step: RISStepValue | null, delta: -1 | 1): RISStepValue {
+  if (!step && delta > 0) return "1";
+  if (!step) return "1";
+  return stepFromIndex(stepIndex(step) + delta) ?? "1";
 }
 
 function visibleStep(assessment: RisScriptAssessment | null): RISStepValue | null {
@@ -179,7 +180,11 @@ export function RisScriptScoring({
     ready?: boolean;
   }) {
     const current = assessmentByScript.get(input.script.id) ?? null;
-    const step = input.step ?? visibleStep(current) ?? "N";
+    const step = input.step ?? visibleStep(current);
+    if (!step) {
+      setError("Kies eerst een RIS-score van 1 t/m 10 voordat je labels opslaat.");
+      return;
+    }
     const isAttentionPoint = input.attention ?? current?.isAttentionPoint ?? false;
     const isFeaturedForLesson = input.focus ?? current?.isFeaturedForLesson ?? false;
     const shouldRepeat = input.repeat ?? current?.shouldRepeat ?? false;
@@ -260,7 +265,7 @@ export function RisScriptScoring({
               Beoordeling voor {studentName}
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Werk per module de actuele RIS-stap bij. Alle modules staan standaard
+              Werk per module de actuele RIS-score bij. Alle modules staan standaard
               ingeklapt zodat de leskaart compact blijft.
             </p>
           </div>
@@ -319,7 +324,7 @@ export function RisScriptScoring({
                   </summary>
                   <div className="divide-y divide-border border-t border-border">
                     {scripts.map(({ script, assessment }) => {
-                      const step = visibleStep(assessment) ?? "N";
+                      const step = visibleStep(assessment);
                       const pending = pendingScriptId === script.id;
                       const tagCount = summaryTagCount(assessment);
                       const currentIndex = stepIndex(step);
@@ -366,32 +371,34 @@ export function RisScriptScoring({
                             <div className="flex items-center gap-1 rounded-xl border border-border bg-background/70 p-1">
                               <button
                                 type="button"
-                                disabled={locked || pending || currentIndex === MIN_STEP_INDEX}
+                                disabled={locked || pending || !step || currentIndex <= MIN_SCORE}
                                 onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
                                 aria-label={`Verlaag score voor ${script.title}`}
                                 className={cn(
                                   "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || currentIndex === MIN_STEP_INDEX) &&
+                                  (locked || pending || !step || currentIndex <= MIN_SCORE) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
                               >
                                 <Minus className="h-4 w-4" aria-hidden />
                               </button>
-                              <span className="grid h-8 min-w-12 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
+                              <span className="grid h-8 min-w-16 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
                                 {pending ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                                ) : step ? (
+                                  `${step}/10`
                                 ) : (
-                                  step
+                                  "Geen score"
                                 )}
                               </span>
                               <button
                                 type="button"
-                                disabled={locked || pending || currentIndex === MAX_STEP_INDEX}
+                                disabled={locked || pending || currentIndex >= MAX_SCORE}
                                 onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
                                 aria-label={`Verhoog score voor ${script.title}`}
                                 className={cn(
                                   "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || currentIndex === MAX_STEP_INDEX) &&
+                                  (locked || pending || currentIndex >= MAX_SCORE) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
                               >

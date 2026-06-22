@@ -11,6 +11,11 @@ import type {
   Interval,
   WeeklyAvailability,
 } from "@/lib/availability/types";
+import {
+  addDaysYmd,
+  startOfZonedDayUtc,
+  zonedYmd,
+} from "@/lib/datetime";
 
 // Merge overlapping/adjacent intervals into a minimal sorted set.
 export function mergeIntervals(intervals: Interval[]): Interval[] {
@@ -103,14 +108,27 @@ export function weekdayForDateKey(dateKey: string): number {
   return new Date(`${dateKey}T00:00:00Z`).getUTCDay();
 }
 
-// Calendar date key (YYYY-MM-DD) in the runtime's local timezone. The agenda
-// day cards are labelled with the local calendar date, so availability must be
-// keyed the same way to avoid an off-by-one-day drift on non-UTC servers.
-export function dateKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+// Calendar date key (YYYY-MM-DD) in the tenant timezone. Agenda day cards and
+// availability exceptions both use this key, avoiding off-by-one-day drift on
+// UTC servers and around DST boundaries.
+export function dateKey(d: Date, timeZone?: string | null): string {
+  return zonedYmd(d, timeZone ?? undefined);
+}
+
+export function dateKeysInRange(
+  from: Date,
+  to: Date,
+  timeZone?: string | null,
+): string[] {
+  const keys: string[] = [];
+  for (
+    let key = dateKey(from, timeZone);
+    startOfZonedDayUtc(key, timeZone ?? undefined) < to;
+    key = addDaysYmd(key, 1)
+  ) {
+    keys.push(key);
+  }
+  return keys;
 }
 
 // Merge free intervals across MANY instructors for a single day (the union of

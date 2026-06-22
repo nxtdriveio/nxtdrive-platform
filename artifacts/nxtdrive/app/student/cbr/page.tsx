@@ -15,18 +15,26 @@ import {
 } from "@/components/student/Showcase";
 import { StudentExamResultCard } from "@/components/student/StudentExamResultCard";
 import { ExamPrepCard } from "@/components/student/ExamPrepCard";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dateFmt = createNlDateTimeFormatter({
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
+function createStudentCbrFormatters(timeZone: string) {
+  return {
+    dateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      },
+      timeZone,
+    ),
+  };
+}
 
 export default async function StudentCbrPage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { dateFmt } = createStudentCbrFormatters(resolveTenantTimeZone(tenant));
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
   if (!student) {

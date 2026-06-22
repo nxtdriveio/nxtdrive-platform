@@ -2,8 +2,8 @@
 // Availability (beschikbaarheid) domain types + small time helpers.
 //
 // Times are stored as integer MINUTES from midnight (0..1440), interpreted in
-// Europe/Amsterdam for product-facing planning. Weekday uses JS getUTCDay()
-// semantics: 0=Sunday .. 6=Sat.
+// the active tenant timezone for product-facing planning. Weekday uses JS
+// getUTCDay() semantics: 0=Sunday .. 6=Sat.
 // ---------------------------------------------------------------------------
 
 export type AvailabilityExceptionKind = "available" | "blocked";

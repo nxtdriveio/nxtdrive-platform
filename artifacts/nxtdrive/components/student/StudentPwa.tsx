@@ -409,7 +409,15 @@ export function StudentQuickActionGrid({
   );
 }
 
-export function StudentAICoachCard() {
+export function StudentAICoachCard({
+  title,
+  body,
+  href = "/student/journey",
+}: {
+  title: string;
+  body: string;
+  href?: string;
+}) {
   return (
     <StudentCard className="p-4">
       <div className="flex items-start gap-3">
@@ -424,14 +432,13 @@ export function StudentAICoachCard() {
             <Badge variant="primary">Nieuw</Badge>
           </div>
           <h3 className="mt-2 text-lg font-black text-brand-primary">
-            Kijktechniek en rotondes
+            {title}
           </h3>
           <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
-            Je maakt mooie stappen. Werk aan je kijkgedrag op rotondes en
-            voorsorteren.
+            {body}
           </p>
           <Link
-            href="/student/journey"
+            href={href}
             className={buttonVariants({ size: "sm", className: "mt-3" })}
           >
             Bekijk coachadvies
@@ -625,6 +632,14 @@ export function StudentLessonCard({ lesson }: { lesson: StudentLesson }) {
 }
 
 export function StudentLessonTable({ lessons }: { lessons: StudentLesson[] }) {
+  if (lessons.length === 0) {
+    return (
+      <StudentCard className="hidden p-5 text-sm leading-6 text-brand-muted-foreground lg:block">
+        Zodra je eerste les is afgerond verschijnt je lesgeschiedenis hier.
+      </StudentCard>
+    );
+  }
+
   return (
     <StudentCard className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[760px] text-left text-sm">

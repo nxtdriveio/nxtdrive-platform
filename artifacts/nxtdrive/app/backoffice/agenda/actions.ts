@@ -15,6 +15,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
 import { loadExamInvitationPolicy } from "@/lib/exam-invitations/policy";
 import { loadTenantInstructors } from "@/lib/availability/service";
+import { parseZonedDateTime, resolveTenantTimeZone } from "@/lib/datetime";
 import {
   getPlanningPreview,
   loadPlanningKernelData,
@@ -114,14 +115,6 @@ export async function scheduleLesson(formData: FormData) {
     redirect(`${errorTo}?error=buffer`);
   }
 
-  // Combine local datetime as ISO string. Browser submits date as YYYY-MM-DD
-  // and time as HH:mm; we keep it in the server's TZ which is UTC. For demo
-  // purposes this is acceptable; later we'll attach a tenant TZ.
-  const startsAt = new Date(`${date}T${time}:00`);
-  if (isNaN(startsAt.getTime())) {
-    redirect(`${errorTo}?error=date`);
-  }
-
   const service = createServiceRoleClient();
   const studentAccess = await requireStudentBackofficeAccess(
     service,
@@ -134,6 +127,13 @@ export async function scheduleLesson(formData: FormData) {
   }
 
   const { context } = studentAccess;
+  const startsAt = parseZonedDateTime(
+    `${date}T${time}:00`,
+    resolveTenantTimeZone(context.organization),
+  );
+  if (!startsAt) {
+    redirect(`${errorTo}?error=date`);
+  }
   const canAssignInstructor =
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "planning:manage");

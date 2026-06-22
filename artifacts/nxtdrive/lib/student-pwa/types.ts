@@ -196,7 +196,7 @@ export type StudentExperience = {
   profile: StudentProfileSummary;
   nextStep: StudentNextStep;
   quickActions: StudentQuickAction[];
-  nextLesson: StudentLesson;
+  nextLesson: StudentLesson | null;
   previousLessons: StudentLesson[];
   journeyModules: StudentJourneyModule[];
   journeyTrend: StudentJourneyPoint[];

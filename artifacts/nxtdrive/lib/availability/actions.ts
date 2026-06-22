@@ -14,6 +14,7 @@ import {
 } from "@/lib/availability/types";
 import type { ActiveOrganizationContext } from "@/lib/organization/context";
 import type { MemberRole } from "@/lib/types";
+import { addDaysYmd } from "@/lib/datetime";
 
 // Allowed pages an action may redirect back to (prevents open-redirect abuse).
 function safeRedirect(value: FormDataEntryValue | null): string {
@@ -182,9 +183,14 @@ export async function addAvailabilityException(formData: FormData) {
   const kind = String(formData.get("kind") ?? "").trim();
   const wholeDay = String(formData.get("whole_day") ?? "") === "on";
   const note = String(formData.get("note") ?? "").trim().slice(0, 300);
+  const repeatMode = String(formData.get("repeat_mode") ?? "none").trim();
+  const repeatUntil = String(formData.get("repeat_until") ?? "").trim();
 
   if (!date || (kind !== "available" && kind !== "blocked")) {
     redirect(`${back}?error=invalid`);
+  }
+  if (!isDateKey(date)) {
+    redirect(`${back}?error=invalid_date`);
   }
 
   let startMin: number | null = null;
@@ -209,20 +215,27 @@ export async function addAvailabilityException(formData: FormData) {
     back,
   });
 
-  const { error } = await service.rpc("upsert_availability_exception", {
-    p_tenant_id: tenant.id,
-    p_actor: user.id,
-    p_instructor_id: instructorId,
-    p_id: null,
-    p_branch_id: branchId,
-    p_exception_date: date,
-    p_kind: kind,
-    p_start_min: startMin,
-    p_end_min: endMin,
-    p_note: note || null,
-  });
-  if (error) {
-    redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+  const dates = buildExceptionDates(date, repeatMode, repeatUntil);
+  if (dates.length === 0) {
+    redirect(`${back}?error=invalid_repeat`);
+  }
+
+  for (const exceptionDate of dates) {
+    const { error } = await service.rpc("upsert_availability_exception", {
+      p_tenant_id: tenant.id,
+      p_actor: user.id,
+      p_instructor_id: instructorId,
+      p_id: null,
+      p_branch_id: branchId,
+      p_exception_date: exceptionDate,
+      p_kind: kind,
+      p_start_min: startMin,
+      p_end_min: endMin,
+      p_note: note || null,
+    });
+    if (error) {
+      redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    }
   }
 
   revalidatePath(back);
@@ -296,4 +309,47 @@ function parseHHMM(value: FormDataEntryValue | null): number | null {
   const total = h * 60 + m;
   if (total < 0 || total > 1440) return null;
   return total;
+}
+
+function isDateKey(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function buildExceptionDates(
+  startDate: string,
+  repeatMode: string,
+  repeatUntil: string,
+): string[] {
+  if (repeatMode === "none" || repeatMode === "") return [startDate];
+  if (
+    repeatMode !== "daily" &&
+    repeatMode !== "weekdays" &&
+    repeatMode !== "weekly"
+  ) {
+    return [];
+  }
+  if (!isDateKey(repeatUntil)) return [];
+
+  if (repeatUntil < startDate) return [];
+
+  const maxItems = 180;
+  const result: string[] = [];
+  for (let cursor = startDate; cursor <= repeatUntil && result.length < maxItems;) {
+    const weekday = new Date(`${cursor}T00:00:00Z`).getUTCDay();
+    if (repeatMode !== "weekdays" || (weekday !== 0 && weekday !== 6)) {
+      result.push(cursor);
+    }
+    cursor = addDaysYmd(cursor, repeatMode === "weekly" ? 7 : 1);
+  }
+  return result;
 }

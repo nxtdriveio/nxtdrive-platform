@@ -20,6 +20,11 @@ import {
 } from "@/lib/agenda/types";
 import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
+import {
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+  zonedYmd,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +75,17 @@ function durationParam(value: string | undefined): number | undefined {
     : undefined;
 }
 
+function tenantTimeInput(date: Date, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      hour: "2-digit",
+      hourCycle: "h23",
+      minute: "2-digit",
+    },
+    timeZone,
+  ).format(date);
+}
+
 export default async function NewAppointmentPage({
   searchParams,
 }: {
@@ -82,6 +98,7 @@ export default async function NewAppointmentPage({
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
   const { user, organization: tenant, roles } = context;
+  const timeZone = resolveTenantTimeZone(tenant);
   const planningSettings = await loadTenantPlanningSettings(service, tenant.id);
   const canSelectInstructor =
     !!user.profile?.is_platform_admin ||
@@ -141,9 +158,8 @@ export default async function NewAppointmentPage({
     >[];
   }
 
-  const now = new Date();
-  now.setMinutes(0, 0, 0);
-  now.setHours(now.getHours() + 1);
+  const nextRoundHour = new Date(Date.now() + 60 * 60_000);
+  nextRoundHour.setUTCMinutes(0, 0, 0);
   const defaultType = appointmentType(sp.type);
   const defaultBranchId =
     param(sp.branch_id, 80) && branches.some((branch) => branch.id === sp.branch_id)
@@ -220,8 +236,8 @@ export default async function NewAppointmentPage({
               studentId: defaultStudentId,
               vehicleId: defaultVehicleId,
               pickupServiceAreaId: defaultServiceAreaId,
-              date: dateParam(sp.date) ?? now.toISOString().slice(0, 10),
-              time: timeParam(sp.time) ?? now.toISOString().slice(11, 16),
+              date: dateParam(sp.date) ?? zonedYmd(nextRoundHour, timeZone),
+              time: timeParam(sp.time) ?? tenantTimeInput(nextRoundHour, timeZone),
               durationMin: durationParam(sp.duration_min),
               title: param(sp.title, 200) ?? null,
               location: param(sp.location, 200) ?? null,

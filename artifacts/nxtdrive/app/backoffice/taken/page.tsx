@@ -23,6 +23,24 @@ import type {
 } from "@/lib/tasks/types";
 import { resolveTaskLinks } from "@/lib/tasks/links";
 import { Board } from "./board";
+import { Button } from "@/components/ui/button";
+import {
+  acceptFranchisePlanningAction,
+  acceptFranchiseBenchmarkAction,
+  completeFranchisePlanningAction,
+  completeFranchiseBenchmarkAction,
+  declineFranchisePlanningAction,
+  declineFranchiseBenchmarkAction,
+} from "@/lib/franchise/actions";
+import {
+  loadLocalFranchiseBenchmarkActions,
+  type FranchiseBenchmarkAction,
+} from "@/lib/franchise/benchmark-actions";
+import {
+  loadLocalFranchisePlanningActions,
+  planningActionTypeLabel,
+  type FranchisePlanningAction,
+} from "@/lib/franchise/planning-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +66,8 @@ function taskVisibilityFilter(
   const parts: string[] = [];
   if (branchIds) {
     parts.push("branch_id.is.null");
-    if (branchIds.length > 0) parts.push(`branch_id.in.(${branchIds.join(",")})`);
+    if (branchIds.length > 0)
+      parts.push(`branch_id.in.(${branchIds.join(",")})`);
   }
   if (ownUserId) parts.push(`assignee_user_id.eq.${ownUserId}`);
   return parts.length > 0 ? parts.join(",") : null;
@@ -67,14 +86,20 @@ export default async function TakenPage({
 
   const service = createServiceRoleClient();
   const branchScope = await loadOrganizationBranchScope(service, context);
-  const allBranches = await listBranches(service, tenant.id, { activeOnly: true });
+  const allBranches = await listBranches(service, tenant.id, {
+    activeOnly: true,
+  });
   const branches =
     branchScope.scope_type === "branches"
       ? allBranches.filter((b) => branchScope.branch_ids.includes(b.id))
       : allBranches;
   const selectedBranchId =
-    branchParam && branches.some((b) => b.id === branchParam) ? branchParam : null;
-  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name;
+    branchParam && branches.some((b) => b.id === branchParam)
+      ? branchParam
+      : null;
+  const selectedBranchName = branches.find(
+    (b) => b.id === selectedBranchId,
+  )?.name;
   const branchFilterIds = selectedBranchId
     ? [selectedBranchId]
     : branchScope.scope_type === "branches"
@@ -85,16 +110,16 @@ export default async function TakenPage({
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "task:manage");
   const readScopes = scopesForPermission(context.roles, "task:read");
-  const includeOwnTasks = !canManageTasks && readScopes.includes("own")
-    ? context.user.id
-    : null;
+  const includeOwnTasks =
+    !canManageTasks && readScopes.includes("own") ? context.user.id : null;
 
   let boardsQuery = service
     .from("task_boards")
     .select("id, tenant_id, branch_id, department_id, name, sort_order")
     .eq("tenant_id", tenant.id)
     .order("sort_order", { ascending: true });
-  if (branchFilterIds) boardsQuery = boardsQuery.or(branchOrFilter(branchFilterIds));
+  if (branchFilterIds)
+    boardsQuery = boardsQuery.or(branchOrFilter(branchFilterIds));
   const { data: boardsRaw } = await boardsQuery;
   let boards = (boardsRaw ?? []) as TaskBoard[];
 
@@ -135,8 +160,7 @@ export default async function TakenPage({
     );
   }
 
-  const selectedBoard =
-    boards.find((b) => b.id === boardParam) ?? boards[0]!;
+  const selectedBoard = boards.find((b) => b.id === boardParam) ?? boards[0]!;
 
   const { data: columnsRaw } = await service
     .from("task_columns")
@@ -192,6 +216,12 @@ export default async function TakenPage({
   for (const link of resolvedLinks) {
     (linksByTask[link.task_id] ??= []).push(link);
   }
+  const franchiseBenchmarkActions = await loadLocalFranchiseBenchmarkActions(
+    tenant.id,
+  );
+  const franchisePlanningActions = await loadLocalFranchisePlanningActions(
+    tenant.id,
+  );
 
   return (
     <div className="space-y-6">
@@ -208,6 +238,8 @@ export default async function TakenPage({
         allHref={boardHref(selectedBoard.id, null)}
         hrefForBranch={(branchId) => boardHref(selectedBoard.id, branchId)}
       />
+      <FranchisePlanningInbox actions={franchisePlanningActions} />
+      <FranchiseBenchmarkInbox actions={franchiseBenchmarkActions} />
 
       <div className="flex flex-wrap items-center gap-2">
         {boards.map((b) => (
@@ -239,6 +271,287 @@ export default async function TakenPage({
         defaultBranchId={selectedBranchId ?? selectedBoard.branch_id ?? null}
       />
     </div>
+  );
+}
+
+function FranchisePlanningInbox({
+  actions,
+}: {
+  actions: FranchisePlanningAction[];
+}) {
+  if (actions.length === 0) return null;
+
+  const statusLabel: Record<string, string> = {
+    created: "Wacht op acceptatie",
+    accepted: "Geaccepteerd",
+    in_progress: "In uitvoering",
+    completed: "Afgerond",
+    declined: "Afgewezen",
+    cancelled: "Geannuleerd",
+  };
+
+  return (
+    <section className="rounded-[1.25rem] border border-brand-card-border bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
+            Franchise planning
+          </p>
+          <h2 className="mt-1 text-lg font-black text-foreground">
+            Lokale planningsturing
+          </h2>
+        </div>
+        <p className="text-sm font-semibold text-muted-foreground">
+          {actions.length} actie{actions.length === 1 ? "" : "s"} vanuit
+          franchisegever
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {actions.map((action) => {
+          const isOpen = action.status === "created";
+          const isAccepted =
+            action.status === "accepted" || action.status === "in_progress";
+          return (
+            <article
+              key={action.id}
+              className="rounded-2xl border border-brand-card-border bg-brand-muted p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-foreground">
+                    {action.title}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-muted-foreground">
+                    {action.franchise_root_name} -{" "}
+                    {planningActionTypeLabel(action.action_type)}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-primary">
+                  {statusLabel[action.status] ?? action.status}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
+                {action.branch_name ? <span>{action.branch_name}</span> : null}
+                {action.instructor_name ? (
+                  <span>{action.instructor_name}</span>
+                ) : null}
+                {action.requested_capacity_hours ? (
+                  <span>{action.requested_capacity_hours} uur</span>
+                ) : null}
+                {action.requested_date ? (
+                  <span>{action.requested_date}</span>
+                ) : null}
+              </div>
+              {action.description ? (
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                  {action.description}
+                </p>
+              ) : null}
+              {isOpen ? (
+                <div className="mt-4 grid gap-2">
+                  <form
+                    action={acceptFranchisePlanningAction}
+                    className="space-y-2"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Acceptatienotitie voor de franchisegever..."
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <Button type="submit" size="sm">
+                      Accepteren en lokale taak maken
+                    </Button>
+                  </form>
+                  <form
+                    action={declineFranchisePlanningAction}
+                    className="space-y-2"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <textarea
+                      name="reason"
+                      rows={2}
+                      placeholder="Waarom kan dit lokaal niet worden opgepakt?"
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <Button type="submit" size="sm" variant="outline">
+                      Afwijzen
+                    </Button>
+                  </form>
+                </div>
+              ) : null}
+              {isAccepted ? (
+                <form
+                  action={completeFranchisePlanningAction}
+                  className="mt-4 space-y-2"
+                >
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value="/backoffice/taken"
+                  />
+                  <input type="hidden" name="action_id" value={action.id} />
+                  <textarea
+                    name="resolution"
+                    rows={2}
+                    placeholder="Wat is lokaal uitgevoerd?"
+                    className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                  />
+                  <Button type="submit" size="sm">
+                    Afronden
+                  </Button>
+                </form>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FranchiseBenchmarkInbox({
+  actions,
+}: {
+  actions: FranchiseBenchmarkAction[];
+}) {
+  if (actions.length === 0) return null;
+
+  const statusLabel: Record<string, string> = {
+    created: "Wacht op acceptatie",
+    accepted: "Geaccepteerd",
+    in_progress: "In uitvoering",
+    completed: "Afgerond",
+    declined: "Afgewezen",
+    cancelled: "Geannuleerd",
+  };
+
+  return (
+    <section className="rounded-[1.25rem] border border-brand-card-border bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
+            Franchise benchmark
+          </p>
+          <h2 className="mt-1 text-lg font-black text-foreground">
+            Lokale opvolging
+          </h2>
+        </div>
+        <p className="text-sm font-semibold text-muted-foreground">
+          {actions.length} actie{actions.length === 1 ? "" : "s"} vanuit
+          franchisegever
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {actions.map((action) => {
+          const isOpen = action.status === "created";
+          const isAccepted =
+            action.status === "accepted" || action.status === "in_progress";
+          return (
+            <article
+              key={action.id}
+              className="rounded-2xl border border-brand-card-border bg-brand-muted p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-foreground">
+                    {action.title}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-muted-foreground">
+                    {action.franchise_root_name} - {action.follow_up_route}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-primary">
+                  {statusLabel[action.status] ?? action.status}
+                </span>
+              </div>
+              {action.description ? (
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                  {action.description}
+                </p>
+              ) : null}
+              {isOpen ? (
+                <div className="mt-4 grid gap-2">
+                  <form
+                    action={acceptFranchiseBenchmarkAction}
+                    className="space-y-2"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Acceptatienotitie voor de franchisegever..."
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <Button type="submit" size="sm">
+                      Accepteren en lokale taak maken
+                    </Button>
+                  </form>
+                  <form
+                    action={declineFranchiseBenchmarkAction}
+                    className="space-y-2"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <textarea
+                      name="reason"
+                      rows={2}
+                      placeholder="Waarom kan dit lokaal niet worden opgepakt?"
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <Button type="submit" size="sm" variant="outline">
+                      Afwijzen
+                    </Button>
+                  </form>
+                </div>
+              ) : null}
+              {isAccepted ? (
+                <form
+                  action={completeFranchiseBenchmarkAction}
+                  className="mt-4 space-y-2"
+                >
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value="/backoffice/taken"
+                  />
+                  <input type="hidden" name="action_id" value={action.id} />
+                  <textarea
+                    name="resolution"
+                    rows={2}
+                    placeholder="Wat is lokaal uitgevoerd?"
+                    className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                  />
+                  <Button type="submit" size="sm">
+                    Afronden
+                  </Button>
+                </form>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

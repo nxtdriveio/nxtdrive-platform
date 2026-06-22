@@ -66,7 +66,7 @@ export const getCurrentUser = cache(async (): Promise<AuthenticatedUser | null> 
   const { data: memberships } = await service
     .from("memberships")
     .select(
-      "id, user_id, tenant_id, role, branch_scope_type, created_at, tenant:tenants(id, slug, name, plan, white_label_enabled, org_type, parent_tenant_id)",
+      "id, user_id, tenant_id, role, branch_scope_type, created_at, tenant:tenants(id, slug, name, plan, white_label_enabled, timezone, org_type, parent_tenant_id)",
     )
     .eq("user_id", user.id);
 

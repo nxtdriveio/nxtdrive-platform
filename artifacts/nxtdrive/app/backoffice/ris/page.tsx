@@ -615,7 +615,7 @@ export default async function BackofficeRisPage({
                       </p>
                     </div>
                     <Badge variant="warning">
-                      {row.currentFinalStep ? `Stap ${row.currentFinalStep}` : "N"}
+                      {row.currentFinalStep ? `Score ${row.currentFinalStep}/10` : "Nog niet beoordeeld"}
                     </Badge>
                   </div>
                 </div>

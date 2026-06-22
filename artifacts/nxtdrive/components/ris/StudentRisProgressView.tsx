@@ -225,8 +225,8 @@ export function StudentRisProgressView({
                   <StudentProgressBar
                     label={
                       module.averageStep == null
-                        ? "Nog geen gepubliceerde stap"
-                        : `Gemiddeld stap ${module.averageStep.toFixed(1)} van 8`
+                        ? "Nog geen gepubliceerde score"
+                        : `Gemiddelde score ${module.averageStep.toFixed(1)} van 10`
                     }
                     value={module.progressPct}
                     rightLabel={`${module.progressPct}%`}
@@ -432,16 +432,16 @@ function scriptTitle(ris: StudentRisProgress, item: StudentRisProgressItem): str
 }
 
 function studentStepLabel(item: StudentRisProgressItem): string {
-  if (!item.currentFinalStep || item.currentFinalStep === "N") return item.studentLabel;
-  return `Stap ${item.currentFinalStep} van 8 - ${item.studentLabel.toLowerCase()}`;
+  if (!item.currentFinalStep) return item.studentLabel;
+  return `Score ${item.currentFinalStep}/10 - ${item.studentLabel.toLowerCase()}`;
 }
 
 function stepBadgeLabel(step: StudentRisProgressItem["currentFinalStep"]): string {
-  return !step || step === "N" ? "N" : step;
+  return step ? `${step}/10` : "-";
 }
 
 function stepRank(step: StudentRisProgressItem["currentFinalStep"]): number {
-  if (!step || step === "N") return 0;
+  if (!step) return 0;
   return Number(step);
 }
 

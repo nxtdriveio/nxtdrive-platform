@@ -6,9 +6,17 @@ import type { PlanningQueueListItem } from "@/lib/planning-queue";
 
 export type PlanningBoardView = "day" | "week";
 
+export type PlanningBoardPerspective =
+  | "instructor"
+  | "branch"
+  | "vehicle"
+  | "exam"
+  | "trial_lesson";
+
 export type PlanningBoardFilters = {
   date: string;
   view: PlanningBoardView;
+  perspective?: PlanningBoardPerspective;
   branchId?: string | null;
   appointmentType?: string | null;
   serviceAreaId?: string | null;
@@ -60,6 +68,7 @@ export type PlanningBoardEvent = {
   status?: string | null;
   vehicleId?: string | null;
   vehicleLabel?: string | null;
+  branchLabel?: string | null;
   serviceAreaId?: string | null;
   serviceAreaName?: string | null;
   warnings?: PlanningReason[];
@@ -67,6 +76,7 @@ export type PlanningBoardEvent = {
 
 export type PlanningBoardData = {
   tenantId: string;
+  timeZone: string;
   filters: PlanningBoardFilters;
   rangeStart: string;
   rangeEnd: string;

@@ -25,12 +25,12 @@ import {
 } from "lucide-react";
 
 import {
-  amsterdamMinuteOfDay,
-  amsterdamWeekdayIndex,
-  amsterdamYmd,
   createNlDateTimeFormatter,
-  parseAmsterdamDateTime,
-  startOfAmsterdamDayUtc,
+  parseZonedDateTime,
+  startOfZonedDayUtc,
+  zonedMinuteOfDay,
+  zonedWeekdayIndex,
+  zonedYmd,
 } from "@/lib/datetime";
 import {
   planningBoardEventCanMove,
@@ -42,6 +42,7 @@ import type {
   PlanningBoardAvailability,
   PlanningBoardData,
   PlanningBoardEvent,
+  PlanningBoardPerspective,
 } from "@/lib/planning-board/types";
 import type { PlanningQueueListItem } from "@/lib/planning-queue";
 import type { PlanningValidationResult } from "@/lib/planning-core";
@@ -66,16 +67,6 @@ const SLOT_WIDTH = 42;
 const RESOURCE_ROW_HEIGHT = 48;
 const RESOURCE_COLUMN_WIDTH = 152;
 const PREVIEW_DEBOUNCE_MS = 180;
-const dateShortFormatter = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-});
-const timeFormatter = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
 const EVENT_LEGEND = [
   { key: "lesson", label: "Rijles", className: "bg-planning-lesson border-planning-lesson" },
   { key: "trial_lesson", label: "Proefles", className: "bg-planning-trial border-planning-trial" },
@@ -113,12 +104,25 @@ type SlotTarget = {
   instructorId: string;
   day: string;
   startsAt: string;
+  vehicleId?: string | null;
 };
 
 type PositionedEvent = {
   event: PlanningBoardEvent;
   lane: number;
   laneCount: number;
+};
+
+type ResourceRow = {
+  day: string;
+  key: string;
+  label: string;
+  subtitle?: string;
+  resourceId: string;
+  href?: string;
+  availabilityInstructorId?: string;
+  dropInstructorId?: string;
+  dropVehicleId?: string | null;
 };
 
 function timeLabel(slot: number): string {
@@ -130,34 +134,38 @@ function localSlotIso(day: string, slot: number): string {
   return `${day}T${timeLabel(slot)}:00`;
 }
 
-function columnKey(day: string, instructorId: string): string {
-  return `${day}|${instructorId}`;
+function resourceRowKey(
+  day: string,
+  perspective: PlanningBoardPerspective,
+  resourceId: string | null | undefined,
+): string {
+  return `${day}|${perspective}|${resourceId || "none"}`;
 }
 
 function slotId(target: SlotTarget): string {
-  return `slot|${target.day}|${target.instructorId}|${target.startsAt}`;
+  return `slot|${target.day}|${target.instructorId}|${target.startsAt}|${target.vehicleId ?? ""}`;
 }
 
 function parseSlotId(value: string): SlotTarget | null {
-  const [kind, day, instructorId, startsAt] = value.split("|");
+  const [kind, day, instructorId, startsAt, vehicleId] = value.split("|");
   if (kind !== "slot" || !day || !instructorId || !startsAt) return null;
-  return { day, instructorId, startsAt };
+  return { day, instructorId, startsAt, vehicleId: vehicleId || null };
 }
 
 function eventDurationMinutes(event: PlanningBoardEvent): number {
   return Math.max(SLOT_MINUTES, event.occupiedMinutes ?? event.durationMinutes);
 }
 
-function eventTop(event: PlanningBoardEvent): number {
-  const minutes = amsterdamMinuteOfDay(new Date(event.startsAt));
+function eventTop(event: PlanningBoardEvent, timeZone: string): number {
+  const minutes = zonedMinuteOfDay(new Date(event.startsAt), timeZone);
   return Math.max(
     0,
     ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_HEIGHT,
   );
 }
 
-function eventLeft(event: PlanningBoardEvent): number {
-  const minutes = amsterdamMinuteOfDay(new Date(event.startsAt));
+function eventLeft(event: PlanningBoardEvent, timeZone: string): number {
+  const minutes = zonedMinuteOfDay(new Date(event.startsAt), timeZone);
   return Math.max(
     0,
     ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_WIDTH,
@@ -229,8 +237,133 @@ function layoutOverlappingEvents(
   return result;
 }
 
-function dateShort(day: string): string {
-  return dateShortFormatter.format(startOfAmsterdamDayUtc(day));
+function dateShort(day: string, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    },
+    timeZone,
+  ).format(startOfZonedDayUtc(day, timeZone));
+}
+
+function timeShort(value: string, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    timeZone,
+  ).format(new Date(value));
+}
+
+function perspectiveLabel(perspective: PlanningBoardPerspective): string {
+  if (perspective === "branch") return "Vestiging";
+  if (perspective === "vehicle") return "Voertuig";
+  if (perspective === "exam") return "Examen";
+  if (perspective === "trial_lesson") return "Proefles";
+  return "Instructeur";
+}
+
+function perspectiveDescription(perspective: PlanningBoardPerspective): string {
+  if (perspective === "branch") return "planning per vestiging";
+  if (perspective === "vehicle") return "bezetting per voertuig";
+  if (perspective === "exam") return "examen- en TTT-planning";
+  if (perspective === "trial_lesson") return "proeflessen";
+  return "planning per instructeur";
+}
+
+function eventResourceId(
+  event: PlanningBoardEvent,
+  perspective: PlanningBoardPerspective,
+): string {
+  if (perspective === "branch") return event.branchId ?? "none";
+  if (perspective === "vehicle") return event.vehicleId ?? "none";
+  return event.instructorId;
+}
+
+function resourceRowsForDay(
+  day: string,
+  data: PlanningBoardData,
+  perspective: PlanningBoardPerspective,
+  events: readonly PlanningBoardEvent[],
+): ResourceRow[] {
+  if (
+    perspective === "instructor" ||
+    perspective === "exam" ||
+    perspective === "trial_lesson"
+  ) {
+    return data.instructors.map((instructor) => ({
+      day,
+      key: resourceRowKey(day, perspective, instructor.id),
+      label: instructor.name,
+      subtitle:
+        perspective === "exam"
+          ? "Examen / TTT"
+          : perspective === "trial_lesson"
+            ? "Proeflessen"
+            : undefined,
+      resourceId: instructor.id,
+      href: `/backoffice/planning-board/instructors/${instructor.id}?date=${day}&view=${data.filters.view}`,
+      availabilityInstructorId: instructor.id,
+      dropInstructorId: instructor.id,
+    }));
+  }
+
+  if (perspective === "branch") {
+    const branchIdsWithEvents = new Set(
+      events
+        .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
+        .map((event) => event.branchId ?? "none"),
+    );
+    const rows: ResourceRow[] = data.branches.map((branch) => ({
+      day,
+      key: resourceRowKey(day, perspective, branch.id),
+      label: branch.label,
+      subtitle: "Vestiging",
+      resourceId: branch.id,
+      dropInstructorId: data.filters.instructorId ?? undefined,
+    }));
+    if (branchIdsWithEvents.has("none")) {
+      rows.push({
+        day,
+        key: resourceRowKey(day, perspective, "none"),
+        label: "Geen vestiging",
+        subtitle: "Ongekoppeld",
+        resourceId: "none",
+        dropInstructorId: data.filters.instructorId ?? undefined,
+      });
+    }
+    return rows;
+  }
+
+  const vehicleIdsWithEvents = new Set(
+    events
+      .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
+      .map((event) => event.vehicleId ?? "none"),
+  );
+  const rows: ResourceRow[] = data.vehicles.map((vehicle) => ({
+    day,
+    key: resourceRowKey(day, perspective, vehicle.id),
+    label: vehicle.label,
+    subtitle: "Voertuig",
+    resourceId: vehicle.id,
+    dropInstructorId: data.filters.instructorId ?? undefined,
+    dropVehicleId: vehicle.id,
+  }));
+  if (vehicleIdsWithEvents.has("none")) {
+    rows.push({
+      day,
+      key: resourceRowKey(day, perspective, "none"),
+      label: "Geen voertuig",
+      subtitle: "Ongekoppeld",
+      resourceId: "none",
+      dropInstructorId: data.filters.instructorId ?? undefined,
+      dropVehicleId: null,
+    });
+  }
+  return rows;
 }
 
 function reasonText(validation: PlanningValidationResult | null): string[] {
@@ -331,10 +464,11 @@ function slotAvailability(
   blocks: readonly PlanningBoardAvailability[],
   day: string,
   slot: number,
+  timeZone: string,
 ): "available" | "blocked" | "closed" {
   const start = START_HOUR * 60 + slot * SLOT_MINUTES;
   const end = start + SLOT_MINUTES;
-  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
   const exception = blocks.find(
     (block) =>
       block.date === day && block.startMinute < end && block.endMinute > start,
@@ -372,13 +506,15 @@ function availabilitySegmentStyle(startMinute: number, endMinute: number) {
 function AvailabilityBands({
   blocks,
   day,
+  timeZone,
   availabilityFilter,
 }: {
   blocks: readonly PlanningBoardAvailability[];
   day: string;
+  timeZone: string;
   availabilityFilter?: "available" | "blocked" | null;
 }) {
-  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
   const dayBlocks = blocks.filter(
     (block) => block.date === day || block.weekday === weekday,
   );
@@ -447,8 +583,8 @@ function QueueCard({
           </p>
           <p className="truncate text-[11px] leading-4 text-muted-foreground">
             {item.duration_minutes} min
-            {item.required_transmission ? ` · ${item.required_transmission}` : ""}
-            {item.service_area_name ? ` · ${item.service_area_name}` : ""}
+            {item.required_transmission ? ` - ${item.required_transmission}` : ""}
+            {item.service_area_name ? ` - ${item.service_area_name}` : ""}
           </p>
         </div>
         <Badge
@@ -503,6 +639,7 @@ function QueueCard({
 
 function EventCard({
   event,
+  timeZone,
   detailed = false,
   layout = "calendar",
   lane = 0,
@@ -510,6 +647,7 @@ function EventCard({
   onOpen,
 }: {
   event: PlanningBoardEvent;
+  timeZone: string;
   detailed?: boolean;
   layout?: "calendar" | "timeline";
   lane?: number;
@@ -530,12 +668,12 @@ function EventCard({
   const style =
     layout === "timeline"
       ? {
-          left: eventLeft(event),
+          left: eventLeft(event, timeZone),
           width: eventWidth(event),
           ...eventLaneStyle(lane, laneCount),
         }
       : {
-          top: eventTop(event),
+          top: eventTop(event, timeZone),
           height: eventHeight(event),
         };
   const transformStyle = {
@@ -570,7 +708,7 @@ function EventCard({
       <p className="truncate font-medium text-foreground">{event.title}</p>
       <p className="truncate text-muted-foreground">
         {planningBoardEventLabel(event)}
-        {event.vehicleLabel ? ` · ${event.vehicleLabel}` : ""}
+        {event.vehicleLabel ? ` - ${event.vehicleLabel}` : ""}
       </p>
       {event.serviceAreaName ? (
         <p className="truncate text-muted-foreground">
@@ -699,36 +837,38 @@ export function PlanningBoardWorkspace({
   );
   const slotCount = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
   const layoutMode = planningBoardLayoutMode(detailMode);
+  const perspective = data.filters.perspective ?? "instructor";
+  const readonlyResourcePerspective =
+    (perspective === "branch" || perspective === "vehicle") &&
+    !data.filters.instructorId;
   const previewReasons = reasonText(preview?.validation ?? null);
   const previewMessage = preview?.message ?? null;
   const previewIsBlocked = Boolean(preview && !preview.validation?.allowed);
   const previewStatus = status && status !== previewMessage ? status : null;
   const visibleDays = useMemo(() => {
-    if (layoutMode === "instructor_timeline") return data.days;
+    if (data.filters.view === "week" || layoutMode === "instructor_timeline") {
+      return data.days;
+    }
     return [data.filters.date];
-  }, [data.days, data.filters.date, layoutMode]);
+  }, [data.days, data.filters.date, data.filters.view, layoutMode]);
   const rows = useMemo(
     () =>
       visibleDays.flatMap((day) =>
-        data.instructors.map((instructor) => ({
-          day,
-          instructor,
-          key: columnKey(day, instructor.id),
-        })),
+        resourceRowsForDay(day, data, perspective, events),
       ),
-    [visibleDays, data.instructors],
+    [visibleDays, data, perspective, events],
   );
-  const eventsByColumn = useMemo(() => {
+  const eventsByRow = useMemo(() => {
     const map = new Map<string, PlanningBoardEvent[]>();
     for (const event of events) {
-      const day = amsterdamYmd(new Date(event.startsAt));
-      const key = columnKey(day, event.instructorId);
+      const day = zonedYmd(new Date(event.startsAt), data.timeZone);
+      const key = resourceRowKey(day, perspective, eventResourceId(event, perspective));
       const bucket = map.get(key) ?? [];
       bucket.push(event);
       map.set(key, bucket);
     }
     return map;
-  }, [events]);
+  }, [events, perspective, data.timeZone]);
   const queueEventLinks = useMemo(() => {
     const map = new Map<string, { href: string; label: string }>();
     for (const item of queueItems) {
@@ -803,14 +943,14 @@ export function PlanningBoardWorkspace({
                   queueItemId: payload.id,
                   instructorId: target.instructorId,
                   startsAt: target.startsAt,
-                  vehicleId: selectedVehicleId || null,
+                  vehicleId: target.vehicleId ?? (selectedVehicleId || null),
                 })
               : await previewBoardEventMoveAction({
                   entityType: payload.entityType,
                   entityId: payload.id,
                   instructorId: target.instructorId,
                   startsAt: target.startsAt,
-                  vehicleId: selectedVehicleId || null,
+                  vehicleId: target.vehicleId ?? (selectedVehicleId || null),
                 });
           if (previewRequest.current !== requestId) return;
           setPreview({
@@ -871,14 +1011,14 @@ export function PlanningBoardWorkspace({
               queueItemId: payload.id,
               instructorId: target.instructorId,
               startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
+              vehicleId: target.vehicleId ?? (selectedVehicleId || null),
             })
           : await rescheduleBoardEventAction({
               entityType: payload.entityType,
               entityId: payload.id,
               instructorId: target.instructorId,
               startsAt: target.startsAt,
-              vehicleId: selectedVehicleId || null,
+              vehicleId: target.vehicleId ?? (selectedVehicleId || null),
             });
       if (!result.ok) {
         setStatus("Niet ingepland.");
@@ -903,8 +1043,9 @@ export function PlanningBoardWorkspace({
                   ...item,
                   instructorId: target.instructorId,
                   startsAt: target.startsAt,
+                  vehicleId: target.vehicleId ?? (selectedVehicleId || item.vehicleId),
                   endsAt: new Date(
-                    (parseAmsterdamDateTime(target.startsAt)?.getTime() ??
+                    (parseZonedDateTime(target.startsAt, data.timeZone)?.getTime() ??
                       Date.now()) +
                       eventDurationMinutes(item) * 60000,
                   ).toISOString(),
@@ -976,7 +1117,10 @@ export function PlanningBoardWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
-                {dateShort(data.filters.date)}
+                {dateShort(data.filters.date, data.timeZone)}
+              </span>
+              <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                {data.filters.view === "week" ? "Week" : "Dag"} - {perspectiveLabel(perspective)}
               </span>
               {EVENT_LEGEND.map((item) => (
                 <span
@@ -1028,7 +1172,7 @@ export function PlanningBoardWorkspace({
             >
               <div className="sticky top-0 z-20 grid grid-cols-[9.5rem_minmax(0,1fr)] border-b border-border bg-[var(--surface-2)]">
                 <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Instructeur
+                  {perspectiveLabel(perspective)}
                 </div>
                 <div className="flex">
                   {Array.from({ length: slotCount }, (_, slot) => (
@@ -1044,10 +1188,11 @@ export function PlanningBoardWorkspace({
               </div>
               {rows.map((row) => {
                 const rowEvents = layoutOverlappingEvents(
-                  eventsByColumn.get(row.key) ?? [],
+                  eventsByRow.get(row.key) ?? [],
                 );
-                const blocks =
-                  availabilityByInstructor.get(row.instructor.id) ?? [];
+                const blocks = row.availabilityInstructorId
+                  ? (availabilityByInstructor.get(row.availabilityInstructorId) ?? [])
+                  : [];
                 return (
                   <div
                     key={row.key}
@@ -1055,37 +1200,68 @@ export function PlanningBoardWorkspace({
                     style={{ height: RESOURCE_ROW_HEIGHT }}
                   >
                     <div className="flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-3">
-                      <Link
-                        href={`/backoffice/planning-board/instructors/${row.instructor.id}?date=${row.day}&view=${detailMode ? data.filters.view : "day"}`}
-                        className="truncate text-xs font-semibold text-foreground hover:text-primary"
-                      >
-                        {row.instructor.name}
-                      </Link>
-                      {detailMode ? (
+                      {row.href ? (
+                        <Link
+                          href={row.href}
+                          className="truncate text-xs font-semibold text-foreground hover:text-primary"
+                        >
+                          {row.label}
+                        </Link>
+                      ) : (
+                        <span className="truncate text-xs font-semibold text-foreground">
+                          {row.label}
+                        </span>
+                      )}
+                      {detailMode || row.subtitle ? (
                         <span className="text-xs text-muted-foreground">
-                          {dateShort(row.day)}
+                          {row.subtitle ?? dateShort(row.day, data.timeZone)}
                         </span>
                       ) : null}
                     </div>
                     <div className="relative flex">
-                      <AvailabilityBands
-                        blocks={blocks}
-                        day={row.day}
-                        availabilityFilter={data.filters.availability}
-                      />
+                      {row.availabilityInstructorId ? (
+                        <AvailabilityBands
+                          blocks={blocks}
+                          day={row.day}
+                          timeZone={data.timeZone}
+                          availabilityFilter={data.filters.availability}
+                        />
+                      ) : (
+                        <div className="pointer-events-none absolute inset-0 bg-muted/20" />
+                      )}
                       {Array.from({ length: slotCount }, (_, slot) => {
+                        const startsAt = localSlotIso(row.day, slot);
+                        if (!row.dropInstructorId) {
+                          return (
+                            <div
+                              key={slot}
+                              className="relative shrink-0 border-r border-border/60"
+                              style={{ width: SLOT_WIDTH, height: "100%" }}
+                              title={`${perspectiveDescription(perspective)} - readonly`}
+                            />
+                          );
+                        }
                         const target = {
                           day: row.day,
-                          instructorId: row.instructor.id,
-                          startsAt: localSlotIso(row.day, slot),
+                          instructorId: row.dropInstructorId,
+                          startsAt,
+                          vehicleId: row.dropVehicleId,
                         };
                         const targetId = slotId(target);
                         return (
                           <DroppableSlot
                             key={slot}
                             target={target}
-                            availability={slotAvailability(blocks, row.day, slot)}
-                            availabilityFilter={data.filters.availability}
+                            availability={
+                              row.availabilityInstructorId
+                                ? slotAvailability(blocks, row.day, slot, data.timeZone)
+                                : "available"
+                            }
+                            availabilityFilter={
+                              row.availabilityInstructorId
+                                ? data.filters.availability
+                                : null
+                            }
                             layout="timeline"
                             preview={
                               preview?.target === targetId ? preview : null
@@ -1097,6 +1273,7 @@ export function PlanningBoardWorkspace({
                         <EventCard
                           key={`${event.entityType}:${event.id}`}
                           event={event}
+                          timeZone={data.timeZone}
                           lane={lane}
                           laneCount={laneCount}
                           detailed={detailMode}
@@ -1215,7 +1392,9 @@ export function PlanningBoardWorkspace({
                 </div>
               ) : (
                 <p className="text-muted-foreground">
-                  Sleep een kaart naar een slot.
+                  {readonlyResourcePerspective
+                    ? "Kies een instructeur om vanuit dit perspectief te plannen."
+                    : "Sleep een kaart naar een slot."}
                 </p>
               )}
               {previewReasons
@@ -1290,8 +1469,8 @@ export function PlanningBoardWorkspace({
                 Tijd
               </dt>
               <dd className="text-foreground">
-                {timeFormatter.format(new Date(selectedEvent.startsAt))} -{" "}
-                {timeFormatter.format(new Date(selectedEvent.endsAt))} (
+                {timeShort(selectedEvent.startsAt, data.timeZone)} -{" "}
+                {timeShort(selectedEvent.endsAt, data.timeZone)} (
                 {selectedEvent.durationMinutes} min lestijd
                 {selectedEvent.bufferMinutes
                   ? ` + ${selectedEvent.bufferMinutes} min buffer`

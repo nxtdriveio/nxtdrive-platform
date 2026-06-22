@@ -63,7 +63,7 @@ const RATING_OPTIONS: RisReflectionRating[] = [
 ];
 
 function stepLabel(step: RISStepValue | null): string {
-  return step ? `Stap ${step}` : "Geen stap";
+  return step ? `Score ${step}/10` : "Geen score";
 }
 
 function clampText(value: string, max = 2000): string {
