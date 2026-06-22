@@ -75,6 +75,16 @@ export const FRANCHISE_AUDIT_ACTION_OPTIONS: Array<{
     label: "Template centraal toegepast",
     category: "template",
   },
+  {
+    value: "franchise.template_rollout_dry_run",
+    label: "Template rollout dry-run",
+    category: "template",
+  },
+  {
+    value: "franchise.template_rollout_applied",
+    label: "Template rollout toegepast",
+    category: "template",
+  },
   { value: "franchise.delegation.created", label: "Delegatie aangemaakt", category: "delegation" },
   { value: "franchise.delegation.updated", label: "Delegatie bijgewerkt", category: "delegation" },
   { value: "franchise.delegation.revoked", label: "Delegatie ingetrokken", category: "delegation" },
@@ -101,6 +111,11 @@ export const FRANCHISE_AUDIT_ACTION_OPTIONS: Array<{
   {
     value: "franchise.benchmark_action_completed",
     label: "Benchmarkactie afgerond",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_target_upserted",
+    label: "Benchmarktarget ingesteld",
     category: "benchmark",
   },
   {

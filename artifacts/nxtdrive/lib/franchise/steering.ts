@@ -49,6 +49,12 @@ export type FranchiseLeadRoutingLead = {
   full_name: string;
   status: string;
   source: string;
+  city: string | null;
+  postcode: string | null;
+  neighborhood: string | null;
+  pickup_address: string | null;
+  lead_score: number;
+  last_activity_at: string | null;
   created_at: string;
   can_manage: boolean;
   target_tenant_ids: string[];
@@ -208,7 +214,9 @@ export async function loadFranchiseLeadRoutingState(
       ? Promise.resolve({ data: [], error: null })
       : service
           .from("leads")
-          .select("id, tenant_id, status, source, full_name, branch_id, created_at")
+          .select(
+            "id, tenant_id, status, source, full_name, branch_id, city, postcode, neighborhood, pickup_address, lead_score, last_activity_at, created_at",
+          )
           .in("tenant_id", tenantIds)
           .in("status", ["new", "contacted", "package_advised"])
           .is("branch_id", null)
@@ -273,6 +281,12 @@ export async function loadFranchiseLeadRoutingState(
       source: string;
       full_name: string;
       created_at: string;
+      city: string | null;
+      postcode: string | null;
+      neighborhood: string | null;
+      pickup_address: string | null;
+      lead_score: number | null;
+      last_activity_at: string | null;
     }>)
       .filter((lead) => !activeAssignmentLeadIds.has(lead.id))
       .slice(0, 12)
@@ -288,6 +302,12 @@ export async function loadFranchiseLeadRoutingState(
           full_name: lead.full_name,
           status: lead.status,
           source: lead.source,
+          city: lead.city,
+          postcode: lead.postcode,
+          neighborhood: lead.neighborhood,
+          pickup_address: lead.pickup_address,
+          lead_score: lead.lead_score ?? 0,
+          last_activity_at: lead.last_activity_at,
           created_at: lead.created_at,
           can_manage: canManage,
           target_tenant_ids: canManage ? Array.from(manageableLeadTenantIds) : [],

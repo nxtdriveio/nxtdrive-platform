@@ -11,6 +11,10 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { PLAN_LABELS } from "@/lib/platform/features";
 import { benchmarkSignalKey } from "@/lib/franchise/benchmark-actions";
+import {
+  FRANCHISE_BENCHMARK_METRICS,
+  type FranchiseBenchmarkMetricKey,
+} from "@/lib/franchise/command-center";
 
 function redirectPlanRequired(path: string, plan: keyof typeof PLAN_LABELS) {
   redirect(`${path}?error=plan_required&plan=${plan}`);
@@ -72,6 +76,20 @@ function parsePositiveNumber(formData: FormData, key: string) {
   if (!raw) return null;
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+const BENCHMARK_METRIC_UNITS = new Map(
+  FRANCHISE_BENCHMARK_METRICS.map((metric) => [metric.key, metric.unit]),
+);
+
+function isBenchmarkMetricKey(value: string): value is FranchiseBenchmarkMetricKey {
+  return BENCHMARK_METRIC_UNITS.has(value as FranchiseBenchmarkMetricKey);
+}
+
+function parseBenchmarkTargetValue(formData: FormData, unit: string) {
+  const value = parsePositiveNumber(formData, "target_value");
+  if (value === null) return null;
+  return unit === "euro_cents" ? Math.round(value * 100) : value;
 }
 
 function delegationIsActive(
@@ -575,6 +593,295 @@ export async function applyFranchiseTemplateToFranchisee(formData: FormData) {
 
   revalidateFranchiseControlPaths();
   redirectWith(returnTo, "template_applied");
+}
+
+export async function createFranchiseTemplateRolloutBatch(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/templates");
+  const templateId = cleanField(formData, "template_id", 120);
+  const mode = cleanField(formData, "mode", 40);
+  if (!templateId || !["dry_run", "apply"].includes(mode)) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const { data: template, error: templateError } = await service
+    .from("franchise_templates")
+    .select("id, tenant_id, name, is_active")
+    .eq("id", templateId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  if (templateError) redirectWith(returnTo, "error", templateError.message.slice(0, 200));
+  if (!template || !template.is_active) redirectWith(returnTo, "error", "active_template_required");
+
+  const [
+    { data: franchisees, error: franchiseeError },
+    { data: permissions, error: permissionError },
+  ] = await Promise.all([
+    service
+      .from("tenants")
+      .select("id, name")
+      .eq("parent_tenant_id", tenant.id)
+      .order("name"),
+    service
+      .from("franchise_operations_permissions")
+      .select("franchisee_tenant_id, revoked_at, valid_from, valid_until, can_manage_templates")
+      .eq("franchise_root_tenant_id", tenant.id),
+  ]);
+
+  if (franchiseeError) redirectWith(returnTo, "error", franchiseeError.message.slice(0, 200));
+  if (permissionError) redirectWith(returnTo, "error", permissionError.message.slice(0, 200));
+
+  const permissionByTenant = new Map(
+    ((permissions ?? []) as Array<{
+      franchisee_tenant_id: string;
+      revoked_at: string | null;
+      valid_from: string | null;
+      valid_until: string | null;
+      can_manage_templates: boolean;
+    }>).map((permission) => [permission.franchisee_tenant_id, permission]),
+  );
+  const now = Date.now();
+  const franchiseeRows = (franchisees ?? []) as Array<{ id: string; name: string }>;
+  const rolloutRows = franchiseeRows.map((franchisee) => {
+    const permission = permissionByTenant.get(franchisee.id);
+    const validFrom = permission?.valid_from ? Date.parse(permission.valid_from) : null;
+    const validUntil = permission?.valid_until ? Date.parse(permission.valid_until) : null;
+    const delegated = Boolean(
+      permission?.can_manage_templates &&
+        !permission.revoked_at &&
+        (!validFrom || validFrom <= now) &&
+        (!validUntil || validUntil > now),
+    );
+    return { ...franchisee, delegated };
+  });
+
+  const { data: batch, error: batchError } = await service
+    .from("franchise_template_rollout_batches")
+    .insert({
+      franchise_root_tenant_id: tenant.id,
+      template_id: template.id,
+      mode,
+      status: "running",
+      requested_by: user.id,
+      summary: {
+        total: rolloutRows.length,
+        delegated: rolloutRows.filter((row) => row.delegated).length,
+        skipped: rolloutRows.filter((row) => !row.delegated).length,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (batchError || !batch) {
+    redirectWith(returnTo, "error", batchError?.message.slice(0, 200) ?? "batch_create_failed");
+  }
+
+  let applied = 0;
+  let dryRun = 0;
+  let skipped = 0;
+  let failed = 0;
+  const rollbackLog: Array<Record<string, unknown>> = [];
+
+  async function insertRolloutItem(payload: Record<string, unknown>) {
+    const { error } = await service
+      .from("franchise_template_rollout_items")
+      .insert(payload);
+    if (error) throw new Error(error.message);
+  }
+
+  try {
+    for (const franchisee of rolloutRows) {
+      if (!franchisee.delegated) {
+        skipped += 1;
+        await insertRolloutItem({
+          batch_id: batch.id,
+          franchisee_tenant_id: franchisee.id,
+          action: "skipped",
+          status: "skipped",
+          message: "Template-delegatie ontbreekt of is niet actief.",
+        });
+        continue;
+      }
+
+      if (mode === "dry_run") {
+        dryRun += 1;
+        await insertRolloutItem({
+          batch_id: batch.id,
+          franchisee_tenant_id: franchisee.id,
+          action: "dry_run",
+          status: "dry_run",
+          message: "Klaar voor toepassen op basis van actieve template-delegatie.",
+        });
+        continue;
+      }
+
+      const { data: activationId, error } = await service.rpc(
+        "apply_franchise_template_as_franchisegever",
+        {
+          p_template_id: template.id,
+          p_franchisee_tenant_id: franchisee.id,
+          p_actor: user.id,
+        },
+      );
+
+      if (error) {
+        failed += 1;
+        await insertRolloutItem({
+          batch_id: batch.id,
+          franchisee_tenant_id: franchisee.id,
+          action: "failed",
+          status: "failed",
+          message: error.message.slice(0, 500),
+        });
+        continue;
+      }
+
+      applied += 1;
+      const rollbackPayload = {
+        template_id: template.id,
+        activation_id: activationId,
+        franchisee_tenant_id: franchisee.id,
+        note: "Rollback vereist expliciete pakket-/activatiebeoordeling; deze batch verwijdert niets automatisch.",
+      };
+      rollbackLog.push(rollbackPayload);
+      await insertRolloutItem({
+        batch_id: batch.id,
+        franchisee_tenant_id: franchisee.id,
+        action: "applied",
+        status: "applied",
+        message: "Template toegepast via centrale franchisegever-flow.",
+        resulting_activation_id: activationId,
+        rollback_payload: rollbackPayload,
+      });
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message.slice(0, 200) : "batch_item_failed";
+    await service
+      .from("franchise_template_rollout_batches")
+      .update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        summary: {
+          total: rolloutRows.length,
+          delegated: rolloutRows.filter((row) => row.delegated).length,
+          dry_run: dryRun,
+          applied,
+          skipped,
+          failed: failed + 1,
+          error: message,
+        },
+        rollback_log: rollbackLog,
+      })
+      .eq("id", batch.id);
+    redirectWith(returnTo, "error", message);
+  }
+
+  const finalStatus = failed > 0 && applied === 0 && dryRun === 0 ? "failed" : "completed";
+  await service
+    .from("franchise_template_rollout_batches")
+    .update({
+      status: finalStatus,
+      completed_at: new Date().toISOString(),
+      summary: {
+        total: rolloutRows.length,
+        delegated: rolloutRows.filter((row) => row.delegated).length,
+        dry_run: dryRun,
+        applied,
+        skipped,
+        failed,
+      },
+      rollback_log: rollbackLog,
+    })
+    .eq("id", batch.id);
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action:
+      mode === "dry_run"
+        ? "franchise.template_rollout_dry_run"
+        : "franchise.template_rollout_applied",
+    targetType: "franchise_template_rollout_batch",
+    targetId: batch.id,
+    payload: {
+      template_id: template.id,
+      template_name: template.name,
+      mode,
+      applied,
+      dry_run: dryRun,
+      skipped,
+      failed,
+    },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, mode === "dry_run" ? "template_rollout_dry_run" : "template_rollout_applied");
+}
+
+export async function upsertFranchiseBenchmarkTarget(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/aandacht");
+  const franchiseeTenantId = cleanField(formData, "franchisee_tenant_id", 120);
+  const metricKey = cleanField(formData, "metric_key", 80);
+  if (!franchiseeTenantId || !isBenchmarkMetricKey(metricKey)) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+
+  const unit = BENCHMARK_METRIC_UNITS.get(metricKey) ?? "percent";
+  const targetValue = parseBenchmarkTargetValue(formData, unit);
+  if (targetValue === null) redirectWith(returnTo, "error", "invalid_target");
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const franchisee = await loadFranchiseeOrRedirect(
+    service,
+    tenant.id,
+    franchiseeTenantId,
+    returnTo,
+  );
+
+  const { data: target, error } = await service
+    .from("franchise_benchmark_targets")
+    .upsert(
+      {
+        franchise_root_tenant_id: tenant.id,
+        franchisee_tenant_id: franchisee.id,
+        metric_key: metricKey,
+        target_value: targetValue,
+        unit,
+        status: "active",
+        due_date: cleanField(formData, "due_date", 10) || null,
+        reason: cleanOptionalField(formData, "reason", 700),
+        created_by: user.id,
+        updated_by: user.id,
+      },
+      {
+        onConflict: "franchise_root_tenant_id,franchisee_tenant_id,metric_key",
+      },
+    )
+    .select("id")
+    .single();
+
+  if (error || !target) {
+    redirectWith(returnTo, "error", error?.message.slice(0, 200) ?? "target_save_failed");
+  }
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.benchmark_target_upserted",
+    targetType: "franchise_benchmark_target",
+    targetId: target.id,
+    payload: {
+      franchisee_tenant_id: franchisee.id,
+      metric_key: metricKey,
+      target_value: targetValue,
+      unit,
+    },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_target_saved");
 }
 
 export async function routeFranchiseLead(formData: FormData) {

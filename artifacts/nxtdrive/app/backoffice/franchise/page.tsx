@@ -7,6 +7,7 @@ import {
   Network,
   ShieldCheck,
   Sparkles,
+  Target,
   TrendingUp,
 } from "lucide-react";
 
@@ -41,10 +42,17 @@ import {
   type FranchiseControlStatus,
 } from "@/lib/franchise/admin";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { loadFranchiseBenchmarkActionsForRoot } from "@/lib/franchise/benchmark-actions";
+import {
+  buildCommandFlowItems,
+  loadFranchiseBenchmarkTargets,
+  loadFranchiseTemplateRolloutBatches,
+} from "@/lib/franchise/command-center";
 import { loadFranchiseGovernanceOverview } from "@/lib/franchise/governance";
 import { loadFranchiseOverview } from "@/lib/franchise/overview";
 import { loadFranchisePerformanceOverview } from "@/lib/franchise/performance";
 import { loadFranchisePlanningOverview } from "@/lib/franchise/planning";
+import { loadFranchiseDelegations } from "@/lib/franchise/steering";
 import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 import { PLAN_LABELS } from "@/lib/platform/features";
 
@@ -57,28 +65,77 @@ function controlTone(status: FranchiseControlStatus): FranchiseTone {
   return "readonly";
 }
 
+function formatTargetValue(value: number | null, unit: string) {
+  if (value === null) return "-";
+  if (unit === "euro_cents") return formatEuro(value);
+  if (unit === "percent") return formatPercent(value);
+  return `${value}`;
+}
+
+function rolloutModeLabel(mode: string) {
+  if (mode === "dry_run") return "Dry-run";
+  if (mode === "apply") return "Toegepast";
+  if (mode === "rollback") return "Rollback";
+  return mode;
+}
+
 export default async function FranchiseDashboardPage() {
   const { tenant, entitlementSnapshot, franchiseAccess, readOnlyDowngrade } =
     await requireFranchiseOperator();
 
-  let data: [
-    Awaited<ReturnType<typeof loadFranchiseOverview>>,
-    Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>,
-    Awaited<ReturnType<typeof loadFranchisePlanningOverview>>,
-    Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>,
-    Awaited<ReturnType<typeof loadFranchiseTemplates>>,
-    Awaited<ReturnType<typeof loadFranchiseAuditEvents>>,
-  ] | null = null;
+  let data: {
+    overview: Awaited<ReturnType<typeof loadFranchiseOverview>>;
+    performance: Awaited<ReturnType<typeof loadFranchisePerformanceOverview>>;
+    planning: Awaited<ReturnType<typeof loadFranchisePlanningOverview>>;
+    governance: Awaited<ReturnType<typeof loadFranchiseGovernanceOverview>>;
+    templates: Awaited<ReturnType<typeof loadFranchiseTemplates>>;
+    auditEvents: Awaited<ReturnType<typeof loadFranchiseAuditEvents>>;
+    commandItems: ReturnType<typeof buildCommandFlowItems>;
+    benchmarkTargets: Awaited<ReturnType<typeof loadFranchiseBenchmarkTargets>>;
+    rolloutBatches: Awaited<ReturnType<typeof loadFranchiseTemplateRolloutBatches>>;
+  } | null = null;
 
   try {
-    data = await Promise.all([
+    const [
+      overview,
+      performance,
+      planning,
+      governance,
+      templates,
+      auditEvents,
+      benchmarkActions,
+      delegations,
+      rolloutBatches,
+    ] = await Promise.all([
       loadFranchiseOverview(tenant.id),
       loadFranchisePerformanceOverview(tenant.id),
       loadFranchisePlanningOverview(tenant.id),
       loadFranchiseGovernanceOverview(tenant.id),
       loadFranchiseTemplates(tenant.id),
       loadFranchiseAuditEvents(tenant.id),
+      loadFranchiseBenchmarkActionsForRoot(tenant.id),
+      loadFranchiseDelegations(tenant.id),
+      loadFranchiseTemplateRolloutBatches(tenant.id),
     ]);
+    const benchmarkTargets = await loadFranchiseBenchmarkTargets(
+      tenant.id,
+      performance,
+    );
+    data = {
+      overview,
+      performance,
+      planning,
+      governance,
+      templates,
+      auditEvents,
+      commandItems: buildCommandFlowItems({
+        performance,
+        benchmarkActions,
+        delegations,
+      }),
+      benchmarkTargets,
+      rolloutBatches,
+    };
   } catch (error) {
     console.error("[franchise] cockpit load failed", error);
   }
@@ -92,7 +149,17 @@ export default async function FranchiseDashboardPage() {
     );
   }
 
-  const [overview, performance, planning, governance, templates, auditEvents] = data;
+  const {
+    overview,
+    performance,
+    planning,
+    governance,
+    templates,
+    auditEvents,
+    commandItems,
+    benchmarkTargets,
+    rolloutBatches,
+  } = data;
   const controlCards = buildFranchiseControlCards({
     governance,
     templates,
@@ -204,6 +271,163 @@ export default async function FranchiseDashboardPage() {
           tone={performance.network.high_priority_count > 0 ? "danger" : "success"}
           href="/backoffice/franchise/aandacht"
         />
+      </section>
+
+      <section className="grid gap-4 2xl:grid-cols-[1fr_0.42fr]">
+        <FranchisePanel
+          title="Command center"
+          description="Vaste flow: signaal -> actie -> eigenaar -> status -> audit."
+          actionHref="/backoffice/franchise/aandacht"
+          actionLabel="Stuur signalen"
+          contentClassName="p-0"
+        >
+          {commandItems.length === 0 ? (
+            <div className="p-4">
+              <FranchiseEmptyState
+                icon={ShieldCheck}
+                title="Geen actieve command-signalen"
+                description="Het netwerk heeft nu geen signalen die centrale sturing vragen."
+              />
+            </div>
+          ) : (
+            <FranchiseMiniTable
+              columns={["Signaal", "Actie", "Eigenaar", "Status", "Audit"]}
+              minWidth="920px"
+            >
+              {commandItems.slice(0, 7).map((item) => (
+                <tr key={item.id}>
+                  <FranchiseTableCell>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-foreground">{item.signal}</p>
+                        <FranchiseStatusBadge tone={item.priority_tone}>
+                          {item.delegation_ready ? "delegatie klaar" : "delegatie nodig"}
+                        </FranchiseStatusBadge>
+                      </div>
+                      <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {item.signal_detail}
+                      </p>
+                    </div>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <p className="line-clamp-2 text-sm font-bold text-foreground">
+                      {item.action}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-primary">
+                      {item.suggested_delegation.label}
+                    </p>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <p className="font-black text-foreground">{item.owner}</p>
+                    <p className="text-xs text-muted-foreground">Lokale franchisee</p>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <FranchiseStatusBadge tone={item.status_tone}>
+                      {item.status_label}
+                    </FranchiseStatusBadge>
+                  </FranchiseTableCell>
+                  <FranchiseTableCell>
+                    <p className="max-w-[220px] truncate text-sm font-bold text-foreground">
+                      {item.audit_label}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.audit_at ? formatDateTime(item.audit_at) : "Nog geen audit"}
+                    </p>
+                  </FranchiseTableCell>
+                </tr>
+              ))}
+            </FranchiseMiniTable>
+          )}
+        </FranchisePanel>
+
+        <div className="space-y-4">
+          <FranchisePanel
+            title="Benchmark targets"
+            description="Doelwaarde per franchisee, gemonitord tegen actuele data."
+            actionHref="/backoffice/franchise/aandacht"
+            actionLabel="Targets"
+          >
+            <div className="space-y-3">
+              {benchmarkTargets.length === 0 ? (
+                <FranchiseEmptyState
+                  icon={Target}
+                  title="Nog geen targets"
+                  description="Stel per franchisee een doelwaarde in vanuit Aandacht."
+                />
+              ) : (
+                benchmarkTargets.slice(0, 4).map((target) => (
+                  <div
+                    key={target.id}
+                    className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-foreground">
+                          {target.franchisee_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {target.metric_label}: {formatTargetValue(target.current_value, target.unit)} / {formatTargetValue(target.target_value, target.unit)}
+                        </p>
+                      </div>
+                      <FranchiseStatusBadge tone={target.tone}>
+                        {target.status_label}
+                      </FranchiseStatusBadge>
+                    </div>
+                    <div className="mt-3">
+                      <FranchiseProgressBar
+                        value={target.progress}
+                        tone={target.tone}
+                        label={target.progress === null ? "-" : `${target.progress}%`}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </FranchisePanel>
+
+          <FranchisePanel
+            title="Template rollouts"
+            description="Dry-runs, batches en rollbacklog."
+            actionHref="/backoffice/franchise/templates"
+            actionLabel="Templates"
+          >
+            <div className="space-y-3">
+              {rolloutBatches.length === 0 ? (
+                <FranchiseEmptyState
+                  title="Nog geen rollout batches"
+                  description="Start een dry-run vanaf Templates voordat je franchisebreed toepast."
+                />
+              ) : (
+                rolloutBatches.slice(0, 3).map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-foreground">
+                          {batch.template_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {rolloutModeLabel(batch.mode)} - {batch.items.length} franchisees
+                        </p>
+                      </div>
+                      <FranchiseStatusBadge
+                        tone={batch.status === "completed" ? "success" : batch.status === "failed" ? "danger" : "info"}
+                      >
+                        {batch.status}
+                      </FranchiseStatusBadge>
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-muted-foreground">
+                      Rollbackregels: {batch.rollback_log.length}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </FranchisePanel>
+        </div>
       </section>
 
       <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr_0.95fr]">

@@ -1,8 +1,16 @@
-import { BookOpenCheck, Package, Send, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  BookOpenCheck,
+  Package,
+  Rocket,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 
 import { FranchiseDowngradeAlert } from "@/components/backoffice/franchise-downgrade-alert";
 import {
   FranchiseActionLink,
+  FranchiseEmptyState,
   FranchiseKpiCard,
   FranchiseModeBadge,
   FranchisePage,
@@ -17,10 +25,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   applyFranchiseTemplateToFranchisee,
   createFranchiseTemplate,
+  createFranchiseTemplateRolloutBatch,
   pushTemplateToFranchisee,
   updateFranchiseTemplate,
 } from "@/lib/franchise/actions";
 import { requireFranchiseOperator } from "@/lib/franchise/access";
+import { loadFranchiseTemplateRolloutBatches } from "@/lib/franchise/command-center";
 import { loadFranchiseDelegations } from "@/lib/franchise/steering";
 import { loadFranchiseTemplates } from "@/lib/franchise/templates";
 import { PLAN_LABELS } from "@/lib/platform/features";
@@ -50,7 +60,8 @@ export default async function FranchiseTemplatesPage({
   ]);
 
   const service = createServiceRoleClient();
-  const [{ data: franchisees }, templates, delegations] = await Promise.all([
+  const [{ data: franchisees }, templates, delegations, rolloutBatches] =
+    await Promise.all([
     service
       .from("tenants")
       .select("id, name, slug")
@@ -58,6 +69,7 @@ export default async function FranchiseTemplatesPage({
       .order("name"),
     loadFranchiseTemplates(tenant.id),
     loadFranchiseDelegations(tenant.id),
+    loadFranchiseTemplateRolloutBatches(tenant.id),
   ]);
 
   const activeTemplates = templates.filter((template) => template.is_active);
@@ -278,6 +290,61 @@ export default async function FranchiseTemplatesPage({
                         </Button>
                       </form>
                     ) : null}
+
+                    {template.is_active ? (
+                      <div className="mt-3 rounded-xl border border-primary/15 bg-brand-accent px-3 py-3">
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary">
+                            <Rocket className="h-4 w-4" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-black text-foreground">
+                              Batch rollout
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              Dry-run controleert alle gedelegeerde franchisees. Toepassen schrijft per franchisee een auditbaar batch-item en rollbackreferentie.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <form action={createFranchiseTemplateRolloutBatch}>
+                            <input
+                              type="hidden"
+                              name="return_to"
+                              value="/backoffice/franchise/templates"
+                            />
+                            <input type="hidden" name="template_id" value={template.id} />
+                            <input type="hidden" name="mode" value="dry_run" />
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              disabled={controlsDisabled}
+                            >
+                              Dry-run
+                            </Button>
+                          </form>
+                          <form action={createFranchiseTemplateRolloutBatch}>
+                            <input
+                              type="hidden"
+                              name="return_to"
+                              value="/backoffice/franchise/templates"
+                            />
+                            <input type="hidden" name="template_id" value={template.id} />
+                            <input type="hidden" name="mode" value="apply" />
+                            <Button
+                              type="submit"
+                              size="sm"
+                              className="w-full"
+                              disabled={controlsDisabled}
+                            >
+                              Toepassen op gedelegeerden
+                            </Button>
+                          </form>
+                        </div>
+                      </div>
+                    ) : null}
                   </article>
                 );
               })
@@ -351,6 +418,54 @@ export default async function FranchiseTemplatesPage({
                 Template aanmaken
               </Button>
             </form>
+          </FranchisePanel>
+
+          <FranchisePanel
+            title="Rollout batches"
+            description="Dry-run, apply en rollbacklog."
+          >
+            <div className="space-y-3">
+              {rolloutBatches.length === 0 ? (
+                <FranchiseEmptyState
+                  title="Geen batches"
+                  description="Start een dry-run bij een actief template."
+                />
+              ) : (
+                rolloutBatches.slice(0, 6).map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-foreground">
+                          {batch.template_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {batch.mode === "dry_run" ? "Dry-run" : "Apply"} - {batch.items.length} items
+                        </p>
+                      </div>
+                      <FranchiseStatusBadge
+                        tone={batch.status === "completed" ? "success" : batch.status === "failed" ? "danger" : "info"}
+                      >
+                        {batch.status}
+                      </FranchiseStatusBadge>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-black text-muted-foreground">
+                      <span className="rounded-lg bg-brand-muted px-2 py-2">
+                        {String(batch.summary.applied ?? 0)} toegepast
+                      </span>
+                      <span className="rounded-lg bg-brand-muted px-2 py-2">
+                        {String(batch.summary.skipped ?? 0)} overgeslagen
+                      </span>
+                      <span className="rounded-lg bg-brand-muted px-2 py-2">
+                        {batch.rollback_log.length} rollback
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </FranchisePanel>
 
           <FranchisePanel title="Playbook regels" description="Veilige template-uitrol.">
