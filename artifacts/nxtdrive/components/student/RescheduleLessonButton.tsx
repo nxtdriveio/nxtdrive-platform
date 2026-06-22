@@ -20,11 +20,13 @@ export function RescheduleLessonButton({
   currentStartsAt,
   canReschedule,
   minNoticeHours,
+  blockedReason,
 }: {
   lessonId: string;
   currentStartsAt: string;
   canReschedule: boolean;
   minNoticeHours: number;
+  blockedReason?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -40,7 +42,7 @@ export function RescheduleLessonButton({
       <StudentShowcaseNotice
         tone="success"
         title="Je les is verzet"
-        description="Je nieuwe moment is opgeslagen en je planning is bijgewerkt."
+        description="Je nieuwe moment is opgeslagen. Het oude moment kan nu door je rijschool worden herbezet."
         icon={<CheckCircle2 className="h-5 w-5" aria-hidden />}
       />
     );
@@ -80,7 +82,10 @@ export function RescheduleLessonButton({
       <StudentShowcaseNotice
         tone="warning"
         title="Zelf verzetten niet meer mogelijk"
-        description={`Een les verzetten kan tot uiterlijk ${minNoticeHours} uur van tevoren. Neem contact op met je rijschool als je deze les wilt verzetten.`}
+        description={
+          blockedReason ??
+          `Een les verzetten kan tot uiterlijk ${minNoticeHours} uur van tevoren. Neem contact op met je rijschool als je deze les wilt verzetten.`
+        }
         icon={<AlertTriangle className="h-5 w-5" aria-hidden />}
       />
     );
@@ -104,7 +109,7 @@ export function RescheduleLessonButton({
     <StudentShowcaseNotice
       tone="info"
       title="Kies een nieuw moment voor deze les"
-      description="Je tegoed blijft behouden en je houdt dezelfde instructeur en lesduur."
+      description="Je tegoed blijft behouden en je houdt dezelfde instructeur en lesduur. Het oude moment komt vrij voor herbezetting zodra de verplaatsing lukt."
       icon={<CalendarClock className="h-5 w-5" aria-hidden />}
     >
       <label className="block space-y-1">

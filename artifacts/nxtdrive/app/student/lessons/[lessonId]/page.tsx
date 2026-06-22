@@ -25,16 +25,16 @@ import { RescheduleLessonButton } from "@/components/student/RescheduleLessonBut
 import {
   StudentShowcaseCard,
   StudentShowcaseEmptyState,
+  StudentShowcaseNotice,
 } from "@/components/student/Showcase";
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import {
   loadStudentRisLessonCardDetail,
   RIS_REFLECTION_RATING_LABELS,
 } from "@/lib/ris/data";
-import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
+import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
 import {
   VEHICLE_TRANSMISSION_LABEL,
-  refundPctForHours,
   type Lesson,
 } from "@/lib/lessons/types";
 
@@ -86,25 +86,11 @@ export default async function StudentLessonDetailPage({
       ] as const)
     : [];
 
-  // Student self-cancellation: only for a planned, future lesson. Refund preview
-  // mirrors the tenant policy tier the student_cancel_lesson RPC will apply, and
-  // canCancel reflects the configurable min-notice window (0 = no minimum).
-  const hoursBefore = Math.max(
-    0,
-    (new Date(lesson.starts_at).getTime() - Date.now()) / 3_600_000,
+  const selfService = await loadLessonSelfServicePreview(
+    supabase,
+    tenant.id,
+    lesson,
   );
-  const isCancellable = lesson.status === "planned" && hoursBefore > 0;
-  const policy = isCancellable
-    ? await loadCancellationPolicy(supabase, tenant.id)
-    : null;
-  const refundPct = policy ? refundPctForHours(policy, hoursBefore) : 0;
-  const refundCredits = Math.max(
-    0,
-    Math.min(lesson.credits_cost, Math.round((lesson.credits_cost * refundPct) / 100)),
-  );
-  const canCancel = isCancellable
-    ? hoursBefore >= (policy?.min_notice_hours ?? 0)
-    : false;
 
   // Prev/next lesson in this student's chronological lesson list.
   const [prevRes, nextRes] = await Promise.all([
@@ -393,23 +379,31 @@ export default async function StudentLessonDetailPage({
         </StudentShowcaseCard>
       ) : null}
 
-      {isCancellable ? (
+      {selfService.isFuturePlanned ? (
         <>
           <RescheduleLessonButton
             lessonId={lesson.id}
             currentStartsAt={lesson.starts_at}
-            canReschedule={canCancel}
-            minNoticeHours={policy?.min_notice_hours ?? 0}
+            canReschedule={selfService.canReschedule}
+            minNoticeHours={selfService.minNoticeHours}
+            blockedReason={selfService.rescheduleBlockedReason}
           />
           <CancelLessonButton
             lessonId={lesson.id}
             lessonCredits={lesson.credits_cost}
-            refundCredits={refundCredits}
-            refundPct={refundPct}
-            canCancel={canCancel}
-            minNoticeHours={policy?.min_notice_hours ?? 0}
+            refundCredits={selfService.refundCredits}
+            refundPct={selfService.refundPct}
+            canCancel={selfService.canCancel}
+            minNoticeHours={selfService.minNoticeHours}
+            blockedReason={selfService.cancelBlockedReason}
           />
         </>
+      ) : lesson.status === "planned" ? (
+        <StudentShowcaseNotice
+          tone="warning"
+          title="Deze les kan niet meer zelf gewijzigd worden"
+          description="De starttijd is bereikt of verstreken. Neem contact op met je rijschool als er nog iets moet worden aangepast."
+        />
       ) : null}
 
       <LessonNavFooter

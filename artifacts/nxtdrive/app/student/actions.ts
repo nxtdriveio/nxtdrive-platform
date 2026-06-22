@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import {
-  loadCancellationPolicy,
-  DEFAULT_CANCELLATION_POLICY,
-} from "@/lib/lessons/cancellation-policy";
+import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
 import {
   getPlanningPreview,
   loadPlanningKernelData,
@@ -54,30 +51,14 @@ export async function cancelLesson(
   if (loadErr) return { error: loadErr.message };
   const lesson = lessonRaw as Lesson | null;
   if (!lesson) return { error: "Les niet gevonden." };
-  if (lesson.status !== "planned") {
-    return { error: "Deze les kan niet meer geannuleerd worden." };
-  }
-
-  const startsAt = new Date(lesson.starts_at).getTime();
-  // Future-only invariant: a lesson at/after its start time can never be
-  // self-cancelled, independent of the policy (incl. min_notice_hours = 0).
-  // The RPC enforces the same guard as the source of truth.
-  if (startsAt <= Date.now()) {
+  const preview = await loadLessonSelfServicePreview(service, tenant.id, lesson);
+  if (!preview.canCancel) {
     return {
       error:
-        "Deze les is al begonnen of voorbij en kan niet meer geannuleerd worden.",
+        preview.cancelBlockedReason ??
+        "Deze les kan niet meer geannuleerd worden.",
     };
   }
-  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
-  const policy = await loadCancellationPolicy(service, tenant.id);
-  const minNotice =
-    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
-  if (minNotice > 0 && hoursBefore < minNotice) {
-    return {
-      error: `Je kunt deze les niet meer zelf annuleren — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
-    };
-  }
-
   const { data: refunded, error } = await service.rpc("student_cancel_lesson", {
     p_lesson_id: lessonId,
     p_tenant_id: tenant.id,
@@ -85,6 +66,11 @@ export async function cancelLesson(
     p_reason: reason || "Geannuleerd door leerling",
   });
   if (error) return { error: error.message };
+
+  const { notifyLessonCancelled } = await import(
+    "@/lib/notifications/dispatch"
+  );
+  await notifyLessonCancelled(service, tenant.id, lessonId);
 
   revalidatePath("/student", "layout");
   return { refundedCredits: typeof refunded === "number" ? refunded : 0 };
@@ -135,26 +121,12 @@ export async function rescheduleLesson(
   if (loadErr) return { error: loadErr.message };
   const lesson = lessonRaw as Lesson | null;
   if (!lesson) return { error: "Les niet gevonden." };
-  if (lesson.status !== "planned") {
-    return { error: "Deze les kan niet meer verzet worden." };
-  }
-
-  const startsAt = new Date(lesson.starts_at).getTime();
-  // Future-only invariant on the original lesson: a lesson at/after its start
-  // time can never be self-rescheduled. The RPC enforces the same guard.
-  if (startsAt <= Date.now()) {
+  const preview = await loadLessonSelfServicePreview(service, tenant.id, lesson);
+  if (!preview.canReschedule) {
     return {
       error:
-        "Deze les is al begonnen of voorbij en kan niet meer verzet worden.",
-    };
-  }
-  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
-  const policy = await loadCancellationPolicy(service, tenant.id);
-  const minNotice =
-    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
-  if (minNotice > 0 && hoursBefore < minNotice) {
-    return {
-      error: `Je kunt deze les niet meer zelf verzetten — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
+        preview.rescheduleBlockedReason ??
+        "Deze les kan niet meer verzet worden.",
     };
   }
 

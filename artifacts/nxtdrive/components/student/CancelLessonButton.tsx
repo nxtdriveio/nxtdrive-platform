@@ -17,6 +17,7 @@ export function CancelLessonButton({
   refundPct,
   canCancel,
   minNoticeHours,
+  blockedReason,
 }: {
   lessonId: string;
   lessonCredits: number;
@@ -24,6 +25,7 @@ export function CancelLessonButton({
   refundPct: number;
   canCancel: boolean;
   minNoticeHours: number;
+  blockedReason?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -37,7 +39,7 @@ export function CancelLessonButton({
       <StudentShowcaseNotice
         tone="success"
         title="Je les is geannuleerd"
-        description="Je planning is bijgewerkt. Eventueel tegoed wordt automatisch verwerkt."
+        description="Je planning is bijgewerkt. Het vrijgekomen moment kan nu door je rijschool worden herbezet."
         icon={<CheckCircle2 className="h-5 w-5" aria-hidden />}
       />
     );
@@ -64,7 +66,10 @@ export function CancelLessonButton({
       <StudentShowcaseNotice
         tone="warning"
         title="Zelf annuleren niet meer mogelijk"
-        description={`Een les afzeggen kan tot uiterlijk ${minNoticeHours} uur van tevoren. Neem contact op met je rijschool als je deze les wilt annuleren.`}
+        description={
+          blockedReason ??
+          `Een les afzeggen kan tot uiterlijk ${minNoticeHours} uur van tevoren. Neem contact op met je rijschool als je deze les wilt annuleren.`
+        }
         icon={<AlertTriangle className="h-5 w-5" aria-hidden />}
       />
     );
@@ -90,8 +95,8 @@ export function CancelLessonButton({
       title="Weet je zeker dat je deze les wilt annuleren?"
       description={
         refundCredits > 0
-          ? `Je krijgt ${formatTegoed(refundCredits)} tegoed terug (${refundPct}% van ${formatTegoed(lessonCredits)}).`
-          : `Bij dit moment krijg je geen tegoed terug van de ${formatTegoed(lessonCredits)} voor deze les.`
+          ? `Je krijgt ${formatTegoed(refundCredits)} tegoed terug (${refundPct}% van ${formatTegoed(lessonCredits)}). Het oude moment komt vrij voor herbezetting.`
+          : `Bij dit moment krijg je geen tegoed terug van de ${formatTegoed(lessonCredits)} voor deze les. Het oude moment komt wel vrij voor herbezetting.`
       }
       icon={<CalendarX className="h-5 w-5" aria-hidden />}
     >
