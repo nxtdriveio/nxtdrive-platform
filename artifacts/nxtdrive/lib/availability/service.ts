@@ -8,6 +8,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   computeDayFreeSpace,
   computeFreeIntervals,
+  dateKeysInRange,
   dateKey,
   weekdayForDateKey,
 } from "@/lib/availability/compute";
@@ -145,7 +146,12 @@ export async function loadExceptions(
   supabase: ServerSupabase,
   tenantId: string,
   instructorId: string,
-  opts?: { from?: Date; to?: Date; branchId?: string | null },
+  opts?: {
+    from?: Date;
+    to?: Date;
+    branchId?: string | null;
+    timeZone?: string | null;
+  },
 ): Promise<AvailabilityException[]> {
   let query = supabase
     .from("instructor_availability_exception")
@@ -158,8 +164,12 @@ export async function loadExceptions(
     opts?.branchId === undefined || opts.branchId === null
       ? query.is("branch_id", null)
       : query.eq("branch_id", opts.branchId);
-  if (opts?.from) query = query.gte("exception_date", dateKey(opts.from));
-  if (opts?.to) query = query.lte("exception_date", dateKey(opts.to));
+  if (opts?.from) {
+    query = query.gte("exception_date", dateKey(opts.from, opts.timeZone));
+  }
+  if (opts?.to) {
+    query = query.lte("exception_date", dateKey(opts.to, opts.timeZone));
+  }
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as AvailabilityException[];
@@ -168,7 +178,7 @@ export async function loadExceptions(
 export function resolveAvailabilityDays(
   weekly: readonly WeeklyAvailability[],
   exceptions: readonly AvailabilityException[],
-  opts: { from: Date; days: number },
+  opts: { from: Date; days: number; timeZone?: string | null },
 ): ResolvedAvailabilityDay[] {
   const exceptionsByDate = new Map<string, AvailabilityException[]>();
   for (const exception of exceptions) {
@@ -178,12 +188,12 @@ export function resolveAvailabilityDays(
   }
 
   const result: ResolvedAvailabilityDay[] = [];
-  for (let index = 0; index < opts.days; index++) {
-    const day = new Date(opts.from);
-    day.setHours(0, 0, 0, 0);
-    day.setDate(day.getDate() + index);
-
-    const key = dateKey(day);
+  const keys = dateKeysInRange(
+    opts.from,
+    new Date(opts.from.getTime() + opts.days * 24 * 60 * 60 * 1000),
+    opts.timeZone,
+  ).slice(0, opts.days);
+  for (const key of keys) {
     const weekday = weekdayForDateKey(key);
     const weeklyBlocks = weekly
       .filter((block) => block.weekday === weekday)
@@ -207,7 +217,7 @@ export function resolveAvailabilityDays(
 
     result.push({
       date: key,
-      dayLabel: `${WEEKDAY_SHORT[weekday]} ${day.getDate()}/${day.getMonth() + 1}`,
+      dayLabel: `${WEEKDAY_SHORT[weekday]} ${Number(key.slice(8, 10))}/${Number(key.slice(5, 7))}`,
       active: intervals.length > 0,
       status: intervals.length > 0 ? (hasExceptions ? "adjusted" : "open") : "closed",
       sourceLabel,
@@ -252,10 +262,11 @@ export async function loadFreeSpaceForRange(
     instructorId?: string;
     instructorIds?: readonly string[];
     branchIds?: readonly string[] | null;
+    timeZone?: string | null;
   },
 ): Promise<Map<string, Interval[]>> {
-  const fromKey = dateKey(opts.from);
-  const toKey = dateKey(opts.to);
+  const fromKey = dateKey(opts.from, opts.timeZone);
+  const toKey = dateKey(opts.to, opts.timeZone);
   const instructorIds = opts.instructorId
     ? [opts.instructorId]
     : opts.instructorIds
@@ -322,12 +333,7 @@ export async function loadFreeSpaceForRange(
   }
 
   const result = new Map<string, Interval[]>();
-  for (
-    let d = new Date(opts.from);
-    d < opts.to;
-    d.setDate(d.getDate() + 1)
-  ) {
-    const key = dateKey(d);
+  for (const key of dateKeysInRange(opts.from, opts.to, opts.timeZone)) {
     const free = computeDayFreeSpace(
       key,
       weeklyByInstructor,

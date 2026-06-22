@@ -12,23 +12,35 @@ import {
   type Lesson,
 } from "@/lib/lessons/types";
 import type { Student } from "@/lib/students/types";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dtFmt = new Intl.DateTimeFormat("nl-NL", {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createRefillFormatters(timeZone: string) {
+  return {
+    dtFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+    timeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 export default async function HerbezettenPage() {
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
+  const { dtFmt, timeFmt } = createRefillFormatters(resolveTenantTimeZone(tenant));
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
 

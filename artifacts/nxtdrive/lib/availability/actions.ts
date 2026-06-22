@@ -14,6 +14,7 @@ import {
 } from "@/lib/availability/types";
 import type { ActiveOrganizationContext } from "@/lib/organization/context";
 import type { MemberRole } from "@/lib/types";
+import { addDaysYmd } from "@/lib/datetime";
 
 // Allowed pages an action may redirect back to (prevents open-redirect abuse).
 function safeRedirect(value: FormDataEntryValue | null): string {
@@ -311,19 +312,17 @@ function parseHHMM(value: FormDataEntryValue | null): number | null {
 }
 
 function isDateKey(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-function toDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 function buildExceptionDates(
@@ -341,18 +340,16 @@ function buildExceptionDates(
   }
   if (!isDateKey(repeatUntil)) return [];
 
-  const start = new Date(`${startDate}T00:00:00Z`);
-  const until = new Date(`${repeatUntil}T00:00:00Z`);
-  if (until < start) return [];
+  if (repeatUntil < startDate) return [];
 
   const maxItems = 180;
   const result: string[] = [];
-  for (let cursor = start; cursor <= until && result.length < maxItems;) {
-    const weekday = cursor.getUTCDay();
+  for (let cursor = startDate; cursor <= repeatUntil && result.length < maxItems;) {
+    const weekday = new Date(`${cursor}T00:00:00Z`).getUTCDay();
     if (repeatMode !== "weekdays" || (weekday !== 0 && weekday !== 6)) {
-      result.push(toDateKey(cursor));
+      result.push(cursor);
     }
-    cursor = addUtcDays(cursor, repeatMode === "weekly" ? 7 : 1);
+    cursor = addDaysYmd(cursor, repeatMode === "weekly" ? 7 : 1);
   }
   return result;
 }

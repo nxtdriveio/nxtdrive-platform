@@ -26,6 +26,7 @@ export type Tenant = {
   name: string;
   plan: TenantPlan;
   white_label_enabled: boolean;
+  timezone?: string | null;
   org_type?: OrgType;
   parent_tenant_id?: string | null;
 };

@@ -9,9 +9,10 @@ import { loadTenantInstructors } from "@/lib/availability/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
 import {
   addDaysYmd,
-  amsterdamYmd,
-  amsterdamWeekdayIndex,
-  startOfAmsterdamDayUtc,
+  resolveTenantTimeZone,
+  startOfZonedDayUtc,
+  zonedWeekdayIndex,
+  zonedYmd,
 } from "@/lib/datetime";
 import {
   loadPlanningQueueItems,
@@ -63,30 +64,31 @@ type AvailabilityExceptionRow = {
   note: string | null;
 };
 
-function cleanYmd(value: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : amsterdamYmd(new Date());
+function cleanYmd(value: string, timeZone: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : zonedYmd(new Date(), timeZone);
 }
 
-function startOfWeekYmd(value: string): string {
-  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(value));
+function startOfWeekYmd(value: string, timeZone: string): string {
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(value, timeZone), timeZone);
   return addDaysYmd(value, -weekday);
 }
 
 function rangeFor(
   date: string,
   view: PlanningBoardView,
+  timeZone: string,
 ): { from: Date; to: Date } {
-  const anchor = cleanYmd(date);
-  const fromYmd = view === "week" ? startOfWeekYmd(anchor) : anchor;
+  const anchor = cleanYmd(date, timeZone);
+  const fromYmd = view === "week" ? startOfWeekYmd(anchor, timeZone) : anchor;
   const toYmd = addDaysYmd(fromYmd, view === "week" ? 7 : 1);
-  const from = startOfAmsterdamDayUtc(fromYmd);
-  const to = startOfAmsterdamDayUtc(toYmd);
+  const from = startOfZonedDayUtc(fromYmd, timeZone);
+  const to = startOfZonedDayUtc(toYmd, timeZone);
   return { from, to };
 }
 
-function daysBetween(from: Date, to: Date): string[] {
+function daysBetween(from: Date, to: Date, timeZone: string): string[] {
   const days: string[] = [];
-  for (let day = amsterdamYmd(from); startOfAmsterdamDayUtc(day) < to; ) {
+  for (let day = zonedYmd(from, timeZone); startOfZonedDayUtc(day, timeZone) < to; ) {
     days.push(day);
     day = addDaysYmd(day, 1);
   }
@@ -381,6 +383,7 @@ async function loadAvailabilityBlocks(
   instructorIds: readonly string[],
   from: Date,
   to: Date,
+  timeZone: string,
 ): Promise<PlanningBoardAvailability[]> {
   if (instructorIds.length === 0) return [];
   const [rules, exceptions] = await Promise.all([
@@ -396,8 +399,8 @@ async function loadAvailabilityBlocks(
       )
       .eq("tenant_id", tenantId)
       .in("instructor_id", [...instructorIds])
-      .gte("exception_date", amsterdamYmd(from))
-      .lt("exception_date", amsterdamYmd(to)),
+      .gte("exception_date", zonedYmd(from, timeZone))
+      .lt("exception_date", zonedYmd(to, timeZone)),
   ]);
 
   const ruleBlocks = ((rules.data ?? []) as AvailabilityRuleRow[]).map(
@@ -435,7 +438,8 @@ export async function loadPlanningBoardData(
   branchScope: BranchAccessScope,
   filters: PlanningBoardFilters,
 ): Promise<PlanningBoardData> {
-  const { from, to } = rangeFor(filters.date, filters.view);
+  const timeZone = resolveTenantTimeZone(context.organization);
+  const { from, to } = rangeFor(filters.date, filters.view, timeZone);
   const branchFilterIds =
     branchScope.scope_type === "branches" ? branchScope.branch_ids : null;
   const tenantId = context.organization.id;
@@ -545,16 +549,17 @@ export async function loadPlanningBoardData(
   const instructorIds = instructors.map((instructor) => instructor.id);
   const [events, availability] = await Promise.all([
     loadEvents(client, tenantId, branchScope, filters, instructorIds, from, to),
-    loadAvailabilityBlocks(client, tenantId, instructorIds, from, to),
+    loadAvailabilityBlocks(client, tenantId, instructorIds, from, to, timeZone),
   ]);
 
   return {
     tenantId,
+    timeZone,
     filters,
     rangeStart: from.toISOString(),
     rangeEnd: to.toISOString(),
     defaultVehicleId: filters.vehicleId ?? null,
-    days: daysBetween(from, to),
+    days: daysBetween(from, to, timeZone),
     instructors,
     events,
     queueItems: filteredQueue,

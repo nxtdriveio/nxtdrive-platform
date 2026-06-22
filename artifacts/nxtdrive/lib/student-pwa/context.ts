@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { getActiveStudent } from "@/lib/students/access";
+import { resolveTenantTimeZone } from "@/lib/datetime";
 import { getStudentExperience } from "./service";
 
 export async function getStudentPwaContext() {
@@ -25,6 +26,7 @@ export async function getStudentPwaContext() {
     phone: student?.phone,
     tenantId: tenant.id,
     studentId: student?.id,
+    timeZone: resolveTenantTimeZone(tenant),
   });
 
   return {

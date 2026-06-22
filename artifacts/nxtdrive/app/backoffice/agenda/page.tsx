@@ -33,7 +33,14 @@ import {
   loadAgendaAppointments,
   type AgendaAppointmentView,
 } from "@/lib/agenda/appointments";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
+import {
+  addDaysYmd,
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+  startOfZonedDayUtc,
+  zonedWeekdayIndex,
+  zonedYmd,
+} from "@/lib/datetime";
 import { TrialLessonCard } from "@/components/agenda/trial-lesson-card";
 import { AppointmentCard } from "@/components/agenda/appointment-card";
 import { AvailabilityBanner } from "@/components/agenda/availability-banner";
@@ -56,27 +63,43 @@ const AGENDA_BACKOFFICE_READ_ROLES = [
   "instructor",
 ] as const satisfies readonly MemberRole[];
 
-const dayFmt = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-});
-const timeFmt = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function startOfWeek(d: Date): Date {
-  const date = new Date(d);
-  date.setHours(0, 0, 0, 0);
-  const day = (date.getDay() + 6) % 7; // Monday = 0
-  date.setDate(date.getDate() - day);
-  return date;
+function createAgendaFormatters(timeZone: string) {
+  return {
+    dayFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+      },
+      timeZone,
+    ),
+    timeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
 }
 
-function agendaHref(week: Date | null, branchId: string | null): string {
+function cleanYmdParam(value: string | undefined, timeZone: string): string {
+  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (value) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return zonedYmd(parsed, timeZone);
+  }
+  return zonedYmd(new Date(), timeZone);
+}
+
+function startOfWeekYmd(ymd: string, timeZone: string): string {
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(ymd, timeZone), timeZone);
+  return addDaysYmd(ymd, -weekday);
+}
+
+function agendaHref(week: string | null, branchId: string | null): string {
   const params = new URLSearchParams();
-  if (week) params.set("week", week.toISOString());
+  if (week) params.set("week", week);
   if (branchId) params.set("branch", branchId);
   const qs = params.toString();
   return qs ? `/backoffice/agenda?${qs}` : "/backoffice/agenda";
@@ -92,16 +115,16 @@ export default async function AgendaPage({
   });
   const { organization: tenant } = context;
   const sp = await searchParams;
+  const timeZone = resolveTenantTimeZone(tenant);
+  const { dayFmt, timeFmt } = createAgendaFormatters(timeZone);
 
-  const anchor = sp.week ? new Date(sp.week) : new Date();
-  const weekStart = startOfWeek(isNaN(anchor.getTime()) ? new Date() : anchor);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 7);
-
-  const prevWeek = new Date(weekStart);
-  prevWeek.setDate(weekStart.getDate() - 7);
-  const nextWeek = new Date(weekStart);
-  nextWeek.setDate(weekStart.getDate() + 7);
+  const anchorYmd = cleanYmdParam(sp.week, timeZone);
+  const weekStartYmd = startOfWeekYmd(anchorYmd, timeZone);
+  const weekEndYmd = addDaysYmd(weekStartYmd, 7);
+  const weekStart = startOfZonedDayUtc(weekStartYmd, timeZone);
+  const weekEnd = startOfZonedDayUtc(weekEndYmd, timeZone);
+  const prevWeek = addDaysYmd(weekStartYmd, -7);
+  const nextWeek = addDaysYmd(weekStartYmd, 7);
 
   const requestedBranchId = sp.branch && sp.branch !== "" ? sp.branch : null;
 
@@ -188,6 +211,7 @@ export default async function AgendaPage({
     to: weekEnd,
     instructorIds: availabilityInstructors.map((i) => i.id),
     branchIds: branchFilterIds,
+    timeZone,
   });
 
   // Pull display names for students (RLS-scoped to this tenant).
@@ -231,16 +255,15 @@ export default async function AgendaPage({
     | { kind: "appointment"; starts_at: string; appointment: AgendaAppointmentView };
 
   const days: { date: Date; items: AgendaItem[] }[] = [];
+  const dayIndexByYmd = new Map<string, number>();
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
+    const ymd = addDaysYmd(weekStartYmd, i);
+    const d = startOfZonedDayUtc(ymd, timeZone);
+    dayIndexByYmd.set(ymd, i);
     days.push({ date: d, items: [] });
   }
   const dayIndex = (startsAt: string) =>
-    Math.floor(
-      (new Date(startsAt).getTime() - weekStart.getTime()) /
-        (1000 * 60 * 60 * 24),
-    );
+    dayIndexByYmd.get(zonedYmd(new Date(startsAt), timeZone)) ?? -1;
   for (const l of lessons) {
     const idx = dayIndex(l.starts_at);
     if (idx >= 0 && idx < 7)
@@ -265,7 +288,7 @@ export default async function AgendaPage({
   }
   const hasAgendaItems = days.some((day) => day.items.length > 0);
 
-  const currentWeekBranchHref = (branchId: string) => agendaHref(weekStart, branchId);
+  const currentWeekBranchHref = (branchId: string) => agendaHref(weekStartYmd, branchId);
 
   return (
     <div className="space-y-6">
@@ -329,7 +352,7 @@ export default async function AgendaPage({
       <BranchFilterChips
         branches={branches}
         selectedBranchId={selectedBranchId}
-        allHref={agendaHref(weekStart, null)}
+        allHref={agendaHref(weekStartYmd, null)}
         hrefForBranch={currentWeekBranchHref}
       />
       {!canManagePlanning ? (
@@ -353,7 +376,7 @@ export default async function AgendaPage({
               {dayFmt.format(day.date)}
             </div>
             <AvailabilityBanner
-              intervals={freeSpace.get(dateKey(day.date)) ?? []}
+              intervals={freeSpace.get(dateKey(day.date, timeZone)) ?? []}
             />
             {day.items.length === 0 ? (
               <div className="rounded-md border border-dashed border-border px-2 py-4 text-center text-xs text-muted-foreground">

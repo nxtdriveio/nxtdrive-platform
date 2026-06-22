@@ -19,11 +19,13 @@ import type { Student, StudentBalance } from "@/lib/students/types";
 import type { Task, TaskPriority } from "@/lib/tasks/types";
 import {
   addDaysYmd,
-  amsterdamHour,
-  amsterdamYmd,
   createNlDateTimeFormatter,
-  isSameAmsterdamDay,
-  startOfAmsterdamDayUtc,
+  DEFAULT_TENANT_TIME_ZONE,
+  isSameZonedDay,
+  resolveTenantTimeZone,
+  startOfZonedDayUtc,
+  zonedHour,
+  zonedYmd,
 } from "@/lib/datetime";
 import {
   type InstructorAppointment,
@@ -41,23 +43,39 @@ import {
 type StudentSummary = Pick<Student, "id" | "full_name" | "phone" | "postcode" | "email">;
 type DashboardTask = Pick<Task, "id" | "title" | "priority" | "due_date" | "created_at" | "updated_at">;
 
-const timeFmt = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
+type InstructorFormatters = {
+  timeZone: string;
+  timeFmt: Intl.DateTimeFormat;
+  shortDateFmt: Intl.DateTimeFormat;
+};
 
-const shortDateFmt = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
+function createInstructorFormatters(timeZone: string): InstructorFormatters {
+  return {
+    timeZone,
+    timeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+    shortDateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      },
+      timeZone,
+    ),
+  };
+}
 
 function firstName(value: string) {
   return value.trim().split(/\s+/)[0] || value;
 }
 
-function greetingFor(date: Date) {
-  const hour = amsterdamHour(date);
+function greetingFor(date: Date, timeZone = DEFAULT_TENANT_TIME_ZONE) {
+  const hour = zonedHour(date, timeZone);
   if (hour < 12) return "Goedemorgen";
   if (hour < 18) return "Goedemiddag";
   return "Goedenavond";
@@ -67,8 +85,8 @@ function capitalize(text: string) {
   return text.length > 0 ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text;
 }
 
-function dateLabel(iso: string) {
-  return capitalize(shortDateFmt.format(new Date(iso)));
+function dateLabel(iso: string, formatters: InstructorFormatters) {
+  return capitalize(formatters.shortDateFmt.format(new Date(iso)));
 }
 
 function durationLabel(startsAt: string, endsAt: string) {
@@ -106,6 +124,7 @@ function mapLesson(
   lesson: Lesson,
   studentMap: Map<string, StudentSummary>,
   vehiclesById: Map<string, Vehicle>,
+  formatters: InstructorFormatters,
 ): InstructorAppointment {
   const student = studentMap.get(lesson.student_id);
   const vehicle = lesson.vehicle_id ? vehiclesById.get(lesson.vehicle_id) : null;
@@ -114,8 +133,8 @@ function mapLesson(
     type: "lesson",
     title: "Rijles",
     studentName: student?.full_name ?? "Leerling",
-    startsAt: timeFmt.format(new Date(lesson.starts_at)),
-    endsAt: timeFmt.format(new Date(lesson.ends_at)),
+    startsAt: formatters.timeFmt.format(new Date(lesson.starts_at)),
+    endsAt: formatters.timeFmt.format(new Date(lesson.ends_at)),
     duration: durationLabel(lesson.starts_at, lesson.ends_at),
     location: lesson.location ?? student?.postcode ?? "Locatie volgt",
     vehicle: vehicleLabel(vehicle),
@@ -124,14 +143,17 @@ function mapLesson(
   };
 }
 
-function mapTrial(trial: AgendaTrialLesson): InstructorAppointment {
+function mapTrial(
+  trial: AgendaTrialLesson,
+  formatters: InstructorFormatters,
+): InstructorAppointment {
   return {
     id: trial.id,
     type: "trial",
     title: "Proefles",
     studentName: trial.lead_name,
-    startsAt: timeFmt.format(new Date(trial.starts_at)),
-    endsAt: timeFmt.format(new Date(trial.ends_at)),
+    startsAt: formatters.timeFmt.format(new Date(trial.starts_at)),
+    endsAt: formatters.timeFmt.format(new Date(trial.ends_at)),
     duration: `${trial.duration_min} min`,
     location: trial.pickup_location ?? "Ophaallocatie volgt",
     status: trial.status === "confirmed" ? "confirmed" : "planned",
@@ -139,15 +161,19 @@ function mapTrial(trial: AgendaTrialLesson): InstructorAppointment {
   };
 }
 
-function mapAppointment(appointment: AgendaAppointmentView, vehiclesById: Map<string, Vehicle>): InstructorAppointment {
+function mapAppointment(
+  appointment: AgendaAppointmentView,
+  vehiclesById: Map<string, Vehicle>,
+  formatters: InstructorFormatters,
+): InstructorAppointment {
   const vehicle = appointment.vehicle_id ? vehiclesById.get(appointment.vehicle_id) : null;
   return {
     id: appointment.id,
     type: appointmentType(appointment.type),
     title: appointment.title ?? APPOINTMENT_TYPE_SHORT[appointment.type],
     studentName: appointment.student_name ?? appointment.team_name ?? undefined,
-    startsAt: timeFmt.format(new Date(appointment.starts_at)),
-    endsAt: timeFmt.format(new Date(appointment.ends_at)),
+    startsAt: formatters.timeFmt.format(new Date(appointment.starts_at)),
+    endsAt: formatters.timeFmt.format(new Date(appointment.ends_at)),
     duration: durationLabel(appointment.starts_at, appointment.ends_at),
     location: appointment.location ?? appointment.team_name ?? APPOINTMENT_TYPE_LABEL[appointment.type],
     vehicle: vehicleLabel(vehicle),
@@ -160,6 +186,7 @@ function mapStudent(
   student: StudentSummary,
   lessons: Lesson[],
   balanceMap: Map<string, number>,
+  formatters: InstructorFormatters,
 ): InstructorStudent {
   const studentLessons = lessons
     .filter((lesson) => lesson.student_id === student.id)
@@ -177,8 +204,8 @@ function mapStudent(
     license: `${completed.length} lessen afgerond`,
     progress,
     status: balance <= 300 ? "attention" : progress >= 75 ? "exam" : completed.length === 0 ? "new" : "active",
-    nextLesson: next ? `${dateLabel(next.starts_at)} - ${timeFmt.format(new Date(next.starts_at))}` : "Niet gepland",
-    latestLesson: latest ? `${dateLabel(latest.starts_at)} - ${timeFmt.format(new Date(latest.starts_at))}` : "Nog geen les afgerond",
+    nextLesson: next ? `${dateLabel(next.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(next.starts_at))}` : "Niet gepland",
+    latestLesson: latest ? `${dateLabel(latest.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(latest.starts_at))}` : "Nog geen les afgerond",
     phone: student.phone ?? "Niet ingevuld",
     email: student.email ?? "Niet ingevuld",
     attention: balance <= 300 ? "Lespakket bijna op of vervolgplanning nodig." : "Geen urgente aandachtspunten.",
@@ -186,12 +213,12 @@ function mapStudent(
   };
 }
 
-function mapTask(task: DashboardTask): InstructorTask {
+function mapTask(task: DashboardTask, formatters: InstructorFormatters): InstructorTask {
   return {
     id: task.id,
     title: task.title,
-    subject: task.due_date ? `Deadline ${dateLabel(task.due_date)}` : "Geen deadline",
-    due: task.due_date ? timeFmt.format(new Date(task.due_date)) : "Later",
+    subject: task.due_date ? `Deadline ${dateLabel(task.due_date, formatters)}` : "Geen deadline",
+    due: task.due_date ? formatters.timeFmt.format(new Date(task.due_date)) : "Later",
     priority: taskPriority(task.priority),
     status: task.due_date && new Date(task.due_date).getTime() < Date.now() ? "late" : "open",
   };
@@ -221,12 +248,14 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const supabase = await createServerSupabaseClient();
   const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
   const now = new Date();
-  const todayYmd = amsterdamYmd(now);
-  const dayStart = startOfAmsterdamDayUtc(todayYmd);
-  const dayEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 1));
-  const horizonEnd = startOfAmsterdamDayUtc(addDaysYmd(todayYmd, 15));
-  const availabilityFrom = new Date(`${todayYmd}T12:00:00`);
-  const availabilityTo = new Date(`${addDaysYmd(todayYmd, 15)}T12:00:00`);
+  const timeZone = resolveTenantTimeZone(tenant);
+  const formatters = createInstructorFormatters(timeZone);
+  const todayYmd = zonedYmd(now, timeZone);
+  const dayStart = startOfZonedDayUtc(todayYmd, timeZone);
+  const dayEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 1), timeZone);
+  const horizonEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 15), timeZone);
+  const availabilityFrom = dayStart;
+  const availabilityTo = horizonEnd;
 
   const [
     lessonWindowResult,
@@ -284,6 +313,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     loadExceptions(supabase, tenant.id, user.id, {
       from: availabilityFrom,
       to: availabilityTo,
+      timeZone,
     }),
   ]);
   if (lessonWindowResult.error) throw lessonWindowResult.error;
@@ -291,9 +321,11 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   if (openTaskCountResult.error) throw openTaskCountResult.error;
 
   const lessonWindow = (lessonWindowResult.data ?? []) as Lesson[];
-  const todayLessons = lessonWindow.filter((lesson) => isSameAmsterdamDay(new Date(lesson.starts_at), now));
+  const todayLessons = lessonWindow.filter((lesson) =>
+    isSameZonedDay(new Date(lesson.starts_at), now, timeZone),
+  );
   const todayAppointments = (appointmentWindow ?? []).filter((appointment) =>
-    isSameAmsterdamDay(new Date(appointment.starts_at), now),
+    isSameZonedDay(new Date(appointment.starts_at), now, timeZone),
   );
   const studentIds = Array.from(
     new Set([
@@ -333,9 +365,9 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   );
   const vehiclesById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const mappedAppointments = [
-    ...todayLessons.map((lesson) => mapLesson(lesson, studentMap, vehiclesById)),
-    ...todayTrials.map(mapTrial),
-    ...todayAppointments.map((appointment) => mapAppointment(appointment, vehiclesById)),
+    ...todayLessons.map((lesson) => mapLesson(lesson, studentMap, vehiclesById, formatters)),
+    ...todayTrials.map((trial) => mapTrial(trial, formatters)),
+    ...todayAppointments.map((appointment) => mapAppointment(appointment, vehiclesById, formatters)),
   ].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   const activeVehicles = vehicles.filter((vehicle) => vehicle.active);
@@ -346,7 +378,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       studentId: lesson.student_id,
       studentName: student?.full_name ?? "Leerling",
       lessonLabel: "Rijles",
-      lessonDate: `${dateLabel(lesson.starts_at)} - ${timeFmt.format(new Date(lesson.starts_at))}`,
+      lessonDate: `${dateLabel(lesson.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(lesson.starts_at))}`,
       status: lesson.status === "completed" ? "published" : "todo",
       mode: "ris",
       modules: [],
@@ -366,13 +398,13 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     name: conversation.studentName,
     role: "Leerling",
     preview: conversation.lastMessagePreview ?? "Nog geen berichtinhoud.",
-    time: conversation.lastMessageAt ? timeFmt.format(new Date(conversation.lastMessageAt)) : "Nieuw",
+    time: conversation.lastMessageAt ? formatters.timeFmt.format(new Date(conversation.lastMessageAt)) : "Nieuw",
     unread: conversation.unreadCount,
     messages: (messagesByConversation.get(conversation.id) ?? []).map((message) => ({
       id: message.id,
       sender: message.senderSide,
       body: message.body,
-      time: timeFmt.format(new Date(message.createdAt)),
+      time: formatters.timeFmt.format(new Date(message.createdAt)),
     })),
   }));
   const radar = mapStudentsForRadar(students, lessonWindow, balanceMap);
@@ -381,6 +413,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const resolvedAvailability = resolveAvailabilityDays(weeklyAvailability, availabilityExceptions, {
     from: availabilityFrom,
     days: 7,
+    timeZone,
   });
   const todayAvailability = resolvedAvailability[0];
   const bookedTodayMinutes =
@@ -405,8 +438,8 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       { label: "Open taken", value: String(openTaskCountResult.count ?? openTasksResult.data?.length ?? 0), hint: "Totaal", tone: "green" },
     ],
     appointments: mappedAppointments,
-    students: students.map((student) => mapStudent(student, lessonWindow, balanceMap)),
-    tasks: ((openTasksResult.data ?? []) as DashboardTask[]).map(mapTask),
+    students: students.map((student) => mapStudent(student, lessonWindow, balanceMap, formatters)),
+    tasks: ((openTasksResult.data ?? []) as DashboardTask[]).map((task) => mapTask(task, formatters)),
     messages,
     vehicles: activeVehicles.map((vehicle) => ({
       id: vehicle.id,
@@ -414,7 +447,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       plate: vehicle.license_plate ?? "Kenteken niet ingevuld",
       transmission: vehicle.transmission ? VEHICLE_TRANSMISSION_LABEL[vehicle.transmission] : "Transmissie onbekend",
       status: mapVehicleStatus(vehicle),
-      apk: vehicle.apk_expires_at ? dateLabel(vehicle.apk_expires_at) : "Niet ingevuld",
+      apk: vehicle.apk_expires_at ? dateLabel(vehicle.apk_expires_at, formatters) : "Niet ingevuld",
       mileage: vehicle.current_odometer_km ? `${vehicle.current_odometer_km.toLocaleString("nl-NL")} km` : "Niet ingevuld",
       maintenance: vehicle.status === "maintenance" ? "In onderhoud" : "Geen melding",
     })),

@@ -24,31 +24,50 @@ import {
   StudentShowcaseCard,
   StudentShowcaseTabs,
 } from "@/components/student/Showcase";
-import { createNlDateTimeFormatter, isSameAmsterdamDay } from "@/lib/datetime";
+import {
+  addDaysYmd,
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+  startOfZonedDayUtc,
+  zonedYmd,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dateFmt = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-const longDateFmt = createNlDateTimeFormatter({
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-
-const monthTitleFmt = createNlDateTimeFormatter({
-  month: "long",
-  year: "numeric",
-});
-
-const timeFmt = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createStudentLessonFormatters(timeZone: string) {
+  return {
+    dateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      },
+      timeZone,
+    ),
+    longDateFmt: createNlDateTimeFormatter(
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      },
+      timeZone,
+    ),
+    monthTitleFmt: createNlDateTimeFormatter(
+      {
+        month: "long",
+        year: "numeric",
+      },
+      timeZone,
+    ),
+    timeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 type LessonsTab = "lessons" | "exams" | "planning";
 
@@ -69,19 +88,10 @@ function lessonsTabFrom(value: string | undefined): LessonsTab {
   return value === "exams" || value === "planning" ? value : "lessons";
 }
 
-function dayKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Amsterdam",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function parseSelectedDate(input: string | undefined): Date {
-  if (!input || !/^\d{4}-\d{2}-\d{2}$/.test(input)) return new Date();
-  const [year, month, day] = input.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
+function cleanSelectedYmd(input: string | undefined, timeZone: string): string {
+  return input && /^\d{4}-\d{2}-\d{2}$/.test(input)
+    ? input
+    : zonedYmd(new Date(), timeZone);
 }
 
 function summarizeLessonFeedback(summary: string | null | undefined): string | null {
@@ -124,24 +134,19 @@ function plannerItemsForAppointments(appointments: AgendaAppointment[]): Planner
   }));
 }
 
-function monthGrid(selectedDate: Date) {
-  const firstDay = new Date(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth(),
-    1,
-    12,
-    0,
-    0,
-    0,
-  );
-  const mondayOffset = (firstDay.getDay() + 6) % 7;
-  const start = new Date(firstDay);
-  start.setDate(firstDay.getDate() - mondayOffset);
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    return date;
-  });
+function monthGrid(selectedYmd: string) {
+  const firstOfMonth = `${selectedYmd.slice(0, 7)}-01`;
+  const mondayOffset = (new Date(`${firstOfMonth}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const start = addDaysYmd(firstOfMonth, -mondayOffset);
+  return Array.from({ length: 42 }, (_, index) => addDaysYmd(start, index));
+}
+
+function adjacentMonthYmd(selectedYmd: string, delta: -1 | 1): string {
+  const [year, month] = selectedYmd.split("-").map(Number);
+  const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1 + delta, 1));
+  const nextYear = date.getUTCFullYear();
+  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-01`;
 }
 
 export default async function StudentLessonsPage({
@@ -153,11 +158,16 @@ export default async function StudentLessonsPage({
   const activeTab = lessonsTabFrom(
     typeof params.tab === "string" ? params.tab : undefined,
   );
-  const selectedDate = parseSelectedDate(
-    typeof params.date === "string" ? params.date : undefined,
-  );
 
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const timeZone = resolveTenantTimeZone(tenant);
+  const { dateFmt, longDateFmt, monthTitleFmt, timeFmt } =
+    createStudentLessonFormatters(timeZone);
+  const selectedKey = cleanSelectedYmd(
+    typeof params.date === "string" ? params.date : undefined,
+    timeZone,
+  );
+  const selectedDate = startOfZonedDayUtc(selectedKey, timeZone);
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
 
@@ -224,12 +234,12 @@ export default async function StudentLessonsPage({
     ),
   ].sort((left, right) => left.startsAt.localeCompare(right.startsAt));
 
-  const selectedKey = dayKey(selectedDate);
   const today = new Date();
-  const monthDates = monthGrid(selectedDate);
+  const todayKey = zonedYmd(today, timeZone);
+  const monthDates = monthGrid(selectedKey);
   const monthLabel = monthTitleFmt.format(selectedDate);
   const selectedItems = plannerItems.filter(
-    (item) => dayKey(new Date(item.startsAt)) === selectedKey,
+    (item) => zonedYmd(new Date(item.startsAt), timeZone) === selectedKey,
   );
 
   const tabs = [
@@ -283,7 +293,7 @@ export default async function StudentLessonsPage({
                       href={`/student/lessons/${lesson.id}`}
                       title={`${timeFmt.format(start)} - ${timeFmt.format(end)}`}
                       subtitle={`${instructor} · ${lesson.location ?? "Locatie volgt"} · ${durationMin} min`}
-                      meta={isSameAmsterdamDay(start, today) ? "Vandaag" : dateFmt.format(start)}
+                      meta={zonedYmd(start, timeZone) === todayKey ? "Vandaag" : dateFmt.format(start)}
                       badge="Rijles"
                       badgeVariant="primary"
                       leading={
@@ -392,8 +402,9 @@ export default async function StudentLessonsPage({
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <a
-                  href={`/student/lessons?tab=planning&date=${dayKey(
-                    new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1, 12),
+                  href={`/student/lessons?tab=planning&date=${adjacentMonthYmd(
+                    selectedKey,
+                    -1,
                   )}`}
                   className="inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-sm text-white/58 transition hover:text-white"
                 >
@@ -401,8 +412,9 @@ export default async function StudentLessonsPage({
                 </a>
                 <div className="text-sm font-semibold capitalize text-white">{monthLabel}</div>
                 <a
-                  href={`/student/lessons?tab=planning&date=${dayKey(
-                    new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1, 12),
+                  href={`/student/lessons?tab=planning&date=${adjacentMonthYmd(
+                    selectedKey,
+                    1,
                   )}`}
                   className="inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-sm text-white/58 transition hover:text-white"
                 >
@@ -417,13 +429,12 @@ export default async function StudentLessonsPage({
               </div>
 
               <div className="grid grid-cols-7 gap-2">
-                {monthDates.map((date) => {
-                  const key = dayKey(date);
-                  const inMonth = date.getMonth() === selectedDate.getMonth();
-                  const isToday = isSameAmsterdamDay(date, today);
+                {monthDates.map((key) => {
+                  const inMonth = key.slice(0, 7) === selectedKey.slice(0, 7);
+                  const isToday = key === todayKey;
                   const selected = key === selectedKey;
                   const dayItems = plannerItems.filter(
-                    (item) => dayKey(new Date(item.startsAt)) === key,
+                    (item) => zonedYmd(new Date(item.startsAt), timeZone) === key,
                   );
                   return (
                     <a
@@ -437,7 +448,7 @@ export default async function StudentLessonsPage({
                         !inMonth ? "opacity-45" : "",
                       ].join(" ")}
                     >
-                      <div className={isToday ? "font-bold text-primary" : "text-xs"}>{date.getDate()}</div>
+                      <div className={isToday ? "font-bold text-primary" : "text-xs"}>{Number(key.slice(8, 10))}</div>
                       <div className="mt-1 flex min-h-3 items-center justify-center gap-1">
                         {dayItems.slice(0, 3).map((item) => (
                           <span
@@ -500,7 +511,7 @@ export default async function StudentLessonsPage({
       ) : null}
 
       <div className="px-1 pt-1 text-xs text-white/42">
-        Tijden worden getoond in CET/CEST voor jouw studentomgeving.
+        Tijden worden getoond in de tijdzone van je rijschool.
       </div>
     </PWAPage>
   );

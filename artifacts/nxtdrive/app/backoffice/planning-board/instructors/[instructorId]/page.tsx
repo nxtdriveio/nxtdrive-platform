@@ -9,7 +9,7 @@ import {
   AGENDA_APPOINTMENT_TYPES,
   APPOINTMENT_TYPE_SHORT,
 } from "@/lib/agenda/types";
-import { amsterdamYmd } from "@/lib/datetime";
+import { resolveTenantTimeZone, zonedYmd } from "@/lib/datetime";
 import {
   loadPlanningBoardData,
   type PlanningBoardView,
@@ -39,10 +39,6 @@ function rawParam(
   return typeof value === "string" && value ? value : null;
 }
 
-function todayYmd(): string {
-  return amsterdamYmd(new Date());
-}
-
 function viewParam(value: string | null): PlanningBoardView {
   return value === "week" ? "week" : "day";
 }
@@ -63,9 +59,10 @@ export default async function InstructorPlanningBoardPage({
     service,
     AGENDA_BACKOFFICE_READ_ROLES,
   );
+  const timeZone = resolveTenantTimeZone(context.organization);
   const status = rawParam(sp, "status");
   const filters = {
-    date: param(sp, "date") ?? todayYmd(),
+    date: param(sp, "date") ?? zonedYmd(new Date(), timeZone),
     view: viewParam(param(sp, "view")),
     branchId: param(sp, "branch"),
     appointmentType: param(sp, "appointment_type"),

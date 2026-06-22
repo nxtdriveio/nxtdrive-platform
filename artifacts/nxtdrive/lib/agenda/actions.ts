@@ -30,6 +30,7 @@ import {
   type AgendaAppointmentType,
   type AgendaAppointmentResult,
 } from "@/lib/agenda/types";
+import { parseZonedDateTime, resolveTenantTimeZone } from "@/lib/datetime";
 
 // Shared agenda-appointment server actions, used by both the backoffice agenda
 // and the instructor PWA. Writes go exclusively through the SECURITY DEFINER
@@ -175,9 +176,6 @@ export async function createAppointment(formData: FormData) {
   if (!Number.isFinite(buffer) || buffer < 0) {
     redirect(`${errorTo}?error=buffer`);
   }
-  const startsAt = new Date(`${date}T${time}:00`);
-  if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
-
   const service = createServiceRoleClient();
   const access: AppointmentCreateAccess = studentId
     ? await requireStudentBackofficeAccess(service, studentId, "read", {
@@ -189,6 +187,12 @@ export async function createAppointment(formData: FormData) {
   }
 
   const { context, branchScope } = access;
+  const startsAt = parseZonedDateTime(
+    `${date}T${time}:00`,
+    resolveTenantTimeZone(context.organization),
+  );
+  if (!startsAt) redirect(`${errorTo}?error=date`);
+
   let appointmentBranchId = requestedBranchId;
   if (hasStudentAccess(access)) {
     appointmentBranchId = access.student?.branch_id ?? null;
@@ -373,9 +377,6 @@ export async function updateAppointment(formData: FormData) {
   if (!Number.isFinite(buffer) || buffer < 0) {
     redirect(`${errorTo}?error=buffer`);
   }
-  const startsAt = new Date(`${date}T${time}:00`);
-  if (isNaN(startsAt.getTime())) redirect(`${errorTo}?error=date`);
-
   const service = createServiceRoleClient();
   const appointmentAccess = await requireAgendaAppointmentAccess(
     service,
@@ -389,6 +390,12 @@ export async function updateAppointment(formData: FormData) {
     redirect(`${errorTo}?error=type`);
   }
   const { context, branchScope } = appointmentAccess;
+  const startsAt = parseZonedDateTime(
+    `${date}T${time}:00`,
+    resolveTenantTimeZone(context.organization),
+  );
+  if (!startsAt) redirect(`${errorTo}?error=date`);
+
   let appointmentBranchId = appointmentAccess.appointmentBranchId;
 
   if (studentId) {

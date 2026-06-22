@@ -25,12 +25,12 @@ import {
 } from "lucide-react";
 
 import {
-  amsterdamMinuteOfDay,
-  amsterdamWeekdayIndex,
-  amsterdamYmd,
   createNlDateTimeFormatter,
-  parseAmsterdamDateTime,
-  startOfAmsterdamDayUtc,
+  parseZonedDateTime,
+  startOfZonedDayUtc,
+  zonedMinuteOfDay,
+  zonedWeekdayIndex,
+  zonedYmd,
 } from "@/lib/datetime";
 import {
   planningBoardEventCanMove,
@@ -67,16 +67,6 @@ const SLOT_WIDTH = 42;
 const RESOURCE_ROW_HEIGHT = 48;
 const RESOURCE_COLUMN_WIDTH = 152;
 const PREVIEW_DEBOUNCE_MS = 180;
-const dateShortFormatter = createNlDateTimeFormatter({
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-});
-const timeFormatter = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
 const EVENT_LEGEND = [
   { key: "lesson", label: "Rijles", className: "bg-planning-lesson border-planning-lesson" },
   { key: "trial_lesson", label: "Proefles", className: "bg-planning-trial border-planning-trial" },
@@ -166,16 +156,16 @@ function eventDurationMinutes(event: PlanningBoardEvent): number {
   return Math.max(SLOT_MINUTES, event.occupiedMinutes ?? event.durationMinutes);
 }
 
-function eventTop(event: PlanningBoardEvent): number {
-  const minutes = amsterdamMinuteOfDay(new Date(event.startsAt));
+function eventTop(event: PlanningBoardEvent, timeZone: string): number {
+  const minutes = zonedMinuteOfDay(new Date(event.startsAt), timeZone);
   return Math.max(
     0,
     ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_HEIGHT,
   );
 }
 
-function eventLeft(event: PlanningBoardEvent): number {
-  const minutes = amsterdamMinuteOfDay(new Date(event.startsAt));
+function eventLeft(event: PlanningBoardEvent, timeZone: string): number {
+  const minutes = zonedMinuteOfDay(new Date(event.startsAt), timeZone);
   return Math.max(
     0,
     ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_WIDTH,
@@ -247,8 +237,25 @@ function layoutOverlappingEvents(
   return result;
 }
 
-function dateShort(day: string): string {
-  return dateShortFormatter.format(startOfAmsterdamDayUtc(day));
+function dateShort(day: string, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    },
+    timeZone,
+  ).format(startOfZonedDayUtc(day, timeZone));
+}
+
+function timeShort(value: string, timeZone: string): string {
+  return createNlDateTimeFormatter(
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    timeZone,
+  ).format(new Date(value));
 }
 
 function perspectiveLabel(perspective: PlanningBoardPerspective): string {
@@ -307,7 +314,7 @@ function resourceRowsForDay(
   if (perspective === "branch") {
     const branchIdsWithEvents = new Set(
       events
-        .filter((event) => amsterdamYmd(new Date(event.startsAt)) === day)
+        .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
         .map((event) => event.branchId ?? "none"),
     );
     const rows: ResourceRow[] = data.branches.map((branch) => ({
@@ -333,7 +340,7 @@ function resourceRowsForDay(
 
   const vehicleIdsWithEvents = new Set(
     events
-      .filter((event) => amsterdamYmd(new Date(event.startsAt)) === day)
+      .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
       .map((event) => event.vehicleId ?? "none"),
   );
   const rows: ResourceRow[] = data.vehicles.map((vehicle) => ({
@@ -457,10 +464,11 @@ function slotAvailability(
   blocks: readonly PlanningBoardAvailability[],
   day: string,
   slot: number,
+  timeZone: string,
 ): "available" | "blocked" | "closed" {
   const start = START_HOUR * 60 + slot * SLOT_MINUTES;
   const end = start + SLOT_MINUTES;
-  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
   const exception = blocks.find(
     (block) =>
       block.date === day && block.startMinute < end && block.endMinute > start,
@@ -498,13 +506,15 @@ function availabilitySegmentStyle(startMinute: number, endMinute: number) {
 function AvailabilityBands({
   blocks,
   day,
+  timeZone,
   availabilityFilter,
 }: {
   blocks: readonly PlanningBoardAvailability[];
   day: string;
+  timeZone: string;
   availabilityFilter?: "available" | "blocked" | null;
 }) {
-  const weekday = amsterdamWeekdayIndex(startOfAmsterdamDayUtc(day));
+  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
   const dayBlocks = blocks.filter(
     (block) => block.date === day || block.weekday === weekday,
   );
@@ -629,6 +639,7 @@ function QueueCard({
 
 function EventCard({
   event,
+  timeZone,
   detailed = false,
   layout = "calendar",
   lane = 0,
@@ -636,6 +647,7 @@ function EventCard({
   onOpen,
 }: {
   event: PlanningBoardEvent;
+  timeZone: string;
   detailed?: boolean;
   layout?: "calendar" | "timeline";
   lane?: number;
@@ -656,12 +668,12 @@ function EventCard({
   const style =
     layout === "timeline"
       ? {
-          left: eventLeft(event),
+          left: eventLeft(event, timeZone),
           width: eventWidth(event),
           ...eventLaneStyle(lane, laneCount),
         }
       : {
-          top: eventTop(event),
+          top: eventTop(event, timeZone),
           height: eventHeight(event),
         };
   const transformStyle = {
@@ -849,14 +861,14 @@ export function PlanningBoardWorkspace({
   const eventsByRow = useMemo(() => {
     const map = new Map<string, PlanningBoardEvent[]>();
     for (const event of events) {
-      const day = amsterdamYmd(new Date(event.startsAt));
+      const day = zonedYmd(new Date(event.startsAt), data.timeZone);
       const key = resourceRowKey(day, perspective, eventResourceId(event, perspective));
       const bucket = map.get(key) ?? [];
       bucket.push(event);
       map.set(key, bucket);
     }
     return map;
-  }, [events, perspective]);
+  }, [events, perspective, data.timeZone]);
   const queueEventLinks = useMemo(() => {
     const map = new Map<string, { href: string; label: string }>();
     for (const item of queueItems) {
@@ -1033,7 +1045,7 @@ export function PlanningBoardWorkspace({
                   startsAt: target.startsAt,
                   vehicleId: target.vehicleId ?? (selectedVehicleId || item.vehicleId),
                   endsAt: new Date(
-                    (parseAmsterdamDateTime(target.startsAt)?.getTime() ??
+                    (parseZonedDateTime(target.startsAt, data.timeZone)?.getTime() ??
                       Date.now()) +
                       eventDurationMinutes(item) * 60000,
                   ).toISOString(),
@@ -1105,7 +1117,7 @@ export function PlanningBoardWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
-                {dateShort(data.filters.date)}
+                {dateShort(data.filters.date, data.timeZone)}
               </span>
               <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                 {data.filters.view === "week" ? "Week" : "Dag"} - {perspectiveLabel(perspective)}
@@ -1202,7 +1214,7 @@ export function PlanningBoardWorkspace({
                       )}
                       {detailMode || row.subtitle ? (
                         <span className="text-xs text-muted-foreground">
-                          {row.subtitle ?? dateShort(row.day)}
+                          {row.subtitle ?? dateShort(row.day, data.timeZone)}
                         </span>
                       ) : null}
                     </div>
@@ -1211,6 +1223,7 @@ export function PlanningBoardWorkspace({
                         <AvailabilityBands
                           blocks={blocks}
                           day={row.day}
+                          timeZone={data.timeZone}
                           availabilityFilter={data.filters.availability}
                         />
                       ) : (
@@ -1241,7 +1254,7 @@ export function PlanningBoardWorkspace({
                             target={target}
                             availability={
                               row.availabilityInstructorId
-                                ? slotAvailability(blocks, row.day, slot)
+                                ? slotAvailability(blocks, row.day, slot, data.timeZone)
                                 : "available"
                             }
                             availabilityFilter={
@@ -1260,6 +1273,7 @@ export function PlanningBoardWorkspace({
                         <EventCard
                           key={`${event.entityType}:${event.id}`}
                           event={event}
+                          timeZone={data.timeZone}
                           lane={lane}
                           laneCount={laneCount}
                           detailed={detailMode}
@@ -1455,8 +1469,8 @@ export function PlanningBoardWorkspace({
                 Tijd
               </dt>
               <dd className="text-foreground">
-                {timeFormatter.format(new Date(selectedEvent.startsAt))} -{" "}
-                {timeFormatter.format(new Date(selectedEvent.endsAt))} (
+                {timeShort(selectedEvent.startsAt, data.timeZone)} -{" "}
+                {timeShort(selectedEvent.endsAt, data.timeZone)} (
                 {selectedEvent.durationMinutes} min lestijd
                 {selectedEvent.bufferMinutes
                   ? ` + ${selectedEvent.bufferMinutes} min buffer`

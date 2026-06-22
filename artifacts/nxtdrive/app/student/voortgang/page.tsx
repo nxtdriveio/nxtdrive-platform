@@ -30,20 +30,29 @@ import {
   buildStudentJourneySteps,
   roundedJourneyPct,
 } from "@/lib/students/app-summary";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const historyDateFmt = createNlDateTimeFormatter({
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
-
-const historyTimeFmt = createNlDateTimeFormatter({
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function createStudentProgressFormatters(timeZone: string) {
+  return {
+    historyDateFmt: createNlDateTimeFormatter(
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+      timeZone,
+    ),
+    historyTimeFmt: createNlDateTimeFormatter(
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+      timeZone,
+    ),
+  };
+}
 
 type ProgressTab = "roadmap" | "onderdelen" | "geschiedenis";
 type RisProgressTab = "roadmap" | "modules" | "feedback";
@@ -65,6 +74,9 @@ export default async function StudentVoortgangPage({
   const rawTab = typeof params.tab === "string" ? params.tab : undefined;
 
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { historyDateFmt, historyTimeFmt } = createStudentProgressFormatters(
+    resolveTenantTimeZone(tenant),
+  );
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
 

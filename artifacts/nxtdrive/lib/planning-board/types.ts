@@ -76,6 +76,7 @@ export type PlanningBoardEvent = {
 
 export type PlanningBoardData = {
   tenantId: string;
+  timeZone: string;
   filters: PlanningBoardFilters;
   rangeStart: string;
   rangeEnd: string;

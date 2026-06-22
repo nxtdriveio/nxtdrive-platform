@@ -42,18 +42,26 @@ import {
   StudentShowcaseCard,
   StudentShowcaseEmptyState,
 } from "@/components/student/Showcase";
-import { createNlDateTimeFormatter } from "@/lib/datetime";
+import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
-const dateFmt = createNlDateTimeFormatter({
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
+function createStudentPaymentFormatters(timeZone: string) {
+  return {
+    dateFmt: createNlDateTimeFormatter(
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+      timeZone,
+    ),
+  };
+}
 
 export default async function StudentBetalingenPage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
+  const { dateFmt } = createStudentPaymentFormatters(resolveTenantTimeZone(tenant));
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
   if (needsChildPicker) redirect("/student/select-child");
 

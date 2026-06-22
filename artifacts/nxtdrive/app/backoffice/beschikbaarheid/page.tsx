@@ -24,6 +24,7 @@ import {
 } from "@/lib/availability/actions";
 import { InstructorPicker } from "./instructor-picker";
 import { AvailabilityScopePicker } from "./availability-scope-picker";
+import { resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default async function BackofficeAvailabilityPage({
     "planner",
   ]);
   const { organization: tenant } = context;
+  const timeZone = resolveTenantTimeZone(tenant);
   const sp = await searchParams;
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
@@ -85,6 +87,7 @@ export default async function BackofficeAvailabilityPage({
         }),
         loadExceptions(supabase, tenant.id, selectedId, {
           branchId: selectedBranchId,
+          timeZone,
         }),
       ])
     : [[], []];
@@ -98,8 +101,8 @@ export default async function BackofficeAvailabilityPage({
         </h1>
         <p className="text-sm text-muted-foreground">
           Beheer per instructeur het wekelijkse beschikbaarheidsschema en
-          uitzonderingen. Tijden worden in Europe/Amsterdam gebruikt door de
-          planning-engine.
+          uitzonderingen. Tijden worden verwerkt in de tijdzone van deze
+          rijschool ({timeZone}).
         </p>
       </div>
 

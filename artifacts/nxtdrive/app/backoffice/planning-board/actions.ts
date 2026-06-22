@@ -10,7 +10,7 @@ import {
   requireAgendaLessonAccess,
 } from "@/lib/agenda/access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { parseAmsterdamDateTime } from "@/lib/datetime";
+import { parseZonedDateTime, resolveTenantTimeZone } from "@/lib/datetime";
 import {
   getPlanningPreview,
   loadPlanningKernelData,
@@ -82,8 +82,11 @@ function validationMessage(validation: PlanningValidationResult): string {
   );
 }
 
-function parseStart(value: string): Date | null {
-  return parseAmsterdamDateTime(value);
+function parseStart(
+  value: string,
+  context: Awaited<ReturnType<typeof requireAgendaAccessContext>>["context"],
+): Date | null {
+  return parseZonedDateTime(value, resolveTenantTimeZone(context.organization));
 }
 
 function humanizePlanningBoardError(message: string): string {
@@ -226,7 +229,7 @@ async function loadTrialLessonForMove(
 async function buildBoardEventMoveCandidate(
   service: ReturnType<typeof createServiceRoleClient>,
   input: BoardEventMoveInput,
-  startsAt: Date,
+  startsAtValue: string,
 ): Promise<{
   candidate: PlanningCandidateInput;
   context: Awaited<ReturnType<typeof requireAgendaAccessContext>>["context"];
@@ -241,6 +244,8 @@ async function buildBoardEventMoveCandidate(
     if (!access.lesson) {
       throw new Error("Geen toegang tot deze rijles.");
     }
+    const startsAt = parseStart(startsAtValue, access.context);
+    if (!startsAt) throw new Error("Ongeldige agenda-tijd.");
     const endsAt = new Date(
       startsAt.getTime() +
         durationBetween(access.lesson.starts_at, access.lesson.ends_at),
@@ -273,6 +278,8 @@ async function buildBoardEventMoveCandidate(
     if (!access.trial) {
       throw new Error("Geen toegang tot deze proefles.");
     }
+    const startsAt = parseStart(startsAtValue, access.context);
+    if (!startsAt) throw new Error("Ongeldige agenda-tijd.");
     const endsAt = new Date(
       startsAt.getTime() +
         durationBetween(access.trial.starts_at, access.trial.ends_at),
@@ -308,6 +315,8 @@ async function buildBoardEventMoveCandidate(
   if (!access.appointment) {
     throw new Error("Geen toegang tot deze afspraak.");
   }
+  const startsAt = parseStart(startsAtValue, access.context);
+  if (!startsAt) throw new Error("Ongeldige agenda-tijd.");
   const endsAt = new Date(
     startsAt.getTime() +
       durationBetween(access.appointment.starts_at, access.appointment.ends_at),
@@ -338,8 +347,7 @@ async function buildBoardEventMoveCandidate(
 export async function previewQueueDropAction(
   input: QueueDropInput,
 ): Promise<PlanningBoardPreviewResult> {
-  const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.queueItemId || !input.instructorId) {
+  if (!input.startsAt || !input.queueItemId || !input.instructorId) {
     return { ok: false, message: "Ontbrekende of ongeldige dropgegevens." };
   }
 
@@ -348,6 +356,10 @@ export async function previewQueueDropAction(
     service,
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
+  const startsAt = parseStart(input.startsAt, context);
+  if (!startsAt) {
+    return { ok: false, message: "Ontbrekende of ongeldige dropgegevens." };
+  }
   const item = await loadPlanningQueueItem(
     service,
     context,
@@ -386,8 +398,7 @@ export async function previewQueueDropAction(
 export async function scheduleQueueDropAction(
   input: QueueDropInput,
 ): Promise<PlanningBoardDropResult> {
-  const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.queueItemId || !input.instructorId) {
+  if (!input.startsAt || !input.queueItemId || !input.instructorId) {
     return { ok: false, message: "Ontbrekende of ongeldige dropgegevens." };
   }
 
@@ -396,6 +407,10 @@ export async function scheduleQueueDropAction(
     service,
     AGENDA_BACKOFFICE_MANAGE_ROLES,
   );
+  const startsAt = parseStart(input.startsAt, context);
+  if (!startsAt) {
+    return { ok: false, message: "Ontbrekende of ongeldige dropgegevens." };
+  }
   try {
     const item = await loadPlanningQueueItem(
       service,
@@ -452,8 +467,7 @@ export async function scheduleQueueDropAction(
 export async function previewBoardEventMoveAction(
   input: BoardEventMoveInput,
 ): Promise<PlanningBoardPreviewResult> {
-  const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.entityId || !input.entityType || !input.instructorId) {
+  if (!input.startsAt || !input.entityId || !input.entityType || !input.instructorId) {
     return {
       ok: false,
       message: "Ontbrekende of ongeldige verplaatsgegevens.",
@@ -465,7 +479,7 @@ export async function previewBoardEventMoveAction(
     const { candidate } = await buildBoardEventMoveCandidate(
       service,
       input,
-      startsAt,
+      input.startsAt,
     );
     const data = await loadPlanningKernelData(service, candidate);
     const validation = await getPlanningPreview(candidate, data);
@@ -488,8 +502,7 @@ export async function previewBoardEventMoveAction(
 export async function rescheduleBoardEventAction(
   input: BoardEventMoveInput,
 ): Promise<PlanningBoardDropResult> {
-  const startsAt = parseStart(input.startsAt);
-  if (!startsAt || !input.entityId || !input.entityType || !input.instructorId) {
+  if (!input.startsAt || !input.entityId || !input.entityType || !input.instructorId) {
     return {
       ok: false,
       message: "Ontbrekende of ongeldige verplaatsgegevens.",
@@ -499,7 +512,11 @@ export async function rescheduleBoardEventAction(
   const service = createServiceRoleClient();
   try {
     const { candidate, context, previousInstructorId } =
-      await buildBoardEventMoveCandidate(service, input, startsAt);
+      await buildBoardEventMoveCandidate(service, input, input.startsAt);
+    const startsAt =
+      candidate.startAt instanceof Date
+        ? candidate.startAt
+        : new Date(candidate.startAt);
     const data = await loadPlanningKernelData(service, candidate);
     const { validation } = await rescheduleAppointment(
       candidate,
