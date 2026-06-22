@@ -3,6 +3,14 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  ensureBookingRequest,
+  replaceBookingCandidates,
+} from "@/lib/smart-booking/service";
+import {
+  trialLeadBookingRequestInput,
+  trialSuggestionToBookingCandidate,
+} from "@/lib/smart-booking/trial";
 import { generateTrialLessonSuggestions } from "@/lib/trial-lessons/suggestions";
 import type { TrialSuggestion } from "@/lib/trial-lessons/types";
 import { chooseTrialLesson } from "../actions";
@@ -21,6 +29,18 @@ const timeFmt = new Intl.DateTimeFormat("nl-NL", {
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function requiredTransmission(value: string | null | undefined) {
+  if (value === "manual") return "schakel";
+  if (value === "automatic") return "automaat";
+  return null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 export default async function IntakeThanksPage({
@@ -42,14 +62,42 @@ export default async function IntakeThanksPage({
 
   // Verify the lead belongs to this tenant before doing anything lead-specific.
   let validLeadId: string | null = null;
+  let leadContext: {
+    id: string;
+    branch_id: string | null;
+    preferred_transmission: string | null;
+  } | null = null;
+  let intakeContext: {
+    pickup_location: string | null;
+    pickup_lat: number | null;
+    pickup_lng: number | null;
+    pickup_place_id: string | null;
+    pickup_formatted_address: string | null;
+    preferred_days: unknown;
+    preferred_times: unknown;
+    desired_start_date: string | null;
+  } | null = null;
   if (leadId) {
     const { data: leadRow } = await service
       .from("leads")
-      .select("id")
+      .select("id, branch_id, preferred_transmission")
       .eq("id", leadId)
       .eq("tenant_id", tenant.id)
       .maybeSingle();
-    validLeadId = leadRow?.id ?? null;
+    leadContext = leadRow ?? null;
+    validLeadId = leadContext?.id ?? null;
+  }
+
+  if (validLeadId) {
+    const { data: intakeRow } = await service
+      .from("lead_intake_details")
+      .select(
+        "pickup_location, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, preferred_days, preferred_times, desired_start_date",
+      )
+      .eq("lead_id", validLeadId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    intakeContext = intakeRow ?? null;
   }
 
   // Already-booked trial (provisional/confirmed) for this lead?
@@ -71,6 +119,50 @@ export default async function IntakeThanksPage({
     validLeadId && !bookedTrial
       ? await generateTrialLessonSuggestions(service, validLeadId, 3)
       : [];
+
+  if (validLeadId && leadContext && suggestions.length > 0 && !bookedTrial) {
+    try {
+      const bookingRequestId = await ensureBookingRequest(
+        service,
+        trialLeadBookingRequestInput({
+          tenantId: tenant.id,
+          branchId: leadContext.branch_id,
+          leadId: validLeadId,
+          requestedDurationMin: suggestions[0]?.duration_min ?? 60,
+          requiredTransmission: requiredTransmission(
+            leadContext.preferred_transmission,
+          ),
+          pickupLocation:
+            suggestions[0]?.pickup_location ??
+            intakeContext?.pickup_formatted_address ??
+            intakeContext?.pickup_location ??
+            null,
+          pickupLat: suggestions[0]?.pickup_lat ?? intakeContext?.pickup_lat ?? null,
+          pickupLng: suggestions[0]?.pickup_lng ?? intakeContext?.pickup_lng ?? null,
+          pickupPlaceId:
+            suggestions[0]?.pickup_place_id ?? intakeContext?.pickup_place_id ?? null,
+          pickupFormattedAddress:
+            suggestions[0]?.pickup_formatted_address ??
+            intakeContext?.pickup_formatted_address ??
+            null,
+          preferredDays: stringArray(intakeContext?.preferred_days),
+          preferredTimes: stringArray(intakeContext?.preferred_times),
+          desiredStartDate: intakeContext?.desired_start_date ?? null,
+        }),
+      );
+
+      await replaceBookingCandidates(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        actor: null,
+        candidates: suggestions.map((suggestion, index) =>
+          trialSuggestionToBookingCandidate(suggestion, index + 1),
+        ),
+      });
+    } catch (e) {
+      console.error("[smart-booking] persist trial suggestions failed", e);
+    }
+  }
 
   // --- Confirmation state (just booked or already had one) -----------------
   if (bookedTrial || booked === "1") {

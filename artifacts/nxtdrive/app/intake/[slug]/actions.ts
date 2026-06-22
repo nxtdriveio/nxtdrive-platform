@@ -14,6 +14,18 @@ import {
   loadPlanningKernelData,
   type PlanningCandidateInput,
 } from "@/lib/planning-core";
+import {
+  completeBookingHold,
+  createBookingHold,
+  ensureBookingRequest,
+  findBookingCandidateBySlot,
+  releaseBookingHold,
+  replaceBookingCandidates,
+} from "@/lib/smart-booking/service";
+import {
+  trialLeadBookingRequestInput,
+  validatedTrialSlotToBookingCandidate,
+} from "@/lib/smart-booking/trial";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -331,6 +343,33 @@ export async function submitIntake(formData: FormData) {
     await reconcileLeadSafe(service, tenant.id, leadId, null);
   }
 
+  // Smart Booking phase 1: create the canonical lifecycle request as soon as
+  // the intake lead exists. Suggestions/holds are attached later on the
+  // thank-you page and when the lead selects a slot.
+  if (typeof leadId === "string") {
+    try {
+      await ensureBookingRequest(
+        service,
+        trialLeadBookingRequestInput({
+          tenantId: tenant.id,
+          leadId,
+          requestedDurationMin: 60,
+          requiredTransmission: intakeRequiredTransmission(transmission),
+          pickupLocation: pickup_formatted_address ?? pickup_location ?? city,
+          pickupLat: pickup_lat,
+          pickupLng: pickup_lng,
+          pickupPlaceId: pickup_place_id,
+          pickupFormattedAddress: pickup_formatted_address,
+          preferredDays: preferred_days,
+          preferredTimes: preferred_times,
+          desiredStartDate: desired_start_date,
+        }),
+      );
+    } catch (e) {
+      console.error("[smart-booking] create trial booking request failed", e);
+    }
+  }
+
   // Task #107 — bevestig de ontvangst van de aanvraag per e-mail. Best-effort +
   // idempotent: een fout hier mag de lead nooit verliezen, en het degradeert
   // netjes (skipped) wanneer SendGrid nog niet is gekoppeld of er geen e-mail is.
@@ -433,6 +472,64 @@ export async function chooseTrialLesson(formData: FormData) {
     );
   }
 
+  let bookingHoldId: string | null = null;
+  try {
+    const bookingRequestId = await ensureBookingRequest(
+      service,
+      trialLeadBookingRequestInput({
+        tenantId: tenant.id,
+        branchId: (lead.branch_id as string | null) ?? null,
+        leadId,
+        requestedDurationMin: valid.durationMin,
+        requiredTransmission: intakeRequiredTransmission(
+          (lead.preferred_transmission as IntakeTransmission | null) ?? null,
+        ),
+        pickupLocation: valid.pickupLocation,
+        pickupLat: valid.pickupLat,
+        pickupLng: valid.pickupLng,
+        pickupPlaceId: valid.pickupPlaceId,
+        pickupFormattedAddress: valid.pickupFormattedAddress,
+      }),
+    );
+
+    await replaceBookingCandidates(service, {
+      tenantId: tenant.id,
+      bookingRequestId,
+      actor: null,
+      candidates: [
+        validatedTrialSlotToBookingCandidate(valid, {
+          planning_allowed: validation.allowed,
+          blocking_reasons: validation.blockingReasons,
+          warnings: validation.warnings,
+        }),
+      ],
+    });
+
+    const bookingCandidateId = await findBookingCandidateBySlot(service, {
+      tenantId: tenant.id,
+      bookingRequestId,
+      instructorId: valid.instructorId,
+      startsAt: valid.startsAt,
+      endsAt: valid.endsAt,
+    });
+    if (!bookingCandidateId) {
+      throw new Error("Selected booking candidate was not persisted.");
+    }
+
+    bookingHoldId = await createBookingHold(service, {
+      tenantId: tenant.id,
+      bookingRequestId,
+      bookingCandidateId,
+      actor: null,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+  } catch (e) {
+    console.error("[smart-booking] trial hold failed", e);
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
   const { data: trialId, error } = await service.rpc("book_trial_lesson", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -452,9 +549,35 @@ export async function chooseTrialLesson(formData: FormData) {
     p_route_needs_confirm: valid.route.needs_manual_confirm,
   });
   if (error) {
+    if (bookingHoldId) {
+      try {
+        await releaseBookingHold(service, {
+          tenantId: tenant.id,
+          bookingHoldId,
+          actor: null,
+          reason: "book_trial_lesson_failed",
+        });
+      } catch (e) {
+        console.error("[smart-booking] release failed trial hold failed", e);
+      }
+    }
     redirect(
       `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
     );
+  }
+
+  if (typeof trialId === "string" && bookingHoldId) {
+    try {
+      await completeBookingHold(service, {
+        tenantId: tenant.id,
+        bookingHoldId,
+        actor: null,
+        confirmedEntityType: "trial_lesson",
+        confirmedEntityId: trialId,
+      });
+    } catch (e) {
+      console.error("[smart-booking] complete trial hold failed", e);
+    }
   }
 
   // Task #54 — provisional booking advances the funnel to trial_planned and
