@@ -48,6 +48,7 @@ export type GenerateSmartLessonSuggestionsInput = {
   actor: PlanningActorAccess;
   scope: PlanningScope;
   branchId?: string | null;
+  allowInsufficientCredit?: boolean;
   limit?: number;
 };
 
@@ -218,7 +219,8 @@ export async function generateSmartLessonSuggestions(
   if (!student) {
     return { suggestions: [], blockingReasons: ["Leerling niet gevonden."], balanceMinutes };
   }
-  if (balanceMinutes < durationMin) {
+  const insufficientCredit = balanceMinutes < durationMin;
+  if (insufficientCredit && !input.allowInsufficientCredit) {
     return {
       suggestions: [],
       blockingReasons: [
@@ -265,6 +267,11 @@ export async function generateSmartLessonSuggestions(
     }
 
     const warnings = validation.warnings.map((warning) => warning.message);
+    if (insufficientCredit) {
+      warnings.push(
+        `Onvoldoende tegoed: ${balanceMinutes} min beschikbaar voor ${durationMin} min les. Dit moment wordt als aanvraag verstuurd.`,
+      );
+    }
     const { score, reasons } = scoreSuggestion({
       start,
       seed,

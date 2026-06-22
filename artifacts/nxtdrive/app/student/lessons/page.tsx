@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   CalendarDays,
@@ -274,9 +275,11 @@ export default async function StudentLessonsPage({
             title="Komende lessen"
             eyebrow="Direct inzicht"
             info="Je eerstvolgende les staat bovenaan. Voor eerdere lessen open je eenvoudig het lesdetail vanuit de geschiedenis."
+            actionLabel="Plan les"
+            actionHref="/student/lessons/book"
           >
             {upcoming.length === 0 ? (
-              <PWAEmptyState message="Er staan nog geen lessen gepland. Open berichten om een nieuwe les met je rijschool af te stemmen." />
+              <PWAEmptyState message="Er staan nog geen lessen gepland. Open de boekingsflow om beschikbare momenten te bekijken." />
             ) : (
               <div className="space-y-2">
                 {upcoming.slice(0, 8).map((lesson) => {
@@ -504,8 +507,14 @@ export default async function StudentLessonsPage({
               Nieuwe les afstemmen
             </div>
             <p className="mt-1 leading-6">
-              Wil je een extra les of iets verschuiven? Open berichten en stuur direct een aanvraag naar je rijschool.
+              Wil je een extra les plannen? Open de boekingsflow en kies een moment dat past binnen je pakket en tegoed.
             </p>
+            <Link
+              href="/student/lessons/book"
+              className="mt-3 inline-flex items-center rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              Les plannen
+            </Link>
           </div>
         </div>
       ) : null}

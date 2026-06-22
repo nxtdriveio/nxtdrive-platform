@@ -20,6 +20,11 @@ import {
   mergeRefillPolicy,
 } from "@/lib/lesson-refill/policy";
 import {
+  DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+  STUDENT_SELF_BOOKING_POLICY_KEY,
+  mergeStudentSelfBookingPolicy,
+} from "@/lib/student-booking/policy";
+import {
   PARENT_PORTAL_SECTIONS,
   PARENT_PORTAL_VISIBILITY_KEY,
   mergeParentPortalVisibility,
@@ -509,6 +514,92 @@ export async function resetRefillPolicy(): Promise<PolicyActionResult> {
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/backoffice/agenda");
+  return { ok: true };
+}
+
+export async function saveStudentSelfBookingPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeStudentSelfBookingPolicy({
+    self_booking_enabled: formData.get("self_booking_enabled") === "true",
+    students_can_book_lessons:
+      formData.get("students_can_book_lessons") === "true",
+    students_can_reschedule_lessons:
+      formData.get("students_can_reschedule_lessons") === "true",
+    students_can_cancel_lessons:
+      formData.get("students_can_cancel_lessons") === "true",
+    manual_approval_required:
+      formData.get("manual_approval_required") === "true",
+    instructor_approval_required:
+      formData.get("instructor_approval_required") === "true",
+    student_final_confirmation_required:
+      formData.get("student_final_confirmation_required") === "true",
+    allow_booking_with_unpaid_invoice:
+      formData.get("allow_booking_with_unpaid_invoice") === "true",
+    allow_booking_without_sufficient_credit:
+      formData.get("allow_booking_without_sufficient_credit") === "true",
+    max_future_bookings_per_student: formData.get(
+      "max_future_bookings_per_student",
+    ),
+    max_lessons_per_week: formData.get("max_lessons_per_week"),
+    min_notice_hours_for_booking: formData.get(
+      "min_notice_hours_for_booking",
+    ),
+    booking_window_days: formData.get("booking_window_days"),
+  });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: STUDENT_SELF_BOOKING_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "student_self_booking.policy_updated",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: policy,
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student/lessons");
+  return { ok: true };
+}
+
+export async function resetStudentSelfBookingPolicy(): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: STUDENT_SELF_BOOKING_POLICY_KEY,
+      value: DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "student_self_booking.policy_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student/lessons");
   return { ok: true };
 }
 

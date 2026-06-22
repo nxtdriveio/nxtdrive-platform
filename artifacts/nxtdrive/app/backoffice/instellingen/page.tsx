@@ -43,6 +43,8 @@ import { CancellationPolicyManager } from "./cancellation-policy-manager";
 import { loadCancellationPolicy } from "@/lib/lessons/cancellation-policy";
 import { RefillPolicyManager } from "./refill-policy-manager";
 import { loadRefillPolicy } from "@/lib/lesson-refill/policy";
+import { StudentSelfBookingManager } from "./student-self-booking-manager";
+import { loadStudentSelfBookingPolicy } from "@/lib/student-booking/policy";
 import { ParentPortalManager } from "./parent-portal-manager";
 import { loadParentPortalVisibility } from "@/lib/parent-portal/visibility";
 import { PaymentReminderManager } from "./payment-reminder-manager";
@@ -98,6 +100,10 @@ export default async function SettingsPage({
   const leadScorePolicy = await loadLeadScorePolicy(service, tenant.id);
   const cancellationPolicy = await loadCancellationPolicy(service, tenant.id);
   const refillPolicy = await loadRefillPolicy(service, tenant.id);
+  const studentSelfBookingPolicy = await loadStudentSelfBookingPolicy(
+    service,
+    tenant.id,
+  );
   const parentPortalVisibility = await loadParentPortalVisibility(
     service,
     tenant.id,
@@ -568,6 +574,15 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <RefillPolicyManager policy={refillPolicy} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Leerling zelf boeken</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StudentSelfBookingManager policy={studentSelfBookingPolicy} />
         </CardContent>
       </Card>
 

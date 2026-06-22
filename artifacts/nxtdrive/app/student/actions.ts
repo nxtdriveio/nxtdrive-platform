@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
@@ -13,6 +14,10 @@ import {
   type PlanningActorAccess,
 } from "@/lib/planning-core";
 import type { Lesson } from "@/lib/lessons/types";
+
+function bookingErrorRedirect(message: string): never {
+  redirect(`/student/lessons/book?error=${encodeURIComponent(message.slice(0, 220))}`);
+}
 
 /**
  * Lets a student (or guardian) cancel their OWN planned, future lesson. The
@@ -220,6 +225,106 @@ export async function rescheduleLesson(
 
   revalidatePath("/student", "layout");
   return { ok: true, newStartsAt: newStarts.toISOString() };
+}
+
+/**
+ * Existing-student self-booking. The UI only sends a selected candidate; the
+ * locked RPC re-checks ownership, tenant policy, package rules, credit,
+ * invoices, instructor scope and overlap before it creates a lesson or a
+ * pending booking request.
+ */
+export async function selfBookLesson(formData: FormData): Promise<void> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { getActiveStudent } = await import("@/lib/students/access");
+  const { student } = await getActiveStudent(user, tenant.id, roles);
+  if (!student) bookingErrorRedirect("Geen toegang tot dit leerlingdossier.");
+
+  const instructorId = String(formData.get("instructor_id") ?? "").trim();
+  const startsAtRaw = String(formData.get("starts_at") ?? "").trim();
+  const durationMin = Number(formData.get("duration_min"));
+  const location = String(formData.get("location") ?? "").trim();
+  const score = Number(formData.get("score"));
+  const reason = String(formData.get("reason") ?? "").trim();
+  let warnings: unknown = [];
+  const warningsRaw = String(formData.get("warnings") ?? "[]");
+  try {
+    warnings = JSON.parse(warningsRaw);
+  } catch {
+    warnings = [];
+  }
+
+  if (!instructorId) bookingErrorRedirect("Kies een instructeur.");
+  const startsAt = new Date(startsAtRaw);
+  if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
+    bookingErrorRedirect("Kies een geldig moment in de toekomst.");
+  }
+  if (!Number.isInteger(durationMin) || durationMin < 15 || durationMin > 240) {
+    bookingErrorRedirect("De gekozen lesduur is ongeldig.");
+  }
+
+  const service = createServiceRoleClient();
+  const { loadStudentSelfBookingState } = await import(
+    "@/lib/student-booking/service"
+  );
+  const state = await loadStudentSelfBookingState(service, {
+    tenantId: tenant.id,
+    tenantTimeZone: tenant.timezone,
+    student,
+    actorUserId: user.id,
+    roles,
+    requestedDurationMin: durationMin,
+  });
+  const selected = state.suggestions.find(
+    (suggestion) =>
+      suggestion.instructorId === instructorId &&
+      suggestion.startsAt === startsAt.toISOString() &&
+      suggestion.durationMin === durationMin,
+  );
+  if (!selected) {
+    bookingErrorRedirect(
+      state.blockingReasons[0] ??
+        "Dit lesmoment is niet meer beschikbaar. Kies een ander moment.",
+    );
+  }
+
+  const { data, error } = await service.rpc("student_self_book_lesson", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_student_id: student.id,
+    p_instructor_id: instructorId,
+    p_starts_at: startsAt.toISOString(),
+    p_duration_min: durationMin,
+    p_location: location || null,
+    p_location_lat: null,
+    p_location_lng: null,
+    p_location_place_id: null,
+    p_score: Number.isFinite(score) ? Math.round(score) : selected.score,
+    p_reason: reason || selected.reasons.join(", "),
+    p_warnings: Array.isArray(warnings) ? warnings : selected.warnings,
+  });
+  if (error) {
+    if (/insufficient tegoed/i.test(error.message)) {
+      bookingErrorRedirect(
+        "Je hebt onvoldoende tegoed om deze les direct te boeken.",
+      );
+    }
+    if (/overlaps/i.test(error.message)) {
+      bookingErrorRedirect(
+        "Dit moment is net bezet geraakt. Kies een ander moment.",
+      );
+    }
+    bookingErrorRedirect(error.message);
+  }
+
+  const result = data as { status?: string; lesson_id?: string } | null;
+  revalidatePath("/student", "layout");
+  if (result?.status === "confirmed" && result.lesson_id) {
+    redirect(`/student/lessons/${result.lesson_id}?self_booking=confirmed`);
+  }
+  redirect("/student/lessons/book?status=requested");
 }
 
 /**
