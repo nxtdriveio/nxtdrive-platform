@@ -5,6 +5,8 @@ import type {
   BookingCandidateInput,
   BookingCandidateLookup,
   BookingCandidatePreferenceInput,
+  BookingConfirmationInput,
+  BookingConfirmationResponse,
   BookingHoldInput,
   BookingRequestInput,
   BookingEntityType,
@@ -137,6 +139,50 @@ export async function replaceBookingCandidatePreferences(
 
   if (error) throw rpcError("replace_booking_candidate_preferences", error);
   return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function createBookingConfirmationsForCandidate(
+  service: SupabaseClient,
+  input: BookingConfirmationInput,
+): Promise<number> {
+  const { data, error } = await service.rpc(
+    "create_booking_confirmations_for_candidate",
+    {
+      p_booking_request_id: input.bookingRequestId,
+      p_booking_candidate_id: input.bookingCandidateId,
+      p_tenant_id: input.tenantId,
+      p_actor: input.actor ?? null,
+      p_requires_backoffice: input.requiresBackoffice ?? true,
+      p_requires_instructor: input.requiresInstructor ?? false,
+      p_requires_student: input.requiresStudent ?? false,
+      p_backoffice_expires_at: input.backofficeExpiresAt ?? null,
+      p_instructor_expires_at: input.instructorExpiresAt ?? null,
+      p_student_expires_at: input.studentExpiresAt ?? null,
+      p_metadata: input.metadata ?? {},
+    },
+  );
+
+  if (error) {
+    throw rpcError("create_booking_confirmations_for_candidate", error);
+  }
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function respondBookingConfirmation(
+  service: SupabaseClient,
+  input: BookingConfirmationResponse,
+): Promise<string> {
+  const { data, error } = await service.rpc("respond_booking_confirmation", {
+    p_booking_confirmation_id: input.bookingConfirmationId,
+    p_tenant_id: input.tenantId,
+    p_actor: input.actor ?? null,
+    p_response: input.response,
+    p_reason: input.reason ?? null,
+    p_metadata: input.metadata ?? {},
+  });
+
+  if (error) throw rpcError("respond_booking_confirmation", error);
+  return typeof data === "string" ? data : String(data ?? "");
 }
 
 export async function findBookingCandidateBySlot(

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -11,13 +11,17 @@ import {
   type TrialSuggestion,
 } from "@/lib/trial-lessons/types";
 import {
-  bookTrialAtSlot,
+  confirmTrialBookingPreference,
   confirmTrialLesson,
   rejectTrialLesson,
+  respondTrialBookingConfirmation,
   rescheduleTrialLesson,
 } from "../actions";
 import { TrialRouteMap, type MapPoint } from "@/components/trial-route-map";
-import type { BookingCandidatePreferenceView } from "@/lib/smart-booking/types";
+import type {
+  BookingCandidatePreferenceView,
+  BookingConfirmationView,
+} from "@/lib/smart-booking/types";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
@@ -95,6 +99,7 @@ export function TrialLessonSection({
   trials,
   suggestions,
   selectedPreferences,
+  confirmations,
   activeTrialMapPoints,
 }: {
   leadId: string;
@@ -102,6 +107,7 @@ export function TrialLessonSection({
   trials: TrialLesson[];
   suggestions: TrialSuggestion[];
   selectedPreferences: BookingCandidatePreferenceView[];
+  confirmations: BookingConfirmationView[];
   activeTrialMapPoints?: MapPoint[];
 }) {
   const active = trials.find(
@@ -127,6 +133,7 @@ export function TrialLessonSection({
         <SelectedPreferencesList
           leadId={leadId}
           preferences={selectedPreferences}
+          confirmations={confirmations}
           instructorNames={instructorNames}
           hasActive={!!active}
         />
@@ -170,14 +177,41 @@ function preferenceStatusLabel(status: BookingCandidatePreferenceView["status"])
   return "Geannuleerd";
 }
 
+const CONFIRMATION_ACTOR_LABEL: Record<BookingConfirmationView["actor_type"], string> = {
+  backoffice: "Backoffice",
+  instructor: "Instructeur",
+  student: "Leerling",
+  tenant_admin: "Tenant admin",
+  system: "Systeem",
+};
+
+function confirmationStatusLabel(status: BookingConfirmationView["status"]) {
+  if (status === "accepted") return "akkoord";
+  if (status === "declined") return "geweigerd";
+  if (status === "expired") return "verlopen";
+  if (status === "cancelled") return "geannuleerd";
+  return "open";
+}
+
+function confirmationVariant(
+  status: BookingConfirmationView["status"],
+): BadgeProps["variant"] {
+  if (status === "accepted") return "success";
+  if (status === "declined") return "danger";
+  if (status === "expired" || status === "cancelled") return "outline";
+  return "warning";
+}
+
 function SelectedPreferencesList({
   leadId,
   preferences,
+  confirmations,
   instructorNames,
   hasActive,
 }: {
   leadId: string;
   preferences: BookingCandidatePreferenceView[];
+  confirmations: BookingConfirmationView[];
   instructorNames: Record<string, string>;
   hasActive: boolean;
 }) {
@@ -190,7 +224,7 @@ function SelectedPreferencesList({
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Gekozen voorkeuren
         </h3>
-        <Badge variant="primary">Fase 2</Badge>
+        <Badge variant="primary">Bevestigingsflow</Badge>
       </div>
       <ul className="space-y-2">
         {visible.map((preference) => {
@@ -199,6 +233,15 @@ function SelectedPreferencesList({
           const end = new Date(candidate.ends_at);
           const instructorName =
             instructorNames[candidate.instructor_id] ?? "Instructeur";
+          const candidateConfirmations = confirmations.filter(
+            (c) => c.booking_candidate_id === candidate.id,
+          );
+          const pendingInstructor = candidateConfirmations.find(
+            (c) => c.actor_type === "instructor" && c.status === "pending",
+          );
+          const instructorAccepted = candidateConfirmations.some(
+            (c) => c.actor_type === "instructor" && c.status === "accepted",
+          );
           return (
             <li
               key={preference.id}
@@ -226,6 +269,19 @@ function SelectedPreferencesList({
                       {candidate.reason}
                     </p>
                   ) : null}
+                  {candidateConfirmations.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {candidateConfirmations.map((confirmation) => (
+                        <Badge
+                          key={confirmation.id}
+                          variant={confirmationVariant(confirmation.status)}
+                        >
+                          {CONFIRMATION_ACTOR_LABEL[confirmation.actor_type]}{" "}
+                          {confirmationStatusLabel(confirmation.status)}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
                   <RouteInsight
                     route={{
                       status: candidate.route_status ?? "unavailable",
@@ -242,32 +298,54 @@ function SelectedPreferencesList({
                     score {candidate.score}
                   </span>
                   {!hasActive && candidate.status !== "confirmed" ? (
-                    <form action={bookTrialAtSlot}>
+                    <form action={confirmTrialBookingPreference}>
                       <input type="hidden" name="lead_id" value={leadId} />
                       <input
                         type="hidden"
-                        name="instructor_id"
-                        value={candidate.instructor_id}
+                        name="booking_preference_id"
+                        value={preference.id}
                       />
-                      <input
-                        type="hidden"
-                        name="starts_at"
-                        value={candidate.starts_at}
-                      />
-                      <input
-                        type="hidden"
-                        name="duration_min"
-                        value={candidate.duration_min}
-                      />
-                      <input
-                        type="hidden"
-                        name="pickup_location"
-                        value={candidate.pickup_location ?? ""}
-                      />
-                      <Button type="submit" size="sm" variant="outline">
-                        Voorlopig inplannen
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant={pendingInstructor ? "outline" : "primary"}
+                        disabled={Boolean(pendingInstructor)}
+                      >
+                        {pendingInstructor
+                          ? "Wacht op instructeur"
+                          : instructorAccepted
+                            ? "Definitief inplannen"
+                            : "Bevestig proefles"}
                       </Button>
                     </form>
+                  ) : null}
+                  {pendingInstructor ? (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <form action={respondTrialBookingConfirmation}>
+                        <input type="hidden" name="lead_id" value={leadId} />
+                        <input
+                          type="hidden"
+                          name="booking_confirmation_id"
+                          value={pendingInstructor.id}
+                        />
+                        <input type="hidden" name="response" value="accepted" />
+                        <Button type="submit" size="sm">
+                          Instructeur akkoord
+                        </Button>
+                      </form>
+                      <form action={respondTrialBookingConfirmation}>
+                        <input type="hidden" name="lead_id" value={leadId} />
+                        <input
+                          type="hidden"
+                          name="booking_confirmation_id"
+                          value={pendingInstructor.id}
+                        />
+                        <input type="hidden" name="response" value="declined" />
+                        <Button type="submit" size="sm" variant="outline">
+                          Afwijzen
+                        </Button>
+                      </form>
+                    </div>
                   ) : null}
                 </div>
               </div>

@@ -58,7 +58,10 @@ import {
   LEAD_ACTION_STATUS_LABEL,
   LEAD_ACTION_STATUS_VARIANT,
 } from "@/lib/leads/types";
-import type { BookingCandidatePreferenceView } from "@/lib/smart-booking/types";
+import type {
+  BookingCandidatePreferenceView,
+  BookingConfirmationView,
+} from "@/lib/smart-booking/types";
 import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
@@ -278,6 +281,7 @@ export default async function LeadDetailPage({
   }
 
   let trialBookingPreferences: BookingCandidatePreferenceView[] = [];
+  let trialBookingConfirmations: BookingConfirmationView[] = [];
   if (!existingStudent) {
     const { data: bookingRequestRaw } = await service
       .from("booking_requests")
@@ -314,6 +318,10 @@ export default async function LeadDetailPage({
               ends_at,
               duration_min,
               pickup_location,
+              pickup_lat,
+              pickup_lng,
+              pickup_place_id,
+              pickup_formatted_address,
               score,
               score_factors,
               warnings,
@@ -332,6 +340,32 @@ export default async function LeadDetailPage({
         .order("preference_rank", { ascending: true });
       trialBookingPreferences =
         (prefsRaw ?? []) as unknown as BookingCandidatePreferenceView[];
+
+      const { data: confirmationsRaw } = await service
+        .from("booking_confirmations")
+        .select(
+          `
+            id,
+            tenant_id,
+            branch_id,
+            booking_request_id,
+            booking_candidate_id,
+            booking_hold_id,
+            actor_type,
+            actor_user_id,
+            status,
+            required,
+            expires_at,
+            responded_at,
+            response_reason,
+            metadata
+          `,
+        )
+        .eq("tenant_id", tenant.id)
+        .eq("booking_request_id", bookingRequestId)
+        .order("created_at", { ascending: false });
+      trialBookingConfirmations =
+        (confirmationsRaw ?? []) as unknown as BookingConfirmationView[];
     }
   }
 
@@ -564,6 +598,7 @@ export default async function LeadDetailPage({
               trials={trials}
               suggestions={trialSuggestions}
               selectedPreferences={trialBookingPreferences}
+              confirmations={trialBookingConfirmations}
               activeTrialMapPoints={activeTrialMapPoints}
             />
           ) : null}

@@ -40,6 +40,13 @@ import {
   generatePackageAdvice,
   type PackageAdvice,
 } from "@/lib/ai/leskaart-advisor";
+import {
+  completeBookingHold,
+  createBookingConfirmationsForCandidate,
+  createBookingHold,
+  releaseBookingHold,
+  respondBookingConfirmation,
+} from "@/lib/smart-booking/service";
 import type { MemberRole } from "@/lib/types";
 
 export async function convertLeadToStudent(formData: FormData) {
@@ -310,6 +317,360 @@ export async function confirmTrialLesson(formData: FormData) {
  * cancelled lesson's slot. Provisional only — never auto-confirmed; the planner
  * still confirms via the normal trial flow. Service role (mutation).
  */
+export async function confirmTrialBookingPreference(formData: FormData) {
+  const { user, tenant, roles } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "").trim();
+  const preferenceId = String(formData.get("booking_preference_id") ?? "").trim();
+  if (!leadId || !preferenceId) redirect("/backoffice/leads");
+
+  const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+  if (!(LEAD_ELIGIBLE_STATUSES as readonly string[]).includes(lead.status)) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  const { data: linkedStudent } = await service
+    .from("students")
+    .select("id")
+    .eq("lead_id", leadId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (linkedStudent) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  const { data: activeTrial } = await service
+    .from("trial_lessons")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("lead_id", leadId)
+    .in("status", ["provisional", "confirmed"])
+    .maybeSingle();
+  if (activeTrial) {
+    redirect(`/backoffice/leads/${leadId}?trial=ineligible`);
+  }
+
+  const { data: preferenceRaw, error: preferenceError } = await service
+    .from("booking_candidate_preferences")
+    .select(
+      `
+        id,
+        tenant_id,
+        booking_request_id,
+        booking_candidate_id,
+        status,
+        booking_candidates (
+          id,
+          instructor_id,
+          starts_at,
+          ends_at,
+          duration_min,
+          pickup_location,
+          pickup_lat,
+          pickup_lng,
+          pickup_place_id,
+          pickup_formatted_address,
+          score,
+          route_status,
+          route_travel_to_min,
+          route_travel_from_min,
+          route_needs_confirm,
+          reason,
+          status
+        ),
+        booking_requests (
+          id,
+          lead_id,
+          tenant_id,
+          branch_id,
+          entity_type,
+          status
+        )
+      `,
+    )
+    .eq("id", preferenceId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  type PreferenceRow = {
+    id: string;
+    tenant_id: string;
+    booking_request_id: string;
+    booking_candidate_id: string;
+    status: string;
+    booking_candidates: {
+      id: string;
+      instructor_id: string;
+      starts_at: string;
+      ends_at: string;
+      duration_min: number;
+      pickup_location: string | null;
+      pickup_lat: number | null;
+      pickup_lng: number | null;
+      pickup_place_id: string | null;
+      pickup_formatted_address: string | null;
+      score: number | null;
+      route_status: string | null;
+      route_travel_to_min: number | null;
+      route_travel_from_min: number | null;
+      route_needs_confirm: boolean | null;
+      reason: string | null;
+      status: string;
+    } | null;
+    booking_requests: {
+      id: string;
+      lead_id: string | null;
+      tenant_id: string;
+      branch_id: string | null;
+      entity_type: string;
+      status: string;
+    } | null;
+  };
+
+  const preference = preferenceRaw as unknown as PreferenceRow | null;
+  const candidate = preference?.booking_candidates ?? null;
+  const request = preference?.booking_requests ?? null;
+  if (
+    preferenceError ||
+    !preference ||
+    !candidate ||
+    !request ||
+    request.lead_id !== leadId ||
+    request.tenant_id !== tenant.id ||
+    request.entity_type !== "trial_lesson" ||
+    !["selected", "confirmed"].includes(preference.status)
+  ) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  const startMs = Date.parse(candidate.starts_at);
+  if (Number.isNaN(startMs) || startMs <= Date.now()) {
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+  const durationMin = [60, 90, 120].includes(candidate.duration_min)
+    ? candidate.duration_min
+    : 60;
+
+  const planningError = await validateTrialPlanning({
+    userId: user.id,
+    roles,
+    isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+    lead,
+    instructorId: candidate.instructor_id,
+    startsAt: new Date(startMs),
+    durationMin,
+  });
+  if (planningError) {
+    redirect(`/backoffice/leads/${leadId}?trial=${encodeURIComponent(planningError)}`);
+  }
+
+  const { data: existingConfirmationsRaw } = await service
+    .from("booking_confirmations")
+    .select("id, actor_type, status")
+    .eq("tenant_id", tenant.id)
+    .eq("booking_request_id", request.id)
+    .eq("booking_candidate_id", candidate.id);
+  const existingConfirmations = (existingConfirmationsRaw ?? []) as {
+    id: string;
+    actor_type: string;
+    status: string;
+  }[];
+  const hasPendingInstructor = existingConfirmations.some(
+    (c) => c.actor_type === "instructor" && c.status === "pending",
+  );
+  if (hasPendingInstructor) {
+    revalidatePath(`/backoffice/leads/${leadId}`);
+    redirect(`/backoffice/leads/${leadId}?booking=pending_instructor`);
+  }
+  const hasAcceptedInstructor = existingConfirmations.some(
+    (c) => c.actor_type === "instructor" && c.status === "accepted",
+  );
+  const requiresInstructor =
+    Boolean(candidate.route_needs_confirm) &&
+    candidate.instructor_id !== user.id &&
+    !hasAcceptedInstructor;
+
+  let holdId: string | null = null;
+  let pendingInstructor = false;
+  try {
+    await createBookingConfirmationsForCandidate(service, {
+      tenantId: tenant.id,
+      bookingRequestId: request.id,
+      bookingCandidateId: candidate.id,
+      actor: user.id,
+      requiresBackoffice: true,
+      requiresInstructor,
+      requiresStudent: false,
+      backofficeExpiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+      instructorExpiresAt: requiresInstructor
+        ? new Date(Date.now() + 24 * 60 * 60_000).toISOString()
+        : null,
+      metadata: { source: "lead_detail_confirm_preference" },
+    });
+
+    const { data: backofficeConfirmationRaw, error: backofficeConfirmationError } =
+      await service
+        .from("booking_confirmations")
+        .select("id")
+        .eq("tenant_id", tenant.id)
+        .eq("booking_request_id", request.id)
+        .eq("booking_candidate_id", candidate.id)
+        .eq("actor_type", "backoffice")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    const backofficeConfirmationId =
+      typeof backofficeConfirmationRaw?.id === "string"
+        ? backofficeConfirmationRaw.id
+        : null;
+    if (backofficeConfirmationError || !backofficeConfirmationId) {
+      throw new Error("Backoffice confirmation was not created.");
+    }
+
+    const nextStatus = await respondBookingConfirmation(service, {
+      tenantId: tenant.id,
+      bookingConfirmationId: backofficeConfirmationId,
+      actor: user.id,
+      response: "accepted",
+      metadata: { source: "lead_detail_confirm_preference" },
+    });
+
+    if (nextStatus === "pending_instructor") {
+      pendingInstructor = true;
+    } else if (nextStatus !== "candidates_ready") {
+      throw new Error(`Unexpected booking status ${nextStatus}.`);
+    }
+
+    if (!pendingInstructor) {
+      holdId = await createBookingHold(service, {
+        tenantId: tenant.id,
+        bookingRequestId: request.id,
+        bookingCandidateId: candidate.id,
+        actor: user.id,
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      });
+
+      const { data: trialId, error: bookError } = await service.rpc(
+        "book_trial_lesson",
+        {
+          p_lead_id: leadId,
+          p_tenant_id: tenant.id,
+          p_instructor_id: candidate.instructor_id,
+          p_starts_at: new Date(startMs).toISOString(),
+          p_duration_min: durationMin,
+          p_pickup_location:
+            candidate.pickup_formatted_address ?? candidate.pickup_location,
+          p_score: candidate.score ?? 0,
+          p_reason: candidate.reason ?? "Door leerling gekozen voorkeur",
+          p_pickup_lat: candidate.pickup_lat,
+          p_pickup_lng: candidate.pickup_lng,
+          p_pickup_place_id: candidate.pickup_place_id,
+          p_pickup_formatted_address: candidate.pickup_formatted_address,
+          p_route_status: candidate.route_status ?? "unavailable",
+          p_route_travel_to_min: candidate.route_travel_to_min,
+          p_route_travel_from_min: candidate.route_travel_from_min,
+          p_route_needs_confirm: Boolean(candidate.route_needs_confirm),
+        },
+      );
+      if (bookError || typeof trialId !== "string") {
+        throw new Error(bookError?.message ?? "Trial lesson booking failed.");
+      }
+
+      const { error: confirmError } = await service.rpc("confirm_trial_lesson", {
+        p_trial_id: trialId,
+        p_tenant_id: tenant.id,
+        p_actor: user.id,
+      });
+      if (confirmError) throw new Error(confirmError.message);
+
+      await completeBookingHold(service, {
+        tenantId: tenant.id,
+        bookingHoldId: holdId,
+        actor: user.id,
+        confirmedEntityType: "trial_lesson",
+        confirmedEntityId: trialId,
+      });
+      await service
+        .from("booking_candidate_preferences")
+        .update({ status: "confirmed" })
+        .eq("id", preference.id)
+        .eq("tenant_id", tenant.id);
+
+      await reconcileLeadSafe(service, tenant.id, leadId, user.id);
+      try {
+        await notifyTrialLessonConfirmed(service, tenant.id, trialId);
+      } catch (e) {
+        console.error("[trial] notifyTrialLessonConfirmed failed", e);
+      }
+    }
+  } catch (e) {
+    if (holdId) {
+      try {
+        await releaseBookingHold(service, {
+          tenantId: tenant.id,
+          bookingHoldId: holdId,
+          actor: user.id,
+          reason: "trial_confirmation_failed",
+        });
+      } catch (releaseError) {
+        console.error("[trial] releaseBookingHold failed", releaseError);
+      }
+    }
+    console.error("[trial] confirmTrialBookingPreference failed", e);
+    redirect(`/backoffice/leads/${leadId}?trial=error`);
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(
+    pendingInstructor
+      ? `/backoffice/leads/${leadId}?booking=pending_instructor`
+      : `/backoffice/leads/${leadId}?booking=confirmed`,
+  );
+}
+
+export async function respondTrialBookingConfirmation(formData: FormData) {
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "instructor",
+  ]);
+  const leadId = String(formData.get("lead_id") ?? "").trim();
+  const confirmationId = String(formData.get("booking_confirmation_id") ?? "").trim();
+  const response = String(formData.get("response") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!leadId || !confirmationId || !["accepted", "declined"].includes(response)) {
+    redirect(leadId ? `/backoffice/leads/${leadId}` : "/backoffice/leads");
+  }
+
+  const service = createServiceRoleClient();
+  const { lead } = await requireLeadBackofficeAccess(service, leadId, "collaborate");
+  if (!lead) redirect("/backoffice/leads");
+
+  let nextStatus = "error";
+  try {
+    nextStatus = await respondBookingConfirmation(service, {
+      tenantId: tenant.id,
+      bookingConfirmationId: confirmationId,
+      actor: user.id,
+      response: response as "accepted" | "declined",
+      reason,
+      metadata: { source: "lead_detail_confirmation_response" },
+    });
+  } catch (e) {
+    console.error("[trial] respondTrialBookingConfirmation failed", e);
+    redirect(`/backoffice/leads/${leadId}?booking=error`);
+  }
+
+  revalidatePath(`/backoffice/leads/${leadId}`);
+  revalidatePath("/backoffice/agenda");
+  redirect(`/backoffice/leads/${leadId}?booking=${encodeURIComponent(nextStatus)}`);
+}
+
 export async function bookTrialAtSlot(formData: FormData) {
   const { user, tenant, roles } = await requireActiveTenant([
     "tenant_admin",

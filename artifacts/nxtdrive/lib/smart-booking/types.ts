@@ -105,6 +105,60 @@ export type BookingHoldInput = {
   holdTokenHash?: string | null;
 };
 
+export type BookingConfirmationActorType =
+  | "backoffice"
+  | "instructor"
+  | "student"
+  | "tenant_admin"
+  | "system";
+
+export type BookingConfirmationStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "cancelled";
+
+export type BookingConfirmationInput = {
+  tenantId: string;
+  bookingRequestId: string;
+  bookingCandidateId: string;
+  actor?: string | null;
+  requiresBackoffice?: boolean;
+  requiresInstructor?: boolean;
+  requiresStudent?: boolean;
+  backofficeExpiresAt?: string | null;
+  instructorExpiresAt?: string | null;
+  studentExpiresAt?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type BookingConfirmationResponse = {
+  tenantId: string;
+  bookingConfirmationId: string;
+  actor?: string | null;
+  response: "accepted" | "declined";
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type BookingConfirmationView = {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  booking_request_id: string;
+  booking_candidate_id: string;
+  booking_hold_id: string | null;
+  actor_type: BookingConfirmationActorType;
+  actor_user_id: string | null;
+  status: BookingConfirmationStatus;
+  required: boolean;
+  expires_at: string;
+  responded_at: string | null;
+  response_reason: string | null;
+  metadata: Record<string, unknown>;
+};
+
 export type BookingCandidatePreferenceView = {
   id: string;
   tenant_id: string;
@@ -124,6 +178,10 @@ export type BookingCandidatePreferenceView = {
     ends_at: string;
     duration_min: number;
     pickup_location: string | null;
+    pickup_lat: number | null;
+    pickup_lng: number | null;
+    pickup_place_id: string | null;
+    pickup_formatted_address: string | null;
     score: number;
     score_factors: unknown[];
     warnings: unknown[];
