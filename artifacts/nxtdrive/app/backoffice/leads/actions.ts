@@ -682,6 +682,35 @@ export async function bookTrialAtSlot(formData: FormData) {
   const durationRaw = Number(formData.get("duration_min"));
   const pickupLocation =
     String(formData.get("pickup_location") ?? "").trim() || null;
+  const pickupFormattedAddress =
+    String(formData.get("pickup_formatted_address") ?? "").trim() || null;
+  const parseCoord = (raw: FormDataEntryValue | null, max: number) => {
+    if (typeof raw !== "string" || raw.trim() === "") return null;
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) && n >= -max && n <= max ? n : null;
+  };
+  const parseOptionalInt = (raw: FormDataEntryValue | null) => {
+    if (typeof raw !== "string" || raw.trim() === "") return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const pickupLat = parseCoord(formData.get("pickup_lat"), 90);
+  const pickupLng = parseCoord(formData.get("pickup_lng"), 180);
+  const pickupPlaceId =
+    String(formData.get("pickup_place_id") ?? "").trim().slice(0, 300) || null;
+  const routeStatusRaw = String(formData.get("route_status") ?? "").trim();
+  const routeStatus = ["computed", "estimated", "unavailable"].includes(routeStatusRaw)
+    ? routeStatusRaw
+    : "unavailable";
+  const routeTravelToMin = parseOptionalInt(formData.get("route_travel_to_min"));
+  const routeTravelFromMin = parseOptionalInt(
+    formData.get("route_travel_from_min"),
+  );
+  const routeNeedsConfirm =
+    String(formData.get("route_needs_confirm") ?? "") === "true";
+  const reason =
+    String(formData.get("reason") ?? "").trim().slice(0, 500) ||
+    "Herbezetting vrijgekomen moment";
   if (!leadId || !instructorId || !startsAt) {
     redirect(leadId ? `/backoffice/leads/${leadId}` : "/backoffice/leads");
   }
@@ -746,9 +775,17 @@ export async function bookTrialAtSlot(formData: FormData) {
     p_instructor_id: instructorId,
     p_starts_at: new Date(startMs).toISOString(),
     p_duration_min: durationMin,
-    p_pickup_location: pickupLocation,
+    p_pickup_location: pickupFormattedAddress ?? pickupLocation,
     p_score: 0,
-    p_reason: "Herbezetting vrijgekomen moment",
+    p_reason: reason,
+    p_pickup_lat: pickupLat,
+    p_pickup_lng: pickupLng,
+    p_pickup_place_id: pickupPlaceId,
+    p_pickup_formatted_address: pickupFormattedAddress,
+    p_route_status: routeStatus,
+    p_route_travel_to_min: routeTravelToMin,
+    p_route_travel_from_min: routeTravelFromMin,
+    p_route_needs_confirm: routeNeedsConfirm,
   });
   if (error) {
     redirect(`/backoffice/leads/${leadId}?trial=error`);

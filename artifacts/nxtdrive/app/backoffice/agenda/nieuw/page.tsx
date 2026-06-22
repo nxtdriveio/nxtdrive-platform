@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Clock, Sparkles } from "lucide-react";
 import {
   AGENDA_BACKOFFICE_MANAGE_ROLES,
   requireAgendaAccessContext,
@@ -8,6 +8,7 @@ import { rolesGrantPermission } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -26,10 +27,53 @@ import {
 import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/types";
 import { scheduleLesson } from "../actions";
 import { LessonLocationField } from "./location-field";
+import {
+  generateSmartLessonSuggestions,
+  type SmartLessonSlotSuggestion,
+} from "@/lib/lesson-planning/smart-scheduling";
+import type {
+  PlanningActorAccess,
+  PlanningScope,
+} from "@/lib/planning-core";
 
 export const dynamic = "force-dynamic";
 
 type Instructor = { id: string; full_name: string | null };
+
+type AgendaAccessContext = Awaited<ReturnType<typeof requireAgendaAccessContext>>;
+
+function pagePlanningActor(
+  context: AgendaAccessContext["context"],
+  branchScope: AgendaAccessContext["branchScope"],
+): PlanningActorAccess {
+  const tenantId = context.organization.id;
+  const canManageTenant =
+    Boolean(context.user.profile?.is_platform_admin) ||
+    context.roles.includes("tenant_admin") ||
+    context.roles.includes("franchise_admin");
+  return {
+    userId: context.user.id,
+    roles: context.roles,
+    isPlatformAdmin: Boolean(context.user.profile?.is_platform_admin),
+    tenantIds: canManageTenant ? [tenantId] : [],
+    branchAccess: [
+      {
+        tenantId,
+        branchIds:
+          branchScope.scope_type === "all" ? "all" : branchScope.branch_ids,
+      },
+    ],
+  };
+}
+
+function pagePlanningScope(
+  tenantId: string,
+  branchId: string | null | undefined,
+): PlanningScope {
+  return branchId
+    ? { type: "branch", tenantId, branchId }
+    : { type: "tenant", tenantId };
+}
 
 function tenantTimeInput(date: Date, timeZone: string): string {
   return createNlDateTimeFormatter(
@@ -135,6 +179,26 @@ export default async function NewLessonPage({
     sp.student_id && students.some((s) => s.id === sp.student_id)
       ? sp.student_id
       : (students[0]?.id ?? "");
+  const selectedStudent = students.find((s) => s.id === prefillStudentId) ?? null;
+  const smartDuration = Number.parseInt(defaultDuration, 10);
+  const smartBuffer = Number.parseInt(defaultBuffer, 10);
+  const smartSuggestions =
+    selectedStudent && prefillInstructorId
+      ? await generateSmartLessonSuggestions(service, {
+          tenantId: tenant.id,
+          studentId: selectedStudent.id,
+          instructorId: prefillInstructorId,
+          seedDate: defaultDate,
+          seedTime: defaultTime,
+          durationMin: smartDuration,
+          bufferMin: smartBuffer,
+          timeZone,
+          actor: pagePlanningActor(context, branchScope),
+          scope: pagePlanningScope(tenant.id, selectedStudent.branch_id),
+          branchId: selectedStudent.branch_id,
+          limit: 5,
+        })
+      : null;
 
   return (
     <div className="space-y-6">
@@ -176,6 +240,7 @@ export default async function NewLessonPage({
           </Link>
         </Card>
       ) : (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card>
           <CardHeader>
             <CardTitle>Nieuwe les</CardTitle>
@@ -302,7 +367,142 @@ export default async function NewLessonPage({
             </form>
           </CardContent>
         </Card>
+        <SmartLessonSuggestionsPanel
+          selectedStudentName={selectedStudent?.full_name ?? "Leerling"}
+          studentId={prefillStudentId}
+          instructorId={prefillInstructorId}
+          durationMin={smartDuration}
+          suggestions={smartSuggestions?.suggestions ?? []}
+          blockingReasons={smartSuggestions?.blockingReasons ?? []}
+          balanceMinutes={smartSuggestions?.balanceMinutes ?? 0}
+        />
+        </div>
       )}
     </div>
+  );
+}
+
+function suggestionHref(args: {
+  studentId: string;
+  instructorId: string;
+  suggestion: SmartLessonSlotSuggestion;
+  durationMin: number;
+}) {
+  const params = new URLSearchParams({
+    student_id: args.studentId,
+    instructor_id: args.instructorId,
+    date: args.suggestion.date,
+    time: args.suggestion.time,
+    duration_min: String(args.durationMin),
+  });
+  return `/backoffice/agenda/nieuw?${params.toString()}`;
+}
+
+function SmartLessonSuggestionsPanel({
+  selectedStudentName,
+  studentId,
+  instructorId,
+  durationMin,
+  suggestions,
+  blockingReasons,
+  balanceMinutes,
+}: {
+  selectedStudentName: string;
+  studentId: string;
+  instructorId: string;
+  durationMin: number;
+  suggestions: SmartLessonSlotSuggestion[];
+  blockingReasons: string[];
+  balanceMinutes: number;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+          Slimme suggesties
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Beste lesmomenten voor {selectedStudentName}. Alleen momenten die door
+          de planning-core komen worden voorgesteld.
+        </p>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant={balanceMinutes >= durationMin ? "success" : "warning"}>
+            Saldo {formatTegoed(balanceMinutes)}
+          </Badge>
+          <Badge variant="outline">{durationMin} min les</Badge>
+        </div>
+
+        {blockingReasons.length > 0 ? (
+          <div className="rounded-lg border border-warning/30 bg-[color-mix(in_oklab,var(--warning)_8%,transparent)] p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <AlertTriangle className="h-4 w-4 text-warning" aria-hidden />
+              Geblokkeerde momenten
+            </div>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              {blockingReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {suggestions.length === 0 ? (
+          <div className="rounded-lg border border-border bg-muted/35 p-4 text-sm text-muted-foreground">
+            Geen slimme suggesties gevonden. Kies een andere instructeur, datum
+            of controleer tegoed/beschikbaarheid.
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {suggestions.map((suggestion) => (
+              <li
+                key={suggestion.startsAt}
+                className="rounded-lg border border-border bg-background p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-foreground">
+                        {suggestion.date} om {suggestion.time}
+                      </span>
+                      <Badge variant="primary">{suggestion.score} ptn</Badge>
+                    </div>
+                    {suggestion.reasons.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {suggestion.reasons.join(" · ")}
+                      </p>
+                    ) : null}
+                    {suggestion.warnings.length > 0 ? (
+                      <div className="mt-2 flex items-start gap-1.5 text-xs text-warning">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>{suggestion.warnings.join(" · ")}</span>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5" aria-hidden />
+                        Geen zachte waarschuwingen
+                      </div>
+                    )}
+                  </div>
+                  <Link
+                    href={suggestionHref({
+                      studentId,
+                      instructorId,
+                      suggestion,
+                      durationMin,
+                    })}
+                    className={buttonVariants({ size: "sm", variant: "outline" })}
+                  >
+                    Gebruik
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

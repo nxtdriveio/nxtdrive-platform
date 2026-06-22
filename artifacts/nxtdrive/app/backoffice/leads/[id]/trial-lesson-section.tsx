@@ -11,6 +11,7 @@ import {
   type TrialSuggestion,
 } from "@/lib/trial-lessons/types";
 import {
+  bookTrialAtSlot,
   confirmTrialBookingPreference,
   confirmTrialLesson,
   rejectTrialLesson,
@@ -140,7 +141,12 @@ export function TrialLessonSection({
 
         {/* Always show the current suggestions: when nothing is chosen they are
             the options; when a moment is chosen they are alternatives. */}
-        <SuggestionsList suggestions={suggestions} hasActive={!!active} />
+        <SuggestionsList
+          leadId={leadId}
+          suggestions={suggestions}
+          instructorNames={instructorNames}
+          hasActive={!!active}
+        />
 
         {history.length > 0 ? (
           <div>
@@ -509,10 +515,14 @@ function ActiveTrial({
 }
 
 function SuggestionsList({
+  leadId,
   suggestions,
+  instructorNames,
   hasActive,
 }: {
+  leadId: string;
   suggestions: TrialSuggestion[];
+  instructorNames: Record<string, string>;
   hasActive: boolean;
 }) {
   if (suggestions.length === 0) {
@@ -535,6 +545,8 @@ function SuggestionsList({
         {suggestions.map((s) => {
           const start = new Date(s.starts_at);
           const end = new Date(s.ends_at);
+          const instructorName =
+            instructorNames[s.instructor_id] ?? s.instructor_name ?? "Instructeur";
           return (
             <li
               key={s.starts_at}
@@ -549,12 +561,81 @@ function SuggestionsList({
                   score {s.score}
                 </span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {instructorName}
+                {s.pickup_location ? ` - ${s.pickup_location}` : ""}
+              </p>
               {s.factors.length > 0 ? (
                 <p className="mt-1 text-xs text-primary">
                   {s.factors.map((f) => f.label).join(" · ")}
                 </p>
               ) : null}
               {s.route ? <RouteInsight route={s.route} /> : null}
+              {!hasActive ? (
+                <form action={bookTrialAtSlot} className="mt-3">
+                  <input type="hidden" name="lead_id" value={leadId} />
+                  <input
+                    type="hidden"
+                    name="instructor_id"
+                    value={s.instructor_id}
+                  />
+                  <input type="hidden" name="starts_at" value={s.starts_at} />
+                  <input
+                    type="hidden"
+                    name="duration_min"
+                    value={s.duration_min}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_location"
+                    value={s.pickup_location ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_lat"
+                    value={s.pickup_lat ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_lng"
+                    value={s.pickup_lng ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_place_id"
+                    value={s.pickup_place_id ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_formatted_address"
+                    value={s.pickup_formatted_address ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_status"
+                    value={s.route?.status ?? "unavailable"}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_travel_to_min"
+                    value={s.route?.travel_to_min ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_travel_from_min"
+                    value={s.route?.travel_from_min ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_needs_confirm"
+                    value={s.route?.needs_manual_confirm ? "true" : "false"}
+                  />
+                  <input type="hidden" name="reason" value={s.reason} />
+                  <Button type="submit" size="sm">
+                    Voorlopig inplannen
+                  </Button>
+                </form>
+              ) : null}
             </li>
           );
         })}
