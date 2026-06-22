@@ -56,6 +56,7 @@ export type BookingRequestInput = {
 export type BookingCandidateInput = {
   rank: number;
   instructorId: string;
+  candidateStudentId?: string | null;
   vehicleId?: string | null;
   startsAt: string;
   endsAt: string;
@@ -174,6 +175,7 @@ export type BookingCandidatePreferenceView = {
   booking_candidates: {
     id: string;
     instructor_id: string;
+    candidate_student_id: string | null;
     starts_at: string;
     ends_at: string;
     duration_min: number;

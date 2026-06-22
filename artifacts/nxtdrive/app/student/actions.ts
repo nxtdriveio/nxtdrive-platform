@@ -414,6 +414,33 @@ export async function respondRefillInvitation(
 }
 
 /**
+ * Phase 7 slot recovery: the student/guardian only shows interest in a freed
+ * slot. Staff/instructor acceptance and optional final confirmation decide
+ * whether a lesson is created, so this never books directly from the PWA.
+ */
+export async function expressSlotRecoveryInterestAction(
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { tenant, user } = await requireActiveTenant(["student", "parent"]);
+  const bookingCandidateId = String(
+    formData.get("booking_candidate_id") ?? "",
+  ).trim();
+  if (!bookingCandidateId) return { error: "booking_candidate_id ontbreekt" };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("express_slot_recovery_interest", {
+    p_booking_candidate_id: bookingCandidateId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_metadata: { surface: "student_pwa" },
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+/**
  * Lets a student (or guardian) accept or decline an exam-moment invitation. The
  * locked `respond_exam_invitation` RPC re-validates ownership, lazily expires
  * stale invitations, and on accept links the student to the exam appointment
