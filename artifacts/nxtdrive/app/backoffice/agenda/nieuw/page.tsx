@@ -28,13 +28,10 @@ import { formatTegoed, type Student, type StudentBalance } from "@/lib/students/
 import { scheduleLesson } from "../actions";
 import { LessonLocationField } from "./location-field";
 import {
-  generateSmartLessonSuggestions,
-  type SmartLessonSlotSuggestion,
-} from "@/lib/lesson-planning/smart-scheduling";
-import type {
-  PlanningActorAccess,
-  PlanningScope,
-} from "@/lib/planning-core";
+  generateMultiBranchLessonSuggestions,
+  type MultiBranchLessonSuggestion,
+} from "@/lib/lesson-planning/multi-branch-suggestions";
+import type { PlanningActorAccess } from "@/lib/planning-core";
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +63,6 @@ function pagePlanningActor(
   };
 }
 
-function pagePlanningScope(
-  tenantId: string,
-  branchId: string | null | undefined,
-): PlanningScope {
-  return branchId
-    ? { type: "branch", tenantId, branchId }
-    : { type: "tenant", tenantId };
-}
-
 function tenantTimeInput(date: Date, timeZone: string): string {
   return createNlDateTimeFormatter(
     {
@@ -93,6 +81,7 @@ export default async function NewLessonPage({
     error?: string;
     student_id?: string;
     instructor_id?: string;
+    branch_id?: string;
     date?: string;
     time?: string;
     duration_min?: string;
@@ -182,21 +171,31 @@ export default async function NewLessonPage({
   const selectedStudent = students.find((s) => s.id === prefillStudentId) ?? null;
   const smartDuration = Number.parseInt(defaultDuration, 10);
   const smartBuffer = Number.parseInt(defaultBuffer, 10);
+  const canSeeCrossBranchSuggestions =
+    branchScope.scope_type === "all" &&
+    (Boolean(user.profile?.is_platform_admin) ||
+      roles.includes("tenant_admin") ||
+      roles.includes("franchise_admin") ||
+      rolesGrantPermission(roles, "planning:manage"));
   const smartSuggestions =
-    selectedStudent && prefillInstructorId
-      ? await generateSmartLessonSuggestions(service, {
+    selectedStudent
+      ? await generateMultiBranchLessonSuggestions(service, {
           tenantId: tenant.id,
           studentId: selectedStudent.id,
-          instructorId: prefillInstructorId,
           seedDate: defaultDate,
           seedTime: defaultTime,
           durationMin: smartDuration,
           bufferMin: smartBuffer,
           timeZone,
           actor: pagePlanningActor(context, branchScope),
-          scope: pagePlanningScope(tenant.id, selectedStudent.branch_id),
-          branchId: selectedStudent.branch_id,
-          limit: 5,
+          allowedBranchIds: branchFilterIds,
+          preferredInstructorId: prefillInstructorId,
+          preferredBranchId:
+            sp.branch_id && /^[0-9a-f-]{36}$/i.test(sp.branch_id)
+              ? sp.branch_id
+              : selectedStudent.branch_id,
+          allowCrossBranch: canSeeCrossBranchSuggestions,
+          limit: 8,
         })
       : null;
 
@@ -370,11 +369,13 @@ export default async function NewLessonPage({
         <SmartLessonSuggestionsPanel
           selectedStudentName={selectedStudent?.full_name ?? "Leerling"}
           studentId={prefillStudentId}
-          instructorId={prefillInstructorId}
           durationMin={smartDuration}
           suggestions={smartSuggestions?.suggestions ?? []}
           blockingReasons={smartSuggestions?.blockingReasons ?? []}
           balanceMinutes={smartSuggestions?.balanceMinutes ?? 0}
+          branchCount={smartSuggestions?.branchCount ?? 0}
+          instructorCount={smartSuggestions?.instructorCount ?? 0}
+          scopeLabel={smartSuggestions?.scopeLabel ?? "Vestigingsscope"}
         />
         </div>
       )}
@@ -384,36 +385,42 @@ export default async function NewLessonPage({
 
 function suggestionHref(args: {
   studentId: string;
-  instructorId: string;
-  suggestion: SmartLessonSlotSuggestion;
+  suggestion: MultiBranchLessonSuggestion;
   durationMin: number;
 }) {
   const params = new URLSearchParams({
     student_id: args.studentId,
-    instructor_id: args.instructorId,
+    instructor_id: args.suggestion.instructorId,
     date: args.suggestion.date,
     time: args.suggestion.time,
     duration_min: String(args.durationMin),
   });
+  if (args.suggestion.branchId) {
+    params.set("branch_id", args.suggestion.branchId);
+  }
   return `/backoffice/agenda/nieuw?${params.toString()}`;
 }
 
 function SmartLessonSuggestionsPanel({
   selectedStudentName,
   studentId,
-  instructorId,
   durationMin,
   suggestions,
   blockingReasons,
   balanceMinutes,
+  branchCount,
+  instructorCount,
+  scopeLabel,
 }: {
   selectedStudentName: string;
   studentId: string;
-  instructorId: string;
   durationMin: number;
-  suggestions: SmartLessonSlotSuggestion[];
+  suggestions: MultiBranchLessonSuggestion[];
   blockingReasons: string[];
   balanceMinutes: number;
+  branchCount: number;
+  instructorCount: number;
+  scopeLabel: string;
 }) {
   return (
     <Card>
@@ -426,13 +433,21 @@ function SmartLessonSuggestionsPanel({
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Beste lesmomenten voor {selectedStudentName}. Alleen momenten die door
-          de planning-core komen worden voorgesteld.
+          de planning-core komen worden voorgesteld, binnen je toegestane
+          vestigingsscope.
         </p>
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant={balanceMinutes >= durationMin ? "success" : "warning"}>
             Saldo {formatTegoed(balanceMinutes)}
           </Badge>
           <Badge variant="outline">{durationMin} min les</Badge>
+          <Badge variant="outline">{scopeLabel}</Badge>
+          <Badge variant="outline">
+            {branchCount} vestiging{branchCount === 1 ? "" : "en"}
+          </Badge>
+          <Badge variant="outline">
+            {instructorCount} instructeur{instructorCount === 1 ? "" : "s"}
+          </Badge>
         </div>
 
         {blockingReasons.length > 0 ? (
@@ -458,7 +473,7 @@ function SmartLessonSuggestionsPanel({
           <ul className="space-y-3">
             {suggestions.map((suggestion) => (
               <li
-                key={suggestion.startsAt}
+                key={`${suggestion.startsAt}:${suggestion.instructorId}:${suggestion.branchId ?? "tenant"}`}
                 className="rounded-lg border border-border bg-background p-3"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -468,16 +483,37 @@ function SmartLessonSuggestionsPanel({
                         {suggestion.date} om {suggestion.time}
                       </span>
                       <Badge variant="primary">{suggestion.score} ptn</Badge>
+                      <Badge variant="outline">{suggestion.branchName}</Badge>
+                      <Badge
+                        variant={
+                          suggestion.branchCapacityPressure === "rustig"
+                            ? "success"
+                            : suggestion.branchCapacityPressure === "normaal"
+                              ? "outline"
+                              : "warning"
+                        }
+                      >
+                        {suggestion.branchCapacityPressure}
+                      </Badge>
                     </div>
+                    <p className="mt-1 text-xs font-medium text-foreground/80">
+                      {suggestion.instructorName}
+                      {suggestion.branchCity ? ` - ${suggestion.branchCity}` : ""}
+                    </p>
                     {suggestion.reasons.length > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {suggestion.reasons.join(" · ")}
+                        {suggestion.reasons.join(" / ")}
+                      </p>
+                    ) : null}
+                    {suggestion.routingReasons.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {suggestion.routingReasons.join(" / ")}
                       </p>
                     ) : null}
                     {suggestion.warnings.length > 0 ? (
                       <div className="mt-2 flex items-start gap-1.5 text-xs text-warning">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>{suggestion.warnings.join(" · ")}</span>
+                        <span>{suggestion.warnings.join(" / ")}</span>
                       </div>
                     ) : (
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -489,7 +525,6 @@ function SmartLessonSuggestionsPanel({
                   <Link
                     href={suggestionHref({
                       studentId,
-                      instructorId,
                       suggestion,
                       durationMin,
                     })}
