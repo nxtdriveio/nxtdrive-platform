@@ -79,6 +79,15 @@ export type BookingCandidateInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type BookingCandidatePreferenceInput = {
+  bookingCandidateId: string;
+  preferenceRank: number;
+  requesterType?: BookingRequesterType;
+  selectedByUserId?: string | null;
+  status?: "selected" | "confirmed";
+  metadata?: Record<string, unknown>;
+};
+
 export type BookingCandidateLookup = {
   tenantId: string;
   bookingRequestId: string;
@@ -94,4 +103,35 @@ export type BookingHoldInput = {
   actor?: string | null;
   expiresAt: string;
   holdTokenHash?: string | null;
+};
+
+export type BookingCandidatePreferenceView = {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  booking_request_id: string;
+  booking_candidate_id: string;
+  preference_rank: number;
+  requester_type: BookingRequesterType;
+  selected_by_user_id: string | null;
+  status: "selected" | "superseded" | "confirmed" | "expired" | "cancelled";
+  selected_at: string;
+  metadata: Record<string, unknown>;
+  booking_candidates: {
+    id: string;
+    instructor_id: string;
+    starts_at: string;
+    ends_at: string;
+    duration_min: number;
+    pickup_location: string | null;
+    score: number;
+    score_factors: unknown[];
+    warnings: unknown[];
+    route_status: "computed" | "estimated" | "unavailable" | null;
+    route_travel_to_min: number | null;
+    route_travel_from_min: number | null;
+    route_needs_confirm: boolean;
+    reason: string | null;
+    status: string;
+  } | null;
 };

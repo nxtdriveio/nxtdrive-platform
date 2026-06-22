@@ -20,6 +20,7 @@ import {
   ensureBookingRequest,
   findBookingCandidateBySlot,
   releaseBookingHold,
+  replaceBookingCandidatePreferences,
   replaceBookingCandidates,
 } from "@/lib/smart-booking/service";
 import {
@@ -91,6 +92,26 @@ function intakeRequiredTransmission(
   if (value === "manual") return "schakel";
   if (value === "automatic") return "automaat";
   return null;
+}
+
+async function loadTrialBookingAutomationLevel(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+): Promise<number> {
+  const { data } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", "trial_lesson_policy")
+    .maybeSingle();
+  const value = (data?.value ?? {}) as Record<string, unknown>;
+  const raw =
+    typeof value["booking_automation_level"] === "number"
+      ? value["booking_automation_level"]
+      : typeof value["automation_level"] === "number"
+        ? value["automation_level"]
+        : 1;
+  return Number.isInteger(raw) ? Math.max(0, Math.min(4, raw)) : 1;
 }
 
 /** A required date (yyyy-mm-dd) or null if absent; throws via err on invalid. */
@@ -393,7 +414,8 @@ export async function submitIntake(formData: FormData) {
  * Fase 2 — the prospect picks one of the suggested trial-lesson slots from the
  * public thank-you page. Public/unauthenticated, so it runs as service role and
  * re-validates the chosen slot server-side (never trusting client values) before
- * storing it as `provisional` via the book_trial_lesson RPC.
+ * storing it as a ranked preference. Tenants with booking automation level 2+
+ * can continue into the existing provisional hold/trial flow.
  */
 export async function chooseTrialLesson(formData: FormData) {
   const slug = String(formData.get("tenant_slug") ?? "").trim();
@@ -473,6 +495,7 @@ export async function chooseTrialLesson(formData: FormData) {
   }
 
   let bookingHoldId: string | null = null;
+  let preferenceOnly = false;
   try {
     const bookingRequestId = await ensureBookingRequest(
       service,
@@ -492,41 +515,86 @@ export async function chooseTrialLesson(formData: FormData) {
       }),
     );
 
-    await replaceBookingCandidates(service, {
-      tenantId: tenant.id,
-      bookingRequestId,
-      actor: null,
-      candidates: [
-        validatedTrialSlotToBookingCandidate(valid, {
-          planning_allowed: validation.allowed,
-          blocking_reasons: validation.blockingReasons,
-          warnings: validation.warnings,
-        }),
-      ],
-    });
-
-    const bookingCandidateId = await findBookingCandidateBySlot(service, {
+    let bookingCandidateId = await findBookingCandidateBySlot(service, {
       tenantId: tenant.id,
       bookingRequestId,
       instructorId: valid.instructorId,
       startsAt: valid.startsAt,
       endsAt: valid.endsAt,
     });
+
+    if (!bookingCandidateId) {
+      await replaceBookingCandidates(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        actor: null,
+        candidates: [
+          validatedTrialSlotToBookingCandidate(valid, {
+            planning_allowed: validation.allowed,
+            blocking_reasons: validation.blockingReasons,
+            warnings: validation.warnings,
+          }),
+        ],
+      });
+
+      bookingCandidateId = await findBookingCandidateBySlot(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        instructorId: valid.instructorId,
+        startsAt: valid.startsAt,
+        endsAt: valid.endsAt,
+      });
+    }
+
     if (!bookingCandidateId) {
       throw new Error("Selected booking candidate was not persisted.");
     }
 
-    bookingHoldId = await createBookingHold(service, {
+    await replaceBookingCandidatePreferences(service, {
       tenantId: tenant.id,
       bookingRequestId,
-      bookingCandidateId,
       actor: null,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      preferences: [
+        {
+          bookingCandidateId,
+          preferenceRank: 1,
+          requesterType: "public_lead",
+          metadata: {
+            selected_from: "public_intake",
+            planning_allowed: validation.allowed,
+            blocking_reasons: validation.blockingReasons,
+            warnings: validation.warnings,
+          },
+        },
+      ],
     });
+
+    const automationLevel = await loadTrialBookingAutomationLevel(
+      service,
+      tenant.id,
+    );
+    if (automationLevel < 2) {
+      await reconcileLeadSafe(service, tenant.id, leadId, null);
+      preferenceOnly = true;
+    } else {
+      bookingHoldId = await createBookingHold(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        bookingCandidateId,
+        actor: null,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      });
+    }
   } catch (e) {
-    console.error("[smart-booking] trial hold failed", e);
+    console.error("[smart-booking] trial preference/hold failed", e);
     redirect(
       `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
+  if (preferenceOnly) {
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&preferred=1`,
     );
   }
 

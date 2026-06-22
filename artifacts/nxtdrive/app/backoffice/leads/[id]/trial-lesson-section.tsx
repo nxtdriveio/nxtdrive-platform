@@ -11,11 +11,13 @@ import {
   type TrialSuggestion,
 } from "@/lib/trial-lessons/types";
 import {
+  bookTrialAtSlot,
   confirmTrialLesson,
   rejectTrialLesson,
   rescheduleTrialLesson,
 } from "../actions";
 import { TrialRouteMap, type MapPoint } from "@/components/trial-route-map";
+import type { BookingCandidatePreferenceView } from "@/lib/smart-booking/types";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
@@ -92,12 +94,14 @@ export function TrialLessonSection({
   instructorNames,
   trials,
   suggestions,
+  selectedPreferences,
   activeTrialMapPoints,
 }: {
   leadId: string;
   instructorNames: Record<string, string>;
   trials: TrialLesson[];
   suggestions: TrialSuggestion[];
+  selectedPreferences: BookingCandidatePreferenceView[];
   activeTrialMapPoints?: MapPoint[];
 }) {
   const active = trials.find(
@@ -119,6 +123,13 @@ export function TrialLessonSection({
             mapPoints={activeTrialMapPoints}
           />
         ) : null}
+
+        <SelectedPreferencesList
+          leadId={leadId}
+          preferences={selectedPreferences}
+          instructorNames={instructorNames}
+          hasActive={!!active}
+        />
 
         {/* Always show the current suggestions: when nothing is chosen they are
             the options; when a moment is chosen they are alternatives. */}
@@ -148,6 +159,123 @@ export function TrialLessonSection({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function preferenceStatusLabel(status: BookingCandidatePreferenceView["status"]) {
+  if (status === "confirmed") return "Bevestigd";
+  if (status === "selected") return "Gekozen";
+  if (status === "superseded") return "Vervangen";
+  if (status === "expired") return "Verlopen";
+  return "Geannuleerd";
+}
+
+function SelectedPreferencesList({
+  leadId,
+  preferences,
+  instructorNames,
+  hasActive,
+}: {
+  leadId: string;
+  preferences: BookingCandidatePreferenceView[];
+  instructorNames: Record<string, string>;
+  hasActive: boolean;
+}) {
+  const visible = preferences.filter((p) => p.booking_candidates);
+  if (visible.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Gekozen voorkeuren
+        </h3>
+        <Badge variant="primary">Fase 2</Badge>
+      </div>
+      <ul className="space-y-2">
+        {visible.map((preference) => {
+          const candidate = preference.booking_candidates!;
+          const start = new Date(candidate.starts_at);
+          const end = new Date(candidate.ends_at);
+          const instructorName =
+            instructorNames[candidate.instructor_id] ?? "Instructeur";
+          return (
+            <li
+              key={preference.id}
+              className="rounded-md border border-primary/25 bg-primary-soft/40 p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      #{preference.preference_rank} {cap(slotFmt.format(start))} ·{" "}
+                      {timeFmt.format(start)}-{timeFmt.format(end)}
+                    </span>
+                    <Badge variant="outline">
+                      {preferenceStatusLabel(preference.status)}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {candidate.duration_min} min · {instructorName}
+                    {candidate.pickup_location
+                      ? ` · Ophaal: ${candidate.pickup_location}`
+                      : ""}
+                  </p>
+                  {candidate.reason ? (
+                    <p className="mt-2 text-xs font-medium text-primary">
+                      {candidate.reason}
+                    </p>
+                  ) : null}
+                  <RouteInsight
+                    route={{
+                      status: candidate.route_status ?? "unavailable",
+                      travel_to_min: candidate.route_travel_to_min,
+                      travel_from_min: candidate.route_travel_from_min,
+                      prev_distance_km: null,
+                      next_distance_km: null,
+                      needs_manual_confirm: candidate.route_needs_confirm,
+                    }}
+                  />
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    score {candidate.score}
+                  </span>
+                  {!hasActive && candidate.status !== "confirmed" ? (
+                    <form action={bookTrialAtSlot}>
+                      <input type="hidden" name="lead_id" value={leadId} />
+                      <input
+                        type="hidden"
+                        name="instructor_id"
+                        value={candidate.instructor_id}
+                      />
+                      <input
+                        type="hidden"
+                        name="starts_at"
+                        value={candidate.starts_at}
+                      />
+                      <input
+                        type="hidden"
+                        name="duration_min"
+                        value={candidate.duration_min}
+                      />
+                      <input
+                        type="hidden"
+                        name="pickup_location"
+                        value={candidate.pickup_location ?? ""}
+                      />
+                      <Button type="submit" size="sm" variant="outline">
+                        Voorlopig inplannen
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

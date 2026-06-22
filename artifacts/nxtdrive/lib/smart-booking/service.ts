@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   BookingCandidateInput,
   BookingCandidateLookup,
+  BookingCandidatePreferenceInput,
   BookingHoldInput,
   BookingRequestInput,
   BookingEntityType,
@@ -101,6 +102,40 @@ export async function replaceBookingCandidates(
   });
 
   if (error) throw rpcError("replace_booking_candidates", error);
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+function serializePreference(preference: BookingCandidatePreferenceInput) {
+  return {
+    booking_candidate_id: preference.bookingCandidateId,
+    preference_rank: preference.preferenceRank,
+    requester_type: preference.requesterType ?? "public_lead",
+    selected_by_user_id: preference.selectedByUserId ?? null,
+    status: preference.status ?? "selected",
+    metadata: preference.metadata ?? {},
+  };
+}
+
+export async function replaceBookingCandidatePreferences(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingRequestId: string;
+    actor?: string | null;
+    preferences: BookingCandidatePreferenceInput[];
+  },
+): Promise<number> {
+  const { data, error } = await service.rpc(
+    "replace_booking_candidate_preferences",
+    {
+      p_booking_request_id: args.bookingRequestId,
+      p_tenant_id: args.tenantId,
+      p_actor: args.actor ?? null,
+      p_preferences: args.preferences.map(serializePreference),
+    },
+  );
+
+  if (error) throw rpcError("replace_booking_candidate_preferences", error);
   return typeof data === "number" ? data : Number(data ?? 0);
 }
 

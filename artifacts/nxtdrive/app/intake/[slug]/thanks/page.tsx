@@ -48,10 +48,15 @@ export default async function IntakeThanksPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ lead?: string; booked?: string; slot?: string }>;
+  searchParams: Promise<{
+    lead?: string;
+    booked?: string;
+    preferred?: string;
+    slot?: string;
+  }>;
 }) {
   const { slug } = await params;
-  const { lead: leadId, booked, slot } = await searchParams;
+  const { lead: leadId, booked, preferred, slot } = await searchParams;
   const service = createServiceRoleClient();
   const { data: tenant } = await service
     .from("tenants")
@@ -162,6 +167,25 @@ export default async function IntakeThanksPage({
     } catch (e) {
       console.error("[smart-booking] persist trial suggestions failed", e);
     }
+  }
+
+  // --- Preference-only state (canon phase 2) --------------------------------
+  if (!bookedTrial && preferred === "1") {
+    return (
+      <main className="bg-nxt-grid relative flex min-h-screen items-center justify-center px-6 py-12">
+        <Card className="w-full max-w-md p-8 text-center">
+          <NxtdriveLogo className="mx-auto text-xl" />
+          <h1 className="mt-6 text-2xl font-semibold text-foreground">
+            Je voorkeur is ontvangen
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {tenant.name} ziet jouw gekozen moment met de score en uitleg in de
+            backoffice. De rijschool bevestigt de proefles definitief voordat er
+            iets in de agenda komt.
+          </p>
+        </Card>
+      </main>
+    );
   }
 
   // --- Confirmation state (just booked or already had one) -----------------
@@ -276,7 +300,7 @@ export default async function IntakeThanksPage({
                   />
                   <input type="hidden" name="starts_at" value={s.starts_at} />
                   <Button type="submit" size="sm" className="w-full">
-                    Kies dit moment
+                    Kies als voorkeur
                   </Button>
                 </form>
               </Card>

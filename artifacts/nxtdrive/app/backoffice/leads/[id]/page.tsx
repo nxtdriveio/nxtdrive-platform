@@ -58,6 +58,7 @@ import {
   LEAD_ACTION_STATUS_LABEL,
   LEAD_ACTION_STATUS_VARIANT,
 } from "@/lib/leads/types";
+import type { BookingCandidatePreferenceView } from "@/lib/smart-booking/types";
 import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
@@ -276,6 +277,64 @@ export default async function LeadDetailPage({
     );
   }
 
+  let trialBookingPreferences: BookingCandidatePreferenceView[] = [];
+  if (!existingStudent) {
+    const { data: bookingRequestRaw } = await service
+      .from("booking_requests")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("lead_id", id)
+      .eq("entity_type", "trial_lesson")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const bookingRequestId =
+      typeof bookingRequestRaw?.id === "string" ? bookingRequestRaw.id : null;
+
+    if (bookingRequestId) {
+      const { data: prefsRaw } = await service
+        .from("booking_candidate_preferences")
+        .select(
+          `
+            id,
+            tenant_id,
+            branch_id,
+            booking_request_id,
+            booking_candidate_id,
+            preference_rank,
+            requester_type,
+            selected_by_user_id,
+            status,
+            selected_at,
+            metadata,
+            booking_candidates (
+              id,
+              instructor_id,
+              starts_at,
+              ends_at,
+              duration_min,
+              pickup_location,
+              score,
+              score_factors,
+              warnings,
+              route_status,
+              route_travel_to_min,
+              route_travel_from_min,
+              route_needs_confirm,
+              reason,
+              status
+            )
+          `,
+        )
+        .eq("tenant_id", tenant.id)
+        .eq("booking_request_id", bookingRequestId)
+        .in("status", ["selected", "confirmed"])
+        .order("preference_rank", { ascending: true });
+      trialBookingPreferences =
+        (prefsRaw ?? []) as unknown as BookingCandidatePreferenceView[];
+    }
+  }
+
   // Resolve instructor display names (profiles RLS only exposes the caller's own
   // row, so read via service role bounded by this tenant's membership).
   const instructorNames: Record<string, string> = {};
@@ -283,6 +342,9 @@ export default async function LeadDetailPage({
     new Set([
       ...trials.map((t) => t.instructor_id),
       ...trialSuggestions.map((s) => s.instructor_id),
+      ...trialBookingPreferences
+        .map((p) => p.booking_candidates?.instructor_id)
+        .filter((id): id is string => typeof id === "string"),
     ]),
   );
   if (instructorIds.length > 0) {
@@ -501,6 +563,7 @@ export default async function LeadDetailPage({
               instructorNames={instructorNames}
               trials={trials}
               suggestions={trialSuggestions}
+              selectedPreferences={trialBookingPreferences}
               activeTrialMapPoints={activeTrialMapPoints}
             />
           ) : null}
