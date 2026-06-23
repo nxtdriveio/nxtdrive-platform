@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p ${PORT:-22557} -H 127.0.0.1",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test \"lib/**/*.test.ts\"",
+    "test": "node scripts/run-tests.mjs",
     "notif:smoketest": "tsx ./scripts/notif-smoketest.ts"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import type {
   PlanningCandidateInput,
   PlanningKernelData,
 } from "@/lib/planning-core/types";
+import { isActivePlanningBusyStatus } from "@/lib/planning-core/data";
 import { validateScheduleCandidate } from "@/lib/planning-core/validation";
 
 const actor: PlanningActorAccess = {
@@ -563,5 +564,183 @@ describe("validateScheduleCandidate", () => {
 
     assert.equal(result.allowed, false);
     assert.ok(codes(result).includes("ACTOR_NOT_ALLOWED_FOR_SCOPE"));
+  });
+
+  it("allows branch-scoped actors inside their own branch", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        actor: {
+          userId: "branch-planner",
+          roles: ["planner"],
+          branchAccess: [{ tenantId: "tenant-1", branchIds: ["branch-a"] }],
+        },
+        scope: { type: "branch", tenantId: "tenant-1", branchId: "branch-a" },
+        branchId: "branch-a",
+      }),
+      data({
+        instructor: {
+          id: "instructor-1",
+          tenantId: "tenant-1",
+          branchIds: ["branch-a"],
+          serviceAreaIds: ["area-a"],
+          capabilityIds: ["manual", "anxiety"],
+          availabilityRules: [
+            {
+              id: "rule-branch-a",
+              tenant_id: "tenant-1",
+              branch_id: "branch-a",
+              instructor_id: "instructor-1",
+              weekday: 1,
+              start_min: 540,
+              end_min: 1080,
+              created_at: "2026-01-01T00:00:00.000Z",
+              updated_at: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          availabilityExceptions: [],
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.deepEqual(result.blockingReasons, []);
+  });
+
+  it("blocks franchise planning actors without manage permission", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        actor: {
+          userId: "franchise-viewer",
+          roles: ["franchise_admin"],
+          franchiseOperations: [
+            {
+              franchiseRootTenantId: "root-1",
+              franchiseeTenantId: "tenant-1",
+              canViewPlanning: true,
+              canManagePlanning: false,
+            },
+          ],
+        },
+        scope: {
+          type: "franchisee",
+          franchiseRootTenantId: "root-1",
+          tenantId: "tenant-1",
+          branchId: "branch-a",
+        },
+        branchId: "branch-a",
+      }),
+      data(),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("ACTOR_NOT_ALLOWED_FOR_SCOPE"));
+  });
+
+  it("allows franchise planning actors with manage permission", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        actor: {
+          userId: "franchise-planner",
+          roles: ["franchise_admin"],
+          franchiseOperations: [
+            {
+              franchiseRootTenantId: "root-1",
+              franchiseeTenantId: "tenant-1",
+              canViewPlanning: true,
+              canManagePlanning: true,
+            },
+          ],
+        },
+        scope: {
+          type: "franchisee",
+          franchiseRootTenantId: "root-1",
+          tenantId: "tenant-1",
+          branchId: "branch-a",
+        },
+        branchId: "branch-a",
+      }),
+      data(),
+    );
+
+    assert.equal(result.allowed, true);
+  });
+
+  it("blocks concurrent vehicle use across instructors", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          branchId: "branch-a",
+          status: "active",
+          latestOdometerRecordedAt: "2026-06-14T10:00:00.000Z",
+        },
+        busyIntervals: [
+          {
+            id: "vehicle-race",
+            entityType: "lesson",
+            instructorId: "other-instructor",
+            vehicleId: "vehicle-1",
+            startsAt: "2026-06-15T08:30:00.000Z",
+            endsAt: "2026-06-15T09:30:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("VEHICLE_HAS_OVERLAP"));
+  });
+
+  it("does not treat adjacent vehicle slots as overlapping", () => {
+    const result = validateScheduleCandidate(
+      candidate({ vehicleId: "vehicle-1" }),
+      data({
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          branchId: "branch-a",
+          status: "active",
+          latestOdometerRecordedAt: "2026-06-14T10:00:00.000Z",
+        },
+        busyIntervals: [
+          {
+            id: "previous-vehicle",
+            entityType: "lesson",
+            vehicleId: "vehicle-1",
+            startsAt: "2026-06-15T07:00:00.000Z",
+            endsAt: "2026-06-15T08:00:00.000Z",
+          },
+          {
+            id: "next-vehicle",
+            entityType: "lesson",
+            vehicleId: "vehicle-1",
+            startsAt: "2026-06-15T09:00:00.000Z",
+            endsAt: "2026-06-15T10:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(!codes(result).includes("VEHICLE_HAS_OVERLAP"));
+  });
+
+  it("treats only active source rows as busy for planning conflicts", () => {
+    for (const status of [
+      "completed",
+      "cancelled",
+      "cancelled_with_refund",
+      "cancelled_no_refund",
+      "no_show",
+      "archived",
+    ]) {
+      assert.equal(isActivePlanningBusyStatus(status), false, status);
+    }
+
+    assert.equal(isActivePlanningBusyStatus("planned"), true);
+    assert.equal(isActivePlanningBusyStatus("in_progress"), true);
+    assert.equal(isActivePlanningBusyStatus(null), true);
   });
 });

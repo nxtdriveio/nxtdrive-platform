@@ -72,7 +72,9 @@ function uniq(values: readonly (string | null | undefined)[]): string[] {
   );
 }
 
-function activeBusy(row: BusyRow): boolean {
+export function isActivePlanningBusyStatus(
+  status: string | null | undefined,
+): boolean {
   return ![
     "completed",
     "cancelled",
@@ -80,7 +82,11 @@ function activeBusy(row: BusyRow): boolean {
     "cancelled_no_refund",
     "no_show",
     "archived",
-  ].includes(row.status ?? "");
+  ].includes(status ?? "");
+}
+
+function activeBusy(row: BusyRow): boolean {
+  return isActivePlanningBusyStatus(row.status);
 }
 
 function busyInterval(
