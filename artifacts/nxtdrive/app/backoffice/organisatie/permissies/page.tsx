@@ -1,23 +1,43 @@
 import Link from "next/link";
-import { ShieldCheck, SlidersHorizontal, Users, Wrench } from "lucide-react";
+import { Fragment } from "react";
+import {
+  CheckCircle2,
+  Eye,
+  GitBranch,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  ACCESS_SURFACES,
+  DELEGATION_WIZARD_SUGGESTIONS,
+  ROLE_TEMPLATES,
   defaultPermissionState,
+  effectiveRolePermission,
+  effectiveRolePermissions,
   isStaffGovernanceRole,
   listOrganizationRolePermissionOverrides,
   manageablePermissions,
   manageableRoles,
+  permissionLabel,
   permissionOverrideExplains,
   permissionOverrideValue,
+  PERMISSION_RESOURCE_LABELS,
   requireOrganizationPermission,
+  roleAuditExplanation,
+  roleDisplayLabel,
   roleGovernanceDefinition,
   roleScopeLabel,
+  surfaceVisibleWithPermissions,
   type ManageablePermissionRole,
+  type OrganizationRolePermissionOverride,
 } from "@/lib/organization";
 import {
-  permissionAction,
   permissionResource,
   type Permission,
 } from "@/lib/permissions";
@@ -52,29 +72,6 @@ const ROLE_DESCRIPTION: Record<ManageablePermissionRole, string> = {
   admin_staff: "Backoffice- en facturatiegerichte rol voor administratie en operationele opvolging.",
   marketing: "Lead- en groeifocus zonder toegang tot gevoelige beheerinstellingen.",
   instructor: "Uitvoerende rol voor leerlingen en agenda, zonder brede backoffice-control.",
-};
-
-const RESOURCE_LABEL: Record<string, string> = {
-  organization: "Organisatie",
-  settings: "Instellingen",
-  branch: "Vestigingen",
-  team: "Teams",
-  user: "Medewerkers",
-  student: "Leerlingen",
-  planning: "Planning",
-  invoice: "Facturen",
-  lead: "Leads",
-  report: "Rapportages",
-  franchise: "Franchise",
-  vehicle: "Voertuigen",
-  task: "Taken",
-};
-
-const ACTION_LABEL: Record<string, string> = {
-  manage: "Beheren",
-  read: "Lezen",
-  update: "Bijwerken",
-  export: "Exporteren",
 };
 
 function feedbackMessage(code: string | null, reason: string | null): string | null {
@@ -117,12 +114,6 @@ function StatCard({
   );
 }
 
-function permissionLabel(permission: Permission): string {
-  const resource = permissionResource(permission);
-  const action = permissionAction(permission);
-  return `${RESOURCE_LABEL[resource] ?? resource} ${ACTION_LABEL[action] ?? action}`;
-}
-
 function groupPermissions(): Array<{ resource: string; permissions: Permission[] }> {
   const grouped = new Map<string, Permission[]>();
   for (const permission of manageablePermissions()) {
@@ -134,6 +125,344 @@ function groupPermissions(): Array<{ resource: string; permissions: Permission[]
     resource,
     permissions,
   }));
+}
+
+function resourceLabel(resource: string): string {
+  return PERMISSION_RESOURCE_LABELS[resource] ?? resource;
+}
+
+function PermissionMatrix({
+  roles,
+  groups,
+  overrides,
+  selectedRole,
+}: {
+  roles: readonly ManageablePermissionRole[];
+  groups: Array<{ resource: string; permissions: Permission[] }>;
+  overrides: readonly OrganizationRolePermissionOverride[];
+  selectedRole: ManageablePermissionRole;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Visuele permissiematrix
+          <Badge variant="outline">Effectieve rechten</Badge>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Per rol zie je direct wat standaard of via tenant-override toegestaan
+          is. Klik op een rol om daaronder de uitzonderingen te beheren.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-2xl border border-border">
+          <table className="min-w-[980px] w-full border-collapse text-sm">
+            <thead className="bg-muted/40 text-left">
+              <tr>
+                <th className="sticky left-0 z-10 min-w-[240px] border-b border-border bg-muted px-4 py-3 font-semibold text-foreground">
+                  Permissie
+                </th>
+                {roles.map((role) => (
+                  <th
+                    key={role}
+                    className="border-b border-border px-3 py-3 text-center font-semibold text-foreground"
+                  >
+                    <Link
+                      href={`/backoffice/organisatie/permissies?role=${role}`}
+                      className={cn(
+                        "inline-flex rounded-full px-3 py-1",
+                        selectedRole === role
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-foreground",
+                      )}
+                    >
+                      {roleDisplayLabel(role)}
+                    </Link>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => (
+                <Fragment key={group.resource}>
+                  <tr key={`${group.resource}:heading`}>
+                    <td
+                      colSpan={roles.length + 1}
+                      className="border-b border-border bg-muted/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    >
+                      {resourceLabel(group.resource)}
+                    </td>
+                  </tr>
+                  {group.permissions.map((permission) => (
+                    <tr key={permission} className="border-b border-border/70">
+                      <td className="sticky left-0 z-10 bg-card px-4 py-3">
+                        <p className="font-medium text-foreground">
+                          {permissionLabel(permission)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {permissionOverrideExplains(permission)}
+                        </p>
+                      </td>
+                      {roles.map((role) => {
+                        const roleOverrides = overrides.filter(
+                          (override) => override.role === role,
+                        );
+                        const allowed = effectiveRolePermission(
+                          role,
+                          permission,
+                          roleOverrides,
+                        );
+                        const overrideValue = permissionOverrideValue(
+                          role,
+                          permission,
+                          overrides,
+                        );
+                        const isExplicit =
+                          overrideValue !== "inherit" &&
+                          roleOverrides.some(
+                            (override) => override.permission === permission,
+                          );
+                        return (
+                          <td key={role} className="px-3 py-3 text-center">
+                            <span
+                              className={cn(
+                                "inline-flex min-w-[92px] items-center justify-center rounded-full px-3 py-1 text-xs font-medium",
+                                allowed
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                  : "bg-muted text-muted-foreground",
+                              )}
+                            >
+                              {allowed ? "Toegang" : "Geen toegang"}
+                            </span>
+                            {isExplicit ? (
+                              <div className="mt-1 text-[11px] font-medium text-primary">
+                                Override
+                              </div>
+                            ) : null}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoleTemplatePanel({
+  orgType,
+}: {
+  orgType: string | null | undefined;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Roltemplates per rijschooltype
+          <Badge variant="outline">Advies</Badge>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Gebruik deze templates als klantvriendelijke startinrichting. Ze
+          wijzigen niets automatisch; ze maken duidelijk welke rollen logisch
+          zijn per organisatievorm.
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-4 lg:grid-cols-2">
+        {ROLE_TEMPLATES.map((template) => {
+          const active = orgType === template.orgType;
+          return (
+            <div
+              key={template.orgType}
+              className={cn(
+                "rounded-2xl border p-4",
+                active
+                  ? "border-primary/40 bg-primary-soft"
+                  : "border-border bg-muted/20",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {template.label}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {template.bestFor}
+                  </p>
+                </div>
+                {active ? <Badge variant="primary">Huidig type</Badge> : null}
+              </div>
+              <div className="mt-4 space-y-3">
+                {template.recommendedRoles.map((role) => (
+                  <div
+                    key={`${template.orgType}:${role.role}`}
+                    className="rounded-xl border border-border bg-background px-3 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-foreground">
+                        {roleDisplayLabel(role.role)}
+                      </p>
+                      <Badge variant="outline">{role.countLabel}</Badge>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {role.note}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccessSimulator({
+  selectedRole,
+  simulatedRole,
+  simulatedPermissions,
+}: {
+  selectedRole: ManageablePermissionRole;
+  simulatedRole: MemberRole;
+  simulatedPermissions: Permission[];
+}) {
+  const visible = ACCESS_SURFACES.filter((surface) =>
+    surfaceVisibleWithPermissions(surface, simulatedPermissions),
+  );
+  const hidden = ACCESS_SURFACES.filter(
+    (surface) => !surfaceVisibleWithPermissions(surface, simulatedPermissions),
+  );
+  const simulatorRoles: MemberRole[] = [
+    ...manageableRoles(),
+    "student",
+    "parent",
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Rechten-simulator
+          <Badge variant="outline">Wat ziet deze gebruiker?</Badge>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Simuleer per rol welke portalen, menu's en workflowgebieden nu
+          zichtbaar zijn. Bij medewerkers worden tenant-overrides meegenomen.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form className="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="role" value={selectedRole} />
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span>Rol simuleren</span>
+            <select
+              name="sim_role"
+              defaultValue={simulatedRole}
+              className="h-10 min-w-[220px] rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground"
+            >
+              {simulatorRoles.map((role) => (
+                <option key={role} value={role}>
+                  {roleDisplayLabel(role)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Simuleren
+          </button>
+        </form>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+            <p className="flex items-center gap-2 font-medium text-foreground">
+              <Eye className="h-4 w-4 text-emerald-600" aria-hidden />
+              Zichtbaar
+            </p>
+            <div className="mt-3 space-y-2">
+              {visible.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Geen productiegebieden zichtbaar.
+                </p>
+              ) : (
+                visible.map((surface) => (
+                  <div
+                    key={surface.key}
+                    className="rounded-xl border border-border bg-background px-3 py-3"
+                  >
+                    <p className="font-medium text-foreground">{surface.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {surface.description}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-muted/20 p-4">
+            <p className="font-medium text-foreground">Niet zichtbaar</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {hidden.map((surface) => (
+                <Badge key={surface.key} variant="outline">
+                  {surface.title}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DelegationWizardPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Delegatie-wizard
+          <Badge variant="outline">Signaal naar bevoegdheid</Badge>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Vanuit elk operationeel signaal hoort het systeem meteen een passende
+          scope, eigenaar en auditreden voor te stellen.
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2">
+        {DELEGATION_WIZARD_SUGGESTIONS.map((suggestion) => (
+          <Link
+            key={suggestion.signal}
+            href={suggestion.href}
+            className="rounded-2xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-primary-soft"
+          >
+            <div className="flex items-start gap-3">
+              <span className="rounded-full bg-primary-soft p-2 text-primary">
+                <GitBranch className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{suggestion.signal}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {suggestion.suggestedPermission} · {suggestion.scope}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  Eigenaar: {suggestion.owner}. Auditreden:{" "}
+                  {suggestion.auditReason}
+                </p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default async function OrganizationPermissionsPage({
@@ -151,6 +480,12 @@ export default async function OrganizationPermissionsPage({
   const selectedRole = roles.includes(requestedRole as ManageablePermissionRole)
     ? (requestedRole as ManageablePermissionRole)
     : roles[0];
+  const requestedSimulatorRole =
+    typeof sp.sim_role === "string" ? (sp.sim_role as MemberRole) : null;
+  const simulatorRoles: MemberRole[] = [...roles, "student", "parent"];
+  const simulatedRole = simulatorRoles.includes(requestedSimulatorRole as MemberRole)
+    ? (requestedSimulatorRole as MemberRole)
+    : selectedRole;
 
   const [overrides, membershipCountsResult] = await Promise.all([
     listOrganizationRolePermissionOverrides(service, organization.id),
@@ -176,6 +511,7 @@ export default async function OrganizationPermissionsPage({
   const roleOverrideCount = overrides.filter((override) => override.role === selectedRole).length;
   const rolesWithOverrides = new Set(overrides.map((override) => override.role)).size;
   const groups = groupPermissions();
+  const simulatedPermissions = effectiveRolePermissions(simulatedRole, overrides);
   const message = feedbackMessage(feedbackCode, reason);
   const governanceDefinition = isStaffGovernanceRole(selectedRole)
     ? roleGovernanceDefinition(selectedRole)
@@ -258,6 +594,57 @@ export default async function OrganizationPermissionsPage({
           description="Custom regels voor de rol die je hieronder nu bewerkt."
           icon={Wrench}
         />
+      </div>
+
+      <PermissionMatrix
+        roles={roles}
+        groups={groups}
+        overrides={overrides}
+        selectedRole={selectedRole}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
+          <RoleTemplatePanel orgType={organization.org_type} />
+          <DelegationWizardPanel />
+        </div>
+        <div className="space-y-6">
+          <AccessSimulator
+            selectedRole={selectedRole}
+            simulatedRole={simulatedRole}
+            simulatedPermissions={simulatedPermissions}
+          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Audit-uitleg geselecteerde rol
+                <Badge variant="outline">{roleDisplayLabel(selectedRole)}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-2xl border border-border bg-muted/25 p-4">
+                <p className="flex items-center gap-2 font-medium text-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+                  Waarom deze rol bestaat
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {roleAuditExplanation(selectedRole)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/25 p-4">
+                <p className="flex items-center gap-2 font-medium text-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+                  Auditvriendelijk gebruik
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Leg afwijkingen vast als expliciete overrides en gebruik
+                  delegaties met scope, geldigheid, eigenaar en reden wanneer
+                  toegang tijdelijk of vestigingsoverstijgend is.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -346,7 +733,7 @@ export default async function OrganizationPermissionsPage({
                   <div key={group.resource} className="space-y-3 rounded-2xl border border-border p-4">
                     <div>
                       <h2 className="text-base font-semibold text-foreground">
-                        {RESOURCE_LABEL[group.resource] ?? group.resource}
+                        {resourceLabel(group.resource)}
                       </h2>
                       <p className="text-sm text-muted-foreground">
                         Overrides binnen dit domein gelden alleen voor de rol {ROLE_LABEL[selectedRole].toLowerCase()}.

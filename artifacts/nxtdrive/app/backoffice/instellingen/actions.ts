@@ -47,6 +47,12 @@ import {
   classifyHostname,
   normalizeHostname,
 } from "@/lib/tenant/domains";
+import {
+  BRANDED_PWA_PUBLICATION_KEY,
+  type BrandedPwaPublicationStatus,
+  type BrandedPwaSurface,
+  normalizeBrandedPwaPublication,
+} from "@/lib/tenant/branded-pwa-publication";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -85,6 +91,15 @@ function assertWhiteLabelPlanAccess(
         ),
     );
   }
+}
+
+function platformOnlyResult(isPlatformAdmin: boolean): PolicyActionResult | null {
+  if (isPlatformAdmin) return null;
+  return {
+    ok: false,
+    error:
+      "Deze actie kan alleen door NXTDRIVE platformbeheer worden uitgevoerd.",
+  };
 }
 
 function revalidateBrandingSurfaces() {
@@ -292,6 +307,152 @@ export async function deleteAssignmentRule(
 }
 
 export type PolicyActionResult = { ok: boolean; error?: string };
+
+const BRANDED_PWA_STATUSES = [
+  "not_requested",
+  "review",
+  "published",
+  "paused",
+] as const satisfies readonly BrandedPwaPublicationStatus[];
+const BRANDED_PWA_SURFACES = [
+  "admin",
+  "instructor",
+  "student",
+  "parent",
+] as const satisfies readonly BrandedPwaSurface[];
+
+function parseBrandedPwaStatus(
+  value: FormDataEntryValue | null,
+): BrandedPwaPublicationStatus {
+  return typeof value === "string" &&
+    (BRANDED_PWA_STATUSES as readonly string[]).includes(value)
+    ? (value as BrandedPwaPublicationStatus)
+    : "not_requested";
+}
+
+function parseBrandedPwaSurfaces(values: FormDataEntryValue[]): BrandedPwaSurface[] {
+  return Array.from(
+    new Set(
+      values.filter((value): value is BrandedPwaSurface =>
+        typeof value === "string" &&
+        (BRANDED_PWA_SURFACES as readonly string[]).includes(value),
+      ),
+    ),
+  );
+}
+
+export async function saveBrandedPwaPublication(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
+  const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.white_label.allowed) {
+    return {
+      ok: false,
+      error: "Branded PWA-publicatie vereist white-label toegang.",
+    };
+  }
+
+  const status = parseBrandedPwaStatus(formData.get("status"));
+  const surfaces = parseBrandedPwaSurfaces(formData.getAll("surfaces"));
+  if (status === "published" && surfaces.length === 0) {
+    return {
+      ok: false,
+      error: "Kies minimaal één portaal om te publiceren.",
+    };
+  }
+
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", BRANDED_PWA_PUBLICATION_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = normalizeBrandedPwaPublication(currentRow?.value);
+  const now = new Date().toISOString();
+  const notes = String(formData.get("notes") ?? "").trim().slice(0, 500);
+  const value = {
+    status,
+    surfaces,
+    notes: notes || null,
+    updated_at: now,
+    updated_by: user.id,
+    published_at:
+      status === "published" ? previous.published_at ?? now : previous.published_at,
+    published_by:
+      status === "published" ? previous.published_by ?? user.id : previous.published_by,
+  };
+
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: BRANDED_PWA_PUBLICATION_KEY,
+      value,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.branded_pwa_publication_updated",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next: value },
+  });
+
+  revalidateBrandingSurfaces();
+  return { ok: true };
+}
+
+export async function resetBrandedPwaPublication(
+  _formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
+  const service = createServiceRoleClient();
+  const now = new Date().toISOString();
+  const value = {
+    status: "not_requested",
+    surfaces: [],
+    notes: null,
+    updated_at: now,
+    updated_by: user.id,
+    published_at: null,
+    published_by: null,
+  };
+
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: BRANDED_PWA_PUBLICATION_KEY,
+      value,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.branded_pwa_publication_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: value,
+  });
+
+  revalidateBrandingSurfaces();
+  return { ok: true };
+}
 
 function parseOptionalNumber(value: FormDataEntryValue | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -861,6 +1022,9 @@ export async function addTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -909,6 +1073,9 @@ export async function verifyTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -964,6 +1131,9 @@ export async function removeTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -1003,6 +1173,9 @@ export async function setPrimaryTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {

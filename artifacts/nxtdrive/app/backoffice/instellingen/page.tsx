@@ -61,6 +61,9 @@ import {
   trafficRecords,
   verificationRecord,
 } from "@/lib/tenant/domains";
+import { loadBrandedPwaPublication } from "@/lib/tenant/branded-pwa-publication";
+import { BrandedPwaPublicationPanel } from "./branded-pwa-publication-panel";
+import { WhiteLabelPortalPreview } from "./white-label-portal-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -69,11 +72,12 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { tenant } = await requireActiveTenant(["tenant_admin"]);
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
   const sp = await searchParams;
   const result = typeof sp.mollie === "string" ? sp.mollie : null;
   const reason = typeof sp.reason === "string" ? sp.reason : null;
   const brandingResult = typeof sp.branding === "string" ? sp.branding : null;
+  const pwaResult = typeof sp.pwa === "string" ? sp.pwa : null;
 
   const service = createServiceRoleClient();
   const status = await getMollieApiKeyStatus(service, tenant.id);
@@ -121,6 +125,10 @@ export default async function SettingsPage({
     tenant.id,
   );
   const contactPhone = await loadContactPhone(service, tenant.id);
+  const brandedPwaPublication = await loadBrandedPwaPublication(
+    service,
+    tenant.id,
+  );
 
   const tenantDomains = await loadTenantDomains(service, tenant.id);
   const domainViews: DomainView[] = tenantDomains.map((d) => ({
@@ -136,6 +144,7 @@ export default async function SettingsPage({
   const limitStatuses = entitlementSnapshot.limitStatuses;
   const customDomainLimit = limitStatuses.custom_domains;
   const lockedCount = entitlementSnapshot.entitlements.locked.length;
+  const isPlatformAdmin = user.profile?.is_platform_admin === true;
 
   const whiteLabelAvailable = entitlementSnapshot.featureAccess.white_label.allowed;
   const whiteLabelActive = whiteLabelAvailable && currentTenant.white_label_enabled;
@@ -463,6 +472,7 @@ export default async function SettingsPage({
         backofficeName={resolveBrandAppName(tenant, "backoffice")}
         studentName={resolveBrandAppName(tenant, "student")}
         instructorName={resolveBrandAppName(tenant, "instructor")}
+        parentName={resolveBrandAppName(tenant, "parent")}
         whiteLabelActive={whiteLabelActive}
       />
 
@@ -540,6 +550,14 @@ export default async function SettingsPage({
           />
         </CardContent>
       </Card>
+
+      <WhiteLabelPortalPreview
+        tenant={currentTenant}
+        logoUrl={logoUrl}
+        lightTokens={brandingBundle.tokens.light}
+        darkTokens={brandingBundle.tokens.dark}
+        whiteLabelActive={whiteLabelActive}
+      />
 
       <Card>
         <CardHeader>
@@ -631,6 +649,27 @@ export default async function SettingsPage({
         </CardContent>
       </Card>
 
+      <BrandedPwaPublicationPanel
+        publication={brandedPwaPublication}
+        isPlatformAdmin={isPlatformAdmin}
+        whiteLabelAvailable={whiteLabelAvailable}
+      />
+      {pwaResult === "saved" ? (
+        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+          Branded PWA-publicatiestatus opgeslagen.
+        </p>
+      ) : null}
+      {pwaResult === "reset" ? (
+        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+          Branded PWA-publicatie teruggezet.
+        </p>
+      ) : null}
+      {pwaResult === "error" ? (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          Branded PWA-publicatie niet aangepast: {reason ?? "onbekende fout"}.
+        </p>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -644,9 +683,10 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Koppel een eigen domein of subdomein aan jouw rijschool. Custom
-            domains, branded login en tenant-specifieke app-shells vereisen het
-            Elite-abonnement.
+            Koppel een eigen domein of subdomein aan jouw rijschool. De flow is
+            zichtbaar voor klantadmins, maar toevoegen, verifiëren, verwijderen
+            en primair maken blijft uitsluitend beschikbaar voor NXTDRIVE
+            platformbeheer.
           </p>
           {!whiteLabelAvailable && domainViews.length > 0 ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
@@ -660,10 +700,21 @@ export default async function SettingsPage({
               domein verwijdert of je plan wijzigt.
             </div>
           ) : null}
+          {whiteLabelAvailable && !isPlatformAdmin ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+              Eigen domeinen worden door NXTDRIVE platformbeheer geactiveerd na
+              technische controle van DNS, SSL, app-shells en manifests.
+            </div>
+          ) : null}
           <DomainsManager
             domains={domainViews}
-            editable={whiteLabelAvailable}
-            canAdd={whiteLabelAvailable && !customDomainLimit.isAtLimit}
+            editable={whiteLabelAvailable && isPlatformAdmin}
+            canAdd={whiteLabelAvailable && isPlatformAdmin && !customDomainLimit.isAtLimit}
+            lockedReason={
+              isPlatformAdmin
+                ? "Eigen domeinen vereisen het Elite-abonnement. Bestaande domeinen blijven zichtbaar, maar beheer is nu read-only."
+                : "Eigen domeinen kunnen alleen door NXTDRIVE platformbeheer worden toegevoegd, geverifieerd of gewijzigd."
+            }
           />
         </CardContent>
       </Card>

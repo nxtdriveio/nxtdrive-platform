@@ -62,10 +62,12 @@ export function DomainsManager({
   domains,
   editable = true,
   canAdd = true,
+  lockedReason,
 }: {
   domains: DomainView[];
   editable?: boolean;
   canAdd?: boolean;
+  lockedReason?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -141,9 +143,8 @@ export function DomainsManager({
 
       {!editable ? (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-          Eigen domeinen vereisen het Elite-abonnement. Bestaande domeinen
-          blijven hieronder zichtbaar, maar beheer is nu read-only totdat dit
-          abonnement opnieuw voor white-label is vrijgegeven.
+          {lockedReason ??
+            "Eigen domeinen blijven hieronder zichtbaar, maar beheer is nu read-only."}
         </div>
       ) : null}
 

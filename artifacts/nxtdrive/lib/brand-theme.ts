@@ -124,6 +124,16 @@ export const THEME_TOKEN_KEYS = Object.keys(
   THEME_TOKEN_LABELS,
 ) as ThemeTokenKey[];
 
+export type ThemeContrastCheck = {
+  key: string;
+  label: string;
+  foreground: string;
+  background: string;
+  ratio: number | null;
+  required: number;
+  passes: boolean;
+};
+
 const DEFAULT_LIGHT_THEME_TOKENS: ThemeTokenSet = {
   background: "#fafafb",
   foreground: "#0b0b14",
@@ -358,4 +368,105 @@ export function buildResolvedThemeStyleVars(
         ? `color-mix(in oklab, ${tokens.primary} 18%, transparent)`
         : `color-mix(in oklab, ${tokens.primary} 20%, transparent)`,
   };
+}
+
+function normalizeHexColor(value: string): string | null {
+  const raw = value.trim();
+  if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw)) return null;
+  if (raw.length === 4) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`.toLowerCase();
+  }
+  return raw.toLowerCase();
+}
+
+function rgbFromHex(value: string): { r: number; g: number; b: number } | null {
+  const hex = normalizeHexColor(value);
+  if (!hex) return null;
+  const int = Number.parseInt(hex.slice(1), 16);
+  return {
+    r: (int >> 16) & 255,
+    g: (int >> 8) & 255,
+    b: int & 255,
+  };
+}
+
+function linearize(channel: number): number {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(value: string): number | null {
+  const rgb = rgbFromHex(value);
+  if (!rgb) return null;
+  return (
+    0.2126 * linearize(rgb.r) +
+    0.7152 * linearize(rgb.g) +
+    0.0722 * linearize(rgb.b)
+  );
+}
+
+export function contrastRatio(
+  foreground: string,
+  background: string,
+): number | null {
+  const fg = relativeLuminance(foreground);
+  const bg = relativeLuminance(background);
+  if (fg === null || bg === null) return null;
+  const lighter = Math.max(fg, bg);
+  const darker = Math.min(fg, bg);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function contrastCheck(
+  key: string,
+  label: string,
+  foreground: string,
+  background: string,
+  required = 4.5,
+): ThemeContrastCheck {
+  const ratio = contrastRatio(foreground, background);
+  return {
+    key,
+    label,
+    foreground,
+    background,
+    ratio,
+    required,
+    passes: ratio !== null && ratio >= required,
+  };
+}
+
+export function auditThemeContrast(tokens: ThemeTokenSet): ThemeContrastCheck[] {
+  return [
+    contrastCheck(
+      "canvas",
+      "Primaire tekst op achtergrond",
+      tokens.foreground,
+      tokens.background,
+    ),
+    contrastCheck(
+      "card",
+      "Kaarttekst op kaarten",
+      tokens.card_foreground,
+      tokens.card,
+    ),
+    contrastCheck(
+      "muted",
+      "Subtekst op rustige vlakken",
+      tokens.muted_foreground,
+      tokens.muted,
+    ),
+    contrastCheck(
+      "accent",
+      "Accenttekst op accentvlak",
+      tokens.accent_foreground,
+      tokens.accent,
+    ),
+    contrastCheck(
+      "primary",
+      "Knoptekst op primaire kleur",
+      tokens.primary_foreground,
+      tokens.primary,
+    ),
+  ];
 }

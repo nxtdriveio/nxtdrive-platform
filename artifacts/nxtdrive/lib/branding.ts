@@ -24,7 +24,12 @@ const TENANT_BRANDING_SELECT =
   "tenant_id, logo_url, primary_color, primary_foreground, custom_domain, welcome_message, theme_preset_id, theme_overrides";
 
 type BrandableTenant = Pick<Tenant, "name" | "white_label_enabled" | "plan"> | null;
-export type BrandingSurface = "platform" | "backoffice" | "student" | "instructor";
+export type BrandingSurface =
+  | "platform"
+  | "backoffice"
+  | "student"
+  | "instructor"
+  | "parent";
 export type BrandingThemeBundle = {
   branding: TenantBranding | null;
   preset: ThemePreset | null;
@@ -244,6 +249,8 @@ export function resolveBrandAppName(
       return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Leerling" : `${brand} Leerling`;
     case "instructor":
       return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Instructeur" : `${brand} Instructeur`;
+    case "parent":
+      return brand === DEFAULT_PLATFORM_NAME ? "NXTDRIVE Ouder" : `${brand} Ouder`;
     default:
       return brand;
   }
@@ -267,6 +274,10 @@ export function resolveBrandDescription(
       return brand === DEFAULT_PLATFORM_NAME
         ? "Vandaag slim en overzichtelijk lesgeven — planning, leerlingen en lessen."
         : `De instructeursomgeving van ${brand} voor planning, leerlingen en lesuitvoering.`;
+    case "parent":
+      return brand === DEFAULT_PLATFORM_NAME
+        ? "Blijf betrokken bij de rijopleiding met voortgang, afspraken en betalingen."
+        : `Het ouderportaal van ${brand} met voortgang, afspraken, documenten en betalingen.`;
     default:
       return brand === DEFAULT_PLATFORM_NAME
         ? "Het complete platform voor rijscholen — van eerste lead tot geslaagd examen."

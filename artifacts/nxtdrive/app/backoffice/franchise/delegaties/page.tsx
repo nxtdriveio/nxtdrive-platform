@@ -1,4 +1,10 @@
-import { CalendarClock, Handshake, LockKeyhole, ShieldCheck } from "lucide-react";
+import {
+  CalendarClock,
+  GitBranch,
+  Handshake,
+  LockKeyhole,
+  ShieldCheck,
+} from "lucide-react";
 
 import {
   FranchiseActionLink,
@@ -21,6 +27,7 @@ import {
   loadFranchiseDelegations,
   type FranchiseDelegationState,
 } from "@/lib/franchise/steering";
+import { DELEGATION_WIZARD_SUGGESTIONS } from "@/lib/organization";
 
 export const dynamic = "force-dynamic";
 
@@ -307,6 +314,34 @@ export default async function FranchiseDelegationsPage({
           tone="readonly"
         />
       </section>
+
+      <FranchisePanel
+        title="Delegatie-wizard"
+        description="Vertaal operationele signalen direct naar scope, eigenaar, permissie en auditreden."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {DELEGATION_WIZARD_SUGGESTIONS.map((suggestion) => (
+            <a
+              key={suggestion.signal}
+              href={suggestion.href}
+              className="rounded-2xl border border-brand-card-border bg-white p-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+            >
+              <span className="inline-flex rounded-xl bg-primary-soft p-2 text-primary">
+                <GitBranch className="h-4 w-4" aria-hidden />
+              </span>
+              <p className="mt-3 text-sm font-black text-foreground">
+                {suggestion.signal}
+              </p>
+              <p className="mt-1 text-xs font-bold leading-5 text-muted-foreground">
+                {suggestion.suggestedPermission} · {suggestion.scope}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {suggestion.auditReason}
+              </p>
+            </a>
+          ))}
+        </div>
+      </FranchisePanel>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_0.55fr]">
         <FranchisePanel title="Delegaties per franchisee" description="Rechten worden direct opgeslagen in franchise_operations_permissions.">
