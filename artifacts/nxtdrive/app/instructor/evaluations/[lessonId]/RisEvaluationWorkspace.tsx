@@ -213,7 +213,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
       <div className="flex flex-col gap-4 rounded-[1.6rem] border border-border bg-card/85 p-4 shadow-brand-card lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <Link
-            href="/instructor/evaluations"
+            href="/instructor/les-evaluaties"
             className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />

@@ -456,7 +456,7 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
             )) : (
               <p className="text-sm leading-6 text-muted-foreground">Geen urgente aandachtspunten voor vandaag.</p>
             )}
-            <Link href="/instructor/students" className="inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
+            <Link href="/instructor/leerlingen" className="inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
               Naar alle aandachtspunten
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
@@ -466,7 +466,7 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         <InstructorCard title="Openstaande taken" icon={ListTodo} right={<Badge variant="primary">{data.tasks.length}</Badge>}>
           <div className="space-y-2">
             {data.tasks.length > 0 ? data.tasks.slice(0, 5).map((task) => (
-              <Link key={task.id} href="/instructor/tasks" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
+              <Link key={task.id} href="/instructor/taken" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <span className="h-4 w-4 rounded border border-muted-foreground/40" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
@@ -485,7 +485,7 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         <InstructorCard title="Berichten" icon={MessageCircle}>
           <div className="space-y-2">
             {data.messages.length > 0 ? data.messages.slice(0, 4).map((thread) => (
-              <Link key={thread.id} href={`/instructor/messages/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
+              <Link key={thread.id} href={`/instructor/berichten/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <Avatar name={thread.name} className="h-10 w-10 text-xs" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{thread.name}</p>
@@ -502,12 +502,12 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         <InstructorCard title="Quick links" icon={Route}>
           <div className="grid grid-cols-2 gap-2">
             {[
-              ["Leerlingen", "/instructor/students", Users],
+              ["Leerlingen", "/instructor/leerlingen", Users],
               ["Agenda", "/instructor/agenda", CalendarDays],
-              ["Les evaluaties", "/instructor/evaluations", FileText],
-              ["Voertuigen", "/instructor/vehicles", CarFront],
-              ["Beschikbaarheid", "/instructor/availability", Clock3],
-              ["Rapportages", "/instructor/reports", BarChart3],
+              ["Lesevaluaties", "/instructor/les-evaluaties", FileText],
+              ["Voertuigen", "/instructor/voertuigen", CarFront],
+              ["Beschikbaarheid", "/instructor/beschikbaarheid", Clock3],
+              ["Rapportages", "/instructor/rapportages", BarChart3],
             ].map(([label, href, Icon]) => {
               const LinkIcon = Icon as IconComponent;
               return (
@@ -569,7 +569,7 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
               <Plus className="h-4 w-4" aria-hidden />
               Nieuwe afspraak
             </Link>
-            <Link href="/instructor/availability" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/instructor/beschikbaarheid" className={buttonVariants({ variant: "outline" })}>
               Beschikbaarheid
             </Link>
           </>
@@ -639,7 +639,7 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
 function StudentListItem({ student, active }: { student: InstructorStudent; active?: boolean }) {
   return (
     <Link
-      href={`/instructor/students/${student.id}`}
+      href={`/instructor/leerlingen/${student.id}`}
       className={cn(
         "flex items-center gap-3 rounded-2xl border p-3 transition",
         active ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white hover:border-brand-primary/35",
@@ -700,7 +700,7 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
             <h2 className="text-2xl font-black text-foreground">{student.name}</h2>
             <p className="text-sm text-muted-foreground">{student.license} - {studentStatus[student.status].label}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/instructor/messages" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href="/instructor/berichten" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <MessageCircle className="h-4 w-4" aria-hidden /> Bericht
               </Link>
               <a href={`tel:${student.phone}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
@@ -788,7 +788,7 @@ export function InstructorStudentDetailView({
               ? `${student.name} heeft geen urgente aandachtspunten. Gebruik de volgende les om de voortgang actueel te houden.`
               : student.attention}
           </p>
-          <Link href={studentEvaluation ? `/instructor/evaluations/${studentEvaluation.id}` : "/instructor/evaluations"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <Link href={studentEvaluation ? `/instructor/les-evaluaties/${studentEvaluation.id}` : "/instructor/les-evaluaties"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
             Open lesevaluatie
           </Link>
         </InstructorCard>
@@ -806,7 +806,7 @@ export function InstructorEvaluationsView({ data }: { data?: InstructorExperienc
         <div className="space-y-3">
           {data.evaluations.length > 0 ? (
             data.evaluations.map((evaluation) => (
-              <Link key={evaluation.id} href={`/instructor/evaluations/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
+              <Link key={evaluation.id} href={`/instructor/les-evaluaties/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 gap-3">
                   <Avatar name={evaluation.studentName} className="h-11 w-11 text-xs" />
                   <div className="min-w-0">
@@ -950,7 +950,7 @@ export function InstructorMessagesView({
             {data.messages.length > 0 ? data.messages.map((thread) => (
               <Link
                 key={thread.id}
-                href={`/instructor/messages/${thread.id}`}
+                href={`/instructor/berichten/${thread.id}`}
                 className={cn(
                   "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
                   thread.id === active?.id
@@ -984,7 +984,7 @@ export function InstructorMessagesView({
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
               <Link
-                href="/instructor/messages"
+                href="/instructor/berichten"
                 aria-label="Terug naar gesprekken"
                 className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
               >
@@ -1186,12 +1186,12 @@ export function InstructorProfileView({ data }: { data?: InstructorExperience })
 
 export function InstructorMoreView() {
   const links = [
-    ["Taken", "/instructor/tasks", ListTodo],
-    ["Voertuigen", "/instructor/vehicles", CarFront],
-    ["Beschikbaarheid", "/instructor/availability", Clock3],
-    ["Rapportages", "/instructor/reports", BarChart3],
-    ["Instellingen", "/instructor/settings", Settings],
-    ["Profiel", "/instructor/profile", User],
+    ["Taken", "/instructor/taken", ListTodo],
+    ["Voertuigen", "/instructor/voertuigen", CarFront],
+    ["Beschikbaarheid", "/instructor/beschikbaarheid", Clock3],
+    ["Rapportages", "/instructor/rapportages", BarChart3],
+    ["Instellingen", "/instructor/instellingen", Settings],
+    ["Profiel", "/instructor/profiel", User],
   ] as const;
 
   return (

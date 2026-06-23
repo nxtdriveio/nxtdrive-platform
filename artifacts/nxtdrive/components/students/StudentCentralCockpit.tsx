@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   BadgeCheck,
   CalendarClock,
+  CheckCircle2,
   FileText,
   GraduationCap,
   IdCard,
@@ -26,6 +28,12 @@ import { formatTegoed, type Student } from "@/lib/students/types";
 import type { TheoryHomeworkWithModule } from "@/lib/theory/types";
 import type { StudentRisProgress } from "@/lib/ris/data";
 import type { ReadinessResult } from "@workspace/leskaart";
+import {
+  buildStudentDossierQualitySummary,
+  nextBestActionFromSignals,
+  type DossierQualityTone,
+  type StudentDossierQualitySignal,
+} from "@/lib/students/dossier-quality";
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "2-digit",
@@ -86,6 +94,18 @@ export function StudentCentralCockpit({
   const completedRisModules = risProgress.moduleProgress.filter(
     (module) => module.progressPct >= 100,
   ).length;
+  const quality = buildStudentDossierQualitySummary({
+    student,
+    naw,
+    nextLesson,
+    balanceMinutes,
+    invoices,
+    cbrStatus,
+    theory,
+    readiness,
+    tasks,
+    documents,
+  });
   const nextAction = getNextBestAction({
     student,
     naw,
@@ -98,6 +118,7 @@ export function StudentCentralCockpit({
     readiness,
     risProgress,
     tasks,
+    signals: quality.signals,
   });
 
   return (
@@ -120,6 +141,8 @@ export function StudentCentralCockpit({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-4">
+        <DossierQualityStrip quality={quality} />
+
         <div className="grid gap-3 xl:grid-cols-4">
           <CockpitTile
             title="NAW gegevens"
@@ -319,6 +342,112 @@ export function StudentCentralCockpit({
   );
 }
 
+function DossierQualityStrip({
+  quality,
+}: {
+  quality: ReturnType<typeof buildStudentDossierQualitySummary>;
+}) {
+  const visibleSignals = quality.signals.slice(0, 5);
+  const hiddenCount = Math.max(0, quality.signals.length - visibleSignals.length);
+  return (
+    <section className="rounded-2xl border border-brand-border bg-[var(--surface-2)] p-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={qualityIconClass(quality.tone)}>
+              {quality.tone === "success" ? (
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
+              ) : (
+                <AlertTriangle className="h-4 w-4" aria-hidden />
+              )}
+            </span>
+            <p className="text-sm font-black text-foreground">Leerling 360</p>
+            <Badge variant={qualityBadgeVariant(quality.tone)}>
+              {quality.label} · {quality.score}%
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Compacte samenvatting van dossierkwaliteit, planning,
+            administratie, CBR en voortgang.
+          </p>
+        </div>
+
+        <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-2 xl:max-w-4xl">
+          {visibleSignals.length > 0 ? (
+            visibleSignals.map((signal) => (
+              <DossierSignalPill key={signal.id} signal={signal} />
+            ))
+          ) : (
+            <div className="rounded-xl border border-success/25 bg-success/10 px-3 py-2 text-sm font-semibold text-foreground">
+              Geen directe waarschuwingen. Dossier, planning en voortgang zijn
+              op orde.
+            </div>
+          )}
+          {hiddenCount > 0 ? (
+            <div className="rounded-xl border border-brand-border bg-background/70 px-3 py-2 text-sm font-semibold text-muted-foreground">
+              +{hiddenCount} extra aandachtspunt(en) lager in het dossier.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DossierSignalPill({ signal }: { signal: StudentDossierQualitySignal }) {
+  const content = (
+    <div className={signalPillClass(signal.tone)}>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-foreground">
+          {signal.title}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+          {signal.description}
+        </p>
+      </div>
+      {signal.cta ? (
+        <span className="shrink-0 text-xs font-black text-primary">
+          {signal.cta}
+        </span>
+      ) : null}
+    </div>
+  );
+  return signal.href ? (
+    <Link href={signal.href} className="block">
+      {content}
+    </Link>
+  ) : (
+    content
+  );
+}
+
+function qualityIconClass(tone: DossierQualityTone): string {
+  const base =
+    "inline-flex h-8 w-8 items-center justify-center rounded-xl border";
+  if (tone === "success") return `${base} border-success/25 bg-success/10 text-success`;
+  if (tone === "danger") return `${base} border-danger/25 bg-danger/10 text-danger`;
+  if (tone === "warning") return `${base} border-warning/25 bg-warning/10 text-warning`;
+  return `${base} border-primary/20 bg-primary-soft text-primary`;
+}
+
+function signalPillClass(tone: DossierQualityTone): string {
+  const base =
+    "flex min-w-0 items-start justify-between gap-3 rounded-xl border px-3 py-2";
+  if (tone === "danger") return `${base} border-danger/25 bg-danger/10`;
+  if (tone === "warning") return `${base} border-warning/25 bg-warning/10`;
+  if (tone === "success") return `${base} border-success/25 bg-success/10`;
+  return `${base} border-primary/20 bg-primary-soft/70`;
+}
+
+function qualityBadgeVariant(
+  tone: DossierQualityTone,
+): "success" | "warning" | "danger" | "info" | "default" {
+  if (tone === "success") return "success";
+  if (tone === "danger") return "danger";
+  if (tone === "warning") return "warning";
+  return "info";
+}
+
 function CockpitTile({
   title,
   icon,
@@ -467,7 +596,24 @@ function getNextBestAction(input: {
   readiness: ReadinessResult;
   risProgress: StudentRisProgress;
   tasks: StudentLinkedTask[];
+  signals: StudentDossierQualitySignal[];
 }): NextBestAction {
+  const signal = nextBestActionFromSignals(input.signals);
+  if (signal) {
+    return {
+      title: signal.title,
+      description: signal.description,
+      href: signal.href,
+      cta: signal.cta,
+      tone:
+        signal.tone === "danger"
+          ? "danger"
+          : signal.tone === "warning"
+            ? "warning"
+            : "primary",
+    };
+  }
+
   const missingNaw = [
     !input.student.email ? "e-mailadres" : null,
     !input.student.phone ? "telefoon" : null,

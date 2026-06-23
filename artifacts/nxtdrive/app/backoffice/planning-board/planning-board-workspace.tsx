@@ -46,6 +46,7 @@ import type {
 } from "@/lib/planning-board/types";
 import type { PlanningQueueListItem } from "@/lib/planning-queue";
 import type { PlanningValidationResult } from "@/lib/planning-core";
+import { formatPlanningReason } from "@/lib/planning-core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -369,8 +370,41 @@ function resourceRowsForDay(
 function reasonText(validation: PlanningValidationResult | null): string[] {
   if (!validation) return [];
   return [...validation.blockingReasons, ...validation.warnings].map(
-    (reason) => humanizePlanningMessage(reason.message),
+    (reason) => humanizePlanningMessage(formatPlanningReason(reason)),
   );
+}
+
+function dispatchAdviceText(validation: PlanningValidationResult | null): string | null {
+  if (!validation) return null;
+  const reasons = [...validation.blockingReasons, ...validation.warnings];
+  const codes = new Set(reasons.map((reason) => reason.code));
+  if (
+    codes.has("INSUFFICIENT_TRAVEL_TIME_BEFORE") ||
+    codes.has("INSUFFICIENT_TRAVEL_TIME_AFTER") ||
+    codes.has("UNKNOWN_SERVICE_AREA_TRAVEL_TIME") ||
+    codes.has("OUTSIDE_INSTRUCTOR_SERVICE_AREA")
+  ) {
+    return "Dispatchadvies: kies een leerling/lead dichter bij de vorige of volgende afspraak, of filter op hetzelfde rayon.";
+  }
+  if (
+    codes.has("VEHICLE_HAS_OVERLAP") ||
+    codes.has("VEHICLE_UNAVAILABLE") ||
+    codes.has("VEHICLE_MAINTENANCE_BLOCK") ||
+    codes.has("MISSING_REQUIRED_VEHICLE_CAPABILITY")
+  ) {
+    return "Dispatchadvies: kies een beschikbaar voertuig met passende transmissie en eigenschappen.";
+  }
+  if (
+    codes.has("INSTRUCTOR_NOT_AVAILABLE") ||
+    codes.has("INSTRUCTOR_HAS_OVERLAP") ||
+    codes.has("MISSING_REQUIRED_CAPABILITY")
+  ) {
+    return "Dispatchadvies: kies een instructeur die beschikbaar is en de vereiste bevoegdheden/capabilities heeft.";
+  }
+  if (validation.allowed && validation.warnings.length === 0) {
+    return "Dispatchadvies: dit slot past bij beschikbaarheid, conflictregels en planningcontext.";
+  }
+  return null;
 }
 
 function humanizePlanningMessage(message: string): string {
@@ -843,6 +877,7 @@ export function PlanningBoardWorkspace({
     !data.filters.instructorId;
   const previewReasons = reasonText(preview?.validation ?? null);
   const previewMessage = preview?.message ?? null;
+  const dispatchAdvice = dispatchAdviceText(preview?.validation ?? null);
   const previewIsBlocked = Boolean(preview && !preview.validation?.allowed);
   const previewStatus = status && status !== previewMessage ? status : null;
   const visibleDays = useMemo(() => {
@@ -1407,6 +1442,11 @@ export function PlanningBoardWorkspace({
                     {reason}
                   </p>
                 ))}
+              {dispatchAdvice ? (
+                <div className="rounded-xl border border-primary/20 bg-primary-soft px-3 py-2 text-xs leading-5 text-primary">
+                  {dispatchAdvice}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </aside>

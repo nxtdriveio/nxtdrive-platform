@@ -175,6 +175,33 @@ export function TrialLessonSection({
   );
 }
 
+function routeExplanation(
+  route: TrialRouteInsight | null | undefined,
+  score?: number | null,
+): string {
+  const parts: string[] = [];
+  if (typeof score === "number") {
+    parts.push(`Advies-score ${score}`);
+  }
+  if (!route || route.status === "unavailable") {
+    parts.push("route nog niet hard te controleren");
+  } else {
+    if (route.travel_to_min != null) {
+      parts.push(`${route.travel_to_min} min vanaf vorige afspraak`);
+    }
+    if (route.travel_from_min != null) {
+      parts.push(`${route.travel_from_min} min naar volgende afspraak`);
+    }
+    if (route.status === "estimated") {
+      parts.push("reistijd is een schatting");
+    }
+    if (!route.needs_manual_confirm) {
+      parts.push("past binnen de planning");
+    }
+  }
+  return parts.join(" · ");
+}
+
 function preferenceStatusLabel(status: BookingCandidatePreferenceView["status"]) {
   if (status === "confirmed") return "Bevestigd";
   if (status === "selected") return "Gekozen";
@@ -275,6 +302,20 @@ function SelectedPreferencesList({
                       {candidate.reason}
                     </p>
                   ) : null}
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Waarom NXTDRIVE dit moment adviseert:{" "}
+                    {routeExplanation(
+                      {
+                        status: candidate.route_status ?? "unavailable",
+                        travel_to_min: candidate.route_travel_to_min,
+                        travel_from_min: candidate.route_travel_from_min,
+                        prev_distance_km: null,
+                        next_distance_km: null,
+                        needs_manual_confirm: candidate.route_needs_confirm,
+                      },
+                      candidate.score,
+                    )}
+                  </p>
                   {candidateConfirmations.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {candidateConfirmations.map((confirmation) => (

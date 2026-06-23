@@ -101,6 +101,14 @@ export type LeadScoreResult = {
   reasons: LeadScoreReason[];
 };
 
+export type LeadScoreExplanation = {
+  band: "cold" | "warm" | "hot";
+  label: string;
+  summary: string;
+  strongestReasons: LeadScoreReason[];
+  missingSignals: string[];
+};
+
 export function scoreLead(
   input: LeadScoreInput,
   policy: LeadScorePolicy = DEFAULT_LEAD_SCORE_POLICY,
@@ -126,4 +134,38 @@ export function leadScoreBand(
   if (score >= policy.bands.hot) return "hot";
   if (score >= policy.bands.warm) return "warm";
   return "cold";
+}
+
+export function explainLeadScore(
+  score: number,
+  reasons: LeadScoreReason[],
+  policy: LeadScorePolicy = DEFAULT_LEAD_SCORE_POLICY,
+): LeadScoreExplanation {
+  const band = leadScoreBand(score, policy);
+  const label = band === "hot" ? "Hot" : band === "warm" ? "Warm" : "Koud";
+  const strongestReasons = [...reasons]
+    .sort((left, right) => right.points - left.points)
+    .slice(0, 4);
+  const presentCodes = new Set(reasons.map((reason) => reason.code));
+  const missingSignals = RULES.filter((rule) => !presentCodes.has(rule.code))
+    .filter((rule) =>
+      ["phone", "email", "intake", "soon", "trial_planned", "fresh"].includes(
+        rule.code,
+      ),
+    )
+    .map((rule) => rule.label)
+    .slice(0, 3);
+
+  return {
+    band,
+    label,
+    strongestReasons,
+    missingSignals,
+    summary:
+      band === "hot"
+        ? "Deze lead heeft genoeg koopsignalen om snel en actief op te volgen."
+        : band === "warm"
+          ? "Deze lead is kansrijk, maar mist nog enkele signalen voor directe prioriteit."
+          : "Deze lead heeft nog weinig harde signalen. Verzamel eerst intake, contactmoment of proeflesvoorkeur.",
+  };
 }

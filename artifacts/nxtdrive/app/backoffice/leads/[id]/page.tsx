@@ -62,7 +62,11 @@ import type {
   BookingCandidatePreferenceView,
   BookingConfirmationView,
 } from "@/lib/smart-booking/types";
-import { leadScoreBand, type LeadScorePolicy } from "@/lib/leads/lead-score";
+import {
+  explainLeadScore,
+  leadScoreBand,
+  type LeadScorePolicy,
+} from "@/lib/leads/lead-score";
 import { loadLeadScorePolicy } from "@/lib/leads/lead-score-policy";
 import { LEAD_NEXT_ACTION_HINT, type LeadScoreReason } from "@/lib/leads/types";
 import { formatEuros, type Package } from "@/lib/packages/types";
@@ -798,6 +802,7 @@ function SmartFollowUpCard({
     ? (lead.lead_score_reason as LeadScoreReason[])
     : [];
   const band = leadScoreBand(lead.lead_score, scorePolicy);
+  const explanation = explainLeadScore(lead.lead_score, reasons, scorePolicy);
   const scoreVariant =
     band === "hot" ? "warning" : band === "warm" ? "info" : "default";
   const isClosed = lead.status === "converted" || lead.status === "dropped";
@@ -836,6 +841,30 @@ function SmartFollowUpCard({
           <div className="mt-1 text-sm font-medium text-foreground">
             {nextAction}
           </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Waarom dit advies?
+          </div>
+          <p className="mt-1 text-sm leading-6 text-foreground">
+            {explanation.summary}
+          </p>
+          {explanation.strongestReasons.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {explanation.strongestReasons.map((reason) => (
+                <Badge key={reason.code} variant="outline">
+                  {reason.label} +{reason.points}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          {explanation.missingSignals.length > 0 ? (
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Maak het advies scherper met:{" "}
+              {explanation.missingSignals.join(", ")}.
+            </p>
+          ) : null}
         </div>
 
         {lead.next_action_at ? (

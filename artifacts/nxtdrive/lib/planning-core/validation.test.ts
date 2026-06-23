@@ -7,6 +7,7 @@ import type {
   PlanningKernelData,
 } from "@/lib/planning-core/types";
 import { isActivePlanningBusyStatus } from "@/lib/planning-core/data";
+import { formatPlanningReason } from "@/lib/planning-core/reasons";
 import { validateScheduleCandidate } from "@/lib/planning-core/validation";
 
 const actor: PlanningActorAccess = {
@@ -742,5 +743,87 @@ describe("validateScheduleCandidate", () => {
     assert.equal(isActivePlanningBusyStatus("planned"), true);
     assert.equal(isActivePlanningBusyStatus("in_progress"), true);
     assert.equal(isActivePlanningBusyStatus(null), true);
+  });
+
+  it("explains a busy-day conflict with availability, vehicle, rayon and capability reasons", () => {
+    const result = validateScheduleCandidate(
+      candidate({
+        branchId: "branch-a",
+        scope: { type: "branch", tenantId: "tenant-1", branchId: "branch-a" },
+        vehicleId: "vehicle-1",
+        pickupServiceAreaId: "area-c",
+        requiredInstructorCapabilityIds: ["exam_begeleiding"],
+        requiredVehicleCapabilityIds: ["dual_controls"],
+        startAt: "2026-06-15T15:30:00.000Z",
+        endAt: "2026-06-15T16:30:00.000Z",
+      }),
+      data({
+        instructor: {
+          id: "instructor-1",
+          tenantId: "tenant-1",
+          branchIds: ["branch-a"],
+          serviceAreaIds: ["area-a"],
+          capabilityIds: ["manual"],
+          availabilityRules: [
+            {
+              id: "morning-only",
+              tenant_id: "tenant-1",
+              branch_id: "branch-a",
+              instructor_id: "instructor-1",
+              weekday: 1,
+              start_min: 540,
+              end_min: 720,
+              created_at: "2026-01-01T00:00:00.000Z",
+              updated_at: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          availabilityExceptions: [],
+        },
+        vehicle: {
+          id: "vehicle-1",
+          tenantId: "tenant-1",
+          branchId: "branch-a",
+          status: "active",
+          transmission: "schakel",
+          capabilityIds: ["manual"],
+          latestOdometerRecordedAt: "2026-06-14T10:00:00.000Z",
+        },
+        busyIntervals: [
+          {
+            id: "exam-same-instructor",
+            entityType: "agenda_appointment",
+            instructorId: "instructor-1",
+            vehicleId: "vehicle-2",
+            startsAt: "2026-06-15T15:45:00.000Z",
+            endsAt: "2026-06-15T16:45:00.000Z",
+            serviceAreaId: "area-a",
+          },
+          {
+            id: "trial-same-vehicle",
+            entityType: "trial_lesson",
+            instructorId: "instructor-2",
+            vehicleId: "vehicle-1",
+            startsAt: "2026-06-15T15:15:00.000Z",
+            endsAt: "2026-06-15T16:15:00.000Z",
+            serviceAreaId: "area-b",
+          },
+        ],
+        settings: { rayonPolicy: "hard_block" },
+      }),
+    );
+
+    assert.equal(result.allowed, false);
+    assert.ok(codes(result).includes("INSTRUCTOR_NOT_AVAILABLE"));
+    assert.ok(codes(result).includes("INSTRUCTOR_HAS_OVERLAP"));
+    assert.ok(codes(result).includes("VEHICLE_HAS_OVERLAP"));
+    assert.ok(codes(result).includes("OUTSIDE_INSTRUCTOR_SERVICE_AREA"));
+    assert.ok(codes(result).includes("MISSING_REQUIRED_CAPABILITY"));
+    assert.ok(codes(result).includes("MISSING_REQUIRED_VEHICLE_CAPABILITY"));
+
+    const readable = result.blockingReasons.map(formatPlanningReason).join(" | ");
+    assert.match(readable, /Instructeur niet beschikbaar/);
+    assert.match(readable, /Voertuig heeft overlap/);
+    assert.match(readable, /Buiten rayon/);
+    assert.match(readable, /Instructeur mist verplichte eigenschap/);
   });
 });

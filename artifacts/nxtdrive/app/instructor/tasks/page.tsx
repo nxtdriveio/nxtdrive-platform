@@ -1,9 +1,7 @@
-import { InstructorTasksView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function InstructorTasksAliasPage() {
-  const data = await loadInstructorExperience();
-  return <InstructorTasksView data={data} />;
+export default function InstructorTasksAliasPage() {
+  redirect("/instructor/taken");
 }

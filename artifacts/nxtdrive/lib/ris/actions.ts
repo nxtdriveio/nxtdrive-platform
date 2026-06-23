@@ -175,7 +175,7 @@ export async function setRisConceptScoreAction(input: {
       p_student_visible_note: input.studentVisibleNote ?? null,
     });
     if (error) return { error: error.message };
-    revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     return { assessmentId: typeof data === "string" ? data : undefined };
   } catch (error) {
     return { error: err(error) };
@@ -213,7 +213,7 @@ export async function setGuidedReflectionAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     return {};
   } catch (error) {
     return { error: err(error) };
@@ -289,7 +289,7 @@ export async function saveRisLessonCardDraftAction(input: {
     }
 
     revalidatePath("/instructor");
-    revalidatePath(`/instructor/evaluations/${lessonId}`);
+    revalidatePath(`/instructor/les-evaluaties/${lessonId}`);
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonCardId };
   } catch (error) {
@@ -321,7 +321,7 @@ export async function publishRisLessonCardAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     if (input.studentId) {
       revalidatePath("/student");
       revalidatePath("/student/voortgang");
@@ -493,7 +493,7 @@ export async function upsertPlanningCardAction(input: {
 
     revalidatePath("/instructor");
     if (input.nextLessonId) {
-      revalidatePath(`/instructor/evaluations/${input.nextLessonId}`);
+      revalidatePath(`/instructor/les-evaluaties/${input.nextLessonId}`);
       revalidatePath(`/student/lessons/${input.nextLessonId}`);
     }
     revalidatePath("/student");
@@ -766,7 +766,7 @@ export async function planInstructorNextLessonAction(
       actor: user.id,
     });
     revalidatePath("/instructor");
-    revalidatePath(`/instructor/evaluations/${lesson.id}`);
+    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
     revalidatePath("/student");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonId: nextLessonId };
@@ -819,7 +819,7 @@ export async function proposeInstructorNextLessonAction(
       durationMin: suggestion.durationMin,
     });
     revalidatePath("/instructor");
-    revalidatePath(`/instructor/evaluations/${lesson.id}`);
+    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
     revalidatePath("/student");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { bookingRequestId: requestId };

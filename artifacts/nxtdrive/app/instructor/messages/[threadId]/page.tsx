@@ -1,5 +1,4 @@
-import { InstructorMessagesView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +8,5 @@ export default async function InstructorMessageAliasPage({
   params: Promise<{ threadId: string }>;
 }) {
   const { threadId } = await params;
-  const data = await loadInstructorExperience();
-  return <InstructorMessagesView threadId={threadId} data={data} />;
+  redirect(`/instructor/berichten/${threadId}`);
 }
