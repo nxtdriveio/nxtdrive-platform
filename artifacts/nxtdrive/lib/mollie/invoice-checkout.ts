@@ -33,6 +33,8 @@ export async function createInvoiceCheckout(
     invoice: Invoice;
     /** Amount to charge in cents. Defaults to the remaining balance. */
     amountCents?: number;
+    /** Portal path Mollie should return to after payment. */
+    returnPath?: string;
   },
 ): Promise<InvoiceCheckoutResult> {
   const { tenantId, actorId, invoice } = params;
@@ -54,6 +56,8 @@ export async function createInvoiceCheckout(
   // active links (and the resulting double-charge / overpay risk) when the same
   // pay action is triggered more than once. A different amount (e.g. a partial
   // payment landed in between, shrinking the remaining) always gets a fresh link.
+  const returnPath = params.returnPath ?? `/student/facturen/${invoice.id}`;
+
   if (
     invoice.mollie_payment_id &&
     invoice.mollie_checkout_url &&
@@ -85,7 +89,7 @@ export async function createInvoiceCheckout(
       amountCents,
       currency: "EUR",
       description,
-      redirectUrl: `${origin}/student/facturen/${invoice.id}?paid=1`,
+      redirectUrl: `${origin}${returnPath}?paid=1`,
       webhookUrl: `${origin}/api/webhooks/mollie/${tenantId}`,
       metadata: {
         invoice_id: invoice.id,

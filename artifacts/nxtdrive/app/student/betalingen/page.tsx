@@ -26,10 +26,8 @@ import {
   INSTALLMENT_CREDIT_MODE_LABEL,
   loadStudentInstallmentCredit,
 } from "@/lib/invoices/installment-credit";
+import { buildInvoicePaymentStatusFlow } from "@/lib/invoices/payment-status-flow";
 import {
-  DISPLAY_STATUS_LABEL,
-  DISPLAY_STATUS_VARIANT,
-  displayStatus,
   formatEuros,
   remainingCents,
   type Invoice,
@@ -240,9 +238,9 @@ export default async function StudentBetalingenPage() {
         ) : (
           <div className="space-y-2">
             {invoices.map((invoice) => {
-              const display = displayStatus(invoice);
-              const remaining = remainingCents(invoice);
-              const canPayOnline = mollieConfigured && isPayable(invoice);
+              const flow = buildInvoicePaymentStatusFlow(invoice, {
+                mollieConfigured,
+              });
               return (
                 <div
                   key={invoice.id}
@@ -258,27 +256,29 @@ export default async function StudentBetalingenPage() {
                         Factuur #{String(invoice.invoice_no).padStart(4, "0")}
                       </div>
                       <div className="mt-1 text-xs text-white/46">
-                        {invoice.due_date
-                          ? `Vervalt ${dateFmt.format(new Date(invoice.due_date))}`
-                          : `Aangemaakt ${dateFmt.format(new Date(invoice.created_at))}`}
+                        {flow.dueLabel ??
+                          `Aangemaakt ${dateFmt.format(new Date(invoice.created_at))}`}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
-                        {DISPLAY_STATUS_LABEL[display]}
-                      </Badge>
+                      <Badge variant={flow.badgeVariant}>{flow.badgeLabel}</Badge>
                       <div className="mt-1 text-sm font-semibold text-white">
                         {formatEuros(invoice.total_cents)}
                       </div>
+                      {flow.remainingCents > 0 ? (
+                        <div className="text-xs text-white/42">
+                          Nog open {flow.remainingLabel}
+                        </div>
+                      ) : null}
                     </div>
                     <ChevronRight className="h-4 w-4 text-white/24" aria-hidden />
                   </Link>
-                  {canPayOnline ? (
+                  {flow.canPayOnline ? (
                     <div className="border-t border-white/8 px-3 py-3">
                       <form action={payStudentInvoice}>
                         <input type="hidden" name="invoice_id" value={invoice.id} />
                         <Button type="submit" size="sm" className="h-11 w-full">
-                          Betaal nu {formatEuros(remaining)}
+                          Betaal nu {flow.remainingLabel}
                         </Button>
                       </form>
                     </div>

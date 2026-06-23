@@ -63,8 +63,8 @@ export const PARENT_PORTAL_SECTION_DESCRIPTION: Record<
   planning: "Geplande lessen en afspraken van het kind.",
   voortgang: "Examenrijpheid en voortgang (leskaart).",
   examens: "CBR-status en geplande (tussen)examens.",
-  facturen: "Verstuurde facturen (geen concepten, geen online betalen).",
-  betalingen: "Betaalstatus en -historie (alleen-lezen, geen online betalen).",
+  facturen: "Verstuurde facturen, betaalstatus en PDF-downloads.",
+  betalingen: "Betaalstatus en historie van open en voldane facturen.",
   pakketinformatie: "Toegekende lespakketten van het kind.",
   tegoed: "Lestegoedsaldo en de mutaties daarop.",
   documenten:

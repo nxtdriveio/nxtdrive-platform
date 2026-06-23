@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button";
 import { getActiveStudent } from "@/lib/students/access";
 import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
 import {
-  DISPLAY_STATUS_LABEL,
-  DISPLAY_STATUS_VARIANT,
-  displayStatus,
   formatEuros,
   remainingCents,
   type Invoice,
   type InvoiceLine,
 } from "@/lib/invoices/types";
+import { buildInvoicePaymentStatusFlow } from "@/lib/invoices/payment-status-flow";
 import {
   PAYMENT_RECORD_COLUMNS,
   paymentMethodLabel,
@@ -106,7 +104,6 @@ export default async function StudentInvoiceDetailPage({
   if (!invoiceRes.data) notFound();
   const invoice = invoiceRes.data as Invoice;
   const lines = (linesRes.data ?? []) as InvoiceLine[];
-  const display = displayStatus(invoice);
   const remaining = remainingCents(invoice);
 
   // Post-Mollie return feedback. Mollie redirects back with `?paid=1` whatever
@@ -146,8 +143,10 @@ export default async function StudentInvoiceDetailPage({
   const mollieStatus = isPayable
     ? await getMollieApiKeyStatus(createServiceRoleClient(), tenant.id)
     : { configured: false };
-  const canPayOnline =
-    isPayable && remaining > 0 && mollieStatus.configured && !paymentProcessing;
+  const paymentFlow = buildInvoicePaymentStatusFlow(invoice, {
+    mollieConfigured: mollieStatus.configured,
+    paymentProcessing,
+  });
 
   const payErrorLabels: Record<string, string> = {
     no_api_key: "Online betalen is nog niet beschikbaar voor deze rijschool.",
@@ -179,8 +178,8 @@ export default async function StudentInvoiceDetailPage({
         align="left"
         actions={
           <div className="flex items-center gap-3">
-            <Badge variant={DISPLAY_STATUS_VARIANT[display]}>
-              {DISPLAY_STATUS_LABEL[display]}
+            <Badge variant={paymentFlow.badgeVariant}>
+              {paymentFlow.badgeLabel}
             </Badge>
             <Link
               href="/student/betalingen"
@@ -221,13 +220,26 @@ export default async function StudentInvoiceDetailPage({
         </div>
       </StudentShowcaseCard>
 
-      {isPayable && invoice.amount_paid_cents > 0 ? (
-        <StudentShowcaseCard title="Betaalstatus" eyebrow="Voortgang">
+      <StudentShowcaseCard title="Betaalstatus" eyebrow={paymentFlow.badgeLabel}>
+        <div className="space-y-4">
+          <div>
+            <div className="text-base font-semibold text-white">
+              {paymentFlow.title}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-white/64">
+              {paymentFlow.description}
+            </p>
+            {paymentFlow.dueLabel ? (
+              <p className="mt-2 text-sm font-medium text-white">
+                {paymentFlow.dueLabel}
+              </p>
+            ) : null}
+          </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-white/50">Al betaald</span>
               <span className="font-medium text-white">
-                {formatEuros(invoice.amount_paid_cents)} van{" "}
+                {formatEuros(paymentFlow.paidCents)} van{" "}
                 {formatEuros(invoice.total_cents)}
               </span>
             </div>
@@ -236,26 +248,19 @@ export default async function StudentInvoiceDetailPage({
                 className="h-full rounded-full"
                 style={{
                   ...brandPrimaryProgressStyle(),
-                  width: `${Math.min(
-                    100,
-                    Math.round(
-                      (invoice.amount_paid_cents /
-                        Math.max(invoice.total_cents, 1)) *
-                        100,
-                    ),
-                  )}%`,
+                  width: `${paymentFlow.progressPct}%`,
                 }}
               />
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-white/50">Nog te betalen</span>
               <span className="font-semibold text-white">
-                {formatEuros(remaining)}
+                {paymentFlow.remainingLabel}
               </span>
             </div>
           </div>
-        </StudentShowcaseCard>
-      ) : null}
+        </div>
+      </StudentShowcaseCard>
 
       {payments.length > 0 ? (
         <StudentShowcaseCard title="Jouw betalingen" eyebrow="Historie">
@@ -274,7 +279,7 @@ export default async function StudentInvoiceDetailPage({
         </StudentShowcaseCard>
       ) : null}
 
-      {canPayOnline ? (
+      {paymentFlow.canPayOnline ? (
         <StudentShowcaseCard
           title="Online betalen"
           eyebrow="Mollie"
@@ -287,7 +292,7 @@ export default async function StudentInvoiceDetailPage({
             <form action={payStudentInvoice}>
               <input type="hidden" name="invoice_id" value={invoice.id} />
               <Button type="submit" size="lg" className="h-11 w-full">
-                Betaal online {formatEuros(remaining)}
+                Betaal online {paymentFlow.remainingLabel}
               </Button>
             </form>
           </div>
