@@ -106,7 +106,7 @@ function StudentPreview() {
               <Bell className="h-3.5 w-3.5" />
             </span>
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-primary">
-              DG
+              LL
             </span>
           </div>
         </div>
@@ -121,7 +121,7 @@ function StudentPreview() {
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
             Home
           </p>
-          <h4 className="mt-2 text-lg font-semibold">Goedemorgen, Danny</h4>
+          <h4 className="mt-2 text-lg font-semibold">Goedemorgen</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             Overzicht, voortgang en directe acties in tenantstijl.
           </p>
@@ -131,7 +131,7 @@ function StudentPreview() {
                 Volgende les
               </p>
               <p className="mt-2 text-xl font-semibold">08:00</p>
-              <p className="text-xs text-muted-foreground">Mike Jansen</p>
+              <p className="text-xs text-muted-foreground">Rijles gepland</p>
             </div>
             <div className="rounded-2xl border border-border/70 bg-card/80 p-3">
               <p className="text-[0.65rem] uppercase tracking-[0.24em] text-muted-foreground">
@@ -170,8 +170,8 @@ function InstructorPreview() {
           <p className="text-sm font-semibold">Vandaag</p>
           <div className="mt-3 space-y-2">
             {[
-              { time: "08:00", label: "Mike Jansen", badge: "Rijles" },
-              { time: "11:40", label: "Proefles Kevin", badge: "Proefles" },
+              { time: "08:00", label: "Rijles", badge: "Gepland" },
+              { time: "11:40", label: "Proefles", badge: "Nieuw" },
             ].map((row, index) => (
               <div
                 key={row.time}
@@ -214,7 +214,7 @@ function InstructorPreview() {
               </p>
               <h4 className="mt-2 text-xl font-semibold">Vandaag</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Dagritme, KPI's en directe acties in één shell.
+                Dagritme, KPI's en directe acties in een shell.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -248,7 +248,7 @@ function BackofficePreview() {
         <div>
           <p className="text-sm font-semibold">Backoffice overzicht</p>
           <p className="text-xs text-muted-foreground">
-            KPI's, alerts en commerciële gezondheid.
+            KPI's, alerts en commerciele gezondheid.
           </p>
         </div>
         <Badge variant="warning" className="ml-auto">
@@ -279,7 +279,7 @@ function BackofficePreview() {
                       : "primary"
                 }
               >
-                Live
+                Preview
               </Badge>
             </div>
           </div>
@@ -323,7 +323,7 @@ function BackofficePreview() {
             <p className="text-sm font-semibold">Snelle acties</p>
           </div>
           <div className="space-y-2">
-            {["Tenant openen", "Preset koppelen", "Brand preview"].map((label) => (
+            {["Navigatie", "Kleuraccent", "CTA-stijl"].map((label) => (
               <button
                 key={label}
                 type="button"

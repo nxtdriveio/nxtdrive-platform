@@ -353,7 +353,7 @@ export default async function OrganisatiePage({
                     id="legal_name"
                     name="legal_name"
                     defaultValue={profile?.legal_name ?? organization.name}
-                    placeholder="Van Dijk Rijschool B.V."
+                    placeholder="Rijschool B.V."
                     autoComplete="organization"
                   />
                 </div>

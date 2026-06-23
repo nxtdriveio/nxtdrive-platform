@@ -196,7 +196,7 @@ function InstructorCard({
 
 function DataUnavailableState({
   title = "Geen gegevens beschikbaar",
-  subtitle = "Deze pagina heeft geen instructeursdata ontvangen.",
+  subtitle = "Er zijn nog geen gegevens beschikbaar voor deze weergave.",
 }: {
   title?: string;
   subtitle?: string;
@@ -206,7 +206,7 @@ function DataUnavailableState({
       <PageHeader eyebrow="Instructeur" title={title} subtitle={subtitle} />
       <InstructorCard icon={InfoIcon} title="Lege status">
         <p className="text-sm leading-6 text-muted-foreground">
-          Er wordt geen voorbeelddata getoond. Zodra er echte gegevens beschikbaar zijn, verschijnt deze pagina automatisch gevuld.
+          Zodra er gegevens beschikbaar zijn, verschijnt deze pagina automatisch gevuld.
         </p>
       </InstructorCard>
     </InstructorPage>
@@ -890,7 +890,7 @@ export function InstructorEvaluationDetailView({
               </div>
             )) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm leading-6 text-muted-foreground">
-                Deze oude detailweergave heeft geen RIS-modules ontvangen. Open de volledige leskaart via de lesevaluatie-route om met de actuele RIS-data te werken.
+                Deze leskaart bevat nog geen RIS-modules. Open de volledige lesevaluatie om met actuele RIS-data te werken.
               </p>
             )}
           </div>
@@ -1230,7 +1230,7 @@ export function InstructorSimpleView({
       <PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />
       <InstructorCard title={title} icon={Icon}>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Deze pagina gebruikt dezelfde instructeur-shell, theme tokens en responsive kaartstijl. De functionele backend kan hierop aansluiten zonder de navigatiestructuur te wijzigen.
+          Zodra er gegevens voor dit onderdeel beschikbaar zijn, verschijnt hier de bijbehorende instructeursweergave.
         </p>
       </InstructorCard>
     </InstructorPage>
