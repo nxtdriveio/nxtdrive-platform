@@ -51,6 +51,9 @@ import { PaymentReminderManager } from "./payment-reminder-manager";
 import { loadPaymentReminderPolicy } from "@/lib/invoices/payment-reminder-policy";
 import { InstallmentCreditPolicyManager } from "./installment-credit-policy-manager";
 import { loadInstallmentCreditPolicy } from "@/lib/invoices/installment-credit";
+import { buildFinanceOnboardingPlan } from "@/lib/finance/onboarding";
+import { loadFinanceOnboardingFacts } from "@/lib/finance/onboarding-server";
+import { FinanceOnboardingPanel } from "@/components/backoffice/finance-onboarding-panel";
 import { ReviewMomentsManager } from "./review-moments-manager";
 import { getReviewMomentsSettings } from "@/lib/notifications/settings";
 import { ContactPhoneManager } from "./contact-phone-manager";
@@ -128,6 +131,19 @@ export default async function SettingsPage({
   const brandedPwaPublication = await loadBrandedPwaPublication(
     service,
     tenant.id,
+  );
+  const financeOnboardingFacts = await loadFinanceOnboardingFacts(service, {
+    tenantId: tenant.id,
+    tenantName: tenant.name,
+    mollie: {
+      configured: status.configured,
+      mode: status.mode,
+    },
+    paymentReminderPolicy,
+    installmentCreditPolicy,
+  });
+  const financeOnboardingPlan = buildFinanceOnboardingPlan(
+    financeOnboardingFacts,
   );
 
   const tenantDomains = await loadTenantDomains(service, tenant.id);
@@ -340,6 +356,11 @@ export default async function SettingsPage({
           </CardContent>
         </Card>
       </section>
+
+      <FinanceOnboardingPanel
+        facts={financeOnboardingFacts}
+        plan={financeOnboardingPlan}
+      />
 
       <Card>
         <CardHeader>
