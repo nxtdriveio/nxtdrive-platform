@@ -19,6 +19,8 @@ import {
   getAccountingOverview,
   defaultAccountingRange,
 } from "@/lib/accounting/overview";
+import { loadAccountingIntegrationSettings } from "@/lib/accounting/integrations";
+import { AccountingIntegrationPanel } from "./accounting-integration-panel";
 import { PLAN_LABELS } from "@/lib/platform/features";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 
@@ -133,11 +135,16 @@ export default async function BoekhoudingPage({
   const to = toRaw < from ? from : toRaw;
 
   const overview = await getAccountingOverview(supabase, tenant.id, from, to);
+  const accountingIntegration = await loadAccountingIntegrationSettings(
+    createServiceRoleClient(),
+    tenant.id,
+  );
 
   const q = `?from=${from}&to=${to}`;
   const exportFacturen = `/backoffice/boekhouding/export/facturen${q}`;
   const exportBetalingen = `/backoffice/boekhouding/export/betalingen${q}`;
   const exportKlanten = `/backoffice/boekhouding/export/klanten`;
+  const exportKoppeling = `/backoffice/boekhouding/export/koppeling${q}`;
   const overdueInvoices = overview.outstanding.filter((invoice) => invoice.daysOverdue > 0);
   const oldestOutstanding = overdueInvoices[0] ?? overview.outstanding[0] ?? null;
   const latestMonth = overview.monthly[overview.monthly.length - 1] ?? null;
@@ -239,6 +246,12 @@ export default async function BoekhoudingPage({
           ) : null}
         </CardContent>
       </Card>
+
+      <AccountingIntegrationPanel
+        settings={accountingIntegration}
+        overview={overview}
+        exportHref={exportKoppeling}
+      />
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
         <Card>
