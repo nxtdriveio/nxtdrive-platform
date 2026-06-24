@@ -170,7 +170,7 @@ export function InstructorProgressCard({
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Voortgangscore</span>
             <span className="font-semibold tabular-nums text-foreground">
-              {progressScore != null ? `${progressScore} / 10` : "—"}
+              {progressScore != null ? `${Math.min(8, progressScore)} / 8` : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">

@@ -1,12 +1,7 @@
-import { InstructorAvailabilityManager } from "@/components/instructor/AvailabilityManager";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function InstructorAvailabilityAliasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const sp = await searchParams;
-  return <InstructorAvailabilityManager redirectTo="/instructor/availability" error={sp.error} />;
+export default function InstructorAvailabilityAliasPage() {
+  redirect("/instructor/beschikbaarheid");
 }

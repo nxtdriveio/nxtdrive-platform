@@ -20,6 +20,11 @@ import {
   mergeRefillPolicy,
 } from "@/lib/lesson-refill/policy";
 import {
+  DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+  STUDENT_SELF_BOOKING_POLICY_KEY,
+  mergeStudentSelfBookingPolicy,
+} from "@/lib/student-booking/policy";
+import {
   PARENT_PORTAL_SECTIONS,
   PARENT_PORTAL_VISIBILITY_KEY,
   mergeParentPortalVisibility,
@@ -42,6 +47,17 @@ import {
   classifyHostname,
   normalizeHostname,
 } from "@/lib/tenant/domains";
+import {
+  BRANDED_PWA_PUBLICATION_KEY,
+  type BrandedPwaPublicationStatus,
+  type BrandedPwaSurface,
+  normalizeBrandedPwaPublication,
+} from "@/lib/tenant/branded-pwa-publication";
+import {
+  DEFAULT_TENANT_WORKFLOW_CATALOG,
+  TENANT_WORKFLOW_CATALOG_KEY,
+  mergeTenantWorkflowCatalogSettings,
+} from "@/lib/tenant/workflow-catalog";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -80,6 +96,15 @@ function assertWhiteLabelPlanAccess(
         ),
     );
   }
+}
+
+function platformOnlyResult(isPlatformAdmin: boolean): PolicyActionResult | null {
+  if (isPlatformAdmin) return null;
+  return {
+    ok: false,
+    error:
+      "Deze actie kan alleen door NXTDRIVE platformbeheer worden uitgevoerd.",
+  };
 }
 
 function revalidateBrandingSurfaces() {
@@ -287,6 +312,152 @@ export async function deleteAssignmentRule(
 }
 
 export type PolicyActionResult = { ok: boolean; error?: string };
+
+const BRANDED_PWA_STATUSES = [
+  "not_requested",
+  "review",
+  "published",
+  "paused",
+] as const satisfies readonly BrandedPwaPublicationStatus[];
+const BRANDED_PWA_SURFACES = [
+  "admin",
+  "instructor",
+  "student",
+  "parent",
+] as const satisfies readonly BrandedPwaSurface[];
+
+function parseBrandedPwaStatus(
+  value: FormDataEntryValue | null,
+): BrandedPwaPublicationStatus {
+  return typeof value === "string" &&
+    (BRANDED_PWA_STATUSES as readonly string[]).includes(value)
+    ? (value as BrandedPwaPublicationStatus)
+    : "not_requested";
+}
+
+function parseBrandedPwaSurfaces(values: FormDataEntryValue[]): BrandedPwaSurface[] {
+  return Array.from(
+    new Set(
+      values.filter((value): value is BrandedPwaSurface =>
+        typeof value === "string" &&
+        (BRANDED_PWA_SURFACES as readonly string[]).includes(value),
+      ),
+    ),
+  );
+}
+
+export async function saveBrandedPwaPublication(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
+  const service = createServiceRoleClient();
+  const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
+  if (!snapshot.featureAccess.white_label.allowed) {
+    return {
+      ok: false,
+      error: "Branded PWA-publicatie vereist white-label toegang.",
+    };
+  }
+
+  const status = parseBrandedPwaStatus(formData.get("status"));
+  const surfaces = parseBrandedPwaSurfaces(formData.getAll("surfaces"));
+  if (status === "published" && surfaces.length === 0) {
+    return {
+      ok: false,
+      error: "Kies minimaal één portaal om te publiceren.",
+    };
+  }
+
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", BRANDED_PWA_PUBLICATION_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = normalizeBrandedPwaPublication(currentRow?.value);
+  const now = new Date().toISOString();
+  const notes = String(formData.get("notes") ?? "").trim().slice(0, 500);
+  const value = {
+    status,
+    surfaces,
+    notes: notes || null,
+    updated_at: now,
+    updated_by: user.id,
+    published_at:
+      status === "published" ? previous.published_at ?? now : previous.published_at,
+    published_by:
+      status === "published" ? previous.published_by ?? user.id : previous.published_by,
+  };
+
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: BRANDED_PWA_PUBLICATION_KEY,
+      value,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.branded_pwa_publication_updated",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next: value },
+  });
+
+  revalidateBrandingSurfaces();
+  return { ok: true };
+}
+
+export async function resetBrandedPwaPublication(
+  _formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
+  const service = createServiceRoleClient();
+  const now = new Date().toISOString();
+  const value = {
+    status: "not_requested",
+    surfaces: [],
+    notes: null,
+    updated_at: now,
+    updated_by: user.id,
+    published_at: null,
+    published_by: null,
+  };
+
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: BRANDED_PWA_PUBLICATION_KEY,
+      value,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.branded_pwa_publication_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: value,
+  });
+
+  revalidateBrandingSurfaces();
+  return { ok: true };
+}
 
 function parseOptionalNumber(value: FormDataEntryValue | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -509,6 +680,181 @@ export async function resetRefillPolicy(): Promise<PolicyActionResult> {
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/backoffice/agenda");
+  return { ok: true };
+}
+
+export async function saveStudentSelfBookingPolicy(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const policy = mergeStudentSelfBookingPolicy({
+    self_booking_enabled: formData.get("self_booking_enabled") === "true",
+    students_can_book_lessons:
+      formData.get("students_can_book_lessons") === "true",
+    students_can_reschedule_lessons:
+      formData.get("students_can_reschedule_lessons") === "true",
+    students_can_cancel_lessons:
+      formData.get("students_can_cancel_lessons") === "true",
+    manual_approval_required:
+      formData.get("manual_approval_required") === "true",
+    instructor_approval_required:
+      formData.get("instructor_approval_required") === "true",
+    student_final_confirmation_required:
+      formData.get("student_final_confirmation_required") === "true",
+    allow_booking_with_unpaid_invoice:
+      formData.get("allow_booking_with_unpaid_invoice") === "true",
+    allow_booking_without_sufficient_credit:
+      formData.get("allow_booking_without_sufficient_credit") === "true",
+    max_future_bookings_per_student: formData.get(
+      "max_future_bookings_per_student",
+    ),
+    max_lessons_per_week: formData.get("max_lessons_per_week"),
+    min_notice_hours_for_booking: formData.get(
+      "min_notice_hours_for_booking",
+    ),
+    booking_window_days: formData.get("booking_window_days"),
+  });
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: STUDENT_SELF_BOOKING_POLICY_KEY,
+      value: policy,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "student_self_booking.policy_updated",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: policy,
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student/lessons");
+  return { ok: true };
+}
+
+export async function resetStudentSelfBookingPolicy(): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: STUDENT_SELF_BOOKING_POLICY_KEY,
+      value: DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "student_self_booking.policy_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: DEFAULT_STUDENT_SELF_BOOKING_POLICY,
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/student/lessons");
+  return { ok: true };
+}
+
+export async function saveTenantWorkflowCatalog(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const raw = formData.get("settings");
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return { ok: false, error: "Workflowconfiguratie ontbreekt." };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: "Workflowconfiguratie is geen geldige JSON." };
+  }
+
+  const service = createServiceRoleClient();
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", TENANT_WORKFLOW_CATALOG_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = mergeTenantWorkflowCatalogSettings(currentRow?.value);
+  const next = mergeTenantWorkflowCatalogSettings(parsed);
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: TENANT_WORKFLOW_CATALOG_KEY,
+      value: next,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.workflow_catalog_saved",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next },
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/instellingen/workflows");
+  return { ok: true };
+}
+
+export async function resetTenantWorkflowCatalog(): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const service = createServiceRoleClient();
+
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", TENANT_WORKFLOW_CATALOG_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = mergeTenantWorkflowCatalogSettings(currentRow?.value);
+  const next = DEFAULT_TENANT_WORKFLOW_CATALOG;
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: TENANT_WORKFLOW_CATALOG_KEY,
+      value: next,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.workflow_catalog_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next },
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/instellingen/workflows");
   return { ok: true };
 }
 
@@ -770,6 +1116,9 @@ export async function addTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -818,6 +1167,9 @@ export async function verifyTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -873,6 +1225,9 @@ export async function removeTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {
@@ -912,6 +1267,9 @@ export async function setPrimaryTenantDomain(
   formData: FormData,
 ): Promise<PolicyActionResult> {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const platformOnly = platformOnlyResult(user.profile?.is_platform_admin === true);
+  if (platformOnly) return platformOnly;
+
   const service = createServiceRoleClient();
   const snapshot = await loadTenantEntitlementSnapshot(service, tenant.id);
   if (!snapshot.featureAccess.white_label.allowed) {

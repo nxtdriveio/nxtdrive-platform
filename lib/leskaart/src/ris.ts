@@ -1,11 +1,13 @@
 // RIS lesson card foundation.
 //
-// Pure helpers only: no IO, no Supabase dependency. The database stores RIS
-// scores as text (`1`..`10`). An empty/null value means "not assessed yet";
-// concepts, published scores and student translations use the same contract.
+// Pure helpers only: no IO, no Supabase dependency. The canonical RIS model is
+// `N` (niet beoordeeld) followed by numeric scores `1`..`8`. Older null values
+// are treated as `N` when read; concepts, published scores and student
+// translations use the same contract.
 
-export type RISStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type RISStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type RISStepValue =
+  | "N"
   | "1"
   | "2"
   | "3"
@@ -13,14 +15,12 @@ export type RISStepValue =
   | "5"
   | "6"
   | "7"
-  | "8"
-  | "9"
-  | "10";
+  | "8";
 
 export type RISPhase = "geen_score" | "cognitief" | "associatief" | "geautomatiseerd";
 
 export type RISStepDefinition = {
-  stepValue: RISStepValue | null;
+  stepValue: RISStepValue;
   instructorLabel: string;
   studentLabel: string;
   explanation: string;
@@ -138,11 +138,11 @@ export type RISModuleReadiness = {
   averageStep: number | null;
 };
 
-export const RIS_SCORE_MAX = 10;
+export const RIS_SCORE_MAX = 8;
 export const RIS_READY_SCORE = 8;
 
 export const RIS_UNASSESSED_STEP_DEFINITION: RISStepDefinition = {
-  stepValue: null,
+  stepValue: "N",
   instructorLabel: "Niet beoordeeld",
   studentLabel: "Nog niet beoordeeld",
   explanation: "Er is nog geen betrouwbare beoordeling vastgelegd.",
@@ -151,6 +151,7 @@ export const RIS_UNASSESSED_STEP_DEFINITION: RISStepDefinition = {
 };
 
 export const RIS_STEP_DEFINITIONS: RISStepDefinition[] = [
+  RIS_UNASSESSED_STEP_DEFINITION,
   {
     stepValue: "1",
     instructorLabel: "Startniveau",
@@ -215,27 +216,11 @@ export const RIS_STEP_DEFINITIONS: RISStepDefinition[] = [
     phase: "geautomatiseerd",
     sortOrder: 80,
   },
-  {
-    stepValue: "9",
-    instructorLabel: "Sterk zelfstandig",
-    studentLabel: "Je beheerst dit sterk zelfstandig",
-    explanation: "De leerling handelt ruim boven voldoende, anticiperend en consistent.",
-    phase: "geautomatiseerd",
-    sortOrder: 90,
-  },
-  {
-    stepValue: "10",
-    instructorLabel: "Volledig beheerst",
-    studentLabel: "Je beheerst dit volledig",
-    explanation: "De leerling beheerst het onderdeel volledig en blijft stabiel onder druk.",
-    phase: "geautomatiseerd",
-    sortOrder: 100,
-  },
 ];
 
 export function normalizeRisStep(value: unknown): RISStepValue | null {
-  if (value === null || value === undefined || value === "") return null;
-  if (String(value).toUpperCase() === "N") return null;
+  if (value === null || value === undefined || value === "") return "N";
+  if (String(value).toUpperCase() === "N") return "N";
   const asNumber = typeof value === "number" ? value : Number(value);
   if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= RIS_SCORE_MAX) {
     return String(asNumber) as RISStepValue;
@@ -245,7 +230,7 @@ export function normalizeRisStep(value: unknown): RISStepValue | null {
 
 export function risStepNumber(step: RISStepValue | null | undefined): number | null {
   const normalized = normalizeRisStep(step);
-  if (normalized === null) return null;
+  if (normalized === null || normalized === "N") return null;
   return Number(normalized);
 }
 

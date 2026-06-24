@@ -33,14 +33,14 @@ type NavItem = {
 const SIDEBAR_NAV: NavItem[] = [
   { href: "/instructor", label: "Cockpit", icon: Home, match: "exact", mobile: true },
   { href: "/instructor/agenda", label: "Agenda", icon: CalendarDays, match: "prefix", mobile: true },
-  { href: "/instructor/students", label: "Leerlingen", icon: Users, match: "prefix", mobile: true },
-  { href: "/instructor/evaluations", label: "Lesevaluaties", icon: FileText, match: "prefix" },
-  { href: "/instructor/messages", label: "Berichten", icon: MessageCircle, match: "prefix", mobile: true, badge: 3 },
-  { href: "/instructor/tasks", label: "Taken", icon: ListTodo, match: "prefix", badge: 4 },
-  { href: "/instructor/vehicles", label: "Voertuigen", icon: CarFront, match: "prefix" },
-  { href: "/instructor/availability", label: "Beschikbaarheid", icon: Clock3, match: "prefix" },
-  { href: "/instructor/reports", label: "Rapportages", icon: BarChart3, match: "prefix" },
-  { href: "/instructor/settings", label: "Instellingen", icon: Settings, match: "prefix" },
+  { href: "/instructor/leerlingen", label: "Leerlingen", icon: Users, match: "prefix", mobile: true },
+  { href: "/instructor/les-evaluaties", label: "Lesevaluaties", icon: FileText, match: "prefix" },
+  { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix", mobile: true, badge: 3 },
+  { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix", badge: 4 },
+  { href: "/instructor/voertuigen", label: "Voertuigen", icon: CarFront, match: "prefix" },
+  { href: "/instructor/beschikbaarheid", label: "Beschikbaarheid", icon: Clock3, match: "prefix" },
+  { href: "/instructor/rapportages", label: "Rapportages", icon: BarChart3, match: "prefix" },
+  { href: "/instructor/instellingen", label: "Instellingen", icon: Settings, match: "prefix" },
 ];
 
 const MOBILE_NAV: NavItem[] = [
@@ -48,7 +48,7 @@ const MOBILE_NAV: NavItem[] = [
   SIDEBAR_NAV[1]!,
   SIDEBAR_NAV[2]!,
   SIDEBAR_NAV[4]!,
-  { href: "/instructor/more", label: "Meer", icon: MoreHorizontal, match: "prefix" },
+  { href: "/instructor/meer", label: "Meer", icon: MoreHorizontal, match: "prefix" },
 ];
 
 function isActive(pathname: string, item: NavItem) {
@@ -58,23 +58,23 @@ function isActive(pathname: string, item: NavItem) {
       pathname.startsWith("/instructor/week") ||
       pathname.startsWith("/instructor/afspraak");
   }
-  if (item.href === "/instructor/students") {
+  if (item.href === "/instructor/leerlingen") {
     return pathname.startsWith("/instructor/students") ||
       pathname.startsWith("/instructor/leerlingen");
   }
-  if (item.href === "/instructor/evaluations") {
+  if (item.href === "/instructor/les-evaluaties") {
     return pathname.startsWith("/instructor/evaluations") ||
       pathname.startsWith("/instructor/les-evaluaties");
   }
-  if (item.href === "/instructor/messages") {
+  if (item.href === "/instructor/berichten") {
     return pathname.startsWith("/instructor/messages") ||
       pathname.startsWith("/instructor/berichten");
   }
-  if (item.href === "/instructor/tasks") return pathname.startsWith("/instructor/tasks") || pathname.startsWith("/instructor/taken");
-  if (item.href === "/instructor/vehicles") return pathname.startsWith("/instructor/vehicles") || pathname.startsWith("/instructor/voertuigen");
-  if (item.href === "/instructor/availability") return pathname.startsWith("/instructor/availability") || pathname.startsWith("/instructor/beschikbaarheid");
-  if (item.href === "/instructor/settings") return pathname.startsWith("/instructor/settings") || pathname.startsWith("/instructor/instellingen");
-  if (item.href === "/instructor/more") return pathname.startsWith("/instructor/more") || pathname.startsWith("/instructor/meer");
+  if (item.href === "/instructor/taken") return pathname.startsWith("/instructor/tasks") || pathname.startsWith("/instructor/taken");
+  if (item.href === "/instructor/voertuigen") return pathname.startsWith("/instructor/vehicles") || pathname.startsWith("/instructor/voertuigen");
+  if (item.href === "/instructor/beschikbaarheid") return pathname.startsWith("/instructor/availability") || pathname.startsWith("/instructor/beschikbaarheid");
+  if (item.href === "/instructor/instellingen") return pathname.startsWith("/instructor/settings") || pathname.startsWith("/instructor/instellingen");
+  if (item.href === "/instructor/meer") return pathname.startsWith("/instructor/more") || pathname.startsWith("/instructor/meer");
   return item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);
 }
 
@@ -175,7 +175,7 @@ export function InstructorSidebar({
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href="/instructor/messages"
+              href="/instructor/berichten"
               aria-label="Berichten"
               className="grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm"
             >

@@ -16,6 +16,7 @@ import { buildSkillTree, type SkillTaxonomyNode } from "@workspace/leskaart";
 const CRITICAL_MIN = 8;
 // Canon Beoordelingsschaal: a never-scored leaf reads as niveau 1.
 const UNSCORED_LEVEL = 1;
+const SCORE_MAX = 8;
 
 export type StudentCategoryProgress = {
   id: string;
@@ -37,7 +38,7 @@ export type StudentLessonPoint = {
   /** Average of the skill grades recorded during this lesson, 1 decimal. */
   averageScore: number;
   skillCount: number;
-  /** The instructor's overall lesson progress score (0..10), if set. */
+  /** The instructor's overall lesson progress score (1..8), or null/N when not assessed. */
   progressScore: number | null;
   summary: string | null;
 };
@@ -152,7 +153,13 @@ export async function loadStudentLeskaart(
       const progressPct =
         totalLeaves === 0
           ? 0
-          : Math.max(0, Math.min(100, Math.round(((mean(effective) - 1) / 9) * 100)));
+          : Math.max(
+              0,
+              Math.min(
+                100,
+                Math.round(((mean(effective) - 1) / (SCORE_MAX - 1)) * 100),
+              ),
+            );
 
       return {
         id: cat.id,

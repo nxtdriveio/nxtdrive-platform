@@ -1,5 +1,4 @@
-import { InstructorStudentDetailView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +8,5 @@ export default async function InstructorStudentAliasPage({
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = await params;
-  const data = await loadInstructorExperience();
-  return <InstructorStudentDetailView studentId={studentId} data={data} />;
+  redirect(`/instructor/leerlingen/${studentId}`);
 }

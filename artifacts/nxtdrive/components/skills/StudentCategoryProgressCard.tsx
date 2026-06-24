@@ -5,7 +5,7 @@ import type { StudentCategoryProgress } from "@/lib/skills/student-leskaart-data
 
 /**
  * Read-only per-hoofdcategorie progress for the student/parent. Each bar shows
- * how far the curriculum category has developed (derived from the 1–10 grades),
+ * how far the curriculum category has developed (derived from the N/1-8 grades),
  * the average where graded, and any critical-skill attention points.
  */
 export function StudentCategoryProgressCard({

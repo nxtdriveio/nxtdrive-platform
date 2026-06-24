@@ -1,0 +1,363 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  BookingCandidateInput,
+  BookingCandidateLookup,
+  BookingCandidatePreferenceInput,
+  BookingConfirmationInput,
+  BookingConfirmationResponse,
+  BookingHoldInput,
+  BookingRequestInput,
+  BookingEntityType,
+} from "./types";
+
+function assertString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${label} RPC did not return an id.`);
+  }
+  return value;
+}
+
+function rpcError(label: string, error: unknown): Error {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message)
+      : "Unknown Supabase RPC error.";
+  return new Error(`${label} failed: ${message}`);
+}
+
+export async function ensureBookingRequest(
+  service: SupabaseClient,
+  input: BookingRequestInput,
+): Promise<string> {
+  const { data, error } = await service.rpc("create_booking_request", {
+    p_tenant_id: input.tenantId,
+    p_branch_id: input.branchId ?? null,
+    p_source: input.source,
+    p_requester_type: input.requesterType,
+    p_entity_type: input.entityType,
+    p_lead_id: input.leadId ?? null,
+    p_student_id: input.studentId ?? null,
+    p_requested_duration_min: input.requestedDurationMin ?? null,
+    p_required_transmission: input.requiredTransmission ?? null,
+    p_preferred_instructor_id: input.preferredInstructorId ?? null,
+    p_pickup_location: input.pickupLocation ?? null,
+    p_pickup_lat: input.pickupLat ?? null,
+    p_pickup_lng: input.pickupLng ?? null,
+    p_pickup_place_id: input.pickupPlaceId ?? null,
+    p_pickup_formatted_address: input.pickupFormattedAddress ?? null,
+    p_preferred_days: input.preferredDays ?? [],
+    p_preferred_times: input.preferredTimes ?? [],
+    p_desired_start_date: input.desiredStartDate ?? null,
+    p_idempotency_key: input.idempotencyKey ?? null,
+    p_metadata: input.metadata ?? {},
+    p_actor: input.actor ?? null,
+  });
+
+  if (error) throw rpcError("create_booking_request", error);
+  return assertString(data, "create_booking_request");
+}
+
+function serializeCandidate(candidate: BookingCandidateInput) {
+  return {
+    rank: candidate.rank,
+    instructor_id: candidate.instructorId,
+    candidate_student_id: candidate.candidateStudentId ?? null,
+    vehicle_id: candidate.vehicleId ?? null,
+    starts_at: candidate.startsAt,
+    ends_at: candidate.endsAt,
+    duration_min: candidate.durationMin,
+    pickup_location: candidate.pickupLocation ?? null,
+    pickup_lat: candidate.pickupLat ?? null,
+    pickup_lng: candidate.pickupLng ?? null,
+    pickup_place_id: candidate.pickupPlaceId ?? null,
+    pickup_formatted_address: candidate.pickupFormattedAddress ?? null,
+    score: candidate.score ?? 0,
+    score_factors: candidate.scoreFactors ?? [],
+    warnings: candidate.warnings ?? [],
+    blocking_reasons: candidate.blockingReasons ?? [],
+    validation: candidate.validation ?? {},
+    route_status: candidate.routeStatus ?? null,
+    route_travel_to_min: candidate.routeTravelToMin ?? null,
+    route_travel_from_min: candidate.routeTravelFromMin ?? null,
+    route_needs_confirm: candidate.routeNeedsConfirm ?? false,
+    reason: candidate.reason ?? null,
+    status: candidate.status ?? "generated",
+    metadata: candidate.metadata ?? {},
+  };
+}
+
+export async function replaceBookingCandidates(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingRequestId: string;
+    actor?: string | null;
+    candidates: BookingCandidateInput[];
+  },
+): Promise<number> {
+  const { data, error } = await service.rpc("replace_booking_candidates", {
+    p_booking_request_id: args.bookingRequestId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor ?? null,
+    p_candidates: args.candidates.map(serializeCandidate),
+  });
+
+  if (error) throw rpcError("replace_booking_candidates", error);
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+function serializePreference(preference: BookingCandidatePreferenceInput) {
+  return {
+    booking_candidate_id: preference.bookingCandidateId,
+    preference_rank: preference.preferenceRank,
+    requester_type: preference.requesterType ?? "public_lead",
+    selected_by_user_id: preference.selectedByUserId ?? null,
+    status: preference.status ?? "selected",
+    metadata: preference.metadata ?? {},
+  };
+}
+
+export async function replaceBookingCandidatePreferences(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingRequestId: string;
+    actor?: string | null;
+    preferences: BookingCandidatePreferenceInput[];
+  },
+): Promise<number> {
+  const { data, error } = await service.rpc(
+    "replace_booking_candidate_preferences",
+    {
+      p_booking_request_id: args.bookingRequestId,
+      p_tenant_id: args.tenantId,
+      p_actor: args.actor ?? null,
+      p_preferences: args.preferences.map(serializePreference),
+    },
+  );
+
+  if (error) throw rpcError("replace_booking_candidate_preferences", error);
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function createBookingConfirmationsForCandidate(
+  service: SupabaseClient,
+  input: BookingConfirmationInput,
+): Promise<number> {
+  const { data, error } = await service.rpc(
+    "create_booking_confirmations_for_candidate",
+    {
+      p_booking_request_id: input.bookingRequestId,
+      p_booking_candidate_id: input.bookingCandidateId,
+      p_tenant_id: input.tenantId,
+      p_actor: input.actor ?? null,
+      p_requires_backoffice: input.requiresBackoffice ?? true,
+      p_requires_instructor: input.requiresInstructor ?? false,
+      p_requires_student: input.requiresStudent ?? false,
+      p_backoffice_expires_at: input.backofficeExpiresAt ?? null,
+      p_instructor_expires_at: input.instructorExpiresAt ?? null,
+      p_student_expires_at: input.studentExpiresAt ?? null,
+      p_metadata: input.metadata ?? {},
+    },
+  );
+
+  if (error) {
+    throw rpcError("create_booking_confirmations_for_candidate", error);
+  }
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function respondBookingConfirmation(
+  service: SupabaseClient,
+  input: BookingConfirmationResponse,
+): Promise<string> {
+  const { data, error } = await service.rpc("respond_booking_confirmation", {
+    p_booking_confirmation_id: input.bookingConfirmationId,
+    p_tenant_id: input.tenantId,
+    p_actor: input.actor ?? null,
+    p_response: input.response,
+    p_reason: input.reason ?? null,
+    p_metadata: input.metadata ?? {},
+  });
+
+  if (error) throw rpcError("respond_booking_confirmation", error);
+  return typeof data === "string" ? data : String(data ?? "");
+}
+
+export async function findBookingCandidateBySlot(
+  service: SupabaseClient,
+  lookup: BookingCandidateLookup,
+): Promise<string | null> {
+  let query = service
+    .from("booking_candidates")
+    .select("id")
+    .eq("tenant_id", lookup.tenantId)
+    .eq("booking_request_id", lookup.bookingRequestId)
+    .eq("instructor_id", lookup.instructorId)
+    .eq("starts_at", lookup.startsAt)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (lookup.endsAt) query = query.eq("ends_at", lookup.endsAt);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw rpcError("booking_candidates lookup", error);
+  return typeof data?.id === "string" ? data.id : null;
+}
+
+export async function createBookingHold(
+  service: SupabaseClient,
+  input: BookingHoldInput,
+): Promise<string> {
+  const { data, error } = await service.rpc("create_booking_hold", {
+    p_booking_request_id: input.bookingRequestId,
+    p_booking_candidate_id: input.bookingCandidateId,
+    p_tenant_id: input.tenantId,
+    p_actor: input.actor ?? null,
+    p_expires_at: input.expiresAt,
+    p_hold_token_hash: input.holdTokenHash ?? null,
+  });
+
+  if (error) throw rpcError("create_booking_hold", error);
+  return assertString(data, "create_booking_hold");
+}
+
+export async function releaseBookingHold(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingHoldId: string;
+    actor?: string | null;
+    reason?: string | null;
+  },
+): Promise<void> {
+  const { error } = await service.rpc("release_booking_hold", {
+    p_booking_hold_id: args.bookingHoldId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor ?? null,
+    p_reason: args.reason ?? null,
+  });
+  if (error) throw rpcError("release_booking_hold", error);
+}
+
+export async function completeBookingHold(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingHoldId: string;
+    actor?: string | null;
+    confirmedEntityType: BookingEntityType;
+    confirmedEntityId: string;
+  },
+): Promise<void> {
+  const { error } = await service.rpc("complete_booking_hold", {
+    p_booking_hold_id: args.bookingHoldId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor ?? null,
+    p_confirmed_entity_type: args.confirmedEntityType,
+    p_confirmed_entity_id: args.confirmedEntityId,
+  });
+  if (error) throw rpcError("complete_booking_hold", error);
+}
+
+export async function generateSlotRecoveryCandidates(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingRequestId: string;
+    actor: string;
+    maxCandidates?: number;
+    validMinutes?: number;
+  },
+): Promise<number> {
+  const { data, error } = await service.rpc("generate_slot_recovery_candidates", {
+    p_booking_request_id: args.bookingRequestId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor,
+    p_max_candidates: args.maxCandidates ?? 8,
+    p_valid_minutes: args.validMinutes ?? 120,
+  });
+  if (error) throw rpcError("generate_slot_recovery_candidates", error);
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function expressSlotRecoveryInterest(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingCandidateId: string;
+    actor: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<string> {
+  const { data, error } = await service.rpc("express_slot_recovery_interest", {
+    p_booking_candidate_id: args.bookingCandidateId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor,
+    p_metadata: args.metadata ?? {},
+  });
+  if (error) throw rpcError("express_slot_recovery_interest", error);
+  return assertString(data, "express_slot_recovery_interest");
+}
+
+export async function createSlotRecoveryConfirmation(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingCandidateId: string;
+    actor: string;
+    requiresInstructor?: boolean;
+    requiresStudentFinal?: boolean;
+    validMinutes?: number;
+  },
+): Promise<number> {
+  const { data, error } = await service.rpc("create_slot_recovery_confirmation", {
+    p_booking_candidate_id: args.bookingCandidateId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor,
+    p_requires_instructor: args.requiresInstructor ?? false,
+    p_requires_student_final: args.requiresStudentFinal ?? true,
+    p_valid_minutes: args.validMinutes ?? 120,
+  });
+  if (error) throw rpcError("create_slot_recovery_confirmation", error);
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function completeSlotRecoveryBooking(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingCandidateId: string;
+    actor: string;
+  },
+): Promise<string> {
+  const { data, error } = await service.rpc("complete_slot_recovery_booking", {
+    p_booking_candidate_id: args.bookingCandidateId,
+    p_tenant_id: args.tenantId,
+    p_actor: args.actor,
+  });
+  if (error) throw rpcError("complete_slot_recovery_booking", error);
+  return assertString(data, "complete_slot_recovery_booking");
+}
+
+export async function completeInstructorNextLessonBooking(
+  service: SupabaseClient,
+  args: {
+    tenantId: string;
+    bookingCandidateId: string;
+    actor: string;
+  },
+): Promise<string> {
+  const { data, error } = await service.rpc(
+    "complete_instructor_next_lesson_booking",
+    {
+      p_booking_candidate_id: args.bookingCandidateId,
+      p_tenant_id: args.tenantId,
+      p_actor: args.actor,
+    },
+  );
+  if (error) throw rpcError("complete_instructor_next_lesson_booking", error);
+  return assertString(data, "complete_instructor_next_lesson_booking");
+}

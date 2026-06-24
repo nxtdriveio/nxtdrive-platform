@@ -19,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { InstructorPlanningCardPanel } from "@/components/ris/InstructorPlanningCardPanel";
+import { EndOfLessonSchedulingPanel } from "@/components/ris/EndOfLessonSchedulingPanel";
 import { RisLessonPublicationPanel } from "@/components/ris/RisLessonPublicationPanel";
 import { RisScriptScoring } from "@/components/ris/RisScriptScoring";
+import type { EndOfLessonSchedulingState } from "@/lib/end-of-lesson-scheduling/service";
 import type {
   InstructorRisLessonCard,
   PlanningCard,
@@ -75,6 +77,7 @@ export function RisEvaluationTabs({
   goalOptions,
   lessonInfo,
   studentLearningWish,
+  endOfLessonScheduling,
 }: {
   lessonId: string;
   studentId: string;
@@ -84,6 +87,7 @@ export function RisEvaluationTabs({
   goalOptions: string[];
   lessonInfo: EvaluationLessonInfo;
   studentLearningWish: string | null;
+  endOfLessonScheduling: EndOfLessonSchedulingState;
 }) {
   const [activeTab, setActiveTab] = useState<TabKey>("info");
   const [risState, setRisState] = useState(ris);
@@ -156,13 +160,16 @@ export function RisEvaluationTabs({
         />
       ) : null}
       {activeTab === "summary" ? (
-        <RisLessonPublicationPanel
-          lessonId={lessonId}
-          studentId={studentId}
-          studentName={studentName}
-          ris={risState}
-          mode="summary"
-        />
+        <div className="space-y-4">
+          <RisLessonPublicationPanel
+            lessonId={lessonId}
+            studentId={studentId}
+            studentName={studentName}
+            ris={risState}
+            mode="summary"
+          />
+          <EndOfLessonSchedulingPanel state={endOfLessonScheduling} />
+        </div>
       ) : null}
     </div>
   );

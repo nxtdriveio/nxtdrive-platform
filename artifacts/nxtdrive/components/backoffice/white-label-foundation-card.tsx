@@ -11,6 +11,7 @@ export function WhiteLabelFoundationCard({
   backofficeName,
   studentName,
   instructorName,
+  parentName,
   whiteLabelActive,
 }: {
   tenantName: string;
@@ -20,6 +21,7 @@ export function WhiteLabelFoundationCard({
   backofficeName: string;
   studentName: string;
   instructorName: string;
+  parentName: string;
   whiteLabelActive: boolean;
 }) {
   return (
@@ -61,6 +63,7 @@ export function WhiteLabelFoundationCard({
               <div>{backofficeName}</div>
               <div>{studentName}</div>
               <div>{instructorName}</div>
+              <div>{parentName}</div>
             </div>
           </div>
           <div className="rounded-lg border border-border px-3 py-3">
@@ -113,6 +116,15 @@ export function WhiteLabelFoundationCard({
                 }}
               >
                 Instructeur app
+              </span>
+              <span
+                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                style={{
+                  backgroundColor: `${themeColor}22`,
+                  color: themeColor,
+                }}
+              >
+                Ouderportaal
               </span>
             </div>
           </div>

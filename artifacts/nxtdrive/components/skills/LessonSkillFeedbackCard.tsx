@@ -5,7 +5,7 @@ import type { LessonSkillFeedbackGroup } from "@/lib/skills/student-leskaart-dat
 
 /**
  * Read-only per-lesson skill feedback for the student/parent: the skills graded
- * during this lesson, grouped by hoofdcategorie, with the 1–10 grade. Critical
+ * during this lesson, grouped by hoofdcategorie, with the 1-8 grade. Critical
  * safety skills below niveau 8 are highlighted.
  */
 export function LessonSkillFeedbackCard({

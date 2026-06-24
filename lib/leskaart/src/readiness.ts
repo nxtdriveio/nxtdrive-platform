@@ -1,9 +1,9 @@
 // Leskaart L1 — Examenrijpheid-engine (pure, deterministic, ADVISORY).
 //
-// Given a student's latest per-skill scores (1..10), the critical-skill flags,
+// Given a student's latest per-skill scores (1..8), the critical-skill flags,
 // the per-lesson score history and the three CBR preconditions, this computes:
 //   * the average score across the whole active curriculum (an unscored leaf
-//     counts as 1 = "nog nooit behandeld", per the canon 1..10 scale);
+//     counts as 1 = "nog nooit behandeld", per the canon 1..8 scale);
 //   * the weakest critical-safety-skill score;
 //   * whether the last 3 lessons are stable;
 //   * an advice verdict (niet / bijna / examenwaardig);
@@ -27,6 +27,7 @@ const EXAM_FLOOR = 7; // kritiek of gemiddelde hieronder => niet examenrijp
 const CRITICAL_MIN = 8; // kritieke vaardigheden minimaal 8 voor positief advies
 const NEAR_AVG = 7.5; // bijna examenrijp: gemiddelde minimaal 7,5
 const PASS_AVG = 8; // examenwaardig: gemiddelde minimaal 8
+const SCORE_MAX = 8;
 
 // Unscored leaf = niveau 1 ("nog nooit behandeld", canon Beoordelingsschaal).
 const UNSCORED_LEVEL = 1;
@@ -69,7 +70,7 @@ export const PHASE_LABELS: Record<ReadinessPhase, string> = {
 export type ReadinessSkillInput = {
   skillId: string;
   isCritical: boolean;
-  /** Latest 1..10 score, or null when never scored ("nog nooit behandeld"). */
+  /** Latest 1..8 score, or null when never scored ("nog nooit behandeld"). */
   score: number | null;
 };
 
@@ -217,14 +218,14 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
   }
 
   // --- Readiness Score 0..100 --------------------------------------------
-  // Map the curriculum average (1..10) onto 0..100 so "nog nooit behandeld"
-  // (all 1s) reads as 0% and full mastery (all 10s) as 100%.
+  // Map the curriculum average (1..8) onto 0..100 so "nog nooit behandeld"
+  // (all 1s) reads as 0% and examenwaardig (all 8s) as 100%.
   const readinessPct =
     totalLeaves === 0
       ? 0
       : Math.max(
           0,
-          Math.min(100, Math.round(((averageScoreRaw - 1) / 9) * 100)),
+          Math.min(100, Math.round(((averageScoreRaw - 1) / (SCORE_MAX - 1)) * 100)),
         );
   const phase = phaseForPct(readinessPct);
 

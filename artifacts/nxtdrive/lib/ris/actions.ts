@@ -7,7 +7,17 @@ import {
   type RisLessonPublicationDraft,
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
+import { loadEndOfLessonSchedulingState } from "@/lib/end-of-lesson-scheduling/service";
+import type { PlanningActorAccess } from "@/lib/planning-core";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
+import {
+  completeInstructorNextLessonBooking,
+  createBookingConfirmationsForCandidate,
+  ensureBookingRequest,
+  findBookingCandidateBySlot,
+  replaceBookingCandidatePreferences,
+  replaceBookingCandidates,
+} from "@/lib/smart-booking/service";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
   getActiveStudent,
@@ -16,6 +26,7 @@ import {
 import type { MemberRole } from "@/lib/types";
 import {
   normalizeRisStep,
+  risStepNumber,
   translateRisStepForStudent,
   type RISStepValue,
 } from "@workspace/leskaart";
@@ -85,6 +96,23 @@ function requiredId(value: string, label: string): string {
   return id;
 }
 
+function schedulingActor(ctx: {
+  userId: string;
+  tenantId: string;
+  roles: readonly MemberRole[];
+  isPlatformAdmin: boolean;
+}): PlanningActorAccess {
+  const canManageTenant =
+    ctx.isPlatformAdmin || ctx.roles.includes("tenant_admin");
+  return {
+    userId: ctx.userId,
+    roles: ctx.roles as PlanningActorAccess["roles"],
+    isPlatformAdmin: ctx.isPlatformAdmin,
+    tenantIds: canManageTenant ? [ctx.tenantId] : [],
+    branchAccess: [{ tenantId: ctx.tenantId, branchIds: "all" }],
+  };
+}
+
 export async function setTenantRisSettingsAction(input: {
   lessonCardMode: LessonCardMode;
   activeRisVersionId?: string | null;
@@ -114,7 +142,7 @@ export async function setRisConceptScoreAction(input: {
   lessonId: string;
   scriptId: string;
   scriptVariantId?: string | null;
-  conceptRisStep: RISStepValue | number;
+  conceptRisStep: RISStepValue | number | null;
   status?: RisScriptStatus;
   isAttentionPoint?: boolean;
   isFeaturedForLesson?: boolean;
@@ -129,7 +157,7 @@ export async function setRisConceptScoreAction(input: {
       "tenant_admin",
     ]);
     const step = normalizeRisStep(input.conceptRisStep);
-    if (!step) return { error: "Kies een geldige RIS-score van 1 t/m 10." };
+    if (!step) return { error: "Kies een geldige RIS-score: N of 1 t/m 8." };
 
     const service = createServiceRoleClient();
     const { data, error } = await service.rpc("set_ris_concept_score", {
@@ -148,7 +176,7 @@ export async function setRisConceptScoreAction(input: {
       p_student_visible_note: input.studentVisibleNote ?? null,
     });
     if (error) return { error: error.message };
-    revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     return { assessmentId: typeof data === "string" ? data : undefined };
   } catch (error) {
     return { error: err(error) };
@@ -186,7 +214,7 @@ export async function setGuidedReflectionAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     return {};
   } catch (error) {
     return { error: err(error) };
@@ -262,7 +290,7 @@ export async function saveRisLessonCardDraftAction(input: {
     }
 
     revalidatePath("/instructor");
-    revalidatePath(`/instructor/evaluations/${lessonId}`);
+    revalidatePath(`/instructor/les-evaluaties/${lessonId}`);
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonCardId };
   } catch (error) {
@@ -294,7 +322,7 @@ export async function publishRisLessonCardAction(input: {
     });
     if (error) return { error: error.message };
     revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/evaluations/${input.lessonId}`);
+    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
     if (input.studentId) {
       revalidatePath("/student");
       revalidatePath("/student/voortgang");
@@ -466,12 +494,336 @@ export async function upsertPlanningCardAction(input: {
 
     revalidatePath("/instructor");
     if (input.nextLessonId) {
-      revalidatePath(`/instructor/evaluations/${input.nextLessonId}`);
+      revalidatePath(`/instructor/les-evaluaties/${input.nextLessonId}`);
       revalidatePath(`/student/lessons/${input.nextLessonId}`);
     }
     revalidatePath("/student");
     revalidatePath(`/backoffice/leerlingen/${studentId}`);
     return { planningCardId: planningCardId ?? undefined };
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+type NextLessonSchedulingInput = {
+  lessonId: string;
+  startsAt: string;
+  endsAt: string;
+  durationMin: number;
+};
+
+async function loadValidatedNextLessonSuggestion(
+  input: NextLessonSchedulingInput,
+) {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
+  const lessonId = requiredId(input.lessonId, "Les");
+  const service = createServiceRoleClient();
+  const { data: lessonRaw, error: lessonError } = await service
+    .from("lessons")
+    .select("id, student_id, instructor_id, branch_id, location, starts_at")
+    .eq("id", lessonId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (lessonError) throw new Error(lessonError.message);
+  const lesson = lessonRaw as {
+    id: string;
+    student_id: string;
+    instructor_id: string | null;
+    branch_id: string | null;
+    location: string | null;
+    starts_at: string;
+  } | null;
+  if (!lesson) throw new Error("Les niet gevonden.");
+  const isAdmin = roles.includes("tenant_admin");
+  if (!isAdmin && lesson.instructor_id !== user.id) {
+    throw new Error("Je kunt alleen een volgende les plannen voor je eigen les.");
+  }
+
+  const state = await loadEndOfLessonSchedulingState(service, {
+    tenant,
+    lessonId,
+    actor: schedulingActor({
+      userId: user.id,
+      tenantId: tenant.id,
+      roles,
+      isPlatformAdmin: Boolean(user.profile?.is_platform_admin),
+    }),
+  });
+  if (state.nextLesson) {
+    throw new Error("Er staat al een volgende les gepland voor deze leerling.");
+  }
+  const suggestion = state.suggestions.find(
+    (item) =>
+      item.startsAt === input.startsAt &&
+      item.endsAt === input.endsAt &&
+      item.durationMin === input.durationMin,
+  );
+  if (!suggestion) {
+    throw new Error("Dit voorstel is niet meer beschikbaar. Vernieuw de leskaart.");
+  }
+  if (!state.instructorId) {
+    throw new Error("Deze les heeft geen instructeur gekoppeld.");
+  }
+
+  return { tenant, user, service, lesson, state, suggestion };
+}
+
+async function createNextLessonCandidate(input: {
+  service: ReturnType<typeof createServiceRoleClient>;
+  tenantId: string;
+  actorId: string;
+  lessonId: string;
+  studentId: string;
+  instructorId: string;
+  branchId: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  durationMin: number;
+  score: number;
+  reasons: string[];
+  warnings: string[];
+  mode: "direct" | "proposal";
+}) {
+  const requestId = await ensureBookingRequest(input.service, {
+    tenantId: input.tenantId,
+    branchId: input.branchId,
+    source: "instructor_next_lesson",
+    requesterType: "staff",
+    entityType: "lesson",
+    studentId: input.studentId,
+    requestedDurationMin: input.durationMin,
+    preferredInstructorId: input.instructorId,
+    pickupLocation: input.location,
+    desiredStartDate: input.startsAt.slice(0, 10),
+    idempotencyKey: [
+      "instructor-next-lesson",
+      input.mode,
+      input.lessonId,
+      input.startsAt,
+    ].join(":"),
+    metadata: {
+      source_lesson_id: input.lessonId,
+      mode: input.mode,
+    },
+    actor: input.actorId,
+  });
+
+  await replaceBookingCandidates(input.service, {
+    tenantId: input.tenantId,
+    bookingRequestId: requestId,
+    actor: input.actorId,
+    candidates: [
+      {
+        rank: 1,
+        instructorId: input.instructorId,
+        candidateStudentId: input.studentId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        durationMin: input.durationMin,
+        pickupLocation: input.location,
+        score: input.score,
+        scoreFactors: input.reasons.map((reason) => ({ label: reason })),
+        warnings: input.warnings.map((warning) => ({ label: warning })),
+        reason: input.reasons[0] ?? "Beste vervolg lesmoment",
+        status: "selected",
+        metadata: {
+          source: "instructor_next_lesson",
+          source_lesson_id: input.lessonId,
+          mode: input.mode,
+        },
+      },
+    ],
+  });
+
+  const candidateId = await findBookingCandidateBySlot(input.service, {
+    tenantId: input.tenantId,
+    bookingRequestId: requestId,
+    instructorId: input.instructorId,
+    startsAt: input.startsAt,
+    endsAt: input.endsAt,
+  });
+  if (!candidateId) {
+    throw new Error("Lesvoorstel kon niet worden vastgelegd.");
+  }
+
+  await replaceBookingCandidatePreferences(input.service, {
+    tenantId: input.tenantId,
+    bookingRequestId: requestId,
+    actor: input.actorId,
+    preferences: [
+      {
+        bookingCandidateId: candidateId,
+        preferenceRank: 1,
+        requesterType: "staff",
+        selectedByUserId: input.actorId,
+        status: "selected",
+        metadata: { source: "instructor_next_lesson", mode: input.mode },
+      },
+    ],
+  });
+
+  return { requestId, candidateId };
+}
+
+async function notifyNextLessonProposal(input: {
+  service: ReturnType<typeof createServiceRoleClient>;
+  tenantId: string;
+  studentId: string;
+  bookingRequestId: string;
+  bookingCandidateId: string;
+  startsAt: string;
+  durationMin: number;
+}) {
+  const [{ data: studentRaw }, { data: guardianRows }] = await Promise.all([
+    input.service
+      .from("students")
+      .select("user_id")
+      .eq("tenant_id", input.tenantId)
+      .eq("id", input.studentId)
+      .maybeSingle(),
+    input.service
+      .from("student_guardians")
+      .select("user_id")
+      .eq("tenant_id", input.tenantId)
+      .eq("student_id", input.studentId),
+  ]);
+  const recipients = Array.from(
+    new Set(
+      [
+        (studentRaw as { user_id?: string | null } | null)?.user_id,
+        ...((guardianRows as Array<{ user_id: string | null }> | null) ?? []).map(
+          (row) => row.user_id,
+        ),
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  );
+  if (recipients.length === 0) return;
+
+  const rows = recipients.map((recipientId) => ({
+    tenant_id: input.tenantId,
+    recipient_user_id: recipientId,
+    type: "instructor_next_lesson_proposal",
+    title: "Voorstel voor je volgende rijles",
+    body: "Je instructeur heeft een nieuw lesmoment voorgesteld.",
+    link: "/student",
+    related_type: "booking_candidate",
+    related_id: input.bookingCandidateId,
+    dedupe_key: `next-lesson:${input.bookingCandidateId}:${recipientId}`,
+    payload: {
+      booking_request_id: input.bookingRequestId,
+      booking_candidate_id: input.bookingCandidateId,
+      student_id: input.studentId,
+      starts_at: input.startsAt,
+      duration_min: input.durationMin,
+    },
+  }));
+
+  const { error } = await input.service
+    .from("app_notifications")
+    .upsert(rows, {
+      onConflict: "tenant_id,dedupe_key",
+      ignoreDuplicates: true,
+    });
+  if (error) throw new Error(error.message);
+}
+
+export async function planInstructorNextLessonAction(
+  input: NextLessonSchedulingInput,
+): Promise<ActionResult<{ lessonId?: string }>> {
+  try {
+    const { tenant, user, service, lesson, suggestion } =
+      await loadValidatedNextLessonSuggestion(input);
+    if (!suggestion.canDirectPlan) {
+      return {
+        error:
+          suggestion.warnings[0] ??
+          "Deze leerling heeft onvoldoende tegoed om direct te plannen.",
+      };
+    }
+    const { candidateId } = await createNextLessonCandidate({
+      service,
+      tenantId: tenant.id,
+      actorId: user.id,
+      lessonId: lesson.id,
+      studentId: lesson.student_id,
+      instructorId: lesson.instructor_id!,
+      branchId: lesson.branch_id,
+      location: lesson.location,
+      startsAt: suggestion.startsAt,
+      endsAt: suggestion.endsAt,
+      durationMin: suggestion.durationMin,
+      score: suggestion.score,
+      reasons: suggestion.reasons,
+      warnings: suggestion.warnings,
+      mode: "direct",
+    });
+    const nextLessonId = await completeInstructorNextLessonBooking(service, {
+      tenantId: tenant.id,
+      bookingCandidateId: candidateId,
+      actor: user.id,
+    });
+    revalidatePath("/instructor");
+    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
+    revalidatePath("/student");
+    revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
+    return { lessonId: nextLessonId };
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function proposeInstructorNextLessonAction(
+  input: NextLessonSchedulingInput,
+): Promise<ActionResult<{ bookingRequestId?: string }>> {
+  try {
+    const { tenant, user, service, lesson, suggestion } =
+      await loadValidatedNextLessonSuggestion(input);
+    const { requestId, candidateId } = await createNextLessonCandidate({
+      service,
+      tenantId: tenant.id,
+      actorId: user.id,
+      lessonId: lesson.id,
+      studentId: lesson.student_id,
+      instructorId: lesson.instructor_id!,
+      branchId: lesson.branch_id,
+      location: lesson.location,
+      startsAt: suggestion.startsAt,
+      endsAt: suggestion.endsAt,
+      durationMin: suggestion.durationMin,
+      score: suggestion.score,
+      reasons: suggestion.reasons,
+      warnings: suggestion.warnings,
+      mode: "proposal",
+    });
+    await createBookingConfirmationsForCandidate(service, {
+      tenantId: tenant.id,
+      bookingRequestId: requestId,
+      bookingCandidateId: candidateId,
+      actor: user.id,
+      requiresBackoffice: false,
+      requiresInstructor: false,
+      requiresStudent: true,
+      studentExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      metadata: { source: "instructor_next_lesson" },
+    });
+    await notifyNextLessonProposal({
+      service,
+      tenantId: tenant.id,
+      studentId: lesson.student_id,
+      bookingRequestId: requestId,
+      bookingCandidateId: candidateId,
+      startsAt: suggestion.startsAt,
+      durationMin: suggestion.durationMin,
+    });
+    revalidatePath("/instructor");
+    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
+    revalidatePath("/student");
+    revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
+    return { bookingRequestId: requestId };
   } catch (error) {
     return { error: err(error) };
   }
@@ -548,7 +900,10 @@ function buildRisAiSignals(ris: InstructorRisLessonCard) {
   }
 
   return ris.assessments
-    .filter((assessment) => assessment.conceptRisStep != null || assessment.finalRisStep != null)
+    .filter((assessment) => {
+      const step = assessment.conceptRisStep ?? assessment.finalRisStep;
+      return risStepNumber(step) !== null;
+    })
     .map((assessment) => {
       const meta = scriptMeta.get(assessment.scriptId);
       const step = assessment.conceptRisStep ?? assessment.finalRisStep;

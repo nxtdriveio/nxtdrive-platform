@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getServerSupabaseUrl } from "@/lib/supabase/env";
 
 /**
  * Server-only Supabase client using the SERVICE ROLE key.
@@ -9,13 +10,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * NEVER import this from a Client Component.
  */
 export function createServiceRoleClient(): SupabaseClient {
-  const url = process.env["SUPABASE_URL"];
+  const { url } = getServerSupabaseUrl();
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 
-  if (!url || !serviceKey) {
-    throw new Error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.",
-    );
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY must be set.");
   }
 
   return createClient(url, serviceKey, {

@@ -29,8 +29,11 @@ import {
   priorityTone,
 } from "@/components/backoffice/franchise/franchise-format";
 import {
+  addFranchiseBenchmarkCheckIn,
   createFranchiseBenchmarkTask,
+  recordFranchiseBenchmarkResult,
   routeFranchiseLead,
+  saveFranchiseBenchmarkCoachingPlan,
   upsertFranchiseBenchmarkTarget,
   upsertFranchiseDelegation,
 } from "@/lib/franchise/actions";
@@ -63,11 +66,29 @@ const ROUTE_LABELS: Record<string, string> = {
   bewaken: "Bewaken",
 };
 
+const RESULT_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  on_track: "Op koers",
+  at_risk: "Risico",
+  achieved: "Behaald",
+  not_achieved: "Niet behaald",
+  cancelled: "Geannuleerd",
+};
+
 function formatTargetValue(value: number | null, unit: string) {
   if (value === null) return "-";
   if (unit === "euro_cents") return formatEuro(value);
   if (unit === "percent") return formatPercent(value);
   return `${value}`;
+}
+
+function metricForAction(metricKey: string | null) {
+  return FRANCHISE_BENCHMARK_METRICS.find((metric) => metric.key === metricKey) ?? null;
+}
+
+function inputValueForMetric(value: number | null, unit?: string) {
+  if (value === null) return "";
+  return unit === "euro_cents" ? String(value / 100) : String(value);
 }
 
 export default async function FranchiseAttentionPage({
@@ -162,6 +183,9 @@ export default async function FranchiseAttentionPage({
     declined: "Afgewezen",
     cancelled: "Geannuleerd",
   };
+  const coachingActions = benchmarkActions
+    .filter((action) => !["declined", "cancelled"].includes(action.status))
+    .slice(0, 6);
   const routeCounts = performance.franchisees.reduce<Record<string, number>>(
     (acc, row) => {
       acc[row.follow_up_route] = (acc[row.follow_up_route] ?? 0) + 1;
@@ -682,22 +706,23 @@ export default async function FranchiseAttentionPage({
             </div>
           </FranchisePanel>
 
-          <FranchisePanel title="Lokale uitvoering" description="Acceptatie en afhandeling door franchisees.">
+          <FranchisePanel title="Coaching flow" description="Signaal, doel, actieplan, check-in en resultaat.">
             <div className="space-y-3">
-              {benchmarkActions.filter((action) =>
-                ["created", "accepted", "in_progress"].includes(action.status),
-              ).length === 0 ? (
+              {coachingActions.length === 0 ? (
                 <FranchiseEmptyState
                   title="Geen lopende benchmarkacties"
-                  description="Maak vanuit een aandachtspunt een stuuractie om lokale uitvoering te volgen."
+                  description="Maak vanuit een aandachtspunt een stuuractie om coaching te starten."
                 />
               ) : (
-                benchmarkActions
-                  .filter((action) =>
-                    ["created", "accepted", "in_progress"].includes(action.status),
-                  )
-                  .slice(0, 6)
-                  .map((action) => (
+                coachingActions
+                  .map((action) => {
+                    const metric = metricForAction(action.target_metric_key);
+                    const latestCheckIn = action.checkins[0] ?? null;
+                    const isClosed = ["completed", "declined", "cancelled"].includes(action.status);
+                    const targetLabel = metric
+                      ? `${metric.label}: ${formatTargetValue(action.latest_value, metric.unit)} / ${formatTargetValue(action.target_value, metric.unit)}`
+                      : "Geen meetwaarde gekozen";
+                    return (
                     <div
                       key={action.id}
                       className="rounded-xl border border-brand-card-border bg-white px-3 py-3"
@@ -715,13 +740,224 @@ export default async function FranchiseAttentionPage({
                           {benchmarkStatusLabel[action.status] ?? action.status}
                         </FranchiseStatusBadge>
                       </div>
-                      {action.local_response ? (
-                        <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                          {action.local_response}
+                      <div className="mt-3 grid gap-2">
+                        {[
+                          ["1", "Signaal", action.description ?? action.title],
+                          ["2", "Doel", action.goal ?? "Nog geen concreet doel vastgelegd."],
+                          ["3", "Actieplan", action.action_plan ?? "Nog geen actieplan vastgelegd."],
+                          [
+                            "4",
+                            "Check-in",
+                            latestCheckIn
+                              ? `${latestCheckIn.note} ${latestCheckIn.next_check_in_date ? `(volgende: ${latestCheckIn.next_check_in_date})` : ""}`
+                              : action.next_check_in_date
+                                ? `Volgende check-in: ${action.next_check_in_date}`
+                                : "Nog geen check-in gepland.",
+                          ],
+                          [
+                            "5",
+                            "Resultaat",
+                            action.result_summary
+                              ? `${RESULT_STATUS_LABELS[action.result_status] ?? action.result_status}: ${action.result_summary}`
+                              : `${RESULT_STATUS_LABELS[action.result_status] ?? action.result_status} - ${targetLabel}`,
+                          ],
+                        ].map(([step, label, text]) => (
+                          <div
+                            key={`${action.id}-${step}`}
+                            className="grid grid-cols-[2rem_6rem_1fr] gap-2 rounded-xl border border-brand-card-border bg-brand-muted px-3 py-2 text-xs"
+                          >
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent font-black text-primary">
+                              {step}
+                            </span>
+                            <span className="font-black text-foreground">{label}</span>
+                            <span className="line-clamp-2 text-muted-foreground">{text}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <form
+                        action={saveFranchiseBenchmarkCoachingPlan}
+                        className="mt-3 rounded-xl border border-brand-card-border bg-brand-muted p-3"
+                      >
+                        <input type="hidden" name="return_to" value="/backoffice/franchise/aandacht" />
+                        <input type="hidden" name="action_id" value={action.id} />
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                          Doel en actieplan
                         </p>
-                      ) : null}
+                        <textarea
+                          name="goal"
+                          rows={2}
+                          defaultValue={action.goal ?? ""}
+                          placeholder="Concreet doel, bijv. leadconversie naar 40% binnen 30 dagen."
+                          disabled={isClosed}
+                          className="mt-2 w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-xs font-semibold text-foreground"
+                        />
+                        <textarea
+                          name="action_plan"
+                          rows={3}
+                          defaultValue={action.action_plan ?? ""}
+                          placeholder="Actieplan: wie doet wat, wanneer en hoe meten we voortgang?"
+                          disabled={isClosed}
+                          className="mt-2 w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-xs font-semibold text-foreground"
+                        />
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <input
+                            name="coaching_owner_label"
+                            defaultValue={action.coaching_owner_label}
+                            placeholder="Eigenaar"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <select
+                            name="target_metric_key"
+                            defaultValue={action.target_metric_key ?? ""}
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          >
+                            <option value="">Kies meetwaarde...</option>
+                            {FRANCHISE_BENCHMARK_METRICS.map((option) => (
+                              <option key={option.key} value={option.key}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="baseline_value"
+                            type="number"
+                            step="0.01"
+                            defaultValue={inputValueForMetric(action.baseline_value, metric?.unit)}
+                            placeholder="Startwaarde"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <input
+                            name="target_value"
+                            type="number"
+                            step="0.01"
+                            defaultValue={inputValueForMetric(action.target_value, metric?.unit)}
+                            placeholder="Doelwaarde"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <input
+                            name="target_due_date"
+                            type="date"
+                            defaultValue={action.target_due_date ?? ""}
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <input
+                            name="next_check_in_date"
+                            type="date"
+                            defaultValue={action.next_check_in_date ?? ""}
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <input type="hidden" name="result_status" value={action.result_status} />
+                        <div className="mt-3 flex justify-end">
+                          <Button type="submit" size="sm" variant="outline" disabled={isClosed}>
+                            Coachingplan opslaan
+                          </Button>
+                        </div>
+                      </form>
+
+                      <form
+                        action={addFranchiseBenchmarkCheckIn}
+                        className="mt-3 rounded-xl border border-brand-card-border bg-white p-3"
+                      >
+                        <input type="hidden" name="return_to" value="/backoffice/franchise/aandacht" />
+                        <input type="hidden" name="action_id" value={action.id} />
+                        <input type="hidden" name="target_metric_key" value={action.target_metric_key ?? ""} />
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
+                          Check-in
+                        </p>
+                        <textarea
+                          name="note"
+                          rows={2}
+                          placeholder="Wat is afgesproken of vastgesteld bij deze check-in?"
+                          disabled={isClosed}
+                          className="mt-2 w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-xs font-semibold text-foreground"
+                        />
+                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                          <select
+                            name="status"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                            defaultValue="done"
+                          >
+                            <option value="done">Gedaan</option>
+                            <option value="planned">Gepland</option>
+                            <option value="blocked">Geblokkeerd</option>
+                          </select>
+                          <input
+                            name="measured_value"
+                            type="number"
+                            step="0.01"
+                            placeholder="Meetwaarde"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                          <input
+                            name="next_check_in_date"
+                            type="date"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <Button type="submit" size="sm" variant="outline" disabled={isClosed}>
+                            Check-in toevoegen
+                          </Button>
+                        </div>
+                      </form>
+
+                      <form
+                        action={recordFranchiseBenchmarkResult}
+                        className="mt-3 rounded-xl border border-primary/15 bg-brand-accent p-3"
+                      >
+                        <input type="hidden" name="return_to" value="/backoffice/franchise/aandacht" />
+                        <input type="hidden" name="action_id" value={action.id} />
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">
+                          Resultaat
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr]">
+                          <select
+                            name="result_status"
+                            defaultValue="achieved"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          >
+                            <option value="achieved">Doel behaald</option>
+                            <option value="not_achieved">Niet behaald</option>
+                            <option value="cancelled">Stopgezet</option>
+                          </select>
+                          <input
+                            name="result_value"
+                            type="number"
+                            step="0.01"
+                            placeholder="Eindwaarde"
+                            disabled={isClosed}
+                            className="h-9 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <textarea
+                          name="result_summary"
+                          rows={2}
+                          defaultValue={action.result_summary ?? ""}
+                          placeholder="Beschrijf het resultaat en de vervolgafspraak."
+                          disabled={isClosed}
+                          className="mt-2 w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-xs font-semibold text-foreground"
+                        />
+                        <div className="mt-3 flex justify-end">
+                          <Button type="submit" size="sm" disabled={isClosed}>
+                            Resultaat vastleggen
+                          </Button>
+                        </div>
+                      </form>
                     </div>
-                  ))
+                  );
+                  })
               )}
             </div>
           </FranchisePanel>

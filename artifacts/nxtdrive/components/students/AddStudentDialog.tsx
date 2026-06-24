@@ -26,12 +26,20 @@ export function AddStudentDialog() {
   const [email, setEmail] = React.useState("");
   const [telefoon, setTelefoon] = React.useState("");
   const [postcode, setPostcode] = React.useState("");
+  const [geboortedatum, setGeboortedatum] = React.useState("");
+  const [adres, setAdres] = React.useState("");
+  const [woonplaats, setWoonplaats] = React.useState("");
+  const [ophaaladres, setOphaaladres] = React.useState("");
 
   function reset() {
     setNaam("");
     setEmail("");
     setTelefoon("");
     setPostcode("");
+    setGeboortedatum("");
+    setAdres("");
+    setWoonplaats("");
+    setOphaaladres("");
     setError(null);
     setDone(false);
     setEmailWarning(null);
@@ -55,6 +63,10 @@ export function AddStudentDialog() {
     fd.set("email", email);
     fd.set("telefoon", telefoon);
     fd.set("postcode", postcode);
+    fd.set("geboortedatum", geboortedatum);
+    fd.set("adres", adres);
+    fd.set("woonplaats", woonplaats);
+    fd.set("ophaaladres", ophaaladres);
 
     try {
       const result = await createStudentDirect(fd);
@@ -80,7 +92,7 @@ export function AddStudentDialog() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Leerling direct toevoegen</DialogTitle>
           <DialogDescription>
@@ -165,6 +177,63 @@ export function AddStudentDialog() {
                   placeholder="1234 AB"
                   autoComplete="off"
                 />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-muted/20 p-3">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-foreground">
+                  NAW en planning
+                </p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Deze gegevens komen terug in de centrale leerlingcockpit.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="add-student-geboortedatum">
+                    Geboortedatum
+                  </Label>
+                  <Input
+                    id="add-student-geboortedatum"
+                    type="date"
+                    value={geboortedatum}
+                    onChange={(e) => setGeboortedatum(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="add-student-woonplaats">Woonplaats</Label>
+                  <Input
+                    id="add-student-woonplaats"
+                    value={woonplaats}
+                    onChange={(e) => setWoonplaats(e.target.value)}
+                    placeholder="Utrecht"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="add-student-adres">Adres</Label>
+                  <Input
+                    id="add-student-adres"
+                    value={adres}
+                    onChange={(e) => setAdres(e.target.value)}
+                    placeholder="Straatnaam 12"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="add-student-ophaaladres">
+                    Ophaaladres voor lessen
+                  </Label>
+                  <Input
+                    id="add-student-ophaaladres"
+                    value={ophaaladres}
+                    onChange={(e) => setOphaaladres(e.target.value)}
+                    placeholder="Laat leeg als dit gelijk is aan het adres"
+                    autoComplete="off"
+                  />
+                </div>
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -11,11 +11,18 @@ import {
   type TrialSuggestion,
 } from "@/lib/trial-lessons/types";
 import {
+  bookTrialAtSlot,
+  confirmTrialBookingPreference,
   confirmTrialLesson,
   rejectTrialLesson,
+  respondTrialBookingConfirmation,
   rescheduleTrialLesson,
 } from "../actions";
 import { TrialRouteMap, type MapPoint } from "@/components/trial-route-map";
+import type {
+  BookingCandidatePreferenceView,
+  BookingConfirmationView,
+} from "@/lib/smart-booking/types";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {
   weekday: "short",
@@ -92,12 +99,16 @@ export function TrialLessonSection({
   instructorNames,
   trials,
   suggestions,
+  selectedPreferences,
+  confirmations,
   activeTrialMapPoints,
 }: {
   leadId: string;
   instructorNames: Record<string, string>;
   trials: TrialLesson[];
   suggestions: TrialSuggestion[];
+  selectedPreferences: BookingCandidatePreferenceView[];
+  confirmations: BookingConfirmationView[];
   activeTrialMapPoints?: MapPoint[];
 }) {
   const active = trials.find(
@@ -120,9 +131,22 @@ export function TrialLessonSection({
           />
         ) : null}
 
+        <SelectedPreferencesList
+          leadId={leadId}
+          preferences={selectedPreferences}
+          confirmations={confirmations}
+          instructorNames={instructorNames}
+          hasActive={!!active}
+        />
+
         {/* Always show the current suggestions: when nothing is chosen they are
             the options; when a moment is chosen they are alternatives. */}
-        <SuggestionsList suggestions={suggestions} hasActive={!!active} />
+        <SuggestionsList
+          leadId={leadId}
+          suggestions={suggestions}
+          instructorNames={instructorNames}
+          hasActive={!!active}
+        />
 
         {history.length > 0 ? (
           <div>
@@ -148,6 +172,235 @@ export function TrialLessonSection({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function routeExplanation(
+  route: TrialRouteInsight | null | undefined,
+  score?: number | null,
+): string {
+  const parts: string[] = [];
+  if (typeof score === "number") {
+    parts.push(`Advies-score ${score}`);
+  }
+  if (!route || route.status === "unavailable") {
+    parts.push("route nog niet hard te controleren");
+  } else {
+    if (route.travel_to_min != null) {
+      parts.push(`${route.travel_to_min} min vanaf vorige afspraak`);
+    }
+    if (route.travel_from_min != null) {
+      parts.push(`${route.travel_from_min} min naar volgende afspraak`);
+    }
+    if (route.status === "estimated") {
+      parts.push("reistijd is een schatting");
+    }
+    if (!route.needs_manual_confirm) {
+      parts.push("past binnen de planning");
+    }
+  }
+  return parts.join(" · ");
+}
+
+function preferenceStatusLabel(status: BookingCandidatePreferenceView["status"]) {
+  if (status === "confirmed") return "Bevestigd";
+  if (status === "selected") return "Gekozen";
+  if (status === "superseded") return "Vervangen";
+  if (status === "expired") return "Verlopen";
+  return "Geannuleerd";
+}
+
+const CONFIRMATION_ACTOR_LABEL: Record<BookingConfirmationView["actor_type"], string> = {
+  backoffice: "Backoffice",
+  instructor: "Instructeur",
+  student: "Leerling",
+  tenant_admin: "Tenant admin",
+  system: "Systeem",
+};
+
+function confirmationStatusLabel(status: BookingConfirmationView["status"]) {
+  if (status === "accepted") return "akkoord";
+  if (status === "declined") return "geweigerd";
+  if (status === "expired") return "verlopen";
+  if (status === "cancelled") return "geannuleerd";
+  return "open";
+}
+
+function confirmationVariant(
+  status: BookingConfirmationView["status"],
+): BadgeProps["variant"] {
+  if (status === "accepted") return "success";
+  if (status === "declined") return "danger";
+  if (status === "expired" || status === "cancelled") return "outline";
+  return "warning";
+}
+
+function SelectedPreferencesList({
+  leadId,
+  preferences,
+  confirmations,
+  instructorNames,
+  hasActive,
+}: {
+  leadId: string;
+  preferences: BookingCandidatePreferenceView[];
+  confirmations: BookingConfirmationView[];
+  instructorNames: Record<string, string>;
+  hasActive: boolean;
+}) {
+  const visible = preferences.filter((p) => p.booking_candidates);
+  if (visible.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Gekozen voorkeuren
+        </h3>
+        <Badge variant="primary">Bevestigingsflow</Badge>
+      </div>
+      <ul className="space-y-2">
+        {visible.map((preference) => {
+          const candidate = preference.booking_candidates!;
+          const start = new Date(candidate.starts_at);
+          const end = new Date(candidate.ends_at);
+          const instructorName =
+            instructorNames[candidate.instructor_id] ?? "Instructeur";
+          const candidateConfirmations = confirmations.filter(
+            (c) => c.booking_candidate_id === candidate.id,
+          );
+          const pendingInstructor = candidateConfirmations.find(
+            (c) => c.actor_type === "instructor" && c.status === "pending",
+          );
+          const instructorAccepted = candidateConfirmations.some(
+            (c) => c.actor_type === "instructor" && c.status === "accepted",
+          );
+          return (
+            <li
+              key={preference.id}
+              className="rounded-md border border-primary/25 bg-primary-soft/40 p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      #{preference.preference_rank} {cap(slotFmt.format(start))} ·{" "}
+                      {timeFmt.format(start)}-{timeFmt.format(end)}
+                    </span>
+                    <Badge variant="outline">
+                      {preferenceStatusLabel(preference.status)}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {candidate.duration_min} min · {instructorName}
+                    {candidate.pickup_location
+                      ? ` · Ophaal: ${candidate.pickup_location}`
+                      : ""}
+                  </p>
+                  {candidate.reason ? (
+                    <p className="mt-2 text-xs font-medium text-primary">
+                      {candidate.reason}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Waarom NXTDRIVE dit moment adviseert:{" "}
+                    {routeExplanation(
+                      {
+                        status: candidate.route_status ?? "unavailable",
+                        travel_to_min: candidate.route_travel_to_min,
+                        travel_from_min: candidate.route_travel_from_min,
+                        prev_distance_km: null,
+                        next_distance_km: null,
+                        needs_manual_confirm: candidate.route_needs_confirm,
+                      },
+                      candidate.score,
+                    )}
+                  </p>
+                  {candidateConfirmations.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {candidateConfirmations.map((confirmation) => (
+                        <Badge
+                          key={confirmation.id}
+                          variant={confirmationVariant(confirmation.status)}
+                        >
+                          {CONFIRMATION_ACTOR_LABEL[confirmation.actor_type]}{" "}
+                          {confirmationStatusLabel(confirmation.status)}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                  <RouteInsight
+                    route={{
+                      status: candidate.route_status ?? "unavailable",
+                      travel_to_min: candidate.route_travel_to_min,
+                      travel_from_min: candidate.route_travel_from_min,
+                      prev_distance_km: null,
+                      next_distance_km: null,
+                      needs_manual_confirm: candidate.route_needs_confirm,
+                    }}
+                  />
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    score {candidate.score}
+                  </span>
+                  {!hasActive && candidate.status !== "confirmed" ? (
+                    <form action={confirmTrialBookingPreference}>
+                      <input type="hidden" name="lead_id" value={leadId} />
+                      <input
+                        type="hidden"
+                        name="booking_preference_id"
+                        value={preference.id}
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant={pendingInstructor ? "outline" : "primary"}
+                        disabled={Boolean(pendingInstructor)}
+                      >
+                        {pendingInstructor
+                          ? "Wacht op instructeur"
+                          : instructorAccepted
+                            ? "Definitief inplannen"
+                            : "Bevestig proefles"}
+                      </Button>
+                    </form>
+                  ) : null}
+                  {pendingInstructor ? (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <form action={respondTrialBookingConfirmation}>
+                        <input type="hidden" name="lead_id" value={leadId} />
+                        <input
+                          type="hidden"
+                          name="booking_confirmation_id"
+                          value={pendingInstructor.id}
+                        />
+                        <input type="hidden" name="response" value="accepted" />
+                        <Button type="submit" size="sm">
+                          Instructeur akkoord
+                        </Button>
+                      </form>
+                      <form action={respondTrialBookingConfirmation}>
+                        <input type="hidden" name="lead_id" value={leadId} />
+                        <input
+                          type="hidden"
+                          name="booking_confirmation_id"
+                          value={pendingInstructor.id}
+                        />
+                        <input type="hidden" name="response" value="declined" />
+                        <Button type="submit" size="sm" variant="outline">
+                          Afwijzen
+                        </Button>
+                      </form>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -303,10 +556,14 @@ function ActiveTrial({
 }
 
 function SuggestionsList({
+  leadId,
   suggestions,
+  instructorNames,
   hasActive,
 }: {
+  leadId: string;
   suggestions: TrialSuggestion[];
+  instructorNames: Record<string, string>;
   hasActive: boolean;
 }) {
   if (suggestions.length === 0) {
@@ -329,6 +586,8 @@ function SuggestionsList({
         {suggestions.map((s) => {
           const start = new Date(s.starts_at);
           const end = new Date(s.ends_at);
+          const instructorName =
+            instructorNames[s.instructor_id] ?? s.instructor_name ?? "Instructeur";
           return (
             <li
               key={s.starts_at}
@@ -343,12 +602,81 @@ function SuggestionsList({
                   score {s.score}
                 </span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {instructorName}
+                {s.pickup_location ? ` - ${s.pickup_location}` : ""}
+              </p>
               {s.factors.length > 0 ? (
                 <p className="mt-1 text-xs text-primary">
                   {s.factors.map((f) => f.label).join(" · ")}
                 </p>
               ) : null}
               {s.route ? <RouteInsight route={s.route} /> : null}
+              {!hasActive ? (
+                <form action={bookTrialAtSlot} className="mt-3">
+                  <input type="hidden" name="lead_id" value={leadId} />
+                  <input
+                    type="hidden"
+                    name="instructor_id"
+                    value={s.instructor_id}
+                  />
+                  <input type="hidden" name="starts_at" value={s.starts_at} />
+                  <input
+                    type="hidden"
+                    name="duration_min"
+                    value={s.duration_min}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_location"
+                    value={s.pickup_location ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_lat"
+                    value={s.pickup_lat ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_lng"
+                    value={s.pickup_lng ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_place_id"
+                    value={s.pickup_place_id ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="pickup_formatted_address"
+                    value={s.pickup_formatted_address ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_status"
+                    value={s.route?.status ?? "unavailable"}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_travel_to_min"
+                    value={s.route?.travel_to_min ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_travel_from_min"
+                    value={s.route?.travel_from_min ?? ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="route_needs_confirm"
+                    value={s.route?.needs_manual_confirm ? "true" : "false"}
+                  />
+                  <input type="hidden" name="reason" value={s.reason} />
+                  <Button type="submit" size="sm">
+                    Voorlopig inplannen
+                  </Button>
+                </form>
+              ) : null}
             </li>
           );
         })}

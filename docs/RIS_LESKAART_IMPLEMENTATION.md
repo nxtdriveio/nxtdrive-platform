@@ -4,13 +4,13 @@
 
 NXTDRIVE ondersteunt met deze foundation een RIS-native digitale leskaart naast
 de bestaande legacy-leskaart. RIS is de standaard voor nieuwe tenants; de
-huidige 1-10 CBR-aligned leskaart blijft beschikbaar als expliciete fallback
+oude legacy-leskaart blijft beschikbaar als expliciete fallback
 voor tenants die nog niet willen overstappen.
 
 De kernkeuze is bewust niet-destructief:
 
 - `lesson_card_mode = ris` is de default voor nieuwe tenants.
-- `lesson_card_mode = legacy` houdt de bestaande 1-10 leskaart beschikbaar als
+- `lesson_card_mode = legacy` houdt de bestaande legacy-leskaart beschikbaar als
   fallback.
 - AI mag voorstellen doen, maar de instructeur bevestigt en publiceert.
 - Conceptscores zijn staff-only.
@@ -108,7 +108,7 @@ definitieve autorisatie en state-transities.
 ### RIS-3: Instructeur RIS-lesmodus
 
 Voor tenants met `lesson_card_mode = ris` toont de instructeurpagina nu een
-RIS-native scriptbeoordeling in plaats van de legacy 1-10 skill scoring.
+RIS-native scriptbeoordeling in plaats van de legacy skill scoring.
 
 Geimplementeerd:
 
@@ -156,7 +156,7 @@ Geimplementeerd:
 - modulekaarten tonen voortgang, beoordeelde scripts, aandachtspunten en
   toetsklaar-status;
 - scriptvoortgang wordt vertaald naar leerlingtaal, bijvoorbeeld
-  `Stap 5 van 8 - bijna zelfstandig`;
+  `Score 5/8 - bijna zelfstandig`;
 - de leerling ziet laatst geoefende scripts met link naar het lesdetail;
 - gepubliceerde leskaarten tonen instructeurfeedback, huiswerk/volgende focus
   en begeleide reflectie;
@@ -239,7 +239,7 @@ Geimplementeerd:
   `student_skill_scores` voor die tenant worden gewist en RIS wordt
   geactiveerd;
 - tenants met `lesson_card_mode = legacy` blijven veilig op de bestaande
-  1-10 leskaart als fallbackmodus.
+  legacy-leskaart als fallbackmodus.
 
 RIS-9 migreert nog geen historische scores naar nieuwe definitieve
 `student_ris_progress` rows. De eerste release kiest bewust voor gecontroleerde

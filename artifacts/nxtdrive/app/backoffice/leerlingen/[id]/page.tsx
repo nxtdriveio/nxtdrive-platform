@@ -12,12 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
-import { StudentStatusBar } from "@/components/students/StudentStatusBar";
+import { StudentCentralCockpit } from "@/components/students/StudentCentralCockpit";
 import { StudentNotesCard } from "@/components/students/StudentNotesCard";
 import { StudentConsentCard } from "@/components/students/StudentConsentCard";
 import { BackofficeExamCloseoutCard } from "@/components/students/BackofficeExamCloseoutCard";
 import { BackofficeRetakeCard } from "@/components/students/BackofficeRetakeCard";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
+import { loadStudentRisProgress } from "@/lib/ris/data";
 import { StudentDocumentsCard } from "@/components/students/StudentDocumentsCard";
 import { GuardianManagerCard } from "@/components/students/GuardianManagerCard";
 import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
@@ -92,14 +93,16 @@ export default async function StudentDetailPage({
   const { organization: tenant, roles } = context;
   const isAdmin = context.user.profile?.is_platform_admin || roles.includes("tenant_admin");
 
-  const taskLaunch = await loadTaskLaunchData(service, tenant.id);
-
-  const dossier = await loadStudentDossier(supabase, service, {
-    tenantId: tenant.id,
-    studentId: student.id,
-    leadId: student.lead_id,
-    email: student.email,
-  });
+  const [taskLaunch, dossier, risProgress] = await Promise.all([
+    loadTaskLaunchData(service, tenant.id),
+    loadStudentDossier(supabase, service, {
+      tenantId: tenant.id,
+      studentId: student.id,
+      leadId: student.lead_id,
+      email: student.email,
+    }),
+    loadStudentRisProgress(supabase, tenant.id, student.id),
+  ]);
 
   const { data: ledgerRaw } = await supabase
     .from("credit_ledger")
@@ -148,7 +151,6 @@ export default async function StudentDetailPage({
   const upcomingLessons = (upcomingRaw ?? []) as Lesson[];
 
   const cbr = dossier.cbrStatus;
-  const nextLessonAt = upcomingLessons[0]?.starts_at ?? null;
 
   // Examenflow C — post-exam close-out / retake cards keyed off the recorded result.
   const cbrSummary = await loadStudentCbrSummary(supabase, tenant.id, id);
@@ -198,20 +200,19 @@ export default async function StudentDetailPage({
         </div>
       </div>
 
-      <StudentStatusBar
-        studentId={student.id}
-        nextLessonAt={nextLessonAt}
+      <StudentCentralCockpit
+        student={student}
+        intake={dossier.intake}
+        nextLesson={upcomingLessons[0] ?? null}
         balanceMinutes={balance}
-        openInvoiceCount={
-          dossier.invoices.filter((i) => i.status === "open").length
-        }
+        invoices={dossier.invoices}
         outstandingCents={dossier.outstandingCents}
-        theoriePassed={cbr ? cbr.theorie_behaald : null}
-        machtigingArranged={cbr ? cbr.machtiging_geregeld : null}
-        healthRequired={cbr ? cbr.gezondheidsverklaring_vereist : true}
-        healthArranged={cbr ? cbr.gezondheidsverklaring_geregeld : null}
+        cbrStatus={cbr}
+        theory={dossier.theory}
         readiness={dossier.readiness}
-        openTaskCount={dossier.tasks.length}
+        risProgress={risProgress}
+        tasks={dossier.tasks}
+        documents={dossier.documents}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

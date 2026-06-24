@@ -7,6 +7,23 @@ import { landingPathFor } from "@/lib/auth/redirect-by-role";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AUTH_UPSTREAM_ERROR =
+  "Inloggen lukt nu niet doordat de authenticatieserver niet bereikbaar is. Probeer het zo opnieuw of neem contact op met support.";
+
+function loginErrorMessage(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error && "message" in error
+        ? String((error as { message?: unknown }).message ?? "")
+        : String(error ?? "");
+
+  if (/fetch failed|failed to fetch|network|econnrefused|enotfound|timeout/i.test(message)) {
+    return AUTH_UPSTREAM_ERROR;
+  }
+
+  return message || "Inloggen is mislukt. Controleer je gegevens en probeer opnieuw.";
+}
 
 export async function signInWithPassword(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -19,11 +36,17 @@ export async function signInWithPassword(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Vul je wachtwoord in.")}`);
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let error: unknown = null;
+  try {
+    const supabase = await createServerSupabaseClient();
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    error = result.error;
+  } catch (caught) {
+    error = caught;
+  }
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(`/login?error=${encodeURIComponent(loginErrorMessage(error))}`);
   }
 
   const user = await getCurrentUser();
@@ -37,18 +60,24 @@ export async function sendMagicLink(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Vul een geldig e-mailadres in.")}`);
   }
 
-  const supabase = await createServerSupabaseClient();
   const origin = await getPublicOrigin();
+  let error: unknown = null;
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
-  });
+  try {
+    const supabase = await createServerSupabaseClient();
+    const result = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+      },
+    });
+    error = result.error;
+  } catch (caught) {
+    error = caught;
+  }
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(`/login?error=${encodeURIComponent(loginErrorMessage(error))}`);
   }
 
   redirect("/login?sent=1");

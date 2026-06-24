@@ -25,6 +25,7 @@ import {
   INTAKE_WEEKDAY_LABEL,
   LEAD_SOURCES,
   LEAD_SOURCE_LABEL,
+  type LeadSource,
 } from "@/lib/leads/types";
 import { submitIntake } from "./actions";
 
@@ -72,6 +73,23 @@ type State = {
   has_anxiety: string;
   remarks: string;
   terms_accepted: boolean;
+};
+
+export type IntakeTrackingContext = {
+  mode?: "standalone" | "iframe" | "script";
+  source?: string;
+  campaign?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  gclid?: string;
+  fbclid?: string;
+  msclkid?: string;
+  referrer?: string;
+  landing_url?: string;
+  embed_host?: string;
 };
 
 const INITIAL: State = {
@@ -141,11 +159,11 @@ function validateStep(step: number, s: State): string | null {
   return null;
 }
 
-function SubmitButton() {
+function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="lg" disabled={pending}>
-      {pending ? "Versturen…" : "Aanmelding versturen"}
+      {pending ? "Versturen..." : label}
     </Button>
   );
 }
@@ -154,19 +172,31 @@ export function IntakeWizard({
   slug,
   serverError,
   referralCode,
+  embedded = false,
+  defaultSource = "website",
+  tracking,
 }: {
   slug: string;
   serverError?: string;
   referralCode?: string;
+  embedded?: boolean;
+  defaultSource?: LeadSource;
+  tracking?: IntakeTrackingContext;
 }) {
   const [step, setStep] = React.useState(0);
-  const [state, setState] = React.useState<State>(INITIAL);
+  const [state, setState] = React.useState<State>(() => ({
+    ...INITIAL,
+    source: defaultSource,
+  }));
   const [error, setError] = React.useState<string | null>(null);
 
   const set = <K extends keyof State>(key: K, value: State[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
 
-  const toggleArray = (key: "preferred_days" | "preferred_times", value: string) =>
+  const toggleArray = (
+    key: "preferred_days" | "preferred_times",
+    value: string,
+  ) =>
     setState((prev) => {
       const cur = prev[key];
       return {
@@ -209,7 +239,7 @@ export function IntakeWizard({
   const progress = ((step + 1) / STEP_TITLES.length) * 100;
 
   return (
-    <Card className="p-6">
+    <Card className={embedded ? "p-5 sm:p-6" : "p-6"}>
       {/* Progress */}
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -234,6 +264,22 @@ export function IntakeWizard({
 
       <form action={submitIntake} onSubmit={onSubmit} className="space-y-4">
         <input type="hidden" name="tenant_slug" value={slug} />
+        {embedded ? (
+          <input type="hidden" name="embed_mode" value="widget" />
+        ) : null}
+        {tracking?.mode ? (
+          <input type="hidden" name="tracking_mode" value={tracking.mode} />
+        ) : null}
+        {Object.entries(tracking ?? {}).map(([key, value]) =>
+          key === "mode" || !value ? null : (
+            <input
+              key={key}
+              type="hidden"
+              name={`tracking_${key}`}
+              value={value}
+            />
+          ),
+        )}
 
         {/* Hidden mirrors so all fields post regardless of current step.
             Controlled state keeps every step's data alive across navigation.
@@ -247,10 +293,18 @@ export function IntakeWizard({
         <input type="hidden" name="city_lat" value={state.city_lat} />
         <input type="hidden" name="city_lng" value={state.city_lng} />
         <input type="hidden" name="city_place_id" value={state.city_place_id} />
-        <input type="hidden" name="pickup_location" value={state.pickup_location} />
+        <input
+          type="hidden"
+          name="pickup_location"
+          value={state.pickup_location}
+        />
         <input type="hidden" name="pickup_lat" value={state.pickup_lat} />
         <input type="hidden" name="pickup_lng" value={state.pickup_lng} />
-        <input type="hidden" name="pickup_place_id" value={state.pickup_place_id} />
+        <input
+          type="hidden"
+          name="pickup_place_id"
+          value={state.pickup_place_id}
+        />
         <input
           type="hidden"
           name="pickup_formatted_address"
@@ -272,7 +326,11 @@ export function IntakeWizard({
           value={state.lessons_per_week}
         />
         <input type="hidden" name="remarks" value={state.remarks} />
-        <input type="hidden" name="applicant_type" value={state.applicant_type} />
+        <input
+          type="hidden"
+          name="applicant_type"
+          value={state.applicant_type}
+        />
         <input type="hidden" name="source" value={state.source} />
         {referralCode && (
           <input type="hidden" name="referral_code" value={referralCode} />
@@ -422,7 +480,13 @@ export function IntakeWizard({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div
+              className={
+                embedded
+                  ? "grid grid-cols-1 gap-4"
+                  : "grid grid-cols-1 gap-4 sm:grid-cols-2"
+              }
+            >
               <div className="space-y-1.5">
                 <Label htmlFor="applicant_type_sel">Wie meldt zich aan?</Label>
                 <Select
@@ -437,20 +501,22 @@ export function IntakeWizard({
                   ))}
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="source_sel">Hoe heb je ons gevonden?</Label>
-                <Select
-                  id="source_sel"
-                  value={state.source}
-                  onChange={(e) => set("source", e.target.value)}
-                >
-                  {LEAD_SOURCES.map((s) => (
-                    <option key={s} value={s}>
-                      {LEAD_SOURCE_LABEL[s]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              {!embedded ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="source_sel">Hoe heb je ons gevonden?</Label>
+                  <Select
+                    id="source_sel"
+                    value={state.source}
+                    onChange={(e) => set("source", e.target.value)}
+                  >
+                    {LEAD_SOURCES.map((s) => (
+                      <option key={s} value={s}>
+                        {LEAD_SOURCE_LABEL[s]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -566,7 +632,9 @@ export function IntakeWizard({
             </fieldset>
 
             <div className="space-y-1.5">
-              <Label htmlFor="weekly_availability">Beschikbaarheid per week</Label>
+              <Label htmlFor="weekly_availability">
+                Beschikbaarheid per week
+              </Label>
               <Textarea
                 id="weekly_availability"
                 maxLength={500}
@@ -673,7 +741,9 @@ export function IntakeWizard({
             <span />
           )}
           {isLast ? (
-            <SubmitButton />
+            <SubmitButton
+              label={embedded ? "Vraag proefles aan" : "Aanmelding versturen"}
+            />
           ) : (
             <Button type="button" onClick={next}>
               Volgende
@@ -788,7 +858,10 @@ function Summary({ state }: { state: State }) {
       "Voorkeursdagen",
       state.preferred_days.length
         ? state.preferred_days
-            .map((d) => INTAKE_WEEKDAY_LABEL[d as keyof typeof INTAKE_WEEKDAY_LABEL])
+            .map(
+              (d) =>
+                INTAKE_WEEKDAY_LABEL[d as keyof typeof INTAKE_WEEKDAY_LABEL],
+            )
             .join(", ")
         : "—",
     ],
@@ -796,7 +869,10 @@ function Summary({ state }: { state: State }) {
       "Voorkeurstijden",
       state.preferred_times.length
         ? state.preferred_times
-            .map((t) => INTAKE_DAYPART_LABEL[t as keyof typeof INTAKE_DAYPART_LABEL])
+            .map(
+              (t) =>
+                INTAKE_DAYPART_LABEL[t as keyof typeof INTAKE_DAYPART_LABEL],
+            )
             .join(", ")
         : "—",
     ],

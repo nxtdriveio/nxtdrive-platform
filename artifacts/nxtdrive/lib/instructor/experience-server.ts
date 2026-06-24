@@ -139,7 +139,7 @@ function mapLesson(
     location: lesson.location ?? student?.postcode ?? "Locatie volgt",
     vehicle: vehicleLabel(vehicle),
     status: lesson.status === "completed" ? "completed" : lesson.status === "in_progress" ? "confirmed" : "planned",
-    href: `/instructor/evaluations/${lesson.id}`,
+    href: `/instructor/les-evaluaties/${lesson.id}`,
   };
 }
 

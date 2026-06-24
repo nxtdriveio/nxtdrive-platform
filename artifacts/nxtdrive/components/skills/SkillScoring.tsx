@@ -16,8 +16,9 @@ import { setSkillScoreAction } from "@/app/instructor/actions";
 import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 
 type LiveScore = { current: number | null; today: number | null };
+const SCORE_VALUES = Array.from({ length: 8 }, (_, i) => i + 1);
 
-/** Tablet-first instructor scoring grid: grouped, collapsible, 1–10 per skill. */
+/** Tablet-first instructor scoring grid: grouped, collapsible, 1-8 per skill. */
 export function SkillScoring({
   lessonId,
   studentName,
@@ -274,7 +275,7 @@ export function SkillScoring({
                                       isPending && "opacity-60",
                                     )}
                                   >
-                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(
+                                    {SCORE_VALUES.map(
                                       (n) => {
                                         const active = selected === n;
                                         const isToday = s.today === n;

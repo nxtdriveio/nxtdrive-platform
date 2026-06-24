@@ -49,7 +49,7 @@ export function FranchisePage({
   return (
     <div
       className={cn(
-        "mx-auto flex max-w-[1560px] flex-col gap-5 text-brand-foreground",
+        "mx-auto flex w-full max-w-[1560px] flex-col gap-4 text-brand-foreground sm:gap-5",
         className,
       )}
     >
@@ -78,7 +78,7 @@ export function FranchisePageHeader({
           {eyebrow}
         </p>
         <div className="space-y-2">
-          <h1 className="text-3xl font-black tracking-tight text-foreground">
+          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
             {title}
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
@@ -87,7 +87,11 @@ export function FranchisePageHeader({
         </div>
         {badges ? <div className="flex flex-wrap gap-2">{badges}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          {actions}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -105,7 +109,7 @@ export function FranchiseActionLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-black transition-all",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-center text-sm font-black transition-all",
         variant === "primary" &&
           "theme-cta text-primary-foreground shadow-[0_14px_30px_rgba(91,77,255,0.24)] hover:opacity-90",
         variant === "outline" &&
@@ -173,7 +177,7 @@ export function FranchisePanel({
         className,
       )}
     >
-      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-brand-card-border px-4 py-3">
+      <div className="flex min-h-14 flex-col gap-3 border-b border-brand-card-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-black text-brand-card-foreground">
             {title}
@@ -187,7 +191,7 @@ export function FranchisePanel({
         {actionHref ? (
           <Link
             href={actionHref}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-border bg-brand-muted px-3 py-1.5 text-xs font-black text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full border border-brand-border bg-brand-muted px-3 py-1.5 text-xs font-black text-foreground transition-colors hover:border-primary/40 hover:text-primary sm:h-auto"
           >
             {actionLabel}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -219,7 +223,7 @@ export function FranchiseKpiCard({
   const content = (
     <div
       className={cn(
-        "group flex min-h-[7.4rem] flex-col justify-between rounded-2xl border border-brand-card-border bg-brand-card p-4 shadow-[var(--shadow-card)] transition-all",
+        "group flex min-h-[6.35rem] flex-col justify-between rounded-2xl border border-brand-card-border bg-brand-card p-3 shadow-[var(--shadow-card)] transition-all sm:min-h-[7.4rem] sm:p-4",
         href && "hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[var(--admin-card-shadow-hover)]",
       )}
     >
@@ -228,17 +232,17 @@ export function FranchiseKpiCard({
           <p className="truncate text-xs font-bold text-muted-foreground">
             {label}
           </p>
-          <div className="mt-2 text-2xl font-black tracking-tight text-foreground">
+          <div className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-2xl">
             {value}
           </div>
         </div>
         <span
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10",
             toneClass(tone),
           )}
         >
-          <Icon className="h-5 w-5" aria-hidden />
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
@@ -305,7 +309,7 @@ export function FranchiseMiniTable({
   minWidth?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto [scrollbar-color:color-mix(in_oklab,var(--brand-primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
       <table className="w-full text-sm" style={{ minWidth }}>
         <thead className="border-b border-brand-card-border bg-brand-muted text-left text-muted-foreground">
           <tr>
@@ -406,12 +410,12 @@ export function FranchiseNavTabs({
   items: Array<{ href: string; label: string }>;
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-2xl border border-brand-border bg-white p-1 shadow-sm">
+    <div className="-mx-4 flex snap-x gap-1 overflow-x-auto border-y border-brand-border bg-white px-4 py-1 shadow-sm [scrollbar-width:none] sm:mx-0 sm:rounded-2xl sm:border sm:p-1 [&::-webkit-scrollbar]:hidden">
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
-          className="inline-flex h-9 shrink-0 items-center rounded-xl px-3 text-xs font-black text-muted-foreground transition-colors hover:bg-brand-muted hover:text-primary"
+          className="inline-flex h-9 shrink-0 snap-start items-center rounded-xl px-3 text-xs font-black text-muted-foreground transition-colors hover:bg-brand-muted hover:text-primary"
         >
           {item.label}
         </Link>

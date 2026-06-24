@@ -4,8 +4,12 @@ import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillInvitations } from "@/components/student/refill-invitations";
+import { SlotRecoveryInvitations } from "@/components/student/slot-recovery-invitations";
+import { NextLessonProposals } from "@/components/student/next-lesson-proposals";
 import { ExamInvitations } from "@/components/student/exam-invitations";
 import { listOpenInvitationsForStudent } from "@/lib/lesson-refill/invitations";
+import { listOpenSlotRecoveryInvitationsForStudent } from "@/lib/slot-recovery/invitations";
+import { listOpenNextLessonProposalsForStudent } from "@/lib/end-of-lesson-scheduling/proposals";
 import { listOpenExamInvitationsForStudent } from "@/lib/exam-invitations/invitations";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { ReferralInvite } from "@/components/student/referral-invite";
@@ -119,6 +123,8 @@ export default async function StudentHomePage() {
   const [
     breakdownRes,
     refillInvitations,
+    slotRecoveryInvitations,
+    nextLessonProposals,
     examInvitations,
     origin,
     referralCode,
@@ -136,6 +142,8 @@ export default async function StudentHomePage() {
   ] = await Promise.all([
     supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
+    listOpenSlotRecoveryInvitationsForStudent(service, tenant.id, student.id),
+    listOpenNextLessonProposalsForStudent(service, tenant.id, student.id),
     listOpenExamInvitationsForStudent(service, tenant.id, student.id),
     getPublicOrigin(),
     ensureStudentReferralCode(service, tenant.id, student.id, user.id),
@@ -218,7 +226,11 @@ export default async function StudentHomePage() {
 
   const sparklineValues = leskaart.history
     .slice(-6)
-    .map((point) => point.progressScore ?? point.averageScore * 10)
+    .map((point) =>
+      Math.round(
+        (Math.min(8, point.progressScore ?? point.averageScore) / 8) * 100,
+      ),
+    )
     .filter((value): value is number => Number.isFinite(value));
 
   const nextInstructorNames = nextLesson
@@ -296,7 +308,7 @@ export default async function StudentHomePage() {
   const historyPoints = leskaart.history.slice(-2);
   const recentDeltaPct =
     historyPoints.length === 2
-      ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 10) * 100)
+      ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 8) * 100)
       : null;
 
   const fallbackCoachTitle =
@@ -382,6 +394,8 @@ export default async function StudentHomePage() {
       ) : null}
 
       <RefillInvitations invitations={refillInvitations} />
+      <SlotRecoveryInvitations invitations={slotRecoveryInvitations} />
+      <NextLessonProposals proposals={nextLessonProposals} />
       <ExamInvitations invitations={examInvitations} />
 
       {referralUrl ? (

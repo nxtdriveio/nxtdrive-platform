@@ -29,6 +29,15 @@ export type Package = {
   visible_on_website: boolean;
   visible_in_app: boolean;
   signal_threshold_minutes: number | null;
+  self_booking_allowed: boolean;
+  rescheduling_allowed: boolean;
+  cancellation_allowed: boolean;
+  max_lessons_per_week: number | null;
+  allowed_lesson_durations: number[];
+  allowed_lesson_types: string[];
+  fixed_instructor_only: boolean;
+  requires_paid_installment: boolean;
+  credit_release_strategy: "available_credit" | "paid_only" | "manual_release";
   created_at: string;
   updated_at: string;
 };

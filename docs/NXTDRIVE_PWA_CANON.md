@@ -216,18 +216,17 @@ Toont:
 Scoreschaal:
 
 ```text
-1 t/m 10
+N, 1 t/m 8
 ```
 
 Statussen:
 
 ```text
-1-3 = onvoldoende
-4-5 = basis
-6-7 = in ontwikkeling
-8 = bijna examenwaardig
-9 = examenwaardig
-10 = volledig beheerst
+N = niet beoordeeld
+1-3 = uitleg en begeleiding nodig
+4-5 = basis in opbouw
+6-7 = zelfstandig(er) toepassen
+8 = examenwaardig
 ```
 
 ---
@@ -448,7 +447,7 @@ Stappen:
 
 ```text
 1. Kies geoefende onderdelen
-2. Pas scores 1-10 aan
+2. Pas RIS-scores N/1-8 aan
 3. Voeg korte notitie toe
 4. Voeg aandachtspunt volgende les toe
 5. Rond les af
@@ -474,7 +473,7 @@ De instructeur ziet:
 Scores:
 
 ```text
-1 t/m 10
+N, 1 t/m 8
 ```
 
 Kritieke onderdelen moeten extra zichtbaar zijn.

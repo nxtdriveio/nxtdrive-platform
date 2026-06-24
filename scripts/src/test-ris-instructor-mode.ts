@@ -17,6 +17,10 @@ const migration = source(
   "supabase/migrations/20260616104647_ris_lesson_card_foundation.sql",
 );
 const lessonPage = source("artifacts/nxtdrive/app/instructor/[lessonId]/page.tsx");
+const evaluationWorkspace = source(
+  "artifacts/nxtdrive/app/instructor/evaluations/[lessonId]/RisEvaluationWorkspace.tsx",
+);
+const evaluationTabs = source("artifacts/nxtdrive/components/ris/RisEvaluationTabs.tsx");
 const actionsPanel = source("artifacts/nxtdrive/components/instructor/ActionsPanel.tsx");
 const risScoring = source("artifacts/nxtdrive/components/ris/RisScriptScoring.tsx");
 const packageJson = source("scripts/package.json");
@@ -29,17 +33,21 @@ check(
 );
 
 check(
-  "instructor lesson page loads RIS context next to legacy leskaart",
-  lessonPage.includes("loadInstructorRisLessonCard") &&
-    lessonPage.includes("risLessonCard") &&
-    lessonPage.includes("isRisLessonMode"),
+  "instructor lesson page routes into the RIS evaluation workspace",
+  lessonPage.includes("RisEvaluationWorkspace") &&
+    evaluationWorkspace.includes("loadInstructorRisLessonCard") &&
+    evaluationWorkspace.includes("loadNextOpenLesson") &&
+    evaluationWorkspace.includes("RisEvaluationTabs"),
 );
 
 check(
-  "instructor lesson page switches score UI by tenant mode",
-  lessonPage.includes("isRisLessonMode ? (") &&
-    lessonPage.includes("<RisScriptScoring") &&
-    lessonPage.includes("<SkillScoring"),
+  "instructor evaluation workspace exposes the five RIS tabs",
+  evaluationTabs.includes('label: "Lesinfo"') &&
+    evaluationTabs.includes('label: "Plankaart"') &&
+    evaluationTabs.includes('label: "Beoordeling"') &&
+    evaluationTabs.includes('label: "Reflectie"') &&
+    evaluationTabs.includes('label: "Samenvatting / Afronding"') &&
+    evaluationTabs.includes("<RisScriptScoring"),
 );
 
 check(
@@ -51,15 +59,16 @@ check(
 );
 
 check(
-  "RIS scoring exposes required filters",
-  risScoring.includes('"focus"') &&
-    risScoring.includes('"attention"') &&
-    risScoring.includes('"module-1"') &&
-    risScoring.includes('"module-4"'),
+  "RIS scoring exposes module grouping and report labels",
+  risScoring.includes("module.moduleNumber") &&
+    risScoring.includes('label: "Focus"') &&
+    risScoring.includes('label: "Aandacht"') &&
+    risScoring.includes('label: "Herhalen"') &&
+    risScoring.includes('label: "Toetsklaar"'),
 );
 
 check(
-  "RIS scoring uses N and 1..8 steps, not legacy 1..10",
+  "RIS scoring uses N and 1..8 steps, not the legacy ten-step scale",
   risScoring.includes('const STEP_VALUES: RISStepValue[] = ["N", "1", "2", "3", "4", "5", "6", "7", "8"]') &&
     !risScoring.includes("Array.from({ length: 10 }"),
 );

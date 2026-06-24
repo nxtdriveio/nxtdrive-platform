@@ -154,7 +154,7 @@ async function dispatch(
   const emailEnabled = await isTenantTriggerEnabled(service, params.tenantId, params.type, "email").catch(() => true);
   if (!emailEnabled) return { outcome: "skipped" };
 
-  const { data, error } = await service.rpc("enqueue_notification", {
+  const { data, error } = await service.rpc("enqueue_notification_v2", {
     p_tenant_id: params.tenantId,
     p_channel: "email",
     p_type: params.type,
@@ -164,9 +164,11 @@ async function dispatch(
     p_related_type: params.relatedType,
     p_related_id: params.relatedId,
     p_payload: params.payload,
+    p_body_html: params.email.html,
+    p_body_text: params.email.text,
   });
   if (error) {
-    console.error("[notifications] enqueue_notification failed", error);
+    console.error("[notifications] enqueue_notification_v2 failed", error);
     return { outcome: "enqueue_failed" };
   }
   const row = (data as EnqueueRow[] | null)?.[0];
@@ -183,11 +185,16 @@ async function dispatch(
     return { outcome: marked ? "skipped_no_recipient" : "status_update_failed" };
   }
 
+  const emailWithTracking = appendOpenTrackingPixel(
+    params.email,
+    params.tenantId,
+    row.id,
+  );
   const platformConfig = await getPlatformEmailConfig(service).catch(() => null);
   const result = await sendEmail({
     to: params.recipientEmail,
     fromName: params.fromName,
-    email: params.email,
+    email: emailWithTracking,
     platformConfig: platformConfig ?? undefined,
   });
 
@@ -257,6 +264,21 @@ async function markStatus(
     return false;
   }
   return true;
+}
+
+function appendOpenTrackingPixel(
+  email: RenderedEmail,
+  tenantId: string,
+  notificationId: string,
+): RenderedEmail {
+  const origin = envPublicOrigin();
+  if (!origin) return email;
+  const src = `${origin}/api/notifications/open/${encodeURIComponent(tenantId)}/${encodeURIComponent(notificationId)}`;
+  const pixel = `<img src="${src}" width="1" height="1" alt="" style="display:none!important;opacity:0;width:1px;height:1px;border:0;" />`;
+  const html = email.html.includes("</body>")
+    ? email.html.replace("</body>", `${pixel}</body>`)
+    : `${email.html}${pixel}`;
+  return { ...email, html };
 }
 
 /**

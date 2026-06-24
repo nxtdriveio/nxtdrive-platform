@@ -284,7 +284,7 @@ function buildChecklist({
       detail:
         settings.lessonCardMode === "ris"
           ? `RIS is al actief. Er zijn ${publishedRisCards} gepubliceerde RIS-leskaart(en).`
-          : "Tenant staat nog op legacy. Gebruik een groene preflight voor echte data of clean-start voor mock-data.",
+          : "Tenant staat nog op legacy. Gebruik een groene preflight voordat je RIS activeert.",
     },
   ];
 }

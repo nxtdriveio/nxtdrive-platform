@@ -10,7 +10,7 @@ import {
 } from "@/lib/cbr/types";
 import type { LessonStatus } from "@/lib/lessons/types";
 import type { AgendaAppointment } from "@/lib/agenda/types";
-import type { Invoice } from "@/lib/invoices/types";
+import { remainingCents, type Invoice } from "@/lib/invoices/types";
 import type { Package } from "@/lib/packages/types";
 import type { CreditLedgerRow, StudentBalance } from "@/lib/students/types";
 import type { DocumentCategory } from "@/lib/students/document-types";
@@ -97,8 +97,10 @@ export type ParentPortalData = {
     outstandingCents: number;
   } | null;
   betalingen: {
+    invoices: Invoice[];
     paidInvoices: Invoice[];
     paidTotalCents: number;
+    outstandingCents: number;
   } | null;
   pakketinformatie: {
     packages: PortalPackage[];
@@ -289,28 +291,32 @@ export async function loadParentPortalData(
       invoices,
       outstandingCents: invoices
         .filter((i) => i.status === "open")
-        .reduce((sum, i) => sum + i.total_cents, 0),
+        .reduce((sum, i) => sum + remainingCents(i), 0),
     };
   }
 
   if (visibility.betalingen) {
-    // Read-only payment history. The payment_records table is staff-only by
-    // RLS, so we derive the parent-visible payment view from PAID invoices
-    // (which the 0058 guardian branch exposes). No online betalen here.
-    const paidRes = await rls
+    // Parent-visible payment status is derived from non-draft invoices that the
+    // guardian RLS branch exposes. payment_records stays staff-only.
+    const invoicesRes = await rls
       .from("invoices")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("student_id", studentId)
-      .eq("status", "paid")
-      .order("paid_at", { ascending: false });
-    if (paidRes.error) {
-      throw new Error(`portal: payments failed (${ctx}): ${paidRes.error.message}`);
+      .neq("status", "draft")
+      .order("created_at", { ascending: false });
+    if (invoicesRes.error) {
+      throw new Error(`portal: payments failed (${ctx}): ${invoicesRes.error.message}`);
     }
-    const paidInvoices = (paidRes.data ?? []) as Invoice[];
+    const invoices = (invoicesRes.data ?? []) as Invoice[];
+    const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
     data.betalingen = {
+      invoices,
       paidInvoices,
       paidTotalCents: paidInvoices.reduce((sum, i) => sum + i.total_cents, 0),
+      outstandingCents: invoices
+        .filter((invoice) => invoice.status === "open")
+        .reduce((sum, invoice) => sum + remainingCents(invoice), 0),
     };
   }
 

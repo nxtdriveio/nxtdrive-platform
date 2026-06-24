@@ -48,7 +48,7 @@ export function InstructorTopbar({
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Link
-          href="/instructor/messages"
+          href="/instructor/berichten"
           aria-label="Berichten"
           className="relative grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm transition hover:bg-brand-muted"
         >
@@ -87,19 +87,19 @@ export function InstructorTopbar({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/availability" className="flex items-center gap-2">
+              <Link href="/instructor/beschikbaarheid" className="flex items-center gap-2">
                 <Moon aria-hidden />
                 Beschikbaarheid aanpassen
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/profile" className="flex items-center gap-2">
+              <Link href="/instructor/profiel" className="flex items-center gap-2">
                 <User aria-hidden />
                 Profiel
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/settings" className="flex items-center gap-2">
+              <Link href="/instructor/instellingen" className="flex items-center gap-2">
                 <Settings aria-hidden />
                 Instellingen
               </Link>

@@ -7,6 +7,7 @@ import {
   resetBrandingToNxtdriveDefaults,
   saveBranding,
 } from "@/app/backoffice/instellingen/actions";
+import { contrastRatio } from "@/lib/brand-theme";
 
 export function BrandingForm({
   initialLogoUrl,
@@ -44,6 +45,8 @@ export function BrandingForm({
       themePresetName ||
       hasThemeOverrides,
   );
+  const primaryContrast = contrastRatio(foreground, primary);
+  const contrastPasses = primaryContrast !== null && primaryContrast >= 4.5;
 
   return (
     <div className="space-y-5">
@@ -128,6 +131,31 @@ export function BrandingForm({
               />
             </div>
           </div>
+        </div>
+
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            contrastPasses
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium">
+              Contrast primaire button:{" "}
+              {primaryContrast === null
+                ? "niet te bepalen"
+                : `${primaryContrast.toFixed(1)}:1`}
+            </p>
+            <span className="rounded-full bg-background/60 px-2 py-0.5 text-xs text-foreground">
+              Richtlijn 4.5:1
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-5 opacity-85">
+            {contrastPasses
+              ? "De gekozen tekstkleur is goed leesbaar op je primaire kleur."
+              : "Deze combinatie kan slecht leesbaar zijn. Kies een donkerdere of lichtere tekstkleur voordat je dit live gebruikt."}
+          </p>
         </div>
 
         <div className="space-y-1.5">

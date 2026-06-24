@@ -51,11 +51,29 @@ export async function createStudentDirect(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const telefoon = String(formData.get("telefoon") ?? "").trim().slice(0, 30) || null;
   const postcode = String(formData.get("postcode") ?? "").trim().slice(0, 10) || null;
+  const geboortedatum =
+    String(formData.get("geboortedatum") ?? "").trim().slice(0, 10) || null;
+  const adres = String(formData.get("adres") ?? "").trim().slice(0, 240) || null;
+  const woonplaats =
+    String(formData.get("woonplaats") ?? "").trim().slice(0, 160) || null;
+  const ophaaladres =
+    String(formData.get("ophaaladres") ?? "").trim().slice(0, 240) || null;
 
   if (!naam) return { ok: false, error: "Naam is verplicht." };
   if (!email || !EMAIL_RE.test(email)) {
     return { ok: false, error: "Vul een geldig e-mailadres in." };
   }
+  if (geboortedatum && !isIsoDate(geboortedatum)) {
+    return { ok: false, error: "Vul een geldige geboortedatum in." };
+  }
+
+  const nawNotes = buildDirectStudentNawNotes({
+    geboortedatum,
+    adres,
+    postcode,
+    woonplaats,
+    ophaaladres,
+  });
 
   const tijdelijkWachtwoord = generateTemporaryPassword();
 
@@ -107,6 +125,7 @@ export async function createStudentDirect(
       email,
       phone: telefoon,
       postcode,
+      notes: nawNotes,
     })
     .select("id")
     .single();
@@ -124,7 +143,7 @@ export async function createStudentDirect(
     action: "student_created_direct",
     target_type: "student",
     target_id: studentId,
-    payload: { full_name: naam, email },
+    payload: { full_name: naam, email, has_naw_details: Boolean(nawNotes) },
   });
 
   // Send welcome email — best-effort: creation always succeeds; email failure
@@ -527,6 +546,34 @@ export async function deleteStudentDocument(formData: FormData) {
 export type GuardianActionResult = { ok: boolean; error?: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
+function buildDirectStudentNawNotes(input: {
+  geboortedatum: string | null;
+  adres: string | null;
+  postcode: string | null;
+  woonplaats: string | null;
+  ophaaladres: string | null;
+}): string | null {
+  const rows = [
+    ["Geboortedatum", input.geboortedatum],
+    ["Adres", input.adres],
+    ["Postcode", input.postcode],
+    ["Woonplaats", input.woonplaats],
+    ["Ophaaladres", input.ophaaladres ?? input.adres],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+
+  if (rows.length === 0) return null;
+  return [
+    "NAW gegevens",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+  ].join("\n");
+}
 
 /** Find an existing auth user id by email, paging through the admin list. */
 async function findUserIdByEmail(

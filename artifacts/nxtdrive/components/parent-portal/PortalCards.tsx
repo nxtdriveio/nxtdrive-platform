@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   ADVICE_LABELS,
   PHASE_LABELS,
@@ -12,12 +14,12 @@ import {
 import { APPOINTMENT_TYPE_LABEL } from "@/lib/agenda/types";
 import type { AgendaAppointment } from "@/lib/agenda/types";
 import {
-  DISPLAY_STATUS_LABEL,
-  DISPLAY_STATUS_VARIANT,
-  displayStatus,
   formatEuros,
+  remainingCents,
   type Invoice,
 } from "@/lib/invoices/types";
+import { buildInvoicePaymentStatusFlow } from "@/lib/invoices/payment-status-flow";
+import { payParentInvoice } from "@/app/ouder/facturen/payment-actions";
 import {
   CREDIT_REASON_LABEL,
   formatTegoed,
@@ -275,7 +277,7 @@ export function PortalVoortgangCard({
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Gemiddelde score</span>
               <span className="font-medium tabular-nums text-foreground">
-                {readiness.averageScore.toFixed(1)} / 10
+                {readiness.averageScore.toFixed(1)} / 8
               </span>
             </div>
           </div>
@@ -302,7 +304,7 @@ export function PortalVoortgangCard({
                       {dateFmt.format(start)}
                     </span>
                     <span className="text-sm font-semibold tabular-nums text-foreground">
-                      {l.progress_score} / 10
+                      {Math.min(8, l.progress_score ?? 0)} / 8
                     </span>
                   </li>
                 );
@@ -413,9 +415,11 @@ export function PortalExamensCard({
 export function PortalFacturenCard({
   invoices,
   outstandingCents,
+  mollieConfigured = false,
 }: {
   invoices: Invoice[];
   outstandingCents: number;
+  mollieConfigured?: boolean;
 }) {
   return (
     <Card>
@@ -432,35 +436,65 @@ export function PortalFacturenCard({
         {invoices.length === 0 ? (
           <EmptyRow>Geen facturen.</EmptyRow>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="space-y-2">
             {invoices.map((inv) => {
-              const ds = displayStatus(inv);
+              const flow = buildInvoicePaymentStatusFlow(inv, {
+                mollieConfigured,
+              });
               return (
                 <li
                   key={inv.id}
-                  className="flex items-center justify-between gap-3 py-2.5"
+                  className="rounded-xl border border-border bg-background px-3 py-3"
                 >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground">
-                      Factuur #{inv.invoice_no}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-semibold text-foreground">
+                          Factuur #{inv.invoice_no}
+                        </div>
+                        <Badge variant={flow.badgeVariant}>
+                          {flow.badgeLabel}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {flow.dueLabel ?? dayFmt.format(new Date(inv.created_at))}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {flow.title}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {dayFmt.format(new Date(inv.created_at))}
+                    <div className="shrink-0 text-left sm:text-right">
+                      <div className="text-sm font-semibold tabular-nums text-foreground">
+                        {formatEuros(inv.total_cents)}
+                      </div>
+                      {flow.remainingCents > 0 ? (
+                        <div className="text-xs text-muted-foreground">
+                          Nog open: {flow.remainingLabel}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold tabular-nums text-foreground">
-                      {formatEuros(inv.total_cents)}
-                    </span>
-                    <Badge variant={DISPLAY_STATUS_VARIANT[ds]}>
-                      {DISPLAY_STATUS_LABEL[ds]}
-                    </Badge>
-                    <a
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/ouder/facturen/${inv.id}`}
+                      className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground transition hover:bg-muted"
+                    >
+                      Bekijk status
+                    </Link>
+                    <Link
                       href={`/ouder/facturen/${inv.id}/pdf`}
-                      className="shrink-0 text-sm font-medium text-primary hover:underline"
+                      className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground transition hover:bg-muted"
                     >
                       Download PDF
-                    </a>
+                    </Link>
+                    {flow.canPayOnline ? (
+                      <form action={payParentInvoice}>
+                        <input type="hidden" name="invoice_id" value={inv.id} />
+                        <Button type="submit" size="sm" className="h-9">
+                          Betaal {flow.remainingLabel}
+                        </Button>
+                      </form>
+                    ) : null}
                   </div>
                 </li>
               );
@@ -468,7 +502,8 @@ export function PortalFacturenCard({
           </ul>
         )}
         <p className="text-xs text-muted-foreground">
-          Online betalen verloopt niet via het ouderportaal.
+          Online betalen is zichtbaar zodra de rijschool dit voor deze factuur
+          beschikbaar heeft.
         </p>
       </CardContent>
     </Card>
@@ -476,24 +511,101 @@ export function PortalFacturenCard({
 }
 
 export function PortalBetalingenCard({
+  invoices = [],
   paidInvoices,
   paidTotalCents,
+  outstandingCents = 0,
+  mollieConfigured = false,
 }: {
+  invoices?: Invoice[];
   paidInvoices: Invoice[];
   paidTotalCents: number;
+  outstandingCents?: number;
+  mollieConfigured?: boolean;
 }) {
+  const openInvoices = invoices.filter(
+    (invoice) => invoice.status === "open" && remainingCents(invoice) > 0,
+  );
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Betalingen</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
-          <span className="text-sm text-muted-foreground">Totaal betaald</span>
-          <span className="text-sm font-semibold tabular-nums text-foreground">
-            {formatEuros(paidTotalCents)}
-          </span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">Openstaand</span>
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {formatEuros(outstandingCents)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">Totaal betaald</span>
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {formatEuros(paidTotalCents)}
+            </span>
+          </div>
         </div>
+        {openInvoices.length > 0 ? (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Nog te betalen
+            </h3>
+            <ul className="space-y-2">
+              {openInvoices.map((invoice) => {
+                const flow = buildInvoicePaymentStatusFlow(invoice, {
+                  mollieConfigured,
+                });
+                return (
+                  <li
+                    key={invoice.id}
+                    className="rounded-xl border border-border bg-background px-3 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            Factuur #{invoice.invoice_no}
+                          </span>
+                          <Badge variant={flow.badgeVariant}>
+                            {flow.badgeLabel}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {flow.dueLabel ?? flow.title}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                        {flow.remainingLabel}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href={`/ouder/facturen/${invoice.id}`}
+                        className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground transition hover:bg-muted"
+                      >
+                        Bekijk status
+                      </Link>
+                      {flow.canPayOnline ? (
+                        <form action={payParentInvoice}>
+                          <input
+                            type="hidden"
+                            name="invoice_id"
+                            value={invoice.id}
+                          />
+                          <Button type="submit" size="sm" className="h-9">
+                            Betaal {flow.remainingLabel}
+                          </Button>
+                        </form>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         {paidInvoices.length === 0 ? (
           <EmptyRow>Nog geen betalingen geregistreerd.</EmptyRow>
         ) : (

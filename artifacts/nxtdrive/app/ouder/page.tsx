@@ -14,6 +14,9 @@ import {
   PortalTegoedCard,
   PortalDocumentenCard,
 } from "@/components/parent-portal/PortalCards";
+import { createServiceRoleClient } from "@/lib/supabase/service";
+import { getMollieApiKeyStatus } from "@/lib/mollie/secrets";
+import { remainingCents } from "@/lib/invoices/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +33,18 @@ export default async function OuderOverviewPage() {
   }
 
   const data = await loadPortalSections(ctx, [...PARENT_PORTAL_SECTIONS]);
+  const paymentInvoices =
+    data.facturen?.invoices ?? data.betalingen?.invoices ?? [];
+  const hasPayable = paymentInvoices.some(
+    (invoice) =>
+      invoice.kind === "invoice" &&
+      invoice.status === "open" &&
+      remainingCents(invoice) > 0,
+  );
+  const mollieConfigured = hasPayable
+    ? (await getMollieApiKeyStatus(createServiceRoleClient(), ctx.tenant.id))
+        .configured
+    : false;
 
   return (
     <div className="space-y-6">
@@ -67,12 +82,16 @@ export default async function OuderOverviewPage() {
         <PortalFacturenCard
           invoices={data.facturen.invoices}
           outstandingCents={data.facturen.outstandingCents}
+          mollieConfigured={mollieConfigured}
         />
       ) : null}
       {data.betalingen ? (
         <PortalBetalingenCard
+          invoices={data.betalingen.invoices}
           paidInvoices={data.betalingen.paidInvoices}
           paidTotalCents={data.betalingen.paidTotalCents}
+          outstandingCents={data.betalingen.outstandingCents}
+          mollieConfigured={mollieConfigured}
         />
       ) : null}
       {data.pakketinformatie ? (

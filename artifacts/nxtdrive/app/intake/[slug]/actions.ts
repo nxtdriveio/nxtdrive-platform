@@ -14,6 +14,19 @@ import {
   loadPlanningKernelData,
   type PlanningCandidateInput,
 } from "@/lib/planning-core";
+import {
+  completeBookingHold,
+  createBookingHold,
+  ensureBookingRequest,
+  findBookingCandidateBySlot,
+  releaseBookingHold,
+  replaceBookingCandidatePreferences,
+  replaceBookingCandidates,
+} from "@/lib/smart-booking/service";
+import {
+  trialLeadBookingRequestInput,
+  validatedTrialSlotToBookingCandidate,
+} from "@/lib/smart-booking/trial";
 import { validateChosenSlot } from "@/lib/trial-lessons/suggestions";
 import {
   INTAKE_APPLICANT_TYPES,
@@ -40,10 +53,46 @@ function err(slug: string, message: string): never {
   redirect(`/intake/${slug}?error=${encodeURIComponent(message)}`);
 }
 
-function trimOrNull(value: FormDataEntryValue | null, max = 200): string | null {
+function trimOrNull(
+  value: FormDataEntryValue | null,
+  max = 200,
+): string | null {
   if (typeof value !== "string") return null;
   const v = value.trim().slice(0, max);
   return v.length > 0 ? v : null;
+}
+
+const TRACKING_FIELDS = [
+  "mode",
+  "source",
+  "campaign",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "gclid",
+  "fbclid",
+  "msclkid",
+  "embed_host",
+  "referrer",
+  "landing_url",
+] as const;
+
+function buildIntakeSourceDetail(formData: FormData): string | null {
+  const parts: string[] = [];
+
+  for (const field of TRACKING_FIELDS) {
+    const formKey = field === "mode" ? "tracking_mode" : `tracking_${field}`;
+    const value = trimOrNull(
+      formData.get(formKey),
+      field.includes("url") ? 1000 : 240,
+    );
+    if (!value) continue;
+    parts.push(`${field}=${value}`);
+  }
+
+  return parts.length > 0 ? parts.join(" | ").slice(0, 2000) : null;
 }
 
 /** "true"/"false"/"" form value → boolean | null (null = unknown). */
@@ -68,7 +117,8 @@ function oneOf<T extends string>(
   value: FormDataEntryValue | null,
   allowed: readonly T[],
 ): T | null {
-  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+  return typeof value === "string" &&
+    (allowed as readonly string[]).includes(value)
     ? (value as T)
     : null;
 }
@@ -79,6 +129,26 @@ function intakeRequiredTransmission(
   if (value === "manual") return "schakel";
   if (value === "automatic") return "automaat";
   return null;
+}
+
+async function loadTrialBookingAutomationLevel(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+): Promise<number> {
+  const { data } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", "trial_lesson_policy")
+    .maybeSingle();
+  const value = (data?.value ?? {}) as Record<string, unknown>;
+  const raw =
+    typeof value["booking_automation_level"] === "number"
+      ? value["booking_automation_level"]
+      : typeof value["automation_level"] === "number"
+        ? value["automation_level"]
+        : 1;
+  return Number.isInteger(raw) ? Math.max(0, Math.min(4, raw)) : 1;
 }
 
 /** A required date (yyyy-mm-dd) or null if absent; throws via err on invalid. */
@@ -113,10 +183,18 @@ export async function submitIntake(formData: FormData) {
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) {
     redirect("/");
   }
+  const isWidgetEmbed = formData.get("embed_mode") === "widget";
+  const thanksPath = (leadId?: string) => {
+    const qs = new URLSearchParams();
+    if (leadId) qs.set("lead", leadId);
+    if (isWidgetEmbed) qs.set("embed", "1");
+    const query = qs.toString();
+    return `/intake/${slug}/thanks${query ? `?${query}` : ""}`;
+  };
 
   // Honeypot — silently accept and redirect, do not reveal the trap.
   if (String(formData.get("website_url") ?? "").trim() !== "") {
-    redirect(`/intake/${slug}/thanks`);
+    redirect(thanksPath());
   }
 
   // --- Step 1: person -----------------------------------------------------
@@ -125,7 +203,11 @@ export async function submitIntake(formData: FormData) {
   const phone = trimOrNull(formData.get("phone"), 50);
   const applicant_type: IntakeApplicantType =
     oneOf(formData.get("applicant_type"), INTAKE_APPLICANT_TYPES) ?? "student";
-  const date_of_birth = dateOrNull(slug, formData.get("date_of_birth"), "geboortedatum");
+  const date_of_birth = dateOrNull(
+    slug,
+    formData.get("date_of_birth"),
+    "geboortedatum",
+  );
   const city = trimOrNull(formData.get("city"), 200);
   // Task #57 — structured city data from Google Places (graceful: all null when
   // Places is absent or the visitor just typed a free-text city).
@@ -151,7 +233,8 @@ export async function submitIntake(formData: FormData) {
   if (!full_name) err(slug, "Vul je naam in.");
   if (!email && !phone)
     err(slug, "Vul minimaal een e-mailadres of telefoonnummer in.");
-  if (email && !EMAIL_RE.test(email)) err(slug, "Vul een geldig e-mailadres in.");
+  if (email && !EMAIL_RE.test(email))
+    err(slug, "Vul een geldig e-mailadres in.");
   if (phone && !PHONE_RE.test(phone))
     err(slug, "Vul een geldig telefoonnummer in.");
 
@@ -166,15 +249,19 @@ export async function submitIntake(formData: FormData) {
   );
   if (!license_goal) err(slug, "Kies een rijbewijsdoel.");
   if (!transmission) err(slug, "Kies schakel of automaat.");
-  const has_driving_experience = triBool(formData.get("has_driving_experience"));
+  const has_driving_experience = triBool(
+    formData.get("has_driving_experience"),
+  );
   const had_lessons_before = triBool(formData.get("had_lessons_before"));
   const has_done_exam = triBool(formData.get("has_done_exam"));
   const theory_status: IntakeStatus =
     oneOf(formData.get("theory_status"), INTAKE_STATUSES) ?? "unknown";
   const health_declaration_status: IntakeStatus =
-    oneOf(formData.get("health_declaration_status"), INTAKE_STATUSES) ?? "unknown";
+    oneOf(formData.get("health_declaration_status"), INTAKE_STATUSES) ??
+    "unknown";
   const cbr_authorization_status: IntakeStatus =
-    oneOf(formData.get("cbr_authorization_status"), INTAKE_STATUSES) ?? "unknown";
+    oneOf(formData.get("cbr_authorization_status"), INTAKE_STATUSES) ??
+    "unknown";
 
   // --- Step 3: availability ----------------------------------------------
   const preferred_days = filterList(
@@ -185,7 +272,10 @@ export async function submitIntake(formData: FormData) {
     formData.getAll("preferred_times"),
     INTAKE_DAYPARTS,
   );
-  const weekly_availability = trimOrNull(formData.get("weekly_availability"), 500);
+  const weekly_availability = trimOrNull(
+    formData.get("weekly_availability"),
+    500,
+  );
   const desired_start_date = dateOrNull(
     slug,
     formData.get("desired_start_date"),
@@ -218,6 +308,7 @@ export async function submitIntake(formData: FormData) {
   // Task #113 — referralcode uit de doorverwijslink (?ref=). De RPC bepaalt of
   // de code geldig is en zet dan source='referral' + de doorverwijzende leerling.
   const referralCode = trimOrNull(formData.get("referral_code"), 40);
+  const sourceDetail = buildIntakeSourceDetail(formData);
 
   const service = createServiceRoleClient();
 
@@ -236,46 +327,61 @@ export async function submitIntake(formData: FormData) {
   const userAgent = hdrs.get("user-agent") ?? null;
 
   // Transactional RPC: lead + intake detail + lead_event + audit_log atomically.
-  const { data: leadId, error: rpcErr } = await service.rpc("create_lead_with_intake", {
-    p_tenant_id: tenant.id,
-    p_source: source,
-    p_full_name: full_name,
-    p_email: email,
-    p_phone: phone,
-    p_applicant_type: applicant_type,
-    p_date_of_birth: date_of_birth,
-    p_city: city,
-    p_pickup_location: pickup_location,
-    p_license_goal: license_goal,
-    p_transmission: transmission,
-    p_has_driving_experience: has_driving_experience,
-    p_had_lessons_before: had_lessons_before,
-    p_has_done_exam: has_done_exam,
-    p_theory_status: theory_status,
-    p_health_declaration_status: health_declaration_status,
-    p_cbr_authorization_status: cbr_authorization_status,
-    p_preferred_days: preferred_days,
-    p_preferred_times: preferred_times,
-    p_weekly_availability: weekly_availability,
-    p_desired_start_date: desired_start_date,
-    p_lessons_per_week: lessons_per_week,
-    p_pace: pace,
-    p_has_anxiety: has_anxiety,
-    p_remarks: remarks,
-    p_terms_accepted: terms_accepted,
-    p_submitted_ip: ipHeader,
-    p_user_agent: userAgent,
-    p_pickup_lat: pickup_lat,
-    p_pickup_lng: pickup_lng,
-    p_pickup_place_id: pickup_place_id,
-    p_pickup_formatted_address: pickup_formatted_address,
-    p_city_lat: city_lat,
-    p_city_lng: city_lng,
-    p_city_place_id: city_place_id,
-  });
+  const { data: leadId, error: rpcErr } = await service.rpc(
+    "create_lead_with_intake",
+    {
+      p_tenant_id: tenant.id,
+      p_source: source,
+      p_full_name: full_name,
+      p_email: email,
+      p_phone: phone,
+      p_applicant_type: applicant_type,
+      p_date_of_birth: date_of_birth,
+      p_city: city,
+      p_pickup_location: pickup_location,
+      p_license_goal: license_goal,
+      p_transmission: transmission,
+      p_has_driving_experience: has_driving_experience,
+      p_had_lessons_before: had_lessons_before,
+      p_has_done_exam: has_done_exam,
+      p_theory_status: theory_status,
+      p_health_declaration_status: health_declaration_status,
+      p_cbr_authorization_status: cbr_authorization_status,
+      p_preferred_days: preferred_days,
+      p_preferred_times: preferred_times,
+      p_weekly_availability: weekly_availability,
+      p_desired_start_date: desired_start_date,
+      p_lessons_per_week: lessons_per_week,
+      p_pace: pace,
+      p_has_anxiety: has_anxiety,
+      p_remarks: remarks,
+      p_terms_accepted: terms_accepted,
+      p_submitted_ip: ipHeader,
+      p_user_agent: userAgent,
+      p_pickup_lat: pickup_lat,
+      p_pickup_lng: pickup_lng,
+      p_pickup_place_id: pickup_place_id,
+      p_pickup_formatted_address: pickup_formatted_address,
+      p_city_lat: city_lat,
+      p_city_lng: city_lng,
+      p_city_place_id: city_place_id,
+    },
+  );
 
   if (rpcErr) {
     err(slug, "Er ging iets mis bij het versturen. Probeer het opnieuw.");
+  }
+
+  if (typeof leadId === "string" && sourceDetail) {
+    const { error: sourceDetailErr } = await service
+      .from("leads")
+      .update({ source_detail: sourceDetail })
+      .eq("id", leadId)
+      .eq("tenant_id", tenant.id);
+
+    if (sourceDetailErr) {
+      console.error("[intake] source_detail update failed", sourceDetailErr);
+    }
   }
 
   // Fase 1B — derive and persist the intake analysis (labels, score, summary,
@@ -331,6 +437,33 @@ export async function submitIntake(formData: FormData) {
     await reconcileLeadSafe(service, tenant.id, leadId, null);
   }
 
+  // Smart Booking phase 1: create the canonical lifecycle request as soon as
+  // the intake lead exists. Suggestions/holds are attached later on the
+  // thank-you page and when the lead selects a slot.
+  if (typeof leadId === "string") {
+    try {
+      await ensureBookingRequest(
+        service,
+        trialLeadBookingRequestInput({
+          tenantId: tenant.id,
+          leadId,
+          requestedDurationMin: 60,
+          requiredTransmission: intakeRequiredTransmission(transmission),
+          pickupLocation: pickup_formatted_address ?? pickup_location ?? city,
+          pickupLat: pickup_lat,
+          pickupLng: pickup_lng,
+          pickupPlaceId: pickup_place_id,
+          pickupFormattedAddress: pickup_formatted_address,
+          preferredDays: preferred_days,
+          preferredTimes: preferred_times,
+          desiredStartDate: desired_start_date,
+        }),
+      );
+    } catch (e) {
+      console.error("[smart-booking] create trial booking request failed", e);
+    }
+  }
+
   // Task #107 — bevestig de ontvangst van de aanvraag per e-mail. Best-effort +
   // idempotent: een fout hier mag de lead nooit verliezen, en het degradeert
   // netjes (skipped) wanneer SendGrid nog niet is gekoppeld of er geen e-mail is.
@@ -345,16 +478,17 @@ export async function submitIntake(formData: FormData) {
   // Fase 2 — hand the prospect to the trial-lesson planner with their lead id so
   // the thank-you page can offer up to 3 suggested proefles-slots.
   if (typeof leadId === "string") {
-    redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}`);
+    redirect(thanksPath(leadId));
   }
-  redirect(`/intake/${slug}/thanks`);
+  redirect(thanksPath());
 }
 
 /**
  * Fase 2 — the prospect picks one of the suggested trial-lesson slots from the
  * public thank-you page. Public/unauthenticated, so it runs as service role and
  * re-validates the chosen slot server-side (never trusting client values) before
- * storing it as `provisional` via the book_trial_lesson RPC.
+ * storing it as a ranked preference. Tenants with booking automation level 2+
+ * can continue into the existing provisional hold/trial flow.
  */
 export async function chooseTrialLesson(formData: FormData) {
   const slug = String(formData.get("tenant_slug") ?? "").trim();
@@ -410,7 +544,11 @@ export async function chooseTrialLesson(formData: FormData) {
       ],
     },
     scope: lead.branch_id
-      ? { type: "branch", tenantId: tenant.id, branchId: lead.branch_id as string }
+      ? {
+          type: "branch",
+          tenantId: tenant.id,
+          branchId: lead.branch_id as string,
+        }
       : { type: "tenant", tenantId: tenant.id },
     entityType: "trial_lesson",
     entityId: null,
@@ -433,6 +571,110 @@ export async function chooseTrialLesson(formData: FormData) {
     );
   }
 
+  let bookingHoldId: string | null = null;
+  let preferenceOnly = false;
+  try {
+    const bookingRequestId = await ensureBookingRequest(
+      service,
+      trialLeadBookingRequestInput({
+        tenantId: tenant.id,
+        branchId: (lead.branch_id as string | null) ?? null,
+        leadId,
+        requestedDurationMin: valid.durationMin,
+        requiredTransmission: intakeRequiredTransmission(
+          (lead.preferred_transmission as IntakeTransmission | null) ?? null,
+        ),
+        pickupLocation: valid.pickupLocation,
+        pickupLat: valid.pickupLat,
+        pickupLng: valid.pickupLng,
+        pickupPlaceId: valid.pickupPlaceId,
+        pickupFormattedAddress: valid.pickupFormattedAddress,
+      }),
+    );
+
+    let bookingCandidateId = await findBookingCandidateBySlot(service, {
+      tenantId: tenant.id,
+      bookingRequestId,
+      instructorId: valid.instructorId,
+      startsAt: valid.startsAt,
+      endsAt: valid.endsAt,
+    });
+
+    if (!bookingCandidateId) {
+      await replaceBookingCandidates(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        actor: null,
+        candidates: [
+          validatedTrialSlotToBookingCandidate(valid, {
+            planning_allowed: validation.allowed,
+            blocking_reasons: validation.blockingReasons,
+            warnings: validation.warnings,
+          }),
+        ],
+      });
+
+      bookingCandidateId = await findBookingCandidateBySlot(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        instructorId: valid.instructorId,
+        startsAt: valid.startsAt,
+        endsAt: valid.endsAt,
+      });
+    }
+
+    if (!bookingCandidateId) {
+      throw new Error("Selected booking candidate was not persisted.");
+    }
+
+    await replaceBookingCandidatePreferences(service, {
+      tenantId: tenant.id,
+      bookingRequestId,
+      actor: null,
+      preferences: [
+        {
+          bookingCandidateId,
+          preferenceRank: 1,
+          requesterType: "public_lead",
+          metadata: {
+            selected_from: "public_intake",
+            planning_allowed: validation.allowed,
+            blocking_reasons: validation.blockingReasons,
+            warnings: validation.warnings,
+          },
+        },
+      ],
+    });
+
+    const automationLevel = await loadTrialBookingAutomationLevel(
+      service,
+      tenant.id,
+    );
+    if (automationLevel < 2) {
+      await reconcileLeadSafe(service, tenant.id, leadId, null);
+      preferenceOnly = true;
+    } else {
+      bookingHoldId = await createBookingHold(service, {
+        tenantId: tenant.id,
+        bookingRequestId,
+        bookingCandidateId,
+        actor: null,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      });
+    }
+  } catch (e) {
+    console.error("[smart-booking] trial preference/hold failed", e);
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
+    );
+  }
+
+  if (preferenceOnly) {
+    redirect(
+      `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&preferred=1`,
+    );
+  }
+
   const { data: trialId, error } = await service.rpc("book_trial_lesson", {
     p_lead_id: leadId,
     p_tenant_id: tenant.id,
@@ -452,9 +694,35 @@ export async function chooseTrialLesson(formData: FormData) {
     p_route_needs_confirm: valid.route.needs_manual_confirm,
   });
   if (error) {
+    if (bookingHoldId) {
+      try {
+        await releaseBookingHold(service, {
+          tenantId: tenant.id,
+          bookingHoldId,
+          actor: null,
+          reason: "book_trial_lesson_failed",
+        });
+      } catch (e) {
+        console.error("[smart-booking] release failed trial hold failed", e);
+      }
+    }
     redirect(
       `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&slot=unavailable`,
     );
+  }
+
+  if (typeof trialId === "string" && bookingHoldId) {
+    try {
+      await completeBookingHold(service, {
+        tenantId: tenant.id,
+        bookingHoldId,
+        actor: null,
+        confirmedEntityType: "trial_lesson",
+        confirmedEntityId: trialId,
+      });
+    } catch (e) {
+      console.error("[smart-booking] complete trial hold failed", e);
+    }
   }
 
   // Task #54 — provisional booking advances the funnel to trial_planned and
@@ -472,5 +740,7 @@ export async function chooseTrialLesson(formData: FormData) {
     }
   }
 
-  redirect(`/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&booked=1`);
+  redirect(
+    `/intake/${slug}/thanks?lead=${encodeURIComponent(leadId)}&booked=1`,
+  );
 }

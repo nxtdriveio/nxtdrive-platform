@@ -39,6 +39,11 @@ import {
   Settings2,
   Handshake,
   FileLock2,
+  LifeBuoy,
+  ListChecks,
+  Lightbulb,
+  Rocket,
+  ToggleLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -63,13 +68,23 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overzicht",
     items: [
-      { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+      {
+        href: "/backoffice",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        adminOnly: false,
+      },
     ],
   },
   {
     label: "Planning",
     items: [
-      { href: "/backoffice/agenda", label: "Agenda", icon: CalendarDays, adminOnly: false },
+      {
+        href: "/backoffice/agenda",
+        label: "Agenda",
+        icon: CalendarDays,
+        adminOnly: false,
+      },
       {
         href: "/backoffice/planning-board",
         label: "Planboard",
@@ -82,42 +97,122 @@ const NAV_SECTIONS: NavSection[] = [
         icon: ClipboardList,
         adminOnly: false,
       },
-      { href: "/backoffice/agenda/herbezetten", label: "Herbezetten", icon: CalendarX, adminOnly: false },
+      {
+        href: "/backoffice/agenda/herbezetten",
+        label: "Herbezetten",
+        icon: CalendarX,
+        adminOnly: false,
+      },
     ],
   },
   {
     label: "Relaties",
     items: [
-      { href: "/backoffice/instructeurs", label: "Instructeurs", icon: Users, adminOnly: false },
-      { href: "/backoffice/leerlingen", label: "Leerlingen", icon: GraduationCap, adminOnly: false },
-      { href: "/backoffice/leads", label: "Leads", icon: Inbox, adminOnly: false },
-      { href: "/backoffice/referrals", label: "Referrals", icon: Gift, adminOnly: false },
+      {
+        href: "/backoffice/instructeurs",
+        label: "Instructeurs",
+        icon: Users,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/leerlingen",
+        label: "Leerlingen",
+        icon: GraduationCap,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/leads",
+        label: "Leads",
+        icon: Inbox,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/referrals",
+        label: "Referrals",
+        icon: Gift,
+        adminOnly: false,
+      },
     ],
   },
   {
     label: "Resources",
     items: [
-      { href: "/backoffice/voertuigen", label: "Voertuigen", icon: Car, adminOnly: false },
-      { href: "/backoffice/beschikbaarheid", label: "Beschikbaarheid", icon: CalendarClock, adminOnly: false },
-      { href: "/backoffice/rayons", label: "Rayons", icon: MapPin, adminOnly: false },
-      { href: "/backoffice/packages", label: "Pakketten", icon: Package, adminOnly: false },
+      {
+        href: "/backoffice/voertuigen",
+        label: "Voertuigen",
+        icon: Car,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/beschikbaarheid",
+        label: "Beschikbaarheid",
+        icon: CalendarClock,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/rayons",
+        label: "Rayons",
+        icon: MapPin,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/packages",
+        label: "Pakketten",
+        icon: Package,
+        adminOnly: false,
+      },
     ],
   },
   {
     label: "Leskaart",
     items: [
-      { href: "/backoffice/ris", label: "RIS-leskaart", icon: BookOpenCheck, adminOnly: false },
-      { href: "/backoffice/cbr", label: "CBR-status", icon: BadgeCheck, adminOnly: false },
-      { href: "/backoffice/theorie", label: "Theorie", icon: BookOpen, adminOnly: false },
-      { href: "/backoffice/taken", label: "Taken", icon: ClipboardList, adminOnly: false },
+      {
+        href: "/backoffice/ris",
+        label: "RIS-leskaart",
+        icon: BookOpenCheck,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/cbr",
+        label: "CBR-status",
+        icon: BadgeCheck,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/theorie",
+        label: "Theorie",
+        icon: BookOpen,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/taken",
+        label: "Taken",
+        icon: ClipboardList,
+        adminOnly: false,
+      },
     ],
   },
   {
     label: "Financieel",
     items: [
-      { href: "/backoffice/rapportages", label: "Rapportages", icon: BarChart3, adminOnly: false },
-      { href: "/backoffice/facturen", label: "Facturen", icon: Receipt, adminOnly: false },
-      { href: "/backoffice/boekhouding", label: "Boekhouding", icon: Calculator, adminOnly: false },
+      {
+        href: "/backoffice/rapportages",
+        label: "Rapportages",
+        icon: BarChart3,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/facturen",
+        label: "Facturen",
+        icon: Receipt,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/boekhouding",
+        label: "Boekhouding",
+        icon: Calculator,
+        adminOnly: false,
+      },
     ],
   },
   {
@@ -240,15 +335,91 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: "Beheer",
     items: [
-      { href: "/backoffice/organisatie", label: "Organisatie", icon: Building2, adminOnly: true },
-      { href: "/backoffice/organisatie/rollen", label: "Rollen", icon: KeyRound, adminOnly: true },
-      { href: "/backoffice/organisatie/permissies", label: "Permissies", icon: ShieldCheck, adminOnly: true },
-      { href: "/backoffice/organisatie/teams", label: "Teams", icon: Workflow, adminOnly: true },
-      { href: "/backoffice/medewerkers", label: "Medewerkers", icon: Users, adminOnly: true },
-      { href: "/backoffice/eigenschappen", label: "Eigenschappen", icon: BadgeCheck, adminOnly: true },
-      { href: "/backoffice/instellingen/vestigingen", label: "Vestigingen", icon: MapPin, adminOnly: true, requireMultiBranch: true },
-      { href: "/backoffice/abonnement", label: "Abonnement", icon: Wallet, adminOnly: true },
-      { href: "/backoffice/instellingen", label: "Instellingen", icon: Settings, adminOnly: false },
+      {
+        href: "/backoffice/support",
+        label: "Support",
+        icon: LifeBuoy,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/checklists",
+        label: "Checklists",
+        icon: ListChecks,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/releases",
+        label: "Releases",
+        icon: Rocket,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/roadmap",
+        label: "Roadmap",
+        icon: Lightbulb,
+        adminOnly: false,
+      },
+      {
+        href: "/backoffice/mogelijkheden",
+        label: "Mogelijkheden",
+        icon: ToggleLeft,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/organisatie",
+        label: "Organisatie",
+        icon: Building2,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/organisatie/rollen",
+        label: "Rollen",
+        icon: KeyRound,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/organisatie/permissies",
+        label: "Permissies",
+        icon: ShieldCheck,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/organisatie/teams",
+        label: "Teams",
+        icon: Workflow,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/medewerkers",
+        label: "Medewerkers",
+        icon: Users,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/eigenschappen",
+        label: "Eigenschappen",
+        icon: BadgeCheck,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/instellingen/vestigingen",
+        label: "Vestigingen",
+        icon: MapPin,
+        adminOnly: true,
+        requireMultiBranch: true,
+      },
+      {
+        href: "/backoffice/abonnement",
+        label: "Abonnement",
+        icon: Wallet,
+        adminOnly: true,
+      },
+      {
+        href: "/backoffice/instellingen",
+        label: "Instellingen",
+        icon: Settings,
+        adminOnly: false,
+      },
     ],
   },
 ];
@@ -361,7 +532,7 @@ export function BackofficeSidebar({
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
                         <span className="truncate">{item.label}</span>
                         {item.badge ? (
-                            <span className="ml-auto rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/72">
+                          <span className="ml-auto rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/72">
                             {item.badge}
                           </span>
                         ) : null}
@@ -390,7 +561,8 @@ export function BackofficeSidebar({
             </span>
             {entitlementAlertCount > 0 ? (
               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
-                {entitlementAlertCount} alert{entitlementAlertCount === 1 ? "" : "s"}
+                {entitlementAlertCount} alert
+                {entitlementAlertCount === 1 ? "" : "s"}
               </span>
             ) : null}
           </span>

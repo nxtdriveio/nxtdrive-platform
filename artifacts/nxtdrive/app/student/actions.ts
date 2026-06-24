@@ -1,18 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import {
-  loadCancellationPolicy,
-  DEFAULT_CANCELLATION_POLICY,
-} from "@/lib/lessons/cancellation-policy";
+  completeInstructorNextLessonBooking,
+  respondBookingConfirmation,
+} from "@/lib/smart-booking/service";
+import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
 import {
   getPlanningPreview,
   loadPlanningKernelData,
   type PlanningActorAccess,
 } from "@/lib/planning-core";
 import type { Lesson } from "@/lib/lessons/types";
+
+function bookingErrorRedirect(message: string): never {
+  redirect(`/student/lessons/book?error=${encodeURIComponent(message.slice(0, 220))}`);
+}
 
 /**
  * Lets a student (or guardian) cancel their OWN planned, future lesson. The
@@ -49,30 +55,14 @@ export async function cancelLesson(
   if (loadErr) return { error: loadErr.message };
   const lesson = lessonRaw as Lesson | null;
   if (!lesson) return { error: "Les niet gevonden." };
-  if (lesson.status !== "planned") {
-    return { error: "Deze les kan niet meer geannuleerd worden." };
-  }
-
-  const startsAt = new Date(lesson.starts_at).getTime();
-  // Future-only invariant: a lesson at/after its start time can never be
-  // self-cancelled, independent of the policy (incl. min_notice_hours = 0).
-  // The RPC enforces the same guard as the source of truth.
-  if (startsAt <= Date.now()) {
+  const preview = await loadLessonSelfServicePreview(service, tenant.id, lesson);
+  if (!preview.canCancel) {
     return {
       error:
-        "Deze les is al begonnen of voorbij en kan niet meer geannuleerd worden.",
+        preview.cancelBlockedReason ??
+        "Deze les kan niet meer geannuleerd worden.",
     };
   }
-  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
-  const policy = await loadCancellationPolicy(service, tenant.id);
-  const minNotice =
-    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
-  if (minNotice > 0 && hoursBefore < minNotice) {
-    return {
-      error: `Je kunt deze les niet meer zelf annuleren — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
-    };
-  }
-
   const { data: refunded, error } = await service.rpc("student_cancel_lesson", {
     p_lesson_id: lessonId,
     p_tenant_id: tenant.id,
@@ -80,6 +70,11 @@ export async function cancelLesson(
     p_reason: reason || "Geannuleerd door leerling",
   });
   if (error) return { error: error.message };
+
+  const { notifyLessonCancelled } = await import(
+    "@/lib/notifications/dispatch"
+  );
+  await notifyLessonCancelled(service, tenant.id, lessonId);
 
   revalidatePath("/student", "layout");
   return { refundedCredits: typeof refunded === "number" ? refunded : 0 };
@@ -130,26 +125,12 @@ export async function rescheduleLesson(
   if (loadErr) return { error: loadErr.message };
   const lesson = lessonRaw as Lesson | null;
   if (!lesson) return { error: "Les niet gevonden." };
-  if (lesson.status !== "planned") {
-    return { error: "Deze les kan niet meer verzet worden." };
-  }
-
-  const startsAt = new Date(lesson.starts_at).getTime();
-  // Future-only invariant on the original lesson: a lesson at/after its start
-  // time can never be self-rescheduled. The RPC enforces the same guard.
-  if (startsAt <= Date.now()) {
+  const preview = await loadLessonSelfServicePreview(service, tenant.id, lesson);
+  if (!preview.canReschedule) {
     return {
       error:
-        "Deze les is al begonnen of voorbij en kan niet meer verzet worden.",
-    };
-  }
-  const hoursBefore = Math.max(0, (startsAt - Date.now()) / 3_600_000);
-  const policy = await loadCancellationPolicy(service, tenant.id);
-  const minNotice =
-    policy.min_notice_hours ?? DEFAULT_CANCELLATION_POLICY.min_notice_hours;
-  if (minNotice > 0 && hoursBefore < minNotice) {
-    return {
-      error: `Je kunt deze les niet meer zelf verzetten — dat moet uiterlijk ${minNotice} uur van tevoren. Neem contact op met je rijschool.`,
+        preview.rescheduleBlockedReason ??
+        "Deze les kan niet meer verzet worden.",
     };
   }
 
@@ -220,6 +201,106 @@ export async function rescheduleLesson(
 
   revalidatePath("/student", "layout");
   return { ok: true, newStartsAt: newStarts.toISOString() };
+}
+
+/**
+ * Existing-student self-booking. The UI only sends a selected candidate; the
+ * locked RPC re-checks ownership, tenant policy, package rules, credit,
+ * invoices, instructor scope and overlap before it creates a lesson or a
+ * pending booking request.
+ */
+export async function selfBookLesson(formData: FormData): Promise<void> {
+  const { tenant, user, roles } = await requireActiveTenant([
+    "student",
+    "parent",
+  ]);
+  const { getActiveStudent } = await import("@/lib/students/access");
+  const { student } = await getActiveStudent(user, tenant.id, roles);
+  if (!student) bookingErrorRedirect("Geen toegang tot dit leerlingdossier.");
+
+  const instructorId = String(formData.get("instructor_id") ?? "").trim();
+  const startsAtRaw = String(formData.get("starts_at") ?? "").trim();
+  const durationMin = Number(formData.get("duration_min"));
+  const location = String(formData.get("location") ?? "").trim();
+  const score = Number(formData.get("score"));
+  const reason = String(formData.get("reason") ?? "").trim();
+  let warnings: unknown = [];
+  const warningsRaw = String(formData.get("warnings") ?? "[]");
+  try {
+    warnings = JSON.parse(warningsRaw);
+  } catch {
+    warnings = [];
+  }
+
+  if (!instructorId) bookingErrorRedirect("Kies een instructeur.");
+  const startsAt = new Date(startsAtRaw);
+  if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
+    bookingErrorRedirect("Kies een geldig moment in de toekomst.");
+  }
+  if (!Number.isInteger(durationMin) || durationMin < 15 || durationMin > 240) {
+    bookingErrorRedirect("De gekozen lesduur is ongeldig.");
+  }
+
+  const service = createServiceRoleClient();
+  const { loadStudentSelfBookingState } = await import(
+    "@/lib/student-booking/service"
+  );
+  const state = await loadStudentSelfBookingState(service, {
+    tenantId: tenant.id,
+    tenantTimeZone: tenant.timezone,
+    student,
+    actorUserId: user.id,
+    roles,
+    requestedDurationMin: durationMin,
+  });
+  const selected = state.suggestions.find(
+    (suggestion) =>
+      suggestion.instructorId === instructorId &&
+      suggestion.startsAt === startsAt.toISOString() &&
+      suggestion.durationMin === durationMin,
+  );
+  if (!selected) {
+    bookingErrorRedirect(
+      state.blockingReasons[0] ??
+        "Dit lesmoment is niet meer beschikbaar. Kies een ander moment.",
+    );
+  }
+
+  const { data, error } = await service.rpc("student_self_book_lesson", {
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_student_id: student.id,
+    p_instructor_id: instructorId,
+    p_starts_at: startsAt.toISOString(),
+    p_duration_min: durationMin,
+    p_location: location || null,
+    p_location_lat: null,
+    p_location_lng: null,
+    p_location_place_id: null,
+    p_score: Number.isFinite(score) ? Math.round(score) : selected.score,
+    p_reason: reason || selected.reasons.join(", "),
+    p_warnings: Array.isArray(warnings) ? warnings : selected.warnings,
+  });
+  if (error) {
+    if (/insufficient tegoed/i.test(error.message)) {
+      bookingErrorRedirect(
+        "Je hebt onvoldoende tegoed om deze les direct te boeken.",
+      );
+    }
+    if (/overlaps/i.test(error.message)) {
+      bookingErrorRedirect(
+        "Dit moment is net bezet geraakt. Kies een ander moment.",
+      );
+    }
+    bookingErrorRedirect(error.message);
+  }
+
+  const result = data as { status?: string; lesson_id?: string } | null;
+  revalidatePath("/student", "layout");
+  if (result?.status === "confirmed" && result.lesson_id) {
+    redirect(`/student/lessons/${result.lesson_id}?self_booking=confirmed`);
+  }
+  redirect("/student/lessons/book?status=requested");
 }
 
 /**
@@ -330,6 +411,89 @@ export async function respondRefillInvitation(
       "@/lib/notifications/dispatch"
     );
     await notifyLessonRefillConfirmed(service, tenant.id, invitationId);
+  }
+
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+/**
+ * Phase 7 slot recovery: the student/guardian only shows interest in a freed
+ * slot. Staff/instructor acceptance and optional final confirmation decide
+ * whether a lesson is created, so this never books directly from the PWA.
+ */
+export async function expressSlotRecoveryInterestAction(
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { tenant, user } = await requireActiveTenant(["student", "parent"]);
+  const bookingCandidateId = String(
+    formData.get("booking_candidate_id") ?? "",
+  ).trim();
+  if (!bookingCandidateId) return { error: "booking_candidate_id ontbreekt" };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.rpc("express_slot_recovery_interest", {
+    p_booking_candidate_id: bookingCandidateId,
+    p_tenant_id: tenant.id,
+    p_actor: user.id,
+    p_metadata: { surface: "student_pwa" },
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/student", "layout");
+  return {};
+}
+
+export async function respondInstructorNextLessonProposalAction(
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { tenant, user } = await requireActiveTenant(["student", "parent"]);
+  const bookingConfirmationId = String(
+    formData.get("booking_confirmation_id") ?? "",
+  ).trim();
+  const bookingCandidateId = String(
+    formData.get("booking_candidate_id") ?? "",
+  ).trim();
+  const response = String(formData.get("response") ?? "").trim();
+  if (!bookingConfirmationId) {
+    return { error: "booking_confirmation_id ontbreekt" };
+  }
+  if (!bookingCandidateId) return { error: "booking_candidate_id ontbreekt" };
+  if (!["accept", "decline"].includes(response)) {
+    return { error: "Ongeldige keuze" };
+  }
+
+  const service = createServiceRoleClient();
+  const status = await respondBookingConfirmation(service, {
+    tenantId: tenant.id,
+    bookingConfirmationId,
+    actor: user.id,
+    response: response === "accept" ? "accepted" : "declined",
+    metadata: { surface: "student_pwa", source: "instructor_next_lesson" },
+  }).catch((error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : "Voorstel beantwoorden mislukt.";
+    return `error:${message}`;
+  });
+  if (status.startsWith("error:")) {
+    return { error: status.slice("error:".length) };
+  }
+
+  if (response === "accept" && status === "candidates_ready") {
+    try {
+      await completeInstructorNextLessonBooking(service, {
+        tenantId: tenant.id,
+        bookingCandidateId,
+        actor: user.id,
+      });
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Les bevestigen is mislukt.",
+      };
+    }
   }
 
   revalidatePath("/student", "layout");

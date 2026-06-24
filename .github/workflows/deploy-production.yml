@@ -66,6 +66,7 @@ jobs:
 
       - name: Apply database migrations
         env:
+          PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: pnpm --filter @workspace/scripts run db:migrate -- --env=production
 

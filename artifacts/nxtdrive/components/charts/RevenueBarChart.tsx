@@ -1,26 +1,36 @@
 "use client";
 
 import {
-  ComposedChart,
   Bar,
+  CartesianGrid,
+  ComposedChart,
   ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   type TooltipProps,
 } from "recharts";
 
 type Point = { label: string; cents: number };
 
-function fmtEuros(cents: number): string {
+function formatEuros(value: number): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(cents / 100);
+  }).format(value);
+}
+
+function fmtEuros(cents: number): string {
+  return formatEuros(cents / 100);
+}
+
+function fmtAxisEuros(value: number): string {
+  const compactValue = value >= 1000 ? value / 1000 : value;
+  const formatted = formatEuros(compactValue);
+  return value >= 1000 ? `${formatted}k` : formatted;
 }
 
 function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
@@ -57,9 +67,7 @@ export function RevenueBarChart({
           tickLine={false}
         />
         <YAxis
-          tickFormatter={(value) =>
-            value >= 1000 ? `â‚¬${(value / 1000).toFixed(0)}k` : `â‚¬${value}`
-          }
+          tickFormatter={(value) => fmtAxisEuros(Number(value))}
           tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}

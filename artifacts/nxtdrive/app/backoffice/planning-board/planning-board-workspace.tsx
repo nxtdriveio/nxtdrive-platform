@@ -46,6 +46,7 @@ import type {
 } from "@/lib/planning-board/types";
 import type { PlanningQueueListItem } from "@/lib/planning-queue";
 import type { PlanningValidationResult } from "@/lib/planning-core";
+import { formatPlanningReason } from "@/lib/planning-core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,9 +64,9 @@ const START_HOUR = 8;
 const END_HOUR = 18;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 30;
-const SLOT_WIDTH = 42;
-const RESOURCE_ROW_HEIGHT = 48;
-const RESOURCE_COLUMN_WIDTH = 152;
+const SLOT_WIDTH = 64;
+const RESOURCE_ROW_HEIGHT = 74;
+const RESOURCE_COLUMN_WIDTH = 206;
 const PREVIEW_DEBOUNCE_MS = 180;
 const EVENT_LEGEND = [
   { key: "lesson", label: "Rijles", className: "bg-planning-lesson border-planning-lesson" },
@@ -187,11 +188,11 @@ function eventWidth(event: PlanningBoardEvent): number {
 }
 
 function eventLaneStyle(lane: number, laneCount: number) {
-  const availableHeight = RESOURCE_ROW_HEIGHT - 12;
+  const availableHeight = RESOURCE_ROW_HEIGHT - 14;
   const laneHeight = availableHeight / Math.max(1, laneCount);
   return {
-    top: 6 + lane * laneHeight,
-    height: Math.max(22, laneHeight - 4),
+    top: 7 + lane * laneHeight,
+    height: Math.max(28, laneHeight - 5),
   };
 }
 
@@ -274,6 +275,18 @@ function perspectiveDescription(perspective: PlanningBoardPerspective): string {
   return "planning per instructeur";
 }
 
+function instructorRowSubtitle(
+  day: string,
+  data: PlanningBoardData,
+  perspective: PlanningBoardPerspective,
+): string | undefined {
+  const dayLabel =
+    data.filters.view === "week" ? dateShort(day, data.timeZone) : undefined;
+  if (perspective === "exam") return dayLabel ? `Examen / TTT - ${dayLabel}` : "Examen / TTT";
+  if (perspective === "trial_lesson") return dayLabel ? `Proeflessen - ${dayLabel}` : "Proeflessen";
+  return dayLabel;
+}
+
 function eventResourceId(
   event: PlanningBoardEvent,
   perspective: PlanningBoardPerspective,
@@ -298,12 +311,7 @@ function resourceRowsForDay(
       day,
       key: resourceRowKey(day, perspective, instructor.id),
       label: instructor.name,
-      subtitle:
-        perspective === "exam"
-          ? "Examen / TTT"
-          : perspective === "trial_lesson"
-            ? "Proeflessen"
-            : undefined,
+      subtitle: instructorRowSubtitle(day, data, perspective),
       resourceId: instructor.id,
       href: `/backoffice/planning-board/instructors/${instructor.id}?date=${day}&view=${data.filters.view}`,
       availabilityInstructorId: instructor.id,
@@ -369,8 +377,41 @@ function resourceRowsForDay(
 function reasonText(validation: PlanningValidationResult | null): string[] {
   if (!validation) return [];
   return [...validation.blockingReasons, ...validation.warnings].map(
-    (reason) => humanizePlanningMessage(reason.message),
+    (reason) => humanizePlanningMessage(formatPlanningReason(reason)),
   );
+}
+
+function dispatchAdviceText(validation: PlanningValidationResult | null): string | null {
+  if (!validation) return null;
+  const reasons = [...validation.blockingReasons, ...validation.warnings];
+  const codes = new Set(reasons.map((reason) => reason.code));
+  if (
+    codes.has("INSUFFICIENT_TRAVEL_TIME_BEFORE") ||
+    codes.has("INSUFFICIENT_TRAVEL_TIME_AFTER") ||
+    codes.has("UNKNOWN_SERVICE_AREA_TRAVEL_TIME") ||
+    codes.has("OUTSIDE_INSTRUCTOR_SERVICE_AREA")
+  ) {
+    return "Dispatchadvies: kies een leerling/lead dichter bij de vorige of volgende afspraak, of filter op hetzelfde rayon.";
+  }
+  if (
+    codes.has("VEHICLE_HAS_OVERLAP") ||
+    codes.has("VEHICLE_UNAVAILABLE") ||
+    codes.has("VEHICLE_MAINTENANCE_BLOCK") ||
+    codes.has("MISSING_REQUIRED_VEHICLE_CAPABILITY")
+  ) {
+    return "Dispatchadvies: kies een beschikbaar voertuig met passende transmissie en eigenschappen.";
+  }
+  if (
+    codes.has("INSTRUCTOR_NOT_AVAILABLE") ||
+    codes.has("INSTRUCTOR_HAS_OVERLAP") ||
+    codes.has("MISSING_REQUIRED_CAPABILITY")
+  ) {
+    return "Dispatchadvies: kies een instructeur die beschikbaar is en de vereiste bevoegdheden/capabilities heeft.";
+  }
+  if (validation.allowed && validation.warnings.length === 0) {
+    return "Dispatchadvies: dit slot past bij beschikbaarheid, conflictregels en planningcontext.";
+  }
+  return null;
 }
 
 function humanizePlanningMessage(message: string): string {
@@ -458,6 +499,28 @@ function eventTone(event: PlanningBoardEvent): string {
     return "border-planning-admin bg-planning-admin text-foreground";
   }
   return "border-planning-block bg-planning-block text-foreground";
+}
+
+function eventAccentClass(event: PlanningBoardEvent): string {
+  const tone = planningBoardEventTone(event);
+  if (tone === "lesson") return "bg-blue-500";
+  if (tone === "trial_lesson") return "bg-emerald-500";
+  if (tone === "exam") return "bg-rose-500";
+  if (tone === "interim_test") return "bg-violet-500";
+  if (tone === "theory") return "bg-cyan-500";
+  if (tone === "admin") return "bg-amber-500";
+  return "bg-slate-500";
+}
+
+function eventTimeRange(event: PlanningBoardEvent, timeZone: string): string {
+  return `${timeShort(event.startsAt, timeZone)} - ${timeShort(event.endsAt, timeZone)}`;
+}
+
+function queuePriorityLabel(priority: PlanningQueueListItem["priority"]): string {
+  if (priority === "urgent") return "Hoog";
+  if (priority === "high") return "Hoog";
+  if (priority === "low") return "Laag";
+  return "Normaal";
 }
 
 function slotAvailability(
@@ -578,7 +641,7 @@ function QueueCard({
     <div className="min-w-0 flex-1">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-5 text-foreground">
+          <p className="truncate text-[13px] font-semibold leading-5 text-foreground">
             {title}
           </p>
           <p className="truncate text-[11px] leading-4 text-muted-foreground">
@@ -586,12 +649,21 @@ function QueueCard({
             {item.required_transmission ? ` - ${item.required_transmission}` : ""}
             {item.service_area_name ? ` - ${item.service_area_name}` : ""}
           </p>
+          {item.preferred_instructor_name || item.branch_name ? (
+            <p className="truncate text-[11px] leading-4 text-muted-foreground">
+              {item.preferred_instructor_name ?? item.branch_name}
+            </p>
+          ) : null}
         </div>
         <Badge
-          variant={item.priority === "urgent" ? "danger" : "outline"}
-          className="shrink-0 text-[10px]"
+          variant={
+            item.priority === "urgent" || item.priority === "high"
+              ? "danger"
+              : "outline"
+          }
+          className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
         >
-          {item.priority}
+          {queuePriorityLabel(item.priority)}
         </Badge>
       </div>
       {href ? (
@@ -607,8 +679,8 @@ function QueueCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-xl border border-border bg-[color-mix(in_oklab,var(--surface-1)_84%,transparent)] text-sm shadow-[var(--admin-card-shadow)] backdrop-blur-sm transition-opacity",
-        compact ? "w-60 p-2 opacity-80" : "p-2.5",
+        "rounded-xl border border-border bg-[var(--surface-1)] text-sm shadow-sm transition-opacity hover:border-primary/30 hover:bg-[var(--admin-row-hover)]",
+        compact ? "w-64 p-2 opacity-80" : "p-2.5",
         isDragging && "opacity-25",
       )}
     >
@@ -686,10 +758,10 @@ function EventCard({
       ref={setNodeRef}
       style={{ ...style, ...transformStyle }}
       className={cn(
-        "absolute overflow-hidden rounded-md border px-1.5 py-0.5 text-[11px] shadow-sm",
+        "absolute overflow-hidden rounded-lg border bg-clip-padding text-[11px] shadow-sm ring-1 ring-white/45 transition-[border-color,transform,opacity]",
         layout === "calendar" && "left-1 right-1",
         eventTone(event),
-        detailed && "px-2.5 py-1.5 text-xs",
+        detailed && "text-xs",
         onOpen && "cursor-pointer",
         draggable && "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-50",
@@ -705,27 +777,38 @@ function EventCard({
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
     >
-      <p className="truncate font-medium text-foreground">{event.title}</p>
-      <p className="truncate text-muted-foreground">
-        {planningBoardEventLabel(event)}
-        {event.vehicleLabel ? ` - ${event.vehicleLabel}` : ""}
-      </p>
-      {event.serviceAreaName ? (
-        <p className="truncate text-muted-foreground">
-          {event.serviceAreaName}
+      <span
+        className={cn("absolute inset-y-0 left-0 w-1", eventAccentClass(event))}
+        aria-hidden
+      />
+      <div className="min-w-0 px-2 py-1.5 pl-3">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="truncate text-[10px] font-semibold leading-4 text-muted-foreground">
+            {eventTimeRange(event, timeZone)}
+          </p>
+          <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/75">
+            {planningBoardEventLabel(event)}
+          </span>
+        </div>
+        <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
+          {event.title}
         </p>
-      ) : null}
-      {detailed ? (
-        <p className="truncate text-muted-foreground">
-          {event.durationMinutes} min lestijd
-          {event.bufferMinutes ? ` + ${event.bufferMinutes} buffer` : ""}
-          {event.status ? ` - ${event.status}` : ""}
+        <p className="truncate text-[10px] leading-4 text-muted-foreground">
+          {[event.vehicleLabel, event.serviceAreaName].filter(Boolean).join(" - ") ||
+            event.subtitle}
         </p>
-      ) : null}
+        {detailed ? (
+          <p className="truncate text-[10px] leading-4 text-muted-foreground">
+            {event.durationMinutes} min
+            {event.bufferMinutes ? ` + ${event.bufferMinutes} buffer` : ""}
+            {event.status ? ` - ${event.status}` : ""}
+          </p>
+        ) : null}
+      </div>
       {(event.warnings?.length ?? 0) > 0 ? (
-        <p className="mt-0.5 truncate text-[11px] font-medium text-warning">
-          {event.warnings?.[0]?.message}
-        </p>
+        <span className="absolute bottom-1 right-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-semibold text-white">
+          !
+        </span>
       ) : null}
     </div>
   );
@@ -843,6 +926,7 @@ export function PlanningBoardWorkspace({
     !data.filters.instructorId;
   const previewReasons = reasonText(preview?.validation ?? null);
   const previewMessage = preview?.message ?? null;
+  const dispatchAdvice = dispatchAdviceText(preview?.validation ?? null);
   const previewIsBlocked = Boolean(preview && !preview.validation?.allowed);
   const previewStatus = status && status !== previewMessage ? status : null;
   const visibleDays = useMemo(() => {
@@ -898,6 +982,25 @@ export function PlanningBoardWorkspace({
     }
     return map;
   }, [data.availability]);
+  const boardStats = useMemo(() => {
+    const daySet = new Set(visibleDays);
+    const visibleEvents = events.filter((event) =>
+      daySet.has(zonedYmd(new Date(event.startsAt), data.timeZone)),
+    );
+    return {
+      eventCount: visibleEvents.length,
+      lessonCount: visibleEvents.filter((event) => event.entityType === "lesson")
+        .length,
+      trialCount: visibleEvents.filter(
+        (event) => event.entityType === "trial_lesson",
+      ).length,
+      warningCount: visibleEvents.reduce(
+        (count, event) => count + (event.warnings?.length ?? 0),
+        0,
+      ),
+      queueCount: queueItems.length,
+    };
+  }, [events, queueItems.length, visibleDays, data.timeZone]);
 
   function clearPreviewTimer() {
     if (!previewTimer.current) return;
@@ -1112,36 +1215,71 @@ export function PlanningBoardWorkspace({
         setActiveQueue(null);
       }}
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs font-medium text-foreground">
-                {dateShort(data.filters.date, data.timeZone)}
-              </span>
-              <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
-                {data.filters.view === "week" ? "Week" : "Dag"} - {perspectiveLabel(perspective)}
-              </span>
-              {EVENT_LEGEND.map((item) => (
-                <span
-                  key={item.key}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_23rem]">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-sm">
+          <div className="border-b border-border bg-[var(--surface-1)] px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    {data.filters.view === "week" ? "Week" : "Dag"} -{" "}
+                    {perspectiveLabel(perspective)}
+                  </span>
+                  <span className="rounded-full border border-border bg-[var(--surface-2)] px-3 py-1 text-xs font-medium text-muted-foreground">
+                    {dateShort(data.filters.date, data.timeZone)}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {[
+                    ["Afspraken", boardStats.eventCount],
+                    ["Rijlessen", boardStats.lessonCount],
+                    ["Proeflessen", boardStats.trialCount],
+                    ["Queue", boardStats.queueCount],
+                    ["Signalen", boardStats.warningCount],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {label}
+                      </p>
+                      <p className="mt-0.5 text-lg font-semibold leading-none text-foreground">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <label className="flex w-full items-center gap-2 text-xs text-muted-foreground lg:w-auto">
+                <Car className="h-4 w-4 shrink-0" aria-hidden />
+                <Select
+                  value={selectedVehicleId}
+                  onChange={(event) => setSelectedVehicleId(event.target.value)}
+                  className="h-9 w-full min-w-52 text-xs lg:w-56"
                 >
-                  <span
-                    className={cn("h-2 w-2 rounded-sm", item.className)}
-                  />
+                  <option value="">Automatisch/geen voertuig</option>
+                  {data.vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            </div>
+            <div className="mt-3 flex gap-3 overflow-x-auto pb-1 text-[11px] text-muted-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
+              {EVENT_LEGEND.map((item) => (
+                <span key={item.key} className="flex shrink-0 items-center gap-1.5">
+                  <span className={cn("h-2.5 w-2.5 rounded-sm border", item.className)} />
                   {item.label}
                 </span>
               ))}
-              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
               {AVAILABILITY_LEGEND.map((item) => (
-                <span
-                  key={item.key}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
-                >
+                <span key={item.key} className="flex shrink-0 items-center gap-1.5">
                   <span
                     className={cn(
-                      "h-2.5 w-4 rounded-sm border border-border/60",
+                      "h-2.5 w-5 rounded-sm border border-border/60",
                       item.className,
                     )}
                   />
@@ -1149,36 +1287,30 @@ export function PlanningBoardWorkspace({
                 </span>
               ))}
             </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Car className="h-4 w-4" aria-hidden />
-              <Select
-                value={selectedVehicleId}
-                onChange={(event) => setSelectedVehicleId(event.target.value)}
-                className="h-8 w-44 text-xs"
-              >
-                <option value="">Automatisch/geen</option>
-                {data.vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
           </div>
-          <div className="max-h-[72vh] overflow-auto">
+
+          <div className="max-h-[72vh] overflow-auto [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
             <div
               className="min-w-max"
               style={{ width: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH }}
             >
-              <div className="sticky top-0 z-20 grid grid-cols-[9.5rem_minmax(0,1fr)] border-b border-border bg-[var(--surface-2)]">
-                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <div
+                className="sticky top-0 z-30 grid border-b border-border bg-[var(--surface-2)]"
+                style={{
+                  gridTemplateColumns: `${RESOURCE_COLUMN_WIDTH}px minmax(0, 1fr)`,
+                }}
+              >
+                <div className="sticky left-0 z-40 border-r border-[var(--admin-grid-line)] bg-[var(--surface-2)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {perspectiveLabel(perspective)}
                 </div>
-                <div className="flex">
+                <div className="flex bg-[var(--surface-2)]">
                   {Array.from({ length: slotCount }, (_, slot) => (
                     <div
                       key={slot}
-                      className="shrink-0 border-l border-[var(--admin-grid-line)] px-1 py-1.5 text-[11px] font-medium text-muted-foreground"
+                      className={cn(
+                        "shrink-0 border-l border-[var(--admin-grid-line)] px-2 py-2 text-[11px] font-semibold text-muted-foreground",
+                        slot % 2 === 0 && "text-foreground",
+                      )}
                       style={{ width: SLOT_WIDTH }}
                     >
                       {slot % 2 === 0 ? timeLabel(slot) : ""}
@@ -1196,29 +1328,30 @@ export function PlanningBoardWorkspace({
                 return (
                   <div
                     key={row.key}
-                    className="grid grid-cols-[9.5rem_minmax(0,1fr)] border-b border-[var(--admin-grid-line)]"
-                    style={{ height: RESOURCE_ROW_HEIGHT }}
+                    className="grid border-b border-[var(--admin-grid-line)]"
+                    style={{
+                      height: RESOURCE_ROW_HEIGHT,
+                      gridTemplateColumns: `${RESOURCE_COLUMN_WIDTH}px minmax(0, 1fr)`,
+                    }}
                   >
-                    <div className="flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-3">
+                    <div className="sticky left-0 z-20 flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-4">
                       {row.href ? (
                         <Link
                           href={row.href}
-                          className="truncate text-xs font-semibold text-foreground hover:text-primary"
+                          className="truncate text-[13px] font-semibold text-foreground hover:text-primary"
                         >
                           {row.label}
                         </Link>
                       ) : (
-                        <span className="truncate text-xs font-semibold text-foreground">
+                        <span className="truncate text-[13px] font-semibold text-foreground">
                           {row.label}
                         </span>
                       )}
-                      {detailMode || row.subtitle ? (
-                        <span className="text-xs text-muted-foreground">
-                          {row.subtitle ?? dateShort(row.day, data.timeZone)}
-                        </span>
-                      ) : null}
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {row.subtitle ?? perspectiveDescription(perspective)}
+                      </span>
                     </div>
-                    <div className="relative flex">
+                    <div className="relative flex bg-[linear-gradient(to_right,var(--admin-grid-line)_1px,transparent_1px)] bg-[length:64px_100%]">
                       {row.availabilityInstructorId ? (
                         <AvailabilityBands
                           blocks={blocks}
@@ -1235,9 +1368,9 @@ export function PlanningBoardWorkspace({
                           return (
                             <div
                               key={slot}
-                              className="relative shrink-0 border-r border-border/60"
+                              className="relative shrink-0 border-r border-border/45"
                               style={{ width: SLOT_WIDTH, height: "100%" }}
-                              title={`${perspectiveDescription(perspective)} - readonly`}
+                              title={`${perspectiveDescription(perspective)} - alleen lezen`}
                             />
                           );
                         }
@@ -1263,9 +1396,7 @@ export function PlanningBoardWorkspace({
                                 : null
                             }
                             layout="timeline"
-                            preview={
-                              preview?.target === targetId ? preview : null
-                            }
+                            preview={preview?.target === targetId ? preview : null}
                           />
                         );
                       })}
@@ -1289,69 +1420,74 @@ export function PlanningBoardWorkspace({
           </div>
         </section>
 
-        <aside className="space-y-3">
-          <Card className="shadow-[var(--admin-card-shadow)]">
+        <aside className="min-w-0 space-y-3 2xl:sticky 2xl:top-20 2xl:max-h-[calc(100vh-7rem)] 2xl:overflow-y-auto 2xl:pr-1 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
+          <Card className="border-border shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock3 className="h-4 w-4" aria-hidden />
-                Planning queue
+              <CardTitle className="flex items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4" aria-hidden />
+                  Planning queue
+                </span>
+                <Badge variant="outline" className="rounded-full">
+                  {queueItems.length}
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="max-h-80 space-y-2 overflow-y-auto pr-1 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
               {queueItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Geen open items.
+                <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-sm text-muted-foreground">
+                  Geen open items in de planning queue.
                 </p>
               ) : (
                 queueItems.map((item) => {
                   const linkedEvent = queueEventLinks.get(item.id);
                   return (
-                  <div key={item.id} className="space-y-2">
-                    <QueueCard
-                      item={item}
-                      href={linkedEvent?.href}
-                      relatedLabel={linkedEvent?.label}
-                    />
-                    <form
-                      action={planFromFallback}
-                      className="grid gap-2 rounded-md border border-border p-2 md:hidden"
-                    >
-                      <input
-                        type="hidden"
-                        name="queue_item_id"
-                        value={item.id}
+                    <div key={item.id} className="space-y-2">
+                      <QueueCard
+                        item={item}
+                        href={linkedEvent?.href}
+                        relatedLabel={linkedEvent?.label}
                       />
-                      <Label className="text-xs">Click-to-plan</Label>
-                      <Select name="instructor_id" required>
-                        <option value="">Instructeur</option>
-                        {data.instructors.map((instructor) => (
-                          <option key={instructor.id} value={instructor.id}>
-                            {instructor.name}
-                          </option>
-                        ))}
-                      </Select>
-                      <Input name="starts_at" type="datetime-local" required />
-                      <Select name="vehicle_id">
-                        <option value="">Geen voertuig</option>
-                        {data.vehicles.map((vehicle) => (
-                          <option key={vehicle.id} value={vehicle.id}>
-                            {vehicle.label}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button type="submit" size="sm" disabled={pending}>
-                        Plannen
-                      </Button>
-                    </form>
-                  </div>
-                );
+                      <form
+                        action={planFromFallback}
+                        className="grid gap-2 rounded-xl border border-border bg-[var(--surface-2)] p-2 md:hidden"
+                      >
+                        <input
+                          type="hidden"
+                          name="queue_item_id"
+                          value={item.id}
+                        />
+                        <Label className="text-xs">Click-to-plan</Label>
+                        <Select name="instructor_id" required>
+                          <option value="">Instructeur</option>
+                          {data.instructors.map((instructor) => (
+                            <option key={instructor.id} value={instructor.id}>
+                              {instructor.name}
+                            </option>
+                          ))}
+                        </Select>
+                        <Input name="starts_at" type="datetime-local" required />
+                        <Select name="vehicle_id">
+                          <option value="">Geen voertuig</option>
+                          {data.vehicles.map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                              {vehicle.label}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button type="submit" size="sm" disabled={pending}>
+                          Plannen
+                        </Button>
+                      </form>
+                    </div>
+                  );
                 })
               )}
             </CardContent>
           </Card>
 
           {filterForm ? (
-            <Card className="shadow-[var(--admin-card-shadow)]">
+            <Card className="border-border shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Filters</CardTitle>
               </CardHeader>
@@ -1359,23 +1495,27 @@ export function PlanningBoardWorkspace({
             </Card>
           ) : null}
 
-          <Card className="shadow-[var(--admin-card-shadow)]">
+          <Card className="border-border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
-                {previewIsBlocked ? "Preview - niet planbaar" : "Preview"}
+                {previewIsBlocked ? "Planningcontrole" : "Planning assistent"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {pending ? (
-                <p className="text-muted-foreground">Controleren...</p>
+                <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
+                  Slot controleren...
+                </p>
               ) : null}
               {previewStatus ? (
-                <p className="text-muted-foreground">{previewStatus}</p>
+                <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
+                  {previewStatus}
+                </p>
               ) : null}
               {preview?.validation?.allowed ? (
-                <div className="flex items-center gap-2 text-success">
+                <div className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-3 py-2 text-success">
                   <CheckCircle2 className="h-4 w-4" aria-hidden />
-                  Toegestaan
+                  Toegestaan volgens planningregels.
                 </div>
               ) : preview ? (
                 <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger">
@@ -1386,15 +1526,15 @@ export function PlanningBoardWorkspace({
                   <p className="mt-1 text-xs leading-relaxed">
                     {previewMessage ?? "Deze drop is geblokkeerd."}
                   </p>
-                  <p className="mt-2 text-xs leading-relaxed">
+                  <p className="mt-2 text-xs leading-relaxed text-danger/80">
                     Dit is alleen een preview. Er is niets opgeslagen in de agenda.
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-foreground">
+                <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-muted-foreground">
                   {readonlyResourcePerspective
                     ? "Kies een instructeur om vanuit dit perspectief te plannen."
-                    : "Sleep een kaart naar een slot."}
+                    : "Sleep een queue-item of afspraak naar een slot voor validatie."}
                 </p>
               )}
               {previewReasons
@@ -1402,11 +1542,16 @@ export function PlanningBoardWorkspace({
                 .map((reason) => (
                   <p
                     key={reason}
-                    className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
+                    className="rounded-xl bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground"
                   >
                     {reason}
                   </p>
                 ))}
+              {dispatchAdvice ? (
+                <div className="rounded-xl border border-primary/20 bg-primary-soft px-3 py-2 text-xs leading-5 text-primary">
+                  {dispatchAdvice}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </aside>

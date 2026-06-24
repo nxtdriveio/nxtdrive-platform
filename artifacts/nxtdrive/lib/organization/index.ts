@@ -1,4 +1,23 @@
 export {
+  ACCESS_SURFACES,
+  DELEGATION_WIZARD_SUGGESTIONS,
+  defaultPermissionsForRole,
+  permissionLabel,
+  PERMISSION_ACTION_LABELS,
+  PERMISSION_RESOURCE_LABELS,
+  ROLE_AUDIT_EXPLANATIONS,
+  ROLE_TEMPLATES,
+  roleAuditExplanation,
+  roleDisplayLabel,
+  surfaceVisibleWithPermissions,
+} from "./access-insights";
+export type {
+  AccessSurface,
+  DelegationWizardSuggestion,
+  RoleTemplate,
+} from "./access-insights";
+
+export {
   organizationForUser,
   organizationsForUser,
   requireActiveOrganization,

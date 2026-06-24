@@ -70,12 +70,12 @@ export function StudentTrendCard({
 
         <div className="flex items-end justify-between gap-1.5">
           {points.map((p) => {
-            const h = Math.max(6, (p.averageScore / 10) * 100);
+            const h = Math.max(6, (Math.min(8, p.averageScore) / 8) * 100);
             return (
               <div
                 key={p.lessonId}
                 role="img"
-                aria-label={`${dayFmt.format(new Date(p.startsAt))}: gemiddeld ${p.averageScore.toFixed(1)} van 10`}
+                aria-label={`${dayFmt.format(new Date(p.startsAt))}: gemiddeld ${p.averageScore.toFixed(1)} van 8`}
                 className="flex min-w-0 flex-1 flex-col items-center gap-1"
                 title={`${dayFmt.format(new Date(p.startsAt))}: gemiddeld ${p.averageScore.toFixed(1)}`}
               >

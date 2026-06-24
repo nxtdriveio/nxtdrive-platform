@@ -27,4 +27,9 @@ export {
   scoreValidationResult,
   validateScheduleCandidate,
 } from "./validation";
+export {
+  explainPlanningReason,
+  formatPlanningReason,
+  type PlanningReasonExplanation,
+} from "./reasons";
 export { loadPlanningKernelData } from "./data";

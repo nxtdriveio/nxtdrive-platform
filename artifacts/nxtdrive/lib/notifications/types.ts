@@ -6,6 +6,8 @@ export type NotificationType =
   | "trial_lesson_confirmed"
   | "lesson_refill_invitation"
   | "lesson_refill_confirmed"
+  | "slot_recovery_invitation"
+  | "instructor_next_lesson_proposal"
   | "payment_reminder"
   | "exam_invitation"
   | "exam_confirmed"
@@ -73,6 +75,8 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
  */
 export const NOTIFICATION_TYPE_CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
   lesson_reminder: "les_herinnering",
+  slot_recovery_invitation: "les_herinnering",
+  instructor_next_lesson_proposal: "les_herinnering",
   trial_lesson_received: "proefles",
   trial_lesson_confirmed: "proefles",
   credit_low: "tegoed_waarschuwing",
