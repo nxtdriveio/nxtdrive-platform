@@ -25,6 +25,7 @@ import type {
   StudentRisProgressItem,
   StudentRisPublishedCard,
 } from "@/lib/ris/data";
+import { risStepNumber } from "@workspace/leskaart";
 
 type RisStudentTab = "roadmap" | "modules" | "feedback";
 
@@ -226,7 +227,7 @@ export function StudentRisProgressView({
                     label={
                       module.averageStep == null
                         ? "Nog geen gepubliceerde score"
-                        : `Gemiddelde score ${module.averageStep.toFixed(1)} van 10`
+                        : `Gemiddelde score ${module.averageStep.toFixed(1)} van 8`
                     }
                     value={module.progressPct}
                     rightLabel={`${module.progressPct}%`}
@@ -432,17 +433,16 @@ function scriptTitle(ris: StudentRisProgress, item: StudentRisProgressItem): str
 }
 
 function studentStepLabel(item: StudentRisProgressItem): string {
-  if (!item.currentFinalStep) return item.studentLabel;
-  return `Score ${item.currentFinalStep}/10 - ${item.studentLabel.toLowerCase()}`;
+  if (risStepNumber(item.currentFinalStep) === null) return item.studentLabel;
+  return `Score ${item.currentFinalStep}/8 - ${item.studentLabel.toLowerCase()}`;
 }
 
 function stepBadgeLabel(step: StudentRisProgressItem["currentFinalStep"]): string {
-  return step ? `${step}/10` : "-";
+  return risStepNumber(step) === null ? "N" : `${step}/8`;
 }
 
 function stepRank(step: StudentRisProgressItem["currentFinalStep"]): number {
-  if (!step) return 0;
-  return Number(step);
+  return risStepNumber(step) ?? 0;
 }
 
 function journeyLabel(progressPct: number): string {

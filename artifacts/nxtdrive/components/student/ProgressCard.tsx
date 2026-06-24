@@ -68,7 +68,9 @@ export function StudentProgressCard({
   const end = new Date(lesson.ends_at);
   const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
   const pct =
-    lesson.progress_score != null ? (lesson.progress_score / 10) * 100 : 0;
+    lesson.progress_score != null
+      ? (Math.min(8, lesson.progress_score) / 8) * 100
+      : 0;
 
   return (
     <Card>
@@ -97,7 +99,7 @@ export function StudentProgressCard({
               <span className="text-muted-foreground">Voortgangscore</span>
               <span className="font-semibold text-foreground tabular-nums">
                 {lesson.progress_score != null
-                  ? `${lesson.progress_score} / 10`
+                  ? `${Math.min(8, lesson.progress_score)} / 8`
                   : "Nog niet beoordeeld"}
               </span>
             </div>

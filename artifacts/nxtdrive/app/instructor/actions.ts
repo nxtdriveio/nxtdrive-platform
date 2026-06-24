@@ -465,9 +465,13 @@ export async function setLessonProgressAction(
   const summary = String(formData.get("summary") ?? "")
     .trim()
     .slice(0, 2000);
-  const score = parseInt(scoreRaw, 10);
-  if (!Number.isFinite(score) || score < 0 || score > 10) {
-    return { error: "Score moet tussen 0 en 10 liggen" };
+  const normalizedScore = scoreRaw.trim().toUpperCase();
+  const score =
+    normalizedScore === "" || normalizedScore === "N"
+      ? null
+      : Number.parseInt(normalizedScore, 10);
+  if (score !== null && (!Number.isFinite(score) || score < 1 || score > 8)) {
+    return { error: "Score moet N of 1 t/m 8 zijn" };
   }
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -487,7 +491,7 @@ export async function setLessonProgressAction(
 }
 
 /**
- * Records a 1–10 grade for one skill during one lesson (Leskaart L2). Auth via
+ * Records a 1-8 grade for one skill during one lesson (Leskaart L2). Auth via
  * lesson ownership; the locked `set_skill_score` RPC re-validates the score,
  * the active leaf, the lesson↔student↔tenant link, recomputes the rollup and
  * writes the audit row. Server-side only.
@@ -499,8 +503,8 @@ export async function setSkillScoreAction(
   const skillId = String(formData.get("skill_id") ?? "");
   const score = parseInt(String(formData.get("score") ?? ""), 10);
   if (!skillId) return { error: "skill_id ontbreekt" };
-  if (!Number.isFinite(score) || score < 1 || score > 10) {
-    return { error: "Score moet tussen 1 en 10 liggen" };
+  if (!Number.isFinite(score) || score < 1 || score > 8) {
+    return { error: "Score moet tussen 1 en 8 liggen" };
   }
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };

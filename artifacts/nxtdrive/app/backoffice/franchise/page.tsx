@@ -218,7 +218,7 @@ export default async function FranchiseDashboardPage() {
         />
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         <FranchiseKpiCard
           label="Franchisees actief"
           value={`${activeFranchisees}`}
@@ -273,7 +273,7 @@ export default async function FranchiseDashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 2xl:grid-cols-[1fr_0.42fr]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.42fr)]">
         <FranchisePanel
           title="Command center"
           description="Vaste flow: signaal -> actie -> eigenaar -> status -> audit."
@@ -290,57 +290,125 @@ export default async function FranchiseDashboardPage() {
               />
             </div>
           ) : (
-            <FranchiseMiniTable
-              columns={["Signaal", "Actie", "Eigenaar", "Status", "Audit"]}
-              minWidth="920px"
-            >
-              {commandItems.slice(0, 7).map((item) => (
-                <tr key={item.id}>
-                  <FranchiseTableCell>
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-black text-foreground">{item.signal}</p>
-                        <FranchiseStatusBadge tone={item.priority_tone}>
-                          {item.delegation_ready ? "delegatie klaar" : "delegatie nodig"}
-                        </FranchiseStatusBadge>
+            <>
+              <div className="space-y-3 p-3 xl:hidden">
+                {commandItems.slice(0, 7).map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-2xl border border-brand-card-border bg-white p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-foreground">
+                          {item.signal}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                          {item.signal_detail}
+                        </p>
                       </div>
-                      <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-                        {item.signal_detail}
-                      </p>
+                      <FranchiseStatusBadge tone={item.priority_tone}>
+                        {item.delegation_ready ? "klaar" : "nodig"}
+                      </FranchiseStatusBadge>
                     </div>
-                  </FranchiseTableCell>
-                  <FranchiseTableCell>
-                    <p className="line-clamp-2 text-sm font-bold text-foreground">
-                      {item.action}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-primary">
-                      {item.suggested_delegation.label}
-                    </p>
-                  </FranchiseTableCell>
-                  <FranchiseTableCell>
-                    <p className="font-black text-foreground">{item.owner}</p>
-                    <p className="text-xs text-muted-foreground">Lokale franchisee</p>
-                  </FranchiseTableCell>
-                  <FranchiseTableCell>
-                    <FranchiseStatusBadge tone={item.status_tone}>
-                      {item.status_label}
-                    </FranchiseStatusBadge>
-                  </FranchiseTableCell>
-                  <FranchiseTableCell>
-                    <p className="max-w-[220px] truncate text-sm font-bold text-foreground">
-                      {item.audit_label}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.audit_at ? formatDateTime(item.audit_at) : "Nog geen audit"}
-                    </p>
-                  </FranchiseTableCell>
-                </tr>
-              ))}
-            </FranchiseMiniTable>
+
+                    <div className="mt-3 flex snap-x gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {[
+                        ["Signaal", item.signal],
+                        ["Actie", item.action],
+                        ["Eigenaar", item.owner],
+                        ["Status", item.status_label],
+                        ["Audit", item.audit_at ? formatDateTime(item.audit_at) : "Nog geen audit"],
+                      ].map(([label, value], index) => (
+                        <div
+                          key={`${item.id}-${label}`}
+                          className="min-w-[9.25rem] snap-start rounded-xl border border-brand-card-border bg-brand-muted px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent text-[10px] font-black text-primary">
+                              {index + 1}
+                            </span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                              {label}
+                            </p>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs font-black leading-5 text-foreground">
+                            {value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div className="rounded-xl bg-brand-muted px-3 py-2">
+                        <p className="text-xs font-black text-primary">
+                          {item.suggested_delegation.label}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                          {item.suggested_delegation.reason}
+                        </p>
+                      </div>
+                      <FranchiseStatusBadge tone={item.status_tone}>
+                        {item.status_label}
+                      </FranchiseStatusBadge>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden xl:block">
+                <FranchiseMiniTable
+                  columns={["Signaal", "Actie", "Eigenaar", "Status", "Audit"]}
+                  minWidth="920px"
+                >
+                  {commandItems.slice(0, 7).map((item) => (
+                    <tr key={item.id}>
+                      <FranchiseTableCell>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-black text-foreground">{item.signal}</p>
+                            <FranchiseStatusBadge tone={item.priority_tone}>
+                              {item.delegation_ready ? "delegatie klaar" : "delegatie nodig"}
+                            </FranchiseStatusBadge>
+                          </div>
+                          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {item.signal_detail}
+                          </p>
+                        </div>
+                      </FranchiseTableCell>
+                      <FranchiseTableCell>
+                        <p className="line-clamp-2 text-sm font-bold text-foreground">
+                          {item.action}
+                        </p>
+                        <p className="mt-1 text-xs font-bold text-primary">
+                          {item.suggested_delegation.label}
+                        </p>
+                      </FranchiseTableCell>
+                      <FranchiseTableCell>
+                        <p className="font-black text-foreground">{item.owner}</p>
+                        <p className="text-xs text-muted-foreground">Lokale franchisee</p>
+                      </FranchiseTableCell>
+                      <FranchiseTableCell>
+                        <FranchiseStatusBadge tone={item.status_tone}>
+                          {item.status_label}
+                        </FranchiseStatusBadge>
+                      </FranchiseTableCell>
+                      <FranchiseTableCell>
+                        <p className="max-w-[220px] truncate text-sm font-bold text-foreground">
+                          {item.audit_label}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.audit_at ? formatDateTime(item.audit_at) : "Nog geen audit"}
+                        </p>
+                      </FranchiseTableCell>
+                    </tr>
+                  ))}
+                </FranchiseMiniTable>
+              </div>
+            </>
           )}
         </FranchisePanel>
 
-        <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
           <FranchisePanel
             title="Benchmark targets"
             description="Doelwaarde per franchisee, gemonitord tegen actuele data."
@@ -430,7 +498,7 @@ export default async function FranchiseDashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr_0.95fr]">
+      <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-[1.1fr_0.9fr_0.95fr]">
         <FranchisePanel
           title="Netwerkoverzicht"
           description="Echte franchisee-data, geaggregeerd over tenantgrenzen."
@@ -560,7 +628,7 @@ export default async function FranchiseDashboardPage() {
         </FranchisePanel>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
         <FranchisePanel
           title="Prestaties vergelijking"
           description="Netwerkbrede omzet, lessen en capaciteit."
@@ -621,7 +689,7 @@ export default async function FranchiseDashboardPage() {
         </FranchisePanel>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <FranchisePanel
           title="Recente activiteiten"
           description="Auditlog uit franchisegever en franchisee-tenants."

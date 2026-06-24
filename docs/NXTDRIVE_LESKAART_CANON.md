@@ -23,9 +23,23 @@ De leskaart moet aansluiten op de rijprocedure B van het CBR, maar tevens veel g
 
 ---
 
-# Beoordelingsschaal (1 t/m 10)
+# Beoordelingsschaal (N + 1 t/m 8)
 
-Alle vaardigheden worden beoordeeld op een schaal van 1 t/m 10.
+Alle RIS-vaardigheden worden beoordeeld met `N` voor niet beoordeeld en daarna
+met een schaal van 1 t/m 8. `N` telt niet mee als score en betekent dat er nog
+geen betrouwbare beoordeling is vastgelegd.
+
+## N
+
+Niet beoordeeld.
+
+Er is nog geen betrouwbare observatie of beoordeling voor dit onderdeel.
+
+Voorbeeld:
+- Het onderdeel is nog niet behandeld.
+- De instructeur heeft het onderdeel nog niet willen of kunnen scoren.
+
+---
 
 ## Niveau 1
 
@@ -112,31 +126,12 @@ Nog niet volledig examenwaardig onder druk.
 
 ## Niveau 8
 
-Bijna examenwaardig.
-
-Onderdeel wordt consistent goed uitgevoerd.
-
-Alleen kleine verbeterpunten.
-
----
-
-## Niveau 9
-
 Examenwaardig.
 
 Onderdeel wordt veilig, zelfstandig en voorspelbaar uitgevoerd.
 
-Zou door examinator waarschijnlijk als voldoende worden beoordeeld.
-
----
-
-## Niveau 10
-
-Volledig beheerst.
-
-Leerling voert onderdeel automatisch, stabiel en foutloos uit.
-
-Ook in complexe verkeerssituaties.
+Zou door examinator waarschijnlijk als voldoende worden beoordeeld, ook onder
+realistische verkeersdruk.
 
 ---
 
@@ -154,7 +149,7 @@ Voor examenadvies gelden de volgende richtlijnen.
 ## Bijna examenrijp
 
 - Kritieke onderdelen minimaal 8.
-- Gemiddelde score minimaal 7.5.
+- Gemiddelde score minimaal 7.5 op de 1 t/m 8 schaal.
 
 ---
 

@@ -12,12 +12,12 @@ import {
 
 export type SkillRadarPoint = {
   label: string;
-  /** Average score on the 1–10 scale, or null when not yet graded. */
+  /** Average score on the N/1-8 scale, or null when not yet graded. */
   value: number | null;
 };
 
 /**
- * Driving-skill radar (Task #177) on the 0–10 NXTDRIVE score scale, styled in
+ * Driving-skill radar (Task #177) on the N/1-8 NXTDRIVE score scale, styled in
  * the tenant primary colour. Ungraded categories render as 0 so the shape stays
  * closed; the tooltip shows the real value (or "nog niet beoordeeld").
  */
@@ -43,7 +43,7 @@ export function SkillRadar({
             dataKey="label"
             tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           />
-          <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
+          <PolarRadiusAxis domain={[0, 8]} tick={false} axisLine={false} />
           <Radar
             dataKey="value"
             stroke={color}
@@ -64,7 +64,7 @@ export function SkillRadar({
                 | { value: number; graded: boolean }
                 | undefined;
               if (!p?.graded) return ["nog niet beoordeeld", "Score"];
-              return [`${p.value.toFixed(1)} / 10`, "Score"];
+              return [`${p.value.toFixed(1)} / 8`, "Score"];
             }}
           />
         </RadarChart>

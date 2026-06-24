@@ -5,8 +5,9 @@ import {
   computeRisModuleReadiness,
   computeRisProgress,
   normalizeRisStep,
+  risStepNumber,
   translateRisStepForStudent,
-} from "@workspace/leskaart";
+} from "../../lib/leskaart/src/ris.ts";
 
 type Outcome = { name: string; ok: boolean };
 
@@ -28,7 +29,7 @@ const cleanStartMigration = source(
   "supabase/migrations/20260616181232_ris_clean_start_default.sql",
 );
 const scoreModelMigration = source(
-  "supabase/migrations/20260621123000_ris_score_model_1_to_10.sql",
+  "supabase/migrations/20260624081046_ris_score_model_n_1_to_8.sql",
 );
 const leskaartIndex = source("lib/leskaart/src/index.ts");
 const risEngine = source("lib/leskaart/src/ris.ts");
@@ -99,11 +100,21 @@ check(
     migration.includes("public.student_guardians"),
 );
 check(
-  "concept/final scores use canonical 1..10 validation",
+  "concept/final scores use canonical N/1-8 validation",
   migration.includes("check (public._ris_step_valid(concept_ris_step))") &&
     migration.includes("check (public._ris_step_valid(final_ris_step))") &&
-    scoreModelMigration.includes("p_step ~ '^(10|[1-9])$'") &&
-    scoreModelMigration.includes("where concept_ris_step = 'N'"),
+    scoreModelMigration.includes("p_step = 'N'") &&
+    scoreModelMigration.includes("p_step ~ '^[1-8]$'") &&
+    scoreModelMigration.includes("where concept_ris_step in ('9', '10')"),
+);
+check(
+  "legacy lesson score path is constrained to N/1-8",
+  scoreModelMigration.includes("lessons_progress_score_range") &&
+    scoreModelMigration.includes("progress_score is null or progress_score between 1 and 8") &&
+    scoreModelMigration.includes("lesson_skill_scores_score_range") &&
+    scoreModelMigration.includes("check (score between 1 and 8)") &&
+    scoreModelMigration.includes("skill score must be between 1 and 8") &&
+    scoreModelMigration.includes("progress score must be N/null or between 1 and 8"),
 );
 
 check("leskaart package exports RIS helpers", leskaartIndex.includes('export * from "./ris"'));
@@ -115,12 +126,13 @@ check(
     risEngine.includes("buildRisTree"),
 );
 check(
-  "N is normalized to unassessed and progress uses 1..10",
-  normalizeRisStep("N") === null &&
+  "N is normalized as unassessed and progress uses N/1-8",
+  normalizeRisStep("N") === "N" &&
+    risStepNumber("N") === null &&
     computeRisProgress([
-      { scriptId: "a", moduleNumber: 1, step: null },
-      { scriptId: "b", moduleNumber: 1, step: "10" },
-    ]).averageStep === 10,
+      { scriptId: "a", moduleNumber: 1, step: "N" },
+      { scriptId: "b", moduleNumber: 1, step: "8" },
+    ]).averageStep === 8,
 );
 check(
   "RIS readiness blocks unassessed scripts",

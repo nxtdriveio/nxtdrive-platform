@@ -450,7 +450,7 @@ export function LessonHistoryCard({
                   <div className="text-xs text-muted-foreground">
                     {l.location ?? "—"} · {formatTegoed(l.credits_cost)}
                     {l.progress_score != null
-                      ? ` · score ${l.progress_score}`
+                      ? ` · score ${Math.min(8, l.progress_score)}/8`
                       : ""}
                   </div>
                 </Link>

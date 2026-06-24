@@ -316,19 +316,17 @@ export function InstructorActionsPanel({
           >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="progress-score">Score (0–10)</Label>
+                <Label htmlFor="progress-score">Score (N/1-8)</Label>
                 <Select
                   id="progress-score"
                   name="score"
-                  defaultValue={currentScore?.toString() ?? ""}
+                  defaultValue={currentScore?.toString() ?? "N"}
                   required
                 >
-                  <option value="" disabled>
-                    Kies…
-                  </option>
-                  {Array.from({ length: 11 }, (_, i) => (
-                    <option key={i} value={i.toString()}>
-                      {i}
+                  <option value="N">N - niet beoordeeld</option>
+                  {Array.from({ length: 8 }, (_, i) => i + 1).map((score) => (
+                    <option key={score} value={score.toString()}>
+                      {score}
                     </option>
                   ))}
                 </Select>

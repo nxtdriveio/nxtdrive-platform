@@ -53,7 +53,7 @@ export async function generateLessonReportDraft(
   const parts: string[] = [`Leerling: ${input.studentName}`];
   if (input.todaySkills.length > 0) {
     parts.push(
-      "Vandaag beoordeelde onderdelen (cijfer 1-10): " +
+      "Vandaag beoordeelde onderdelen (RIS-score N/1-8): " +
         input.todaySkills.map((s) => `${s.label} (${s.score})`).join("; "),
     );
   }
@@ -128,7 +128,7 @@ export async function analyzeStudentProgress(
       `(${readiness.readinessPct}% rijpheid, fase ${PHASE_LABELS[readiness.phase]}).`,
   );
   lines.push(
-    `Gemiddeld cijfer: ${readiness.averageScore.toFixed(1)} over ` +
+    `Gemiddeld cijfer: ${readiness.averageScore.toFixed(1)} van 8 over ` +
       `${readiness.scoredLeaves}/${readiness.totalLeaves} beoordeelde onderdelen.`,
   );
   lines.push(
@@ -423,7 +423,7 @@ export async function generateRisLessonPublicationDraft(
     ].filter(Boolean);
     lines.push(
       `- Module ${item.moduleNumber} ${item.code} ${item.title}: score ${
-        item.risStep ? `${item.risStep}/10` : "nog niet beoordeeld"
+        item.risStep && String(item.risStep).toUpperCase() !== "N" ? `${item.risStep}/8` : "N / nog niet beoordeeld"
       } (${item.studentLabel})${flags.length ? `; ${flags.join(", ")}` : ""}.`,
     );
     if (item.instructorNote) lines.push(`  Interne notitie: ${item.instructorNote}`);

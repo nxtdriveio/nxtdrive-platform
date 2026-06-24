@@ -53,6 +53,11 @@ import {
   type BrandedPwaSurface,
   normalizeBrandedPwaPublication,
 } from "@/lib/tenant/branded-pwa-publication";
+import {
+  DEFAULT_TENANT_WORKFLOW_CATALOG,
+  TENANT_WORKFLOW_CATALOG_KEY,
+  mergeTenantWorkflowCatalogSettings,
+} from "@/lib/tenant/workflow-catalog";
 
 export async function saveMollieApiKey(formData: FormData) {
   const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
@@ -761,6 +766,95 @@ export async function resetStudentSelfBookingPolicy(): Promise<PolicyActionResul
 
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/student/lessons");
+  return { ok: true };
+}
+
+export async function saveTenantWorkflowCatalog(
+  formData: FormData,
+): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const raw = formData.get("settings");
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return { ok: false, error: "Workflowconfiguratie ontbreekt." };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: "Workflowconfiguratie is geen geldige JSON." };
+  }
+
+  const service = createServiceRoleClient();
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", TENANT_WORKFLOW_CATALOG_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = mergeTenantWorkflowCatalogSettings(currentRow?.value);
+  const next = mergeTenantWorkflowCatalogSettings(parsed);
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: TENANT_WORKFLOW_CATALOG_KEY,
+      value: next,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.workflow_catalog_saved",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next },
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/instellingen/workflows");
+  return { ok: true };
+}
+
+export async function resetTenantWorkflowCatalog(): Promise<PolicyActionResult> {
+  const { user, tenant } = await requireActiveTenant(["tenant_admin"]);
+  const service = createServiceRoleClient();
+
+  const { data: currentRow, error: currentError } = await service
+    .from("tenant_settings")
+    .select("value")
+    .eq("tenant_id", tenant.id)
+    .eq("key", TENANT_WORKFLOW_CATALOG_KEY)
+    .maybeSingle();
+  if (currentError) return { ok: false, error: currentError.message };
+
+  const previous = mergeTenantWorkflowCatalogSettings(currentRow?.value);
+  const next = DEFAULT_TENANT_WORKFLOW_CATALOG;
+  const { error } = await service.from("tenant_settings").upsert(
+    {
+      tenant_id: tenant.id,
+      key: TENANT_WORKFLOW_CATALOG_KEY,
+      value: next,
+    },
+    { onConflict: "tenant_id,key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  await service.from("audit_log").insert({
+    actor_user_id: user.id,
+    tenant_id: tenant.id,
+    action: "tenant.workflow_catalog_reset",
+    target_type: "tenant",
+    target_id: tenant.id,
+    payload: { previous, next },
+  });
+
+  revalidatePath("/backoffice/instellingen");
+  revalidatePath("/backoffice/instellingen/workflows");
   return { ok: true };
 }
 

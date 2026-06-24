@@ -25,12 +25,13 @@ import { resolveTaskLinks } from "@/lib/tasks/links";
 import { Board } from "./board";
 import { Button } from "@/components/ui/button";
 import {
+  addFranchiseBenchmarkCheckIn,
   acceptFranchisePlanningAction,
   acceptFranchiseBenchmarkAction,
   completeFranchisePlanningAction,
-  completeFranchiseBenchmarkAction,
   declineFranchisePlanningAction,
   declineFranchiseBenchmarkAction,
+  recordFranchiseBenchmarkResult,
 } from "@/lib/franchise/actions";
 import {
   loadLocalFranchiseBenchmarkActions,
@@ -481,6 +482,35 @@ function FranchiseBenchmarkInbox({
                   {action.description}
                 </p>
               ) : null}
+              {action.goal || action.action_plan ? (
+                <div className="mt-3 grid gap-2 rounded-xl border border-brand-card-border bg-white px-3 py-3 text-xs">
+                  {action.goal ? (
+                    <div>
+                      <p className="font-black uppercase tracking-[0.14em] text-primary">
+                        Doel
+                      </p>
+                      <p className="mt-1 leading-5 text-muted-foreground">
+                        {action.goal}
+                      </p>
+                    </div>
+                  ) : null}
+                  {action.action_plan ? (
+                    <div>
+                      <p className="font-black uppercase tracking-[0.14em] text-primary">
+                        Actieplan
+                      </p>
+                      <p className="mt-1 leading-5 text-muted-foreground">
+                        {action.action_plan}
+                      </p>
+                    </div>
+                  ) : null}
+                  {action.next_check_in_date ? (
+                    <p className="font-bold text-foreground">
+                      Volgende check-in: {action.next_check_in_date}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {isOpen ? (
                 <div className="mt-4 grid gap-2">
                   <form
@@ -526,26 +556,95 @@ function FranchiseBenchmarkInbox({
                 </div>
               ) : null}
               {isAccepted ? (
-                <form
-                  action={completeFranchiseBenchmarkAction}
-                  className="mt-4 space-y-2"
-                >
-                  <input
-                    type="hidden"
-                    name="return_to"
-                    value="/backoffice/taken"
-                  />
-                  <input type="hidden" name="action_id" value={action.id} />
-                  <textarea
-                    name="resolution"
-                    rows={2}
-                    placeholder="Wat is lokaal uitgevoerd?"
-                    className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
-                  />
-                  <Button type="submit" size="sm">
-                    Afronden
-                  </Button>
-                </form>
+                <div className="mt-4 grid gap-3">
+                  <form
+                    action={addFranchiseBenchmarkCheckIn}
+                    className="space-y-2 rounded-xl border border-brand-card-border bg-white p-3"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <input
+                      type="hidden"
+                      name="target_metric_key"
+                      value={action.target_metric_key ?? ""}
+                    />
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Check-in: wat is de voortgang?"
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <select
+                        name="status"
+                        defaultValue="done"
+                        className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                      >
+                        <option value="done">Gedaan</option>
+                        <option value="planned">Gepland</option>
+                        <option value="blocked">Geblokkeerd</option>
+                      </select>
+                      <input
+                        name="measured_value"
+                        type="number"
+                        step="0.01"
+                        placeholder="Meetwaarde"
+                        className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                      />
+                      <input
+                        name="next_check_in_date"
+                        type="date"
+                        className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                      />
+                    </div>
+                    <Button type="submit" size="sm" variant="outline">
+                      Check-in opslaan
+                    </Button>
+                  </form>
+
+                  <form
+                    action={recordFranchiseBenchmarkResult}
+                    className="space-y-2 rounded-xl border border-primary/20 bg-brand-accent p-3"
+                  >
+                    <input
+                      type="hidden"
+                      name="return_to"
+                      value="/backoffice/taken"
+                    />
+                    <input type="hidden" name="action_id" value={action.id} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select
+                        name="result_status"
+                        defaultValue="achieved"
+                        className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                      >
+                        <option value="achieved">Doel behaald</option>
+                        <option value="not_achieved">Niet behaald</option>
+                        <option value="cancelled">Stopgezet</option>
+                      </select>
+                      <input
+                        name="result_value"
+                        type="number"
+                        step="0.01"
+                        placeholder="Eindwaarde"
+                        className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold text-foreground"
+                      />
+                    </div>
+                    <textarea
+                      name="result_summary"
+                      rows={2}
+                      placeholder="Resultaat en eventuele vervolgafspraak..."
+                      className="w-full rounded-xl border border-brand-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary"
+                    />
+                    <Button type="submit" size="sm">
+                      Resultaat vastleggen
+                    </Button>
+                  </form>
+                </div>
               ) : null}
             </article>
           );

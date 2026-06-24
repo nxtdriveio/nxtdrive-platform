@@ -31,7 +31,7 @@ import type {
   RisScriptAssessment,
 } from "@/lib/ris/data";
 import { RIS_REFLECTION_RATING_LABELS } from "@/lib/ris/data";
-import type { RISStepValue } from "@workspace/leskaart";
+import { risStepNumber, type RISStepValue } from "@workspace/leskaart";
 
 type PublicationMode = "reflection" | "summary";
 
@@ -63,7 +63,8 @@ const RATING_OPTIONS: RisReflectionRating[] = [
 ];
 
 function stepLabel(step: RISStepValue | null): string {
-  return step ? `Score ${step}/10` : "Geen score";
+  if (risStepNumber(step) === null) return "N";
+  return `Score ${step}/8`;
 }
 
 function clampText(value: string, max = 2000): string {
@@ -152,7 +153,7 @@ export function RisLessonPublicationPanel({
 
   const scriptMap = useMemo(() => buildScriptMap(ris), [ris]);
   const conceptAssessments = useMemo(
-    () => ris.assessments.filter((item) => item.conceptRisStep != null),
+    () => ris.assessments.filter((item) => risStepNumber(item.conceptRisStep) !== null),
     [ris.assessments],
   );
   const suggestion = useMemo(

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseCookieOptions } from "@/lib/supabase/cookie-options";
+import { getServerSupabaseAnonKey, getServerSupabaseUrl } from "@/lib/supabase/env";
 
 const CHANGE_PASSWORD_PATH = "/account/wachtwoord-wijzigen";
 
@@ -76,10 +77,12 @@ export async function middleware(request: NextRequest) {
     return withAppSecurityHeaders(response);
   }
 
-  const supabaseUrl = process.env["SUPABASE_URL"];
-  const supabaseAnonKey = process.env["SUPABASE_ANON_KEY"];
-
-  if (!supabaseUrl || !supabaseAnonKey) {
+  let supabaseUrl: string;
+  let supabaseAnonKey: string;
+  try {
+    supabaseUrl = getServerSupabaseUrl().url;
+    supabaseAnonKey = getServerSupabaseAnonKey();
+  } catch {
     return withAppSecurityHeaders(response);
   }
 

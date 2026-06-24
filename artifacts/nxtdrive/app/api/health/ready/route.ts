@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  getServerSupabaseAnonKey,
+  getServerSupabaseUrl,
+} from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,8 +16,6 @@ type CheckResult = {
 };
 
 const REQUIRED_ENV = [
-  "SUPABASE_URL",
-  "SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SESSION_SECRET",
   "DATABASE_URL",
@@ -25,7 +27,20 @@ const headers = {
 };
 
 function envCheck(): CheckResult {
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+  const missing: string[] = REQUIRED_ENV.filter((key) => !process.env[key]);
+
+  try {
+    getServerSupabaseUrl();
+  } catch {
+    missing.push("SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  try {
+    getServerSupabaseAnonKey();
+  } catch {
+    missing.push("SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
   return missing.length === 0
     ? { ok: true }
     : {

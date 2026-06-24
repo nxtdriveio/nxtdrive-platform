@@ -362,7 +362,7 @@ export default async function StudentVoortgangPage({
                   <div className="flex items-center justify-between gap-3 text-xs text-white/46">
                     <span>
                       {category.averageScore != null
-                        ? `Gemiddeld ${category.averageScore.toFixed(1)} / 10`
+                        ? `Gemiddeld ${category.averageScore.toFixed(1)} / 8`
                         : "Nog geen scores"}
                     </span>
                     <span>
@@ -400,7 +400,7 @@ export default async function StudentVoortgangPage({
                       </div>
                     </div>
                     <StudentRing
-                      value={(lastLesson.progressScore ?? lastLesson.averageScore) * 10}
+                      value={Math.round((Math.min(8, lastLesson.progressScore ?? lastLesson.averageScore) / 8) * 100)}
                       size={84}
                       stroke={9}
                       label="Lesniveau"
@@ -425,7 +425,7 @@ export default async function StudentVoortgangPage({
                       `${point.skillCount} onderdelen beoordeeld · ${point.averageScore.toFixed(1)} gemiddeld`
                     }
                     meta={`${historyDateFmt.format(new Date(point.startsAt))} · ${historyTimeFmt.format(new Date(point.startsAt))}`}
-                    badge={point.progressScore != null ? `${point.progressScore}/10` : "Open"}
+                    badge={point.progressScore != null ? `${Math.min(8, point.progressScore)}/8` : "Open"}
                     badgeVariant={point.progressScore != null ? "primary" : "outline"}
                     leading={
                       <div className="flex h-11 w-11 flex-col items-center justify-center rounded-full bg-primary/14 text-[0.68rem] font-semibold text-primary">

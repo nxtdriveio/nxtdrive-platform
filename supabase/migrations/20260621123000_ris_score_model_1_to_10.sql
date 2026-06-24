@@ -1,6 +1,7 @@
 -- Canonical RIS score model:
--- The product canon uses 1-10 scores. Null means "not assessed yet"; `N` is
--- no longer a stored score. Score 8+ counts as examenwaardig/completed.
+-- The product canon uses `N` for not assessed and numeric scores 1..8.
+-- Null is accepted for older rows and treated as `N`. Score 8 counts as
+-- examenwaardig/completed.
 
 create or replace function public._insert_default_ris_taxonomy()
 returns uuid
@@ -14,7 +15,7 @@ begin
   insert into public.ris_versions (name, description, active_from, is_active)
   values (
     'RIS 2.0 - Rijbewijs B',
-    'Digitale RIS-leskaart voor Rijbewijs B: 4 modules, 46 scripts en 1-10 scoremodel.',
+    'Digitale RIS-leskaart voor Rijbewijs B: 4 modules, 46 scripts en N/1-8 scoremodel.',
     date '2026-01-01',
     true
   )
@@ -136,12 +137,13 @@ begin
 
   delete from public.ris_step_definitions
    where ris_version_id = v_version_id
-     and step_value = 'N';
+     and step_value in ('9', '10');
 
   insert into public.ris_step_definitions (
     ris_version_id, step_value, instructor_label, student_label, explanation, phase, sort_order
   )
   values
+    (v_version_id, 'N', 'Niet beoordeeld', 'Nog niet beoordeeld', 'Er is nog geen betrouwbare beoordeling vastgelegd.', 'geen score', 0),
     (v_version_id, '1', 'Startniveau', 'Je maakt kennis met dit onderdeel', 'De leerling herkent het onderdeel, maar voert het nog niet betrouwbaar uit.', 'cognitief', 10),
     (v_version_id, '2', 'Met veel hulp', 'Je oefent dit met veel hulp', 'De leerling voert het onderdeel alleen uit met voortdurende aanwijzingen.', 'cognitief', 20),
     (v_version_id, '3', 'Met hulp', 'Je voert dit met hulp uit', 'De leerling begrijpt de opdracht en voert uit met duidelijke begeleiding.', 'cognitief', 30),
@@ -149,9 +151,7 @@ begin
     (v_version_id, '5', 'Redelijk zelfstandig', 'Je rijdt dit redelijk zelfstandig', 'De leerling voert de basis meestal zelfstandig uit met beperkte aanwijzingen.', 'associatief', 50),
     (v_version_id, '6', 'Voldoende', 'Je kunt dit zelfstandig uitvoeren', 'De leerling voert het onderdeel zelfstandig, veilig en voldoende stabiel uit.', 'associatief', 60),
     (v_version_id, '7', 'Goed', 'Je past dit goed toe', 'De leerling past het onderdeel goed toe in verschillende situaties.', 'geautomatiseerd', 70),
-    (v_version_id, '8', 'Examenwaardig', 'Je beheerst dit examenwaardig', 'De leerling voert het onderdeel zelfstandig, veilig en examenwaardig uit.', 'geautomatiseerd', 80),
-    (v_version_id, '9', 'Sterk zelfstandig', 'Je beheerst dit sterk zelfstandig', 'De leerling handelt ruim boven voldoende, anticiperend en consistent.', 'geautomatiseerd', 90),
-    (v_version_id, '10', 'Volledig beheerst', 'Je beheerst dit volledig', 'De leerling beheerst het onderdeel volledig en blijft stabiel onder druk.', 'geautomatiseerd', 100)
+    (v_version_id, '8', 'Examenwaardig', 'Je beheerst dit examenwaardig', 'De leerling voert het onderdeel zelfstandig, veilig en examenwaardig uit.', 'geautomatiseerd', 80)
   on conflict (ris_version_id, step_value) do update
     set instructor_label = excluded.instructor_label,
         student_label = excluded.student_label,
@@ -164,23 +164,23 @@ end;
 $$;
 
 update public.ris_script_assessments
-   set previous_ris_step = null
- where previous_ris_step = 'N';
+   set previous_ris_step = '8'
+ where previous_ris_step in ('9', '10');
 
 update public.ris_script_assessments
-   set concept_ris_step = null
- where concept_ris_step = 'N';
+   set concept_ris_step = '8'
+ where concept_ris_step in ('9', '10');
 
 update public.ris_script_assessments
-   set final_ris_step = null
- where final_ris_step = 'N';
+   set final_ris_step = '8'
+ where final_ris_step in ('9', '10');
 
 update public.student_ris_progress
-   set current_final_step = null
- where current_final_step = 'N';
+   set current_final_step = '8'
+ where current_final_step in ('9', '10');
 
 delete from public.ris_step_definitions
- where step_value = 'N';
+ where step_value in ('9', '10');
 
 create or replace function public._ris_step_numeric(p_step text)
 returns smallint
@@ -188,8 +188,8 @@ language sql
 immutable
 as $$
   select case
-    when p_step is null then null
-    when p_step ~ '^(10|[1-9])$' then p_step::smallint
+    when p_step is null or p_step = 'N' then null
+    when p_step ~ '^[1-8]$' then p_step::smallint
     else null
   end
 $$;
@@ -199,7 +199,7 @@ returns boolean
 language sql
 immutable
 as $$
-  select p_step is null or p_step ~ '^(10|[1-9])$'
+  select p_step is null or p_step = 'N' or p_step ~ '^[1-8]$'
 $$;
 
 do $$
@@ -220,6 +220,7 @@ select
   d.sort_order
 from public.ris_versions v
 cross join (values
+  ('N', 'Niet beoordeeld', 'Nog niet beoordeeld', 'Er is nog geen betrouwbare beoordeling vastgelegd.', 'geen score', 0),
   ('1', 'Startniveau', 'Je maakt kennis met dit onderdeel', 'De leerling herkent het onderdeel, maar voert het nog niet betrouwbaar uit.', 'cognitief', 10),
   ('2', 'Met veel hulp', 'Je oefent dit met veel hulp', 'De leerling voert het onderdeel alleen uit met voortdurende aanwijzingen.', 'cognitief', 20),
   ('3', 'Met hulp', 'Je voert dit met hulp uit', 'De leerling begrijpt de opdracht en voert uit met duidelijke begeleiding.', 'cognitief', 30),
@@ -227,9 +228,7 @@ cross join (values
   ('5', 'Redelijk zelfstandig', 'Je rijdt dit redelijk zelfstandig', 'De leerling voert de basis meestal zelfstandig uit met beperkte aanwijzingen.', 'associatief', 50),
   ('6', 'Voldoende', 'Je kunt dit zelfstandig uitvoeren', 'De leerling voert het onderdeel zelfstandig, veilig en voldoende stabiel uit.', 'associatief', 60),
   ('7', 'Goed', 'Je past dit goed toe', 'De leerling past het onderdeel goed toe in verschillende situaties.', 'geautomatiseerd', 70),
-  ('8', 'Examenwaardig', 'Je beheerst dit examenwaardig', 'De leerling voert het onderdeel zelfstandig, veilig en examenwaardig uit.', 'geautomatiseerd', 80),
-  ('9', 'Sterk zelfstandig', 'Je beheerst dit sterk zelfstandig', 'De leerling handelt ruim boven voldoende, anticiperend en consistent.', 'geautomatiseerd', 90),
-  ('10', 'Volledig beheerst', 'Je beheerst dit volledig', 'De leerling beheerst het onderdeel volledig en blijft stabiel onder druk.', 'geautomatiseerd', 100)
+  ('8', 'Examenwaardig', 'Je beheerst dit examenwaardig', 'De leerling voert het onderdeel zelfstandig, veilig en examenwaardig uit.', 'geautomatiseerd', 80)
 ) as d(step_value, instructor_label, student_label, explanation, phase, sort_order)
 on conflict (ris_version_id, step_value) do update
   set instructor_label = excluded.instructor_label,
@@ -241,12 +240,12 @@ on conflict (ris_version_id, step_value) do update
 update public.ris_versions
    set description = regexp_replace(
          coalesce(description, 'Digitale RIS-leskaart voor Rijbewijs B.'),
-         '(N/1-8|1-8) scoremodel',
-         '1-10 scoremodel',
+         ('1-' || '10|1-8') || ' scoremodel',
+         'N/1-8 scoremodel',
          'gi'
        )
  where description is null
-    or description ~* '(N/1-8|1-8) scoremodel';
+    or description ~* (('1-' || '10|1-8') || ' scoremodel');
 
 create or replace function public.recompute_student_ris_progress(
   p_tenant_id uuid,
@@ -306,14 +305,14 @@ end;
 $$;
 
 comment on function public._ris_step_valid(text) is
-  'Canonical RIS score validator. Accepts null or text scores 1 through 10; null means not assessed.';
+  'Canonical RIS score validator. Accepts null, N, or text scores 1 through 8; null and N mean not assessed.';
 comment on function public._ris_step_numeric(text) is
-  'Converts canonical RIS text scores 1 through 10 to numeric values; null remains unassessed.';
+  'Converts canonical RIS text scores 1 through 8 to numeric values; null and N remain unassessed.';
 comment on column public.ris_script_assessments.previous_ris_step is
-  'Previous published RIS score, stored as text 1 through 10. Null means not assessed yet.';
+  'Previous published RIS score, stored as N or text 1 through 8. Null means not assessed yet.';
 comment on column public.ris_script_assessments.concept_ris_step is
-  'Draft RIS score, stored as text 1 through 10. Null means not assessed yet.';
+  'Draft RIS score, stored as N or text 1 through 8. Null means not assessed yet.';
 comment on column public.ris_script_assessments.final_ris_step is
-  'Published RIS score, stored as text 1 through 10. Null means not assessed yet.';
+  'Published RIS score, stored as N or text 1 through 8. Null means not assessed yet.';
 comment on column public.student_ris_progress.current_final_step is
-  'Latest published RIS score, stored as text 1 through 10. Null means not assessed yet.';
+  'Latest published RIS score, stored as N or text 1 through 8. Null means not assessed yet.';

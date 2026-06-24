@@ -78,6 +78,13 @@ function parsePositiveNumber(formData: FormData, key: string) {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+function parseOptionalNumber(formData: FormData, key: string) {
+  const raw = cleanField(formData, key, 40).replace(",", ".");
+  if (!raw) return null;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
 const BENCHMARK_METRIC_UNITS = new Map(
   FRANCHISE_BENCHMARK_METRICS.map((metric) => [metric.key, metric.unit]),
 );
@@ -88,6 +95,12 @@ function isBenchmarkMetricKey(value: string): value is FranchiseBenchmarkMetricK
 
 function parseBenchmarkTargetValue(formData: FormData, unit: string) {
   const value = parsePositiveNumber(formData, "target_value");
+  if (value === null) return null;
+  return unit === "euro_cents" ? Math.round(value * 100) : value;
+}
+
+function parseBenchmarkMetricValue(formData: FormData, key: string, unit: string) {
+  const value = parseOptionalNumber(formData, key);
   if (value === null) return null;
   return unit === "euro_cents" ? Math.round(value * 100) : value;
 }
@@ -226,6 +239,67 @@ function taskPriorityForFranchisePriority(priority: string) {
   if (priority === "middel") return "normal";
   if (priority === "laag") return "low";
   return "normal";
+}
+
+async function loadBenchmarkActionForTenantOrRedirect(
+  service: ReturnType<typeof createServiceRoleClient>,
+  actionId: string,
+  tenantId: string,
+  returnTo: string,
+) {
+  const { data: action, error } = await service
+    .from("franchise_benchmark_actions")
+    .select(
+      "id, franchise_root_tenant_id, franchisee_tenant_id, central_task_id, local_task_id, status, title, target_metric_key",
+    )
+    .eq("id", actionId)
+    .maybeSingle();
+
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+  if (
+    !action ||
+    ![action.franchise_root_tenant_id, action.franchisee_tenant_id].includes(
+      tenantId,
+    )
+  ) {
+    redirectWith(returnTo, "error", "benchmark_action_not_found");
+  }
+  return action;
+}
+
+async function auditBenchmarkCoachingAction(
+  service: ReturnType<typeof createServiceRoleClient>,
+  input: {
+    actorUserId: string;
+    action: string;
+    targetId: string;
+    franchiseRootTenantId: string;
+    franchiseeTenantId: string;
+    payload: Record<string, unknown>;
+  },
+) {
+  await auditFranchiseAction(service, {
+    actorUserId: input.actorUserId,
+    tenantId: input.franchiseRootTenantId,
+    action: input.action,
+    targetType: "franchise_benchmark_action",
+    targetId: input.targetId,
+    payload: {
+      ...input.payload,
+      franchisee_tenant_id: input.franchiseeTenantId,
+    },
+  });
+  await auditFranchiseAction(service, {
+    actorUserId: input.actorUserId,
+    tenantId: input.franchiseeTenantId,
+    action: input.action,
+    targetType: "franchise_benchmark_action",
+    targetId: input.targetId,
+    payload: {
+      ...input.payload,
+      franchise_root_tenant_id: input.franchiseRootTenantId,
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -959,6 +1033,292 @@ export async function createFranchiseBenchmarkTask(formData: FormData) {
   redirectWith(returnTo, "benchmark_task_created");
 }
 
+export async function saveFranchiseBenchmarkCoachingPlan(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/aandacht");
+  const actionId = cleanField(formData, "action_id", 120);
+  if (!actionId) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const action = await loadBenchmarkActionForTenantOrRedirect(
+    service,
+    actionId,
+    tenant.id,
+    returnTo,
+  );
+  if (["completed", "declined", "cancelled"].includes(action.status as string)) {
+    redirectWith(returnTo, "error", "benchmark_action_closed");
+  }
+
+  const metricKey = cleanField(formData, "target_metric_key", 80);
+  const unit =
+    metricKey && isBenchmarkMetricKey(metricKey)
+      ? BENCHMARK_METRIC_UNITS.get(metricKey)
+      : null;
+  if (metricKey && !unit) redirectWith(returnTo, "error", "invalid_metric");
+
+  const patch: Record<string, unknown> = {
+    goal: cleanOptionalField(formData, "goal", 1200),
+    action_plan: cleanOptionalField(formData, "action_plan", 4000),
+    coaching_owner_label:
+      cleanField(formData, "coaching_owner_label", 160) ||
+      "Franchise manager",
+    target_metric_key: metricKey || null,
+    target_due_date: cleanField(formData, "target_due_date", 10) || null,
+    next_check_in_date: cleanField(formData, "next_check_in_date", 10) || null,
+    result_status: cleanField(formData, "result_status", 40) || "open",
+  };
+  if (
+    ![
+      "open",
+      "on_track",
+      "at_risk",
+      "achieved",
+      "not_achieved",
+      "cancelled",
+    ].includes(String(patch.result_status))
+  ) {
+    redirectWith(returnTo, "error", "invalid_result_status");
+  }
+  patch.target_value = unit
+    ? parseBenchmarkMetricValue(formData, "target_value", unit)
+    : null;
+  patch.baseline_value = unit
+    ? parseBenchmarkMetricValue(formData, "baseline_value", unit)
+    : null;
+  patch.latest_value = unit
+    ? parseBenchmarkMetricValue(formData, "latest_value", unit)
+    : null;
+  if (action.status === "accepted") patch.status = "in_progress";
+
+  const { error } = await service
+    .from("franchise_benchmark_actions")
+    .update(patch)
+    .eq("id", action.id);
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  await auditBenchmarkCoachingAction(service, {
+    actorUserId: user.id,
+    action: "franchise.benchmark_coaching_plan_saved",
+    targetId: action.id,
+    franchiseRootTenantId: action.franchise_root_tenant_id,
+    franchiseeTenantId: action.franchisee_tenant_id,
+    payload: {
+      target_metric_key: patch.target_metric_key,
+      target_value: patch.target_value,
+      result_status: patch.result_status,
+    },
+  });
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_coaching_plan_saved");
+}
+
+export async function addFranchiseBenchmarkCheckIn(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/aandacht");
+  const actionId = cleanField(formData, "action_id", 120);
+  const note = cleanField(formData, "note", 4000);
+  if (!actionId || !note) redirectWith(returnTo, "error", "missing_fields");
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const action = await loadBenchmarkActionForTenantOrRedirect(
+    service,
+    actionId,
+    tenant.id,
+    returnTo,
+  );
+  if (["completed", "declined", "cancelled"].includes(action.status as string)) {
+    redirectWith(returnTo, "error", "benchmark_action_closed");
+  }
+
+  const checkinType =
+    tenant.id === action.franchise_root_tenant_id
+      ? "central"
+      : tenant.id === action.franchisee_tenant_id
+        ? "local"
+        : "joint";
+  const status = cleanField(formData, "status", 40) || "done";
+  if (!["planned", "done", "blocked"].includes(status)) {
+    redirectWith(returnTo, "error", "invalid_checkin_status");
+  }
+  const metricKey = cleanField(formData, "target_metric_key", 80);
+  const actionMetric = String(action.target_metric_key ?? "");
+  const unit =
+    metricKey && isBenchmarkMetricKey(metricKey)
+      ? BENCHMARK_METRIC_UNITS.get(metricKey)
+      : actionMetric && isBenchmarkMetricKey(actionMetric)
+        ? BENCHMARK_METRIC_UNITS.get(actionMetric)
+        : null;
+  const measuredValue = unit
+    ? parseBenchmarkMetricValue(formData, "measured_value", unit)
+    : parseOptionalNumber(formData, "measured_value");
+  const nextCheckInDate = cleanField(formData, "next_check_in_date", 10) || null;
+
+  const { data: checkin, error } = await service
+    .from("franchise_benchmark_checkins")
+    .insert({
+      action_id: action.id,
+      franchise_root_tenant_id: action.franchise_root_tenant_id,
+      franchisee_tenant_id: action.franchisee_tenant_id,
+      checkin_type: checkinType,
+      status,
+      owner_label:
+        cleanField(formData, "owner_label", 160) || "Franchise manager",
+      note,
+      measured_value: measuredValue,
+      next_check_in_date: nextCheckInDate,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (error || !checkin) {
+    redirectWith(
+      returnTo,
+      "error",
+      error?.message.slice(0, 200) ?? "checkin_failed",
+    );
+  }
+
+  const actionPatch: Record<string, unknown> = {
+    next_check_in_date: nextCheckInDate,
+    latest_value: measuredValue,
+    result_status:
+      status === "blocked"
+        ? "at_risk"
+        : cleanField(formData, "result_status", 40) || "on_track",
+  };
+  if (!["created", "completed", "declined", "cancelled"].includes(action.status as string)) {
+    actionPatch.status = "in_progress";
+  }
+  const { error: updateError } = await service
+    .from("franchise_benchmark_actions")
+    .update(actionPatch)
+    .eq("id", action.id);
+  if (updateError) {
+    redirectWith(returnTo, "error", updateError.message.slice(0, 200));
+  }
+
+  await auditBenchmarkCoachingAction(service, {
+    actorUserId: user.id,
+    action: "franchise.benchmark_checkin_added",
+    targetId: action.id,
+    franchiseRootTenantId: action.franchise_root_tenant_id,
+    franchiseeTenantId: action.franchisee_tenant_id,
+    payload: {
+      checkin_id: checkin.id,
+      checkin_type: checkinType,
+      status,
+      measured_value: measuredValue,
+      next_check_in_date: nextCheckInDate,
+    },
+  });
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_checkin_added");
+}
+
+export async function recordFranchiseBenchmarkResult(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/aandacht");
+  const actionId = cleanField(formData, "action_id", 120);
+  const resultSummary = cleanField(formData, "result_summary", 4000);
+  if (!actionId || !resultSummary) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+    "marketing",
+  ]);
+  const service = createServiceRoleClient();
+  const action = await loadBenchmarkActionForTenantOrRedirect(
+    service,
+    actionId,
+    tenant.id,
+    returnTo,
+  );
+  if (["completed", "declined", "cancelled"].includes(action.status as string)) {
+    redirectWith(returnTo, "error", "benchmark_action_closed");
+  }
+
+  const resultStatus = cleanField(formData, "result_status", 40) || "achieved";
+  if (!["achieved", "not_achieved", "cancelled"].includes(resultStatus)) {
+    redirectWith(returnTo, "error", "invalid_result_status");
+  }
+  const actionStatus = resultStatus === "cancelled" ? "cancelled" : "completed";
+  const metricKey = String(action.target_metric_key ?? "");
+  const unit =
+    metricKey && isBenchmarkMetricKey(metricKey)
+      ? BENCHMARK_METRIC_UNITS.get(metricKey)
+      : null;
+  const resultValue = unit
+    ? parseBenchmarkMetricValue(formData, "result_value", unit)
+    : parseOptionalNumber(formData, "result_value");
+
+  const { error } = await service
+    .from("franchise_benchmark_actions")
+    .update({
+      status: actionStatus,
+      latest_value: resultValue,
+      result_status: resultStatus,
+      result_summary: resultSummary,
+      result_recorded_by: user.id,
+      result_recorded_at: new Date().toISOString(),
+      completed_by: actionStatus === "completed" ? user.id : null,
+      completed_at: actionStatus === "completed" ? new Date().toISOString() : null,
+      cancelled_by: actionStatus === "cancelled" ? user.id : null,
+      cancelled_at: actionStatus === "cancelled" ? new Date().toISOString() : null,
+      resolution: resultSummary,
+    })
+    .eq("id", action.id);
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  const taskIds = [action.central_task_id, action.local_task_id].filter(Boolean);
+  if (taskIds.length > 0) {
+    await service
+      .from("tasks")
+      .update({ archived_at: new Date().toISOString() })
+      .in("id", taskIds);
+  }
+
+  await auditBenchmarkCoachingAction(service, {
+    actorUserId: user.id,
+    action: "franchise.benchmark_result_recorded",
+    targetId: action.id,
+    franchiseRootTenantId: action.franchise_root_tenant_id,
+    franchiseeTenantId: action.franchisee_tenant_id,
+    payload: {
+      result_status: resultStatus,
+      result_value: resultValue,
+      result_summary: resultSummary,
+    },
+  });
+
+  revalidatePath("/backoffice/taken");
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "benchmark_result_recorded");
+}
+
 export async function createFranchisePlanningAction(formData: FormData) {
   const returnTo = safeReturnPath(formData, "/backoffice/franchise/planning");
   const franchiseeTenantId = cleanField(formData, "franchisee_tenant_id", 120);
@@ -1190,6 +1550,500 @@ export async function completeFranchiseBenchmarkAction(formData: FormData) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Lead routing
 // ─────────────────────────────────────────────────────────────────────────────
+
+export async function createFranchisePlaybookProgram(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const name = cleanField(formData, "name", 180);
+  const objective = cleanField(formData, "objective", 1200);
+  const category = cleanField(formData, "category", 40) || "operations";
+  const ownerLabel =
+    cleanField(formData, "owner_label", 120) || "Franchise manager";
+  const cadence = cleanField(formData, "cadence", 80) || "eenmalig";
+  const targetAudience =
+    cleanField(formData, "target_audience", 160) || "Franchisees";
+  const defaultDueDaysRaw = Number.parseInt(
+    cleanField(formData, "default_due_days", 12) || "30",
+    10,
+  );
+  const defaultDueDays =
+    Number.isFinite(defaultDueDaysRaw) && defaultDueDaysRaw > 0
+      ? Math.min(defaultDueDaysRaw, 365)
+      : 30;
+  const status = cleanField(formData, "status", 40) || "draft";
+
+  if (!name || !objective) redirectWith(returnTo, "error", "missing_fields");
+  if (
+    ![
+      "operations",
+      "planning",
+      "quality",
+      "sales",
+      "finance",
+      "training",
+      "compliance",
+    ].includes(category)
+  ) {
+    redirectWith(returnTo, "error", "invalid_category");
+  }
+  if (!["draft", "active", "archived"].includes(status)) {
+    redirectWith(returnTo, "error", "invalid_status");
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const { data: program, error } = await service
+    .from("franchise_playbook_programs")
+    .insert({
+      franchise_root_tenant_id: tenant.id,
+      name,
+      category,
+      objective,
+      owner_label: ownerLabel,
+      cadence,
+      target_audience: targetAudience,
+      default_due_days: defaultDueDays,
+      status,
+      created_by: user.id,
+      updated_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !program) {
+    redirectWith(
+      returnTo,
+      "error",
+      error?.message.slice(0, 200) ?? "program_create_failed",
+    );
+  }
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_program_created",
+    targetType: "franchise_playbook_program",
+    targetId: program.id,
+    payload: { name, category, status },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_program_created");
+}
+
+export async function updateFranchisePlaybookProgram(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const programId = cleanField(formData, "program_id", 120);
+  if (!programId) redirectWith(returnTo, "error", "missing_fields");
+
+  const status = cleanField(formData, "status", 40);
+  const patch: Record<string, unknown> = {};
+  const name = cleanOptionalField(formData, "name", 180);
+  const objective = cleanOptionalField(formData, "objective", 1200);
+  const ownerLabel = cleanOptionalField(formData, "owner_label", 120);
+  const cadence = cleanOptionalField(formData, "cadence", 80);
+  if (name) patch.name = name;
+  if (objective) patch.objective = objective;
+  if (ownerLabel) patch.owner_label = ownerLabel;
+  if (cadence) patch.cadence = cadence;
+  if (status) {
+    if (!["draft", "active", "archived"].includes(status)) {
+      redirectWith(returnTo, "error", "invalid_status");
+    }
+    patch.status = status;
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  patch.updated_by = user.id;
+  const { error } = await service
+    .from("franchise_playbook_programs")
+    .update(patch)
+    .eq("id", programId)
+    .eq("franchise_root_tenant_id", tenant.id);
+
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_program_updated",
+    targetType: "franchise_playbook_program",
+    targetId: programId,
+    payload: patch,
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_program_saved");
+}
+
+export async function createFranchisePlaybookStep(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const programId = cleanField(formData, "program_id", 120);
+  const title = cleanField(formData, "title", 180);
+  const description = cleanField(formData, "description", 1200);
+  const stepType = cleanField(formData, "step_type", 40) || "checklist";
+  const evidenceHint = cleanOptionalField(formData, "evidence_hint", 400);
+  const positionRaw = Number.parseInt(cleanField(formData, "position", 12), 10);
+  if (!programId || !title) redirectWith(returnTo, "error", "missing_fields");
+  if (
+    ![
+      "checklist",
+      "training",
+      "rollout",
+      "coaching",
+      "audit",
+      "communication",
+      "measurement",
+    ].includes(stepType)
+  ) {
+    redirectWith(returnTo, "error", "invalid_step_type");
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const { data: program } = await service
+    .from("franchise_playbook_programs")
+    .select("id")
+    .eq("id", programId)
+    .eq("franchise_root_tenant_id", tenant.id)
+    .maybeSingle();
+  if (!program) redirectWith(returnTo, "error", "program_not_found");
+
+  let position =
+    Number.isFinite(positionRaw) && positionRaw > 0 ? positionRaw : null;
+  if (!position) {
+    const { data: steps } = await service
+      .from("franchise_playbook_steps")
+      .select("position")
+      .eq("program_id", programId)
+      .order("position", { ascending: false })
+      .limit(1);
+    position = ((steps?.[0]?.position as number | undefined) ?? 0) + 1;
+  }
+
+  const { data: step, error } = await service
+    .from("franchise_playbook_steps")
+    .insert({
+      program_id: programId,
+      position,
+      title,
+      description,
+      step_type: stepType,
+      evidence_hint: evidenceHint,
+      is_required: checked(formData, "is_required") || formData.get("is_required") === null,
+      created_by: user.id,
+      updated_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !step) {
+    redirectWith(
+      returnTo,
+      "error",
+      error?.message.slice(0, 200) ?? "step_create_failed",
+    );
+  }
+
+  const progressRows = await buildMissingProgressRows(
+    service,
+    programId,
+    step.id,
+    user.id,
+  );
+  if (progressRows.length > 0) {
+    await service.from("franchise_playbook_step_progress").insert(progressRows);
+  }
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_step_created",
+    targetType: "franchise_playbook_step",
+    targetId: step.id,
+    payload: { program_id: programId, title, step_type: stepType, position },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_step_created");
+}
+
+export async function assignFranchisePlaybookProgram(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const programId = cleanField(formData, "program_id", 120);
+  const franchiseeTenantId = cleanField(formData, "franchisee_tenant_id", 120);
+  if (!programId || !franchiseeTenantId) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+
+  const { user, tenant, service } = await requireFranchisegeverAction(returnTo);
+  const franchisee = await loadFranchiseeOrRedirect(
+    service,
+    tenant.id,
+    franchiseeTenantId,
+    returnTo,
+  );
+  const { data: program, error: programError } = await service
+    .from("franchise_playbook_programs")
+    .select("id, name, status, default_due_days")
+    .eq("id", programId)
+    .eq("franchise_root_tenant_id", tenant.id)
+    .maybeSingle();
+  if (programError) {
+    redirectWith(returnTo, "error", programError.message.slice(0, 200));
+  }
+  if (!program || program.status === "archived") {
+    redirectWith(returnTo, "error", "program_not_assignable");
+  }
+
+  const dueDate =
+    cleanField(formData, "due_date", 10) ||
+    datePlusDays((program.default_due_days as number | null) ?? 30);
+
+  const { data: assignment, error } = await service
+    .from("franchise_playbook_assignments")
+    .upsert(
+      {
+        program_id: programId,
+        franchise_root_tenant_id: tenant.id,
+        franchisee_tenant_id: franchisee.id,
+        owner_label:
+          cleanField(formData, "owner_label", 120) || "Lokale eigenaar",
+        due_date: dueDate,
+        note: cleanOptionalField(formData, "note", 700),
+        updated_by: user.id,
+        created_by: user.id,
+      },
+      { onConflict: "program_id,franchisee_tenant_id" },
+    )
+    .select("id")
+    .single();
+
+  if (error || !assignment) {
+    redirectWith(
+      returnTo,
+      "error",
+      error?.message.slice(0, 200) ?? "assignment_failed",
+    );
+  }
+
+  const { data: steps } = await service
+    .from("franchise_playbook_steps")
+    .select("id")
+    .eq("program_id", programId);
+  const progressRows = (steps ?? []).map((step) => ({
+    assignment_id: assignment.id,
+    step_id: step.id,
+    status: "not_started",
+    updated_by: user.id,
+  }));
+  if (progressRows.length > 0) {
+    await service
+      .from("franchise_playbook_step_progress")
+      .upsert(progressRows, { onConflict: "assignment_id,step_id" });
+  }
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_program_assigned",
+    targetType: "franchise_playbook_assignment",
+    targetId: assignment.id,
+    payload: {
+      program_id: programId,
+      program_name: program.name,
+      franchisee_tenant_id: franchisee.id,
+      due_date: dueDate,
+    },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_assigned");
+}
+
+export async function updateFranchisePlaybookAssignmentStatus(
+  formData: FormData,
+) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const assignmentId = cleanField(formData, "assignment_id", 120);
+  const status = cleanField(formData, "status", 40);
+  if (!assignmentId || !status) redirectWith(returnTo, "error", "missing_fields");
+  if (
+    !["not_started", "in_progress", "blocked", "completed", "declined"].includes(
+      status,
+    )
+  ) {
+    redirectWith(returnTo, "error", "invalid_assignment_status");
+  }
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+  ]);
+  const service = createServiceRoleClient();
+  const { data: assignment } = await service
+    .from("franchise_playbook_assignments")
+    .select("id, franchise_root_tenant_id, franchisee_tenant_id")
+    .eq("id", assignmentId)
+    .maybeSingle();
+  if (
+    !assignment ||
+    ![assignment.franchise_root_tenant_id, assignment.franchisee_tenant_id].includes(
+      tenant.id,
+    )
+  ) {
+    redirectWith(returnTo, "error", "assignment_not_found");
+  }
+
+  const patch: Record<string, unknown> = {
+    status,
+    note: cleanOptionalField(formData, "note", 1000),
+    updated_by: user.id,
+  };
+  if (status === "in_progress") patch.accepted_at = new Date().toISOString();
+  if (status === "completed") patch.completed_at = new Date().toISOString();
+  if (status === "declined") {
+    patch.declined_reason =
+      cleanOptionalField(formData, "declined_reason", 1000) ||
+      cleanOptionalField(formData, "note", 1000);
+  }
+
+  const { error } = await service
+    .from("franchise_playbook_assignments")
+    .update(patch)
+    .eq("id", assignmentId);
+  if (error) redirectWith(returnTo, "error", error.message.slice(0, 200));
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_assignment_status_updated",
+    targetType: "franchise_playbook_assignment",
+    targetId: assignmentId,
+    payload: {
+      status,
+      note: patch.note,
+      franchise_root_tenant_id: assignment.franchise_root_tenant_id,
+      franchisee_tenant_id: assignment.franchisee_tenant_id,
+    },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_assignment_updated");
+}
+
+export async function updateFranchisePlaybookStepProgress(formData: FormData) {
+  const returnTo = safeReturnPath(formData, "/backoffice/franchise/playbook");
+  const assignmentId = cleanField(formData, "assignment_id", 120);
+  const stepId = cleanField(formData, "step_id", 120);
+  const status = cleanField(formData, "status", 40);
+  if (!assignmentId || !stepId || !status) {
+    redirectWith(returnTo, "error", "missing_fields");
+  }
+  if (
+    !["not_started", "in_progress", "blocked", "completed", "skipped"].includes(
+      status,
+    )
+  ) {
+    redirectWith(returnTo, "error", "invalid_step_status");
+  }
+
+  const { user, tenant } = await requireActiveTenant([
+    "tenant_admin",
+    "franchise_admin",
+    "branch_manager",
+    "planner",
+    "admin_staff",
+  ]);
+  const service = createServiceRoleClient();
+  const { data: assignment } = await service
+    .from("franchise_playbook_assignments")
+    .select("id, program_id, franchise_root_tenant_id, franchisee_tenant_id")
+    .eq("id", assignmentId)
+    .maybeSingle();
+  if (
+    !assignment ||
+    ![assignment.franchise_root_tenant_id, assignment.franchisee_tenant_id].includes(
+      tenant.id,
+    )
+  ) {
+    redirectWith(returnTo, "error", "assignment_not_found");
+  }
+  const { data: step } = await service
+    .from("franchise_playbook_steps")
+    .select("id")
+    .eq("id", stepId)
+    .eq("program_id", assignment.program_id)
+    .maybeSingle();
+  if (!step) redirectWith(returnTo, "error", "step_not_found");
+
+  const { data: progress, error } = await service
+    .from("franchise_playbook_step_progress")
+    .upsert(
+      {
+        assignment_id: assignmentId,
+        step_id: stepId,
+        status,
+        note: cleanOptionalField(formData, "note", 1000),
+        evidence_url: cleanOptionalField(formData, "evidence_url", 500),
+        completed_by: status === "completed" ? user.id : null,
+        completed_at: status === "completed" ? new Date().toISOString() : null,
+        updated_by: user.id,
+      },
+      { onConflict: "assignment_id,step_id" },
+    )
+    .select("id")
+    .single();
+  if (error || !progress) {
+    redirectWith(
+      returnTo,
+      "error",
+      error?.message.slice(0, 200) ?? "progress_failed",
+    );
+  }
+
+  await auditFranchiseAction(service, {
+    actorUserId: user.id,
+    tenantId: tenant.id,
+    action: "franchise.playbook_step_progress_updated",
+    targetType: "franchise_playbook_step_progress",
+    targetId: progress.id,
+    payload: {
+      assignment_id: assignmentId,
+      step_id: stepId,
+      status,
+      franchise_root_tenant_id: assignment.franchise_root_tenant_id,
+      franchisee_tenant_id: assignment.franchisee_tenant_id,
+    },
+  });
+
+  revalidateFranchiseControlPaths();
+  redirectWith(returnTo, "playbook_progress_updated");
+}
+
+async function buildMissingProgressRows(
+  service: ReturnType<typeof createServiceRoleClient>,
+  programId: string,
+  stepId: string,
+  userId: string,
+) {
+  const { data: assignments } = await service
+    .from("franchise_playbook_assignments")
+    .select("id")
+    .eq("program_id", programId);
+  return (assignments ?? []).map((assignment) => ({
+    assignment_id: assignment.id,
+    step_id: stepId,
+    status: "not_started",
+    updated_by: userId,
+  }));
+}
+
+function datePlusDays(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 export async function routeLeadToBranch(formData: FormData) {
   const { user, tenant } = await requireActiveTenant([

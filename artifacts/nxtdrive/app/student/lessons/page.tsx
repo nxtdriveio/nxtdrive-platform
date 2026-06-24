@@ -334,7 +334,7 @@ export default async function StudentLessonsPage({
                         "Bekijk je lesdetail"
                       }
                       meta={timeFmt.format(start)}
-                      badge={lesson.progress_score != null ? `${lesson.progress_score}/10` : "Les"}
+                      badge={lesson.progress_score != null ? `${Math.min(8, lesson.progress_score)}/8` : "Les"}
                       badgeVariant={lesson.progress_score != null ? "success" : "outline"}
                       leading={<StudentInitialBadge label="Les" />}
                     />

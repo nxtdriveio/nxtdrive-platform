@@ -16,6 +16,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { setRisConceptScoreAction } from "@/lib/ris/actions";
 import {
+  normalizeRisStep,
+  risStepNumber,
   type RISStepValue,
   type RISTreeModule,
   type RISTreeScript,
@@ -31,13 +33,15 @@ type ScriptView = {
   assessment: RisScriptAssessment | null;
 };
 
-const MIN_SCORE = 1;
-const MAX_SCORE = 10;
+const STEP_VALUES: RISStepValue[] = ["N", "1", "2", "3", "4", "5", "6", "7", "8"];
+const MIN_SCORE_INDEX = 0;
+const MAX_SCORE_INDEX = STEP_VALUES.length - 1;
 
 function statusForStep(
   step: RISStepValue,
 ): NonNullable<Parameters<typeof setRisConceptScoreAction>[0]["status"]> {
-  const numeric = Number(step);
+  const numeric = risStepNumber(step);
+  if (numeric === null) return "not_started";
   if (numeric <= 2) return "prepared";
   if (numeric <= 4) return "practiced";
   if (numeric <= 5) return "progressing";
@@ -47,28 +51,25 @@ function statusForStep(
 }
 
 function stepIndex(step: RISStepValue | null): number {
-  if (!step) return 0;
-  return Number(step);
+  const normalized = normalizeRisStep(step);
+  return Math.max(0, STEP_VALUES.indexOf(normalized ?? "N"));
 }
 
-function stepFromIndex(index: number): RISStepValue | null {
-  if (index < MIN_SCORE) return null;
-  return String(Math.min(MAX_SCORE, Math.max(MIN_SCORE, index))) as RISStepValue;
+function stepFromIndex(index: number): RISStepValue {
+  return STEP_VALUES[Math.min(MAX_SCORE_INDEX, Math.max(MIN_SCORE_INDEX, index))] ?? "N";
 }
 
 function shiftStep(step: RISStepValue | null, delta: -1 | 1): RISStepValue {
-  if (!step && delta > 0) return "1";
-  if (!step) return "1";
-  return stepFromIndex(stepIndex(step) + delta) ?? "1";
+  return stepFromIndex(stepIndex(step) + delta);
 }
 
-function visibleStep(assessment: RisScriptAssessment | null): RISStepValue | null {
-  return (
+function visibleStep(assessment: RisScriptAssessment | null): RISStepValue {
+  return normalizeRisStep(
     assessment?.conceptRisStep ??
     assessment?.finalRisStep ??
     assessment?.previousRisStep ??
     null
-  );
+  ) ?? "N";
 }
 
 function summaryTagCount(assessment: RisScriptAssessment | null): number {
@@ -162,7 +163,7 @@ export function RisScriptScoring({
   }, [assessmentByScript, ris.catalog.tree]);
 
   const allScripts = modules.flatMap((module) => module.scripts);
-  const scoredCount = allScripts.filter((item) => visibleStep(item.assessment) !== null).length;
+  const scoredCount = allScripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
   const focusCount = allScripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
   const attentionCount = allScripts.filter((item) => item.assessment?.isAttentionPoint).length;
   const locked = ris.card
@@ -181,10 +182,6 @@ export function RisScriptScoring({
   }) {
     const current = assessmentByScript.get(input.script.id) ?? null;
     const step = input.step ?? visibleStep(current);
-    if (!step) {
-      setError("Kies eerst een RIS-score van 1 t/m 10 voordat je labels opslaat.");
-      return;
-    }
     const isAttentionPoint = input.attention ?? current?.isAttentionPoint ?? false;
     const isFeaturedForLesson = input.focus ?? current?.isFeaturedForLesson ?? false;
     const shouldRepeat = input.repeat ?? current?.shouldRepeat ?? false;
@@ -296,7 +293,7 @@ export function RisScriptScoring({
         ) : (
           <div className="space-y-3">
             {modules.map(({ module, scripts }) => {
-              const moduleScored = scripts.filter((item) => visibleStep(item.assessment) !== null).length;
+              const moduleScored = scripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
               const moduleAttention = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
               return (
                 <details
@@ -371,12 +368,12 @@ export function RisScriptScoring({
                             <div className="flex items-center gap-1 rounded-xl border border-border bg-background/70 p-1">
                               <button
                                 type="button"
-                                disabled={locked || pending || !step || currentIndex <= MIN_SCORE}
+                                disabled={locked || pending || currentIndex <= MIN_SCORE_INDEX}
                                 onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
                                 aria-label={`Verlaag score voor ${script.title}`}
                                 className={cn(
                                   "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || !step || currentIndex <= MIN_SCORE) &&
+                                  (locked || pending || currentIndex <= MIN_SCORE_INDEX) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
                               >
@@ -385,20 +382,20 @@ export function RisScriptScoring({
                               <span className="grid h-8 min-w-16 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
                                 {pending ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
-                                ) : step ? (
-                                  `${step}/10`
+                                ) : step === "N" ? (
+                                  "N"
                                 ) : (
-                                  "Geen score"
+                                  `${step}/8`
                                 )}
                               </span>
                               <button
                                 type="button"
-                                disabled={locked || pending || currentIndex >= MAX_SCORE}
+                                disabled={locked || pending || currentIndex >= MAX_SCORE_INDEX}
                                 onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
                                 aria-label={`Verhoog score voor ${script.title}`}
                                 className={cn(
                                   "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || currentIndex >= MAX_SCORE) &&
+                                  (locked || pending || currentIndex >= MAX_SCORE_INDEX) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
                               >

@@ -40,10 +40,11 @@ const STEPS = [
   { key: "note", label: "Notitie", icon: StickyNote },
   { key: "confirm", label: "Afronden", icon: Flag },
 ] as const;
+const SCORE_VALUES = Array.from({ length: 8 }, (_, i) => i + 1);
 
 /**
  * Tablet-landscape, step-by-step "les afronden" flow (PWA canon §"Les Afronden
- * Flow"): pick the skills practiced → tap a 1–10 score per skill → add an
+ * Flow"): pick the skills practiced -> tap a 1-8 score per skill -> add an
  * overall note/score → confirm. Reuses the existing locked server actions only
  * (setSkillScoreAction per tap, setLessonProgressAction for the note step,
  * completeLessonAction to finish) — no new financial/ledger paths. Skill scores
@@ -150,15 +151,11 @@ export function FinishLessonFlow({
   }
 
   function saveNoteAndContinue() {
-    if (overall == null) {
-      setError("Kies een eindscore voor deze les (1–10).");
-      return;
-    }
     setError(null);
     startTransition(async () => {
       const fd = new FormData();
       fd.set("lesson_id", lessonId);
-      fd.set("score", String(overall));
+      fd.set("score", overall == null ? "N" : String(overall));
       fd.set("summary", summary.trim());
       const res = await setLessonProgressAction(fd);
       if (res?.error) {
@@ -169,8 +166,7 @@ export function FinishLessonFlow({
     });
   }
 
-  const canNext =
-    step === 0 ? true : step === 1 ? allScored : step === 2 ? overall != null : false;
+  const canNext = step === 0 ? true : step === 1 ? allScored : step === 2 ? true : false;
 
   return (
     <>
@@ -342,7 +338,7 @@ export function FinishLessonFlow({
                   ) : step === 2 ? (
                     <Button
                       type="button"
-                      disabled={overall == null || savingId != null}
+                      disabled={savingId != null}
                       onClick={saveNoteAndContinue}
                     >
                       Volgende
@@ -470,7 +466,7 @@ function ScoresStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-base font-semibold text-foreground">
-          Geef een score (1–10)
+          Geef een score (1-8)
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Tik per onderdeel het niveau van vandaag.
@@ -507,8 +503,8 @@ function ScoresStep({
                   <Check className="ml-auto h-4 w-4 text-primary" aria-hidden />
                 ) : null}
               </div>
-              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
+                {SCORE_VALUES.map((n) => {
                   const active = value === n;
                   return (
                     <button
@@ -545,7 +541,7 @@ function NoteStep({
 }: {
   overall: number | null;
   summary: string;
-  onOverall: (n: number) => void;
+  onOverall: (n: number | null) => void;
   onSummary: (s: string) => void;
 }) {
   return (
@@ -561,10 +557,24 @@ function NoteStep({
 
       <div>
         <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-          Lesscore (1–10)
+          Lesscore (N/1-8)
         </div>
-        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-9">
+          <button
+            type="button"
+            onClick={() => onOverall(null)}
+            aria-pressed={overall === null}
+            aria-label="Lesscore: N"
+            className={cn(
+              "h-12 rounded-lg border text-base font-semibold tabular-nums transition-colors",
+              overall === null
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted",
+            )}
+          >
+            N
+          </button>
+          {SCORE_VALUES.map((n) => {
             const active = overall === n;
             return (
               <button
@@ -636,8 +646,10 @@ function ConfirmStep({
           Lesscore
         </div>
         <div className="text-2xl font-semibold tabular-nums text-foreground">
-          {overall ?? "—"}
-          <span className="text-base font-normal text-muted-foreground">/10</span>
+          {overall == null ? "N" : overall}
+          {overall == null ? null : (
+            <span className="text-base font-normal text-muted-foreground">/8</span>
+          )}
         </div>
         {summary.trim() ? (
           <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">

@@ -15,7 +15,7 @@ Het systeem geeft continu antwoord op één vraag: **hoe examenrijp is deze leer
 
 Twee ervaringen, één dossier:
 - **Instructeur — tablet-first.** Snel sturen op ontwikkeling tijdens/na de les: per
-  vaardigheid een cijfer 1–10, kritieke skills bewaken, lesregistratie, examenadvies.
+  vaardigheid een RIS-score N/1-8, kritieke skills bewaken, lesregistratie, examenadvies.
 - **Leerling & ouder — mobile-first.** Perfect inzicht en motivatie: voortgang per
   categorie, examenrijpheidsmeter, feedback per les, trend over tijd.
 
@@ -27,8 +27,8 @@ uitsluitend visuele inspiratie; in code nooit een specifieke rijschool hardcoden
 
 ## Belangrijke ontwerpbesluiten (uit de canon)
 
-1. **Beoordelingsschaal 1–10** met expliciete niveaubetekenis (1 = nooit behandeld …
-   10 = volledig beheerst). Niveau 8 = "bijna examenwaardig", 9 = "examenwaardig".
+1. **Beoordelingsschaal N/1-8** met expliciete niveaubetekenis (`N` = niet beoordeeld,
+   1 = startniveau, 8 = examenwaardig).
 2. **Examenrijpheid is cijfer-gedreven** (adviserend):
    - Niet examenrijp: kritieke onderdelen < 7 of gemiddelde < 7.
    - Bijna examenrijp: kritieke ≥ 8 en gemiddelde ≥ 7,5.
@@ -66,7 +66,7 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   versiebeheer zodat een lopend dossier stabiel blijft.
 - Markering **kritieke veiligheidsvaardigheid** per vaardigheid.
 - Optionele **theoriekoppeling** per vaardigheid.
-- Scoremodel 1–10 per vaardigheid per leerling: per-les historie + rollup "laatste score".
+- Scoremodel N/1-8 per vaardigheid per leerling: per-les historie + rollup "laatste score".
 - RLS, audit, server-side RPC's. Idempotent.
 - **Klaar als:** taxonomie + scores opslagbaar, migratie schoon, RLS getest.
 
@@ -81,12 +81,12 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   `db:test-readiness` (engine-asserties + RLS/RPC). Visuele weergave volgt in L2/L3.
   - Gedocumenteerde keuzes (canon laat ze open): ongescoorde leaf telt als 1
     ("nog nooit behandeld"); gemiddelde over álle actieve leaves; Readiness% =
-    (gem−1)/9·100 (alles 1 = 0%, alles 10 = 100%); stabiliteit = ≥3 lessen met
+    (gem−1)/7·100 (alles 1 = 0%, alles 8 = 100%); stabiliteit = ≥3 lessen met
     scores, spread laatste-3 ≤ 1,0 én minimum ≥ 7,0; de zone tussen "niet" en
     "bijna" (kritiek 7–7,9 of gem 7–7,49) valt conservatief op "niet examenrijp".
 
 ### Fase L2 — Instructeur-leskaart (tablet-first) ✅ (kern)
-- Lescockpit uitbreiden: per categorie inklapbare secties, snelle 1–10 invoer
+- Lescockpit uitbreiden: per categorie inklapbare secties, snelle N/1-8 invoer
   (touch-stepper/slider), huidige score als carry-over, kritieke skills gemarkeerd,
   "vandaag geoefend"-chips, examenadvies-update.
 - Volledige lesregistratie (voertuig, locatie, behandelde onderdelen, scores, notities,
@@ -95,7 +95,7 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
 - **Klaar als:** instructeur beoordeelt vlot per vaardigheid en legt de les compleet vast.
 - **Status:** Instructeur-lespagina toont nu de nieuwe L0/L1-leskaart i.p.v. de platte
   CBR-checklist. Volledige taxonomie (hoofdcategorie → subcategorie → vaardigheid) in
-  inklapbare secties met segmented 1–10 invoer, carry-over (`student_skill_scores`),
+  inklapbare secties met segmented 1-8 invoer, carry-over (`student_skill_scores`),
   kritiekmarkering, theoriekoppeling-indicator, live per-categorie ⌀/voortgang en
   "vandaag geoefend"-overzicht (`lesson_skill_scores` voor déze les). Scoren via
   server action `setSkillScoreAction` → vergrendelde RPC `set_skill_score` (audit +
@@ -116,7 +116,7 @@ intrekken/herplannen en vervangen door de L-fasen, zodat we niet twee keer bouwe
   platte CBR-checklist: de L1-examenrijpheidsmeter (readiness%, 5-fasenband, advies,
   "nog te doen"-blockers, adviserende disclaimer — identiek aan de instructeurkant via
   dezelfde `loadStudentReadiness`-engine), per-hoofdcategorie voortgang (% afgeleid van
-  de 1–10-scores, ⌀ waar beoordeeld, kritiekmarkering), "vandaag/laatst geoefend"-overzicht
+  de N/1-8 scores, ⌀ waar beoordeeld, kritiekmarkering), "vandaag/laatst geoefend"-overzicht
   en een ontwikkeling-over-tijd-trend (gemiddelde per beoordeelde les). De lesdetailpagina
   toont feedback per les: de beoordeelde vaardigheden gegroepeerd per categorie met cijfer.
   Read-only loader: `lib/skills/student-leskaart-data.ts` (`loadStudentLeskaart` +

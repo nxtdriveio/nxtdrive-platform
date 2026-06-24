@@ -290,14 +290,14 @@ De canon vraagt om een mobile-first student PWA met volgende les, tegoed, voortg
 
 ### Aanwezig
 
-De canon benoemt RIS-methodiek, modules, scripts, voortgang, CBR-koppeling en scoremodel. Recente keuzes hebben het scoremodel definitief richting 1-10 getrokken. Aanwezig:
+De canon benoemt RIS-methodiek, modules, scripts, voortgang, CBR-koppeling en scoremodel. Het scoremodel is definitief `N` plus `1` t/m `8`: `N` is niet beoordeeld, `8` is examenwaardig. Aanwezig:
 
 - RIS-taxonomie en scripts.
 - RIS-leskaarten.
 - Plankaarten.
 - Reflectie.
 - Publicatieflow.
-- Scoremodel 1-10.
+- Scoremodel N/1-8.
 - Critical skills en readiness.
 - Studentweergave van voortgang.
 - Instructor beoordeling met modules en labels.
@@ -564,4 +564,3 @@ Voor nieuwe rijscholen: checklist met branding, vestigingen, instructeurs, voert
 ## Conclusie
 
 NXTDRIVE is functioneel breed en staat dicht bij de canon. Het product heeft de belangrijkste pijlers: SaaS-fundament, planning, leerling/instructeur PWA, RIS, finance, taken, franchise, smart booking en theming. De grootste stap vooruit zit nu in producthardheid: consistente productieflows, minder tijdelijke tekst, betere testdekking, AVG tooling, officiele externe koppelingen en meetbare responsive kwaliteit.
-

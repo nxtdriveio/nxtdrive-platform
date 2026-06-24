@@ -11,7 +11,7 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
 
 /**
  * Read-only "vandaag geoefend" overview for the student/parent: the skills
- * graded in the most recent lesson, with their 1–10 grade.
+ * graded in the most recent lesson, with their 1-8 grade.
  */
 export function RecentPracticeCard({
   recent,

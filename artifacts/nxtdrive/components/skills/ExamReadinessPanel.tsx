@@ -109,7 +109,7 @@ export function ExamReadinessPanel({
               {readiness.readinessPct}%
             </span>
             <span className="text-xs text-muted-foreground">
-              {PHASE_LABELS[readiness.phase]} · ⌀ {readiness.averageScore.toFixed(1)} ·{" "}
+              {PHASE_LABELS[readiness.phase]} · ⌀ {readiness.averageScore.toFixed(1)}/8 ·{" "}
               {readiness.scoredLeaves}/{readiness.totalLeaves} beoordeeld
             </span>
           </div>

@@ -277,7 +277,7 @@ export function PortalVoortgangCard({
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Gemiddelde score</span>
               <span className="font-medium tabular-nums text-foreground">
-                {readiness.averageScore.toFixed(1)} / 10
+                {readiness.averageScore.toFixed(1)} / 8
               </span>
             </div>
           </div>
@@ -304,7 +304,7 @@ export function PortalVoortgangCard({
                       {dateFmt.format(start)}
                     </span>
                     <span className="text-sm font-semibold tabular-nums text-foreground">
-                      {l.progress_score} / 10
+                      {Math.min(8, l.progress_score ?? 0)} / 8
                     </span>
                   </li>
                 );

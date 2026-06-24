@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import {
+  Activity,
   BellRing,
   Mail,
   Palette,
@@ -178,12 +179,20 @@ export default async function TenantNotificationsPage({
             </p>
           </div>
         </div>
-        <Link
-          href="/backoffice/instellingen"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Terug naar instellingen
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/backoffice/instellingen/notificaties/delivery">
+            <Button variant="outline" size="sm">
+              <Activity className="h-4 w-4" aria-hidden />
+              Delivery dashboard
+            </Button>
+          </Link>
+          <Link
+            href="/backoffice/instellingen"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Terug naar instellingen
+          </Link>
+        </div>
       </div>
 
       {savedKey ? (

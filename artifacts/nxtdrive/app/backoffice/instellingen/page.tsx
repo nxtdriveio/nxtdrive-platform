@@ -330,6 +330,18 @@ export default async function SettingsPage({
               </p>
             </Link>
             <Link
+              href="/backoffice/instellingen/workflows"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <Workflow className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Workflow builder</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Beheer templatecatalogus, eigenaarschap, SLA en kanalen.
+              </p>
+            </Link>
+            <Link
               href="/backoffice/instellingen/vestigingen"
               className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
             >
@@ -749,12 +761,20 @@ export default async function SettingsPage({
             Stel in welke meldingen je leerlingen en medewerkers ontvangen. Je kunt triggers
             per kanaal (e-mail, in-app, push) aan- of uitzetten voor jouw rijschool.
           </p>
-          <a
-            href="/backoffice/instellingen/notificaties"
-            className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Notificaties beheren →
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/backoffice/instellingen/notificaties"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Notificaties beheren
+            </a>
+            <a
+              href="/backoffice/instellingen/notificaties/delivery"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Delivery dashboard
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>

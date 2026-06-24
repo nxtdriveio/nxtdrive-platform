@@ -226,7 +226,11 @@ export default async function StudentHomePage() {
 
   const sparklineValues = leskaart.history
     .slice(-6)
-    .map((point) => point.progressScore ?? point.averageScore * 10)
+    .map((point) =>
+      Math.round(
+        (Math.min(8, point.progressScore ?? point.averageScore) / 8) * 100,
+      ),
+    )
     .filter((value): value is number => Number.isFinite(value));
 
   const nextInstructorNames = nextLesson
@@ -304,7 +308,7 @@ export default async function StudentHomePage() {
   const historyPoints = leskaart.history.slice(-2);
   const recentDeltaPct =
     historyPoints.length === 2
-      ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 10) * 100)
+      ? Math.round(((historyPoints[1]!.averageScore - historyPoints[0]!.averageScore) / 8) * 100)
       : null;
 
   const fallbackCoachTitle =

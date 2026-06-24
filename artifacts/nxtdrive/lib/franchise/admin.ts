@@ -25,6 +25,7 @@ export type FranchiseAuditCategory =
   | "lead_routing"
   | "benchmark"
   | "planning"
+  | "playbook"
   | "other";
 
 export type FranchiseAuditFilters = {
@@ -57,6 +58,7 @@ export const FRANCHISE_AUDIT_CATEGORY_OPTIONS: Array<{
   { value: "lead_routing", label: "Lead routing" },
   { value: "benchmark", label: "Benchmark" },
   { value: "planning", label: "Planning" },
+  { value: "playbook", label: "Playbooks" },
   { value: "other", label: "Overig" },
 ];
 
@@ -119,6 +121,21 @@ export const FRANCHISE_AUDIT_ACTION_OPTIONS: Array<{
     category: "benchmark",
   },
   {
+    value: "franchise.benchmark_coaching_plan_saved",
+    label: "Benchmark coachingplan opgeslagen",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_checkin_added",
+    label: "Benchmark check-in toegevoegd",
+    category: "benchmark",
+  },
+  {
+    value: "franchise.benchmark_result_recorded",
+    label: "Benchmarkresultaat vastgelegd",
+    category: "benchmark",
+  },
+  {
     value: "franchise.planning_action_created",
     label: "Planningactie aangemaakt",
     category: "planning",
@@ -137,6 +154,36 @@ export const FRANCHISE_AUDIT_ACTION_OPTIONS: Array<{
     value: "franchise.planning_action_completed",
     label: "Planningactie afgerond",
     category: "planning",
+  },
+  {
+    value: "franchise.playbook_program_created",
+    label: "Playbookprogramma aangemaakt",
+    category: "playbook",
+  },
+  {
+    value: "franchise.playbook_program_updated",
+    label: "Playbookprogramma bijgewerkt",
+    category: "playbook",
+  },
+  {
+    value: "franchise.playbook_step_created",
+    label: "Playbookstap toegevoegd",
+    category: "playbook",
+  },
+  {
+    value: "franchise.playbook_program_assigned",
+    label: "Playbookprogramma toegewezen",
+    category: "playbook",
+  },
+  {
+    value: "franchise.playbook_assignment_status_updated",
+    label: "Playbook check-in bijgewerkt",
+    category: "playbook",
+  },
+  {
+    value: "franchise.playbook_step_progress_updated",
+    label: "Playbookstap voortgang bijgewerkt",
+    category: "playbook",
   },
 ];
 

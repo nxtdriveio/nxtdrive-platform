@@ -26,6 +26,7 @@ import {
 import type { MemberRole } from "@/lib/types";
 import {
   normalizeRisStep,
+  risStepNumber,
   translateRisStepForStudent,
   type RISStepValue,
 } from "@workspace/leskaart";
@@ -141,7 +142,7 @@ export async function setRisConceptScoreAction(input: {
   lessonId: string;
   scriptId: string;
   scriptVariantId?: string | null;
-  conceptRisStep: RISStepValue | number;
+  conceptRisStep: RISStepValue | number | null;
   status?: RisScriptStatus;
   isAttentionPoint?: boolean;
   isFeaturedForLesson?: boolean;
@@ -156,7 +157,7 @@ export async function setRisConceptScoreAction(input: {
       "tenant_admin",
     ]);
     const step = normalizeRisStep(input.conceptRisStep);
-    if (!step) return { error: "Kies een geldige RIS-score van 1 t/m 10." };
+    if (!step) return { error: "Kies een geldige RIS-score: N of 1 t/m 8." };
 
     const service = createServiceRoleClient();
     const { data, error } = await service.rpc("set_ris_concept_score", {
@@ -899,7 +900,10 @@ function buildRisAiSignals(ris: InstructorRisLessonCard) {
   }
 
   return ris.assessments
-    .filter((assessment) => assessment.conceptRisStep != null || assessment.finalRisStep != null)
+    .filter((assessment) => {
+      const step = assessment.conceptRisStep ?? assessment.finalRisStep;
+      return risStepNumber(step) !== null;
+    })
     .map((assessment) => {
       const meta = scriptMeta.get(assessment.scriptId);
       const step = assessment.conceptRisStep ?? assessment.finalRisStep;
