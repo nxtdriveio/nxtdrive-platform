@@ -19,8 +19,11 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
   bannerFor,
+  describeConnectionTarget,
+  explainConnectionFailure,
   parseEnvFromArgv,
   resolveConnectionString,
+  validateConnectionTarget,
 } from "./lib/db-env.js";
 
 const { Client } = pg;
@@ -31,11 +34,17 @@ const MIGRATIONS_DIR = resolve(HERE, "..", "..", "supabase", "migrations");
 async function main(): Promise<void> {
   const env = parseEnvFromArgv(process.argv);
   const connectionString = resolveConnectionString(env);
+  validateConnectionTarget(env, connectionString);
 
   console.log(`${bannerFor(env)} — applying migrations from ${MIGRATIONS_DIR}`);
+  console.log(`Database target: ${describeConnectionTarget(connectionString)}`);
 
   const client = new Client({ connectionString });
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (err) {
+    throw explainConnectionFailure(err, env, connectionString);
+  }
 
   try {
     await client.query(`

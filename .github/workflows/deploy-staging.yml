@@ -66,6 +66,7 @@ jobs:
 
       - name: Apply database migrations
         env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: pnpm --filter @workspace/scripts run db:migrate -- --env=staging
 
