@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "source": "installed-android-build",
+  "capturedAt": "2026-07-29T22:54:51.174Z",
+  "screenshotClass": "tablet-10",
+  "packageName": "io.nxtdrive.instructeur",
+  "versionName": "1.0.0",
+  "versionCode": 202607291,
+  "device": {
+    "serial": "emulator-5554",
+    "manufacturer": "unknown",
+    "model": "Android SDK built for x86_64",
+    "androidRelease": "15",
+    "sdk": 35,
+    "size": "Physical size: 1080x2340\nOverride size: 1600x2560",
+    "density": "Physical density: 440\nOverride density: 280"
+  },
+  "syntheticDataConfirmed": true,
+  "files": [
+    {
+      "file": "01-cockpit.png",
+      "label": "Cockpit",
+      "deepLink": "https://nxtdrive.io/instructeur",
+      "sha256": "555a399cfbd7164796d95c951820009cd7d50b4e2d107780cb803355cdf4b7e9"
+    },
+    {
+      "file": "02-agenda.png",
+      "label": "Agenda",
+      "deepLink": "https://nxtdrive.io/instructeur/agenda",
+      "sha256": "2adc339f00cc8700ae133104a434596bcf47fec57a38831e451c4555d71a957d"
+    },
+    {
+      "file": "03-leerlingen.png",
+      "label": "Leerlingen",
+      "deepLink": "https://nxtdrive.io/instructeur/leerlingen",
+      "sha256": "5b33e10b0c0ebcc0c26345ed09d10811c0ab9f40f92ffbd60436f0a071c9fed3"
+    },
+    {
+      "file": "04-taken.png",
+      "label": "Taken",
+      "deepLink": "https://nxtdrive.io/instructeur/taken",
+      "sha256": "dd33cd6045411ebf1b2b3fac5cd627b590a473bf4aa99a0f6a3f1797031a9204"
+    },
+    {
+      "file": "05-instellingen.png",
+      "label": "Instellingen",
+      "deepLink": "https://nxtdrive.io/instructeur/instellingen",
+      "sha256": "a0ecb75604ee31f5786b463ab450a6a1b0f0e804c46b18680badbd769614cc17"
+    }
+  ]
+}
