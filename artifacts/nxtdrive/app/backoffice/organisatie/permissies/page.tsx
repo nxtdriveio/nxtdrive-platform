@@ -37,10 +37,7 @@ import {
   type ManageablePermissionRole,
   type OrganizationRolePermissionOverride,
 } from "@/lib/organization";
-import {
-  permissionResource,
-  type Permission,
-} from "@/lib/permissions";
+import { permissionResource, type Permission } from "@/lib/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { cn } from "@/lib/utils";
 import type { MemberRole } from "@/lib/types";
@@ -65,20 +62,32 @@ const ROLE_LABEL: Record<ManageablePermissionRole, string> = {
 };
 
 const ROLE_DESCRIPTION: Record<ManageablePermissionRole, string> = {
-  tenant_admin: "Volledige beheerrol binnen een organisatie, inclusief instellingen en structuur.",
-  franchise_admin: "Centrale beheerrol voor franchise-organisaties en vestigingsoverstijgende sturing.",
-  branch_manager: "Lokale managerrol voor vestigingsoperatie, medewerkers en planning binnen scope.",
+  tenant_admin:
+    "Volledige beheerrol binnen een organisatie, inclusief instellingen en structuur.",
+  franchise_admin:
+    "Centrale beheerrol voor franchise-organisaties en vestigingsoverstijgende sturing.",
+  branch_manager:
+    "Lokale managerrol voor vestigingsoperatie, medewerkers en planning binnen scope.",
   planner: "Operationele planning zonder brede organisatie-instellingen.",
-  admin_staff: "Backoffice- en facturatiegerichte rol voor administratie en operationele opvolging.",
-  marketing: "Lead- en groeifocus zonder toegang tot gevoelige beheerinstellingen.",
-  instructor: "Uitvoerende rol voor leerlingen en agenda, zonder brede backoffice-control.",
+  admin_staff:
+    "Backoffice- en facturatiegerichte rol voor administratie en operationele opvolging.",
+  marketing:
+    "Lead- en groeifocus zonder toegang tot gevoelige beheerinstellingen.",
+  instructor:
+    "Uitvoerende rol voor leerlingen en agenda, zonder brede backoffice-control.",
 };
 
-function feedbackMessage(code: string | null, reason: string | null): string | null {
+function feedbackMessage(
+  code: string | null,
+  reason: string | null,
+): string | null {
   if (code === "saved") return "Permissieprofiel opgeslagen.";
-  if (code === "invalid_role") return "Kies een geldige rol om permissies op te slaan.";
+  if (code === "invalid_role")
+    return "Kies een geldige rol om permissies op te slaan.";
   if (code === "save_failed") {
-    return reason ? `Opslaan mislukt: ${reason}` : "Opslaan van permissies is mislukt.";
+    return reason
+      ? `Opslaan mislukt: ${reason}`
+      : "Opslaan van permissies is mislukt.";
   }
   return null;
 }
@@ -114,7 +123,10 @@ function StatCard({
   );
 }
 
-function groupPermissions(): Array<{ resource: string; permissions: Permission[] }> {
+function groupPermissions(): Array<{
+  resource: string;
+  permissions: Permission[];
+}> {
   const grouped = new Map<string, Permission[]>();
   for (const permission of manageablePermissions()) {
     const resource = permissionResource(permission);
@@ -397,7 +409,9 @@ function AccessSimulator({
                     key={surface.key}
                     className="rounded-xl border border-border bg-background px-3 py-3"
                   >
-                    <p className="font-medium text-foreground">{surface.title}</p>
+                    <p className="font-medium text-foreground">
+                      {surface.title}
+                    </p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
                       {surface.description}
                     </p>
@@ -448,7 +462,9 @@ function DelegationWizardPanel() {
                 <GitBranch className="h-4 w-4" aria-hidden />
               </span>
               <div className="min-w-0">
-                <p className="font-medium text-foreground">{suggestion.signal}</p>
+                <p className="font-medium text-foreground">
+                  {suggestion.signal}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {suggestion.suggestedPermission} · {suggestion.scope}
                 </p>
@@ -470,12 +486,19 @@ export default async function OrganizationPermissionsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { organization } = await requireOrganizationPermission("settings:manage");
+  const { organization } =
+    await requireOrganizationPermission("settings:manage");
   const service = createServiceRoleClient();
   const sp = await searchParams;
-  const feedbackCode = typeof sp.success === "string" ? sp.success : typeof sp.error === "string" ? sp.error : null;
+  const feedbackCode =
+    typeof sp.success === "string"
+      ? sp.success
+      : typeof sp.error === "string"
+        ? sp.error
+        : null;
   const reason = typeof sp.reason === "string" ? sp.reason : null;
-  const requestedRole = typeof sp.role === "string" ? (sp.role as ManageablePermissionRole) : null;
+  const requestedRole =
+    typeof sp.role === "string" ? (sp.role as ManageablePermissionRole) : null;
   const roles = manageableRoles();
   const selectedRole = roles.includes(requestedRole as ManageablePermissionRole)
     ? (requestedRole as ManageablePermissionRole)
@@ -483,7 +506,9 @@ export default async function OrganizationPermissionsPage({
   const requestedSimulatorRole =
     typeof sp.sim_role === "string" ? (sp.sim_role as MemberRole) : null;
   const simulatorRoles: MemberRole[] = [...roles, "student", "parent"];
-  const simulatedRole = simulatorRoles.includes(requestedSimulatorRole as MemberRole)
+  const simulatedRole = simulatorRoles.includes(
+    requestedSimulatorRole as MemberRole,
+  )
     ? (requestedSimulatorRole as MemberRole)
     : selectedRole;
 
@@ -497,21 +522,28 @@ export default async function OrganizationPermissionsPage({
   ]);
 
   if (membershipCountsResult.error) {
-    throw new Error(`Kon rolverdeling niet laden: ${membershipCountsResult.error.message}`);
+    throw new Error(
+      `Kon rolverdeling niet laden: ${membershipCountsResult.error.message}`,
+    );
   }
 
-  const membershipCounts = ((membershipCountsResult.data ?? []) as MembershipCountRow[]).reduce<Record<string, number>>(
-    (acc, row) => {
-      acc[row.role] = (acc[row.role] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
+  const membershipCounts = (
+    (membershipCountsResult.data ?? []) as MembershipCountRow[]
+  ).reduce<Record<string, number>>((acc, row) => {
+    acc[row.role] = (acc[row.role] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  const roleOverrideCount = overrides.filter((override) => override.role === selectedRole).length;
-  const rolesWithOverrides = new Set(overrides.map((override) => override.role)).size;
+  const roleOverrideCount = overrides.filter(
+    (override) => override.role === selectedRole,
+  ).length;
+  const rolesWithOverrides = new Set(overrides.map((override) => override.role))
+    .size;
   const groups = groupPermissions();
-  const simulatedPermissions = effectiveRolePermissions(simulatedRole, overrides);
+  const simulatedPermissions = effectiveRolePermissions(
+    simulatedRole,
+    overrides,
+  );
   const message = feedbackMessage(feedbackCode, reason);
   const governanceDefinition = isStaffGovernanceRole(selectedRole)
     ? roleGovernanceDefinition(selectedRole)
@@ -530,7 +562,9 @@ export default async function OrganizationPermissionsPage({
               Rolpermissies beheren
             </h1>
             <p className="text-sm text-muted-foreground">
-              Houd de standaard permission registry als canon en leg alleen tenant-specifieke uitzonderingen vast waar dat operationeel echt nodig is.
+              Houd de standaard permission registry als canon en leg alleen
+              tenant-specifieke uitzonderingen vast waar dat operationeel echt
+              nodig is.
             </p>
           </div>
         </div>
@@ -596,63 +630,98 @@ export default async function OrganizationPermissionsPage({
         />
       </div>
 
-      <PermissionMatrix
-        roles={roles}
-        groups={groups}
-        overrides={overrides}
-        selectedRole={selectedRole}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="space-y-6">
-          <RoleTemplatePanel orgType={organization.org_type} />
-          <DelegationWizardPanel />
-        </div>
-        <div className="space-y-6">
-          <AccessSimulator
+      <details data-admin-disclosure>
+        <summary>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
+              Effectieve permissiematrix
+            </span>
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Vergelijk alle rollen en overrides in één brede tabel.
+            </span>
+          </span>
+        </summary>
+        <div data-disclosure-content>
+          <PermissionMatrix
+            roles={roles}
+            groups={groups}
+            overrides={overrides}
             selectedRole={selectedRole}
-            simulatedRole={simulatedRole}
-            simulatedPermissions={simulatedPermissions}
           />
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Audit-uitleg geselecteerde rol
-                <Badge variant="outline">{roleDisplayLabel(selectedRole)}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-2xl border border-border bg-muted/25 p-4">
-                <p className="flex items-center gap-2 font-medium text-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-                  Waarom deze rol bestaat
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {roleAuditExplanation(selectedRole)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border bg-muted/25 p-4">
-                <p className="flex items-center gap-2 font-medium text-foreground">
-                  <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-                  Auditvriendelijk gebruik
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Leg afwijkingen vast als expliciete overrides en gebruik
-                  delegaties met scope, geldigheid, eigenaar en reden wanneer
-                  toegang tijdelijk of vestigingsoverstijgend is.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      </div>
+      </details>
+
+      <details data-admin-disclosure>
+        <summary>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
+              Analyse & hulpmiddelen
+            </span>
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Roltemplates, delegatievoorstellen, simulatie en auditcontext.
+            </span>
+          </span>
+        </summary>
+        <div
+          data-disclosure-content
+          className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]"
+        >
+          <div className="space-y-6">
+            <RoleTemplatePanel orgType={organization.org_type} />
+            <DelegationWizardPanel />
+          </div>
+          <div className="space-y-6">
+            <AccessSimulator
+              selectedRole={selectedRole}
+              simulatedRole={simulatedRole}
+              simulatedPermissions={simulatedPermissions}
+            />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Audit-uitleg geselecteerde rol
+                  <Badge variant="outline">
+                    {roleDisplayLabel(selectedRole)}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-2xl border border-border bg-muted/25 p-4">
+                  <p className="flex items-center gap-2 font-medium text-foreground">
+                    <CheckCircle2
+                      className="h-4 w-4 text-primary"
+                      aria-hidden
+                    />
+                    Waarom deze rol bestaat
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {roleAuditExplanation(selectedRole)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/25 p-4">
+                  <p className="flex items-center gap-2 font-medium text-foreground">
+                    <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+                    Auditvriendelijk gebruik
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Leg afwijkingen vast als expliciete overrides en gebruik
+                    delegaties met scope, geldigheid, eigenaar en reden wanneer
+                    toegang tijdelijk of vestigingsoverstijgend is.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </details>
 
       <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle className="text-foreground">Rollen</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Kies eerst welke backoffice-rol je wilt bijsturen. De standaardrol blijft altijd zichtbaar als referentie.
+              Kies eerst welke backoffice-rol je wilt bijsturen. De standaardrol
+              blijft altijd zichtbaar als referentie.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -671,10 +740,16 @@ export default async function OrganizationPermissionsPage({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="font-medium text-foreground">{ROLE_LABEL[role]}</p>
-                      <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTION[role]}</p>
+                      <p className="font-medium text-foreground">
+                        {ROLE_LABEL[role]}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ROLE_DESCRIPTION[role]}
+                      </p>
                     </div>
-                    <Badge variant={membershipCounts[role] ? "primary" : "outline"}>
+                    <Badge
+                      variant={membershipCounts[role] ? "primary" : "outline"}
+                    >
                       {membershipCounts[role] ?? 0}
                     </Badge>
                   </div>
@@ -690,18 +765,29 @@ export default async function OrganizationPermissionsPage({
               <CardHeader>
                 <CardTitle>Governance eerst</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Controleer eerst of de basisrol logisch is. Overrides zijn pas de tweede laag nadat rol en scope kloppen.
+                  Controleer eerst of de basisrol logisch is. Overrides zijn pas
+                  de tweede laag nadat rol en scope kloppen.
                 </p>
               </CardHeader>
               <CardContent>
                 <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="primary">{governanceDefinition.label}</Badge>
-                    <Badge variant="outline">{roleScopeLabel(governanceDefinition.role)}</Badge>
+                    <Badge variant="primary">
+                      {governanceDefinition.label}
+                    </Badge>
+                    <Badge variant="outline">
+                      {roleScopeLabel(governanceDefinition.role)}
+                    </Badge>
                   </div>
-                  <p className="mt-3 text-foreground">{governanceDefinition.description}</p>
-                  <p className="mt-2 text-muted-foreground">{governanceDefinition.intended_use}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{governanceDefinition.governance_note}</p>
+                  <p className="mt-3 text-foreground">
+                    {governanceDefinition.description}
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    {governanceDefinition.intended_use}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {governanceDefinition.governance_note}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -711,39 +797,61 @@ export default async function OrganizationPermissionsPage({
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-foreground">{ROLE_LABEL[selectedRole]}</CardTitle>
+                  <CardTitle className="text-foreground">
+                    {ROLE_LABEL[selectedRole]}
+                  </CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {ROLE_DESCRIPTION[selectedRole]}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline">{membershipCounts[selectedRole] ?? 0} medewerker(s)</Badge>
-                  <Badge variant="outline">{roleOverrideCount} override(s)</Badge>
+                  <Badge variant="outline">
+                    {membershipCounts[selectedRole] ?? 0} medewerker(s)
+                  </Badge>
+                  <Badge variant="outline">
+                    {roleOverrideCount} override(s)
+                  </Badge>
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
-                Gebruik <strong className="text-foreground">Standaard</strong> waar mogelijk. Zet alleen een expliciete <strong className="text-foreground">Toestaan</strong> of <strong className="text-foreground">Weigeren</strong> als deze organisatie bewust afwijkt van de platformcanon.
+                Gebruik <strong className="text-foreground">Standaard</strong>{" "}
+                waar mogelijk. Zet alleen een expliciete{" "}
+                <strong className="text-foreground">Toestaan</strong> of{" "}
+                <strong className="text-foreground">Weigeren</strong> als deze
+                organisatie bewust afwijkt van de platformcanon.
               </div>
             </CardHeader>
             <CardContent>
-              <form action={saveOrganizationRolePermissionsAction} className="space-y-6">
+              <form
+                action={saveOrganizationRolePermissionsAction}
+                className="space-y-6"
+              >
                 <input type="hidden" name="role" value={selectedRole} />
 
                 {groups.map((group) => (
-                  <div key={group.resource} className="space-y-3 rounded-2xl border border-border p-4">
-                    <div>
-                      <h2 className="text-base font-semibold text-foreground">
-                        {resourceLabel(group.resource)}
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        Overrides binnen dit domein gelden alleen voor de rol {ROLE_LABEL[selectedRole].toLowerCase()}.
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
+                  <details key={group.resource} data-admin-disclosure>
+                    <summary>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {resourceLabel(group.resource)}
+                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                          {group.permissions.length} rechten · overrides voor{" "}
+                          {ROLE_LABEL[selectedRole].toLowerCase()}
+                        </span>
+                      </span>
+                    </summary>
+                    <div data-disclosure-content className="space-y-3">
                       {group.permissions.map((permission) => {
-                        const defaultState = defaultPermissionState(selectedRole, permission);
-                        const currentValue = permissionOverrideValue(selectedRole, permission, overrides);
+                        const defaultState = defaultPermissionState(
+                          selectedRole,
+                          permission,
+                        );
+                        const currentValue = permissionOverrideValue(
+                          selectedRole,
+                          permission,
+                          overrides,
+                        );
                         return (
                           <div
                             key={permission}
@@ -751,13 +859,27 @@ export default async function OrganizationPermissionsPage({
                           >
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-foreground">{permissionLabel(permission)}</p>
-                                <Badge variant={defaultState === "allow" ? "primary" : "outline"}>
-                                  Standaard {defaultState === "allow" ? "toegestaan" : "niet toegestaan"}
+                                <p className="font-medium text-foreground">
+                                  {permissionLabel(permission)}
+                                </p>
+                                <Badge
+                                  variant={
+                                    defaultState === "allow"
+                                      ? "primary"
+                                      : "outline"
+                                  }
+                                >
+                                  Standaard{" "}
+                                  {defaultState === "allow"
+                                    ? "toegestaan"
+                                    : "niet toegestaan"}
                                 </Badge>
                                 {currentValue !== "inherit" ? (
                                   <Badge variant="outline">
-                                    Override: {currentValue === "allow" ? "toestaan" : "weigeren"}
+                                    Override:{" "}
+                                    {currentValue === "allow"
+                                      ? "toestaan"
+                                      : "weigeren"}
                                   </Badge>
                                 ) : null}
                               </div>
@@ -772,8 +894,12 @@ export default async function OrganizationPermissionsPage({
                                 defaultValue={currentValue}
                                 className="flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               >
-                                <option value="inherit">Standaard volgen</option>
-                                <option value="allow">Expliciet toestaan</option>
+                                <option value="inherit">
+                                  Standaard volgen
+                                </option>
+                                <option value="allow">
+                                  Expliciet toestaan
+                                </option>
                                 <option value="deny">Expliciet weigeren</option>
                               </select>
                             </label>
@@ -781,19 +907,25 @@ export default async function OrganizationPermissionsPage({
                         );
                       })}
                     </div>
-                  </div>
+                  </details>
                 ))}
 
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
-                    className={buttonVariants({ variant: "primary", size: "sm" })}
+                    className={buttonVariants({
+                      variant: "primary",
+                      size: "sm",
+                    })}
                   >
                     Permissieprofiel opslaan
                   </button>
                   <Link
                     href={`/backoffice/organisatie/permissies?role=${selectedRole}`}
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
                   >
                     Terug naar standaardweergave
                   </Link>

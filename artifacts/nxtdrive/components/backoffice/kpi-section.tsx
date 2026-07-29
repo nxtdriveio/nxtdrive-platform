@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Users, Inbox, Receipt, Clock, ClipboardList, CalendarCheck2 } from "lucide-react";
+import {
+  Users,
+  Inbox,
+  Receipt,
+  Clock,
+  ClipboardList,
+  CalendarCheck2,
+} from "lucide-react";
 import { StatCard } from "@/components/backoffice/stat-card";
 import { formatEuros } from "@/lib/invoices/types";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -22,13 +29,23 @@ export type KpiData = {
 
 const REFRESH_INTERVAL_MS = 60_000;
 
-export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: string }) {
+export function KpiSection({
+  initial,
+  tenantId,
+}: {
+  initial: KpiData;
+  tenantId: string;
+}) {
   const [data, setData] = useState<KpiData>(initial);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlightRef = useRef(false);
 
   const fetchKpis = useCallback(async (force = false) => {
-    if (!force && typeof document !== "undefined" && document.visibilityState !== "visible") {
+    if (
+      !force &&
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
       return;
     }
     if (inFlightRef.current) return;
@@ -75,7 +92,9 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
           table: "lessons",
           filter: `tenant_id=eq.${tenantId}`,
         },
-        () => { void fetchKpis(); },
+        () => {
+          void fetchKpis();
+        },
       )
       .on(
         "postgres_changes",
@@ -85,7 +104,9 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
           table: "tasks",
           filter: `tenant_id=eq.${tenantId}`,
         },
-        () => { void fetchKpis(); },
+        () => {
+          void fetchKpis();
+        },
       )
       .on(
         "postgres_changes",
@@ -95,7 +116,9 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
           table: "trial_lessons",
           filter: `tenant_id=eq.${tenantId}`,
         },
-        () => { void fetchKpis(); },
+        () => {
+          void fetchKpis();
+        },
       )
       .subscribe();
 
@@ -106,7 +129,7 @@ export function KpiSection({ initial, tenantId }: { initial: KpiData; tenantId: 
 
   return (
     <section aria-label="KPI-overzicht">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Rijlessen vandaag"
           value={data.lessonsToday.toLocaleString("nl-NL")}

@@ -1,7 +1,7 @@
 # NXTDRIVE — PWA / TWA readiness report
 
 > **Historisch document.** De TWA-publicatiestrategie voor de instructeursapp
-> is vervangen door de Capacitor Android-shell met package-ID
+> is vervangen door de full-native Kotlin/Jetpack Compose-app met package-ID
 > `io.nxtdrive.instructeur`. Zie `docs/GOOGLE_PLAY_PUBLISHING.md`. Claims over
 > effen screenshots en Play-gereedheid hieronder zijn geen actueel
 > releasebewijs.
@@ -161,10 +161,10 @@ Run on production (or staging) `https://nxtdrive.io`.
 
 Two apps ship from the one Next.js codebase, one per PWA surface:
 
-| App                  | Package id                | Wraps                                | Manifest                           | Orientation |
-| -------------------- | ------------------------- | ------------------------------------ | ---------------------------------- | ----------- |
-| NXTDRIVE Leerling    | nog niet vastgesteld       | `https://nxtdrive.io/leerling`    | `/leerling/manifest.webmanifest`    | responsive |
-| NXTDRIVE Instructeur | `io.nxtdrive.instructeur` | `https://nxtdrive.io/instructeur` | `/instructeur/manifest.webmanifest` | responsive |
+| App                  | Package id                | Wraps                             | Manifest                            | Orientation |
+| -------------------- | ------------------------- | --------------------------------- | ----------------------------------- | ----------- |
+| NXTDRIVE Leerling    | nog niet vastgesteld      | `https://nxtdrive.io/leerling`    | `/leerling/manifest.webmanifest`    | responsive  |
+| NXTDRIVE Instructeur | `io.nxtdrive.instructeur` | `https://nxtdrive.io/instructeur` | `/instructeur/manifest.webmanifest` | responsive  |
 
 Already in the repo: per-app manifests, maskable + apple icons, the service
 worker, `/.well-known/assetlinks.json` (placeholder fingerprints), and the

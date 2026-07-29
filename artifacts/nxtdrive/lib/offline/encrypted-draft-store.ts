@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  clearNativeSecureStorage,
-  getNativeSecureValue,
-  hasNativeSecureStorage,
-  removeNativeSecureValue,
-  setNativeSecureValue,
-} from "@/lib/offline/native-secure-storage";
 import type { OfflineLessonDraft } from "@/lib/offline/lesson-drafts";
 
 const DATABASE = "nxtdrive-offline-drafts-v1";
@@ -20,13 +13,6 @@ type EncryptedRecord = {
   ciphertext: ArrayBuffer;
   expiresAt: string;
 };
-
-function draftStorageKey(lessonId: string): string {
-  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(lessonId)) {
-    throw new Error("Invalid offline lesson identifier.");
-  }
-  return `lesson-draft:${lessonId}`;
-}
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -73,13 +59,6 @@ async function encryptionKey(database: IDBDatabase): Promise<CryptoKey> {
 export async function saveEncryptedLessonDraft(
   draft: OfflineLessonDraft,
 ): Promise<void> {
-  if (hasNativeSecureStorage()) {
-    await setNativeSecureValue(
-      draftStorageKey(draft.lessonId),
-      JSON.stringify(draft),
-    );
-    return;
-  }
   const database = await openDatabase();
   try {
     const key = await encryptionKey(database);
@@ -107,16 +86,6 @@ export async function saveEncryptedLessonDraft(
 export async function loadEncryptedLessonDraft(
   lessonId: string,
 ): Promise<OfflineLessonDraft | null> {
-  if (hasNativeSecureStorage()) {
-    const value = await getNativeSecureValue(draftStorageKey(lessonId));
-    if (!value) return null;
-    const draft = JSON.parse(value) as OfflineLessonDraft;
-    if (Date.parse(draft.expiresAt) <= Date.now()) {
-      await removeNativeSecureValue(draftStorageKey(lessonId));
-      return null;
-    }
-    return draft;
-  }
   const database = await openDatabase();
   try {
     const store = database
@@ -146,10 +115,6 @@ export async function loadEncryptedLessonDraft(
 }
 
 export async function clearEncryptedLessonDrafts(): Promise<void> {
-  if (hasNativeSecureStorage()) {
-    await clearNativeSecureStorage();
-    return;
-  }
   const database = await openDatabase();
   try {
     const transaction = database.transaction(

@@ -54,7 +54,9 @@
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
   --color-brand-sidebar-muted: var(--brand-sidebar-muted);
   --color-brand-sidebar-active: var(--brand-sidebar-active);
-  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
+  --color-brand-sidebar-active-foreground: var(
+    --brand-sidebar-active-foreground
+  );
   --color-brand-sidebar-border: var(--brand-sidebar-border);
 
   --color-brand-50: #f4f1ff;
@@ -124,17 +126,24 @@
   --brand-gradient-end: #2fb7ff;
   --brand-hero-foreground: #ffffff;
   --brand-hero-glow: transparent;
-  --brand-hero-background:
-    linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 58%, var(--brand-gradient-end) 112%);
+  --brand-hero-background: linear-gradient(
+    135deg,
+    var(--brand-gradient-start) 0%,
+    var(--brand-gradient-mid) 58%,
+    var(--brand-gradient-end) 112%
+  );
   --brand-sidebar-background: rgba(255, 255, 255, 0.82);
   --brand-sidebar-foreground: #344054;
   --brand-sidebar-active: color-mix(in oklab, var(--brand-primary) 13%, white);
   --brand-sidebar-active-foreground: var(--brand-primary);
   --radius-card: 1.35rem;
   --radius-panel: 1.7rem;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06);
-  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05);
-  --shadow-floating: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1);
+  --shadow-card:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06);
+  --shadow-soft:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05);
+  --shadow-floating:
+    0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1);
 
   --background: var(--platform-background);
   --foreground: var(--platform-foreground);
@@ -170,7 +179,8 @@
   --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
   --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
   --admin-card-shadow: 0 14px 34px color-mix(in oklab, black 7%, transparent);
-  --admin-card-shadow-hover: 0 18px 42px color-mix(in oklab, black 10%, transparent);
+  --admin-card-shadow-hover: 0 18px 42px
+    color-mix(in oklab, black 10%, transparent);
   --admin-grid-line: color-mix(in oklab, var(--border) 76%, transparent);
 
   --shell-glow-strong: transparent;
@@ -232,7 +242,11 @@
   --brand-info-foreground: #061629;
   --brand-sidebar-background: rgba(17, 17, 29, 0.82);
   --brand-sidebar-foreground: #c7c7d8;
-  --brand-sidebar-active: color-mix(in oklab, var(--brand-primary) 22%, transparent);
+  --brand-sidebar-active: color-mix(
+    in oklab,
+    var(--brand-primary) 22%,
+    transparent
+  );
   --brand-sidebar-active-foreground: #ffffff;
   --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.24);
   --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.2);
@@ -272,7 +286,8 @@
   --admin-row-hover: color-mix(in oklab, var(--primary) 8%, var(--surface-2));
   --admin-active: color-mix(in oklab, var(--primary) 13%, var(--surface-1));
   --admin-card-shadow: 0 18px 48px color-mix(in oklab, black 22%, transparent);
-  --admin-card-shadow-hover: 0 22px 56px color-mix(in oklab, black 28%, transparent);
+  --admin-card-shadow-hover: 0 22px 56px
+    color-mix(in oklab, black 28%, transparent);
   --admin-grid-line: color-mix(in oklab, var(--border) 72%, transparent);
 
   --shell-glow-strong: transparent;
@@ -294,18 +309,33 @@
   --background: var(--tenant-light-background, var(--platform-background));
   --foreground: var(--tenant-light-foreground, var(--platform-foreground));
   --card: var(--tenant-light-card, var(--platform-card));
-  --card-foreground: var(--tenant-light-card-foreground, var(--platform-card-foreground));
+  --card-foreground: var(
+    --tenant-light-card-foreground,
+    var(--platform-card-foreground)
+  );
   --muted: var(--tenant-light-muted, var(--platform-muted));
-  --muted-foreground: var(--tenant-light-muted-foreground, var(--platform-muted-foreground));
+  --muted-foreground: var(
+    --tenant-light-muted-foreground,
+    var(--platform-muted-foreground)
+  );
   --border: var(--tenant-light-border, var(--platform-border));
   --input: var(--tenant-light-input, var(--platform-input));
   --ring: var(--tenant-light-primary, var(--platform-primary));
   --primary: var(--tenant-light-primary, var(--platform-primary));
-  --primary-foreground: var(--tenant-light-primary-foreground, var(--platform-primary-foreground));
+  --primary-foreground: var(
+    --tenant-light-primary-foreground,
+    var(--platform-primary-foreground)
+  );
   --accent: var(--tenant-light-accent, var(--platform-accent));
-  --accent-foreground: var(--tenant-light-accent-foreground, var(--platform-accent-foreground));
+  --accent-foreground: var(
+    --tenant-light-accent-foreground,
+    var(--platform-accent-foreground)
+  );
   --popover: var(--tenant-light-popover, var(--platform-popover));
-  --popover-foreground: var(--tenant-light-popover-foreground, var(--platform-popover-foreground));
+  --popover-foreground: var(
+    --tenant-light-popover-foreground,
+    var(--platform-popover-foreground)
+  );
   --success: var(--tenant-light-success, var(--platform-success));
   --warning: var(--tenant-light-warning, var(--platform-warning));
   --danger: var(--tenant-light-danger, var(--platform-danger));
@@ -316,7 +346,10 @@
   --brand-foreground: var(--foreground);
   --brand-primary: var(--primary);
   --brand-primary-foreground: var(--primary-foreground);
-  --brand-secondary: var(--tenant-light-secondary, color-mix(in oklab, var(--primary) 45%, #38bdf8));
+  --brand-secondary: var(
+    --tenant-light-secondary,
+    color-mix(in oklab, var(--primary) 45%, #38bdf8)
+  );
   --brand-accent: var(--accent);
   --brand-accent-foreground: var(--accent-foreground);
   --brand-muted: var(--muted);
@@ -336,15 +369,23 @@
   --brand-gradient-end: var(--brand-secondary);
   --brand-hero-foreground: var(--primary-foreground);
   --brand-hero-glow: transparent;
-  --brand-hero-background:
-    linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 58%, var(--brand-gradient-end) 112%);
+  --brand-hero-background: linear-gradient(
+    135deg,
+    var(--brand-gradient-start) 0%,
+    var(--brand-gradient-mid) 58%,
+    var(--brand-gradient-end) 112%
+  );
   --brand-sidebar-background: color-mix(in oklab, var(--card) 82%, transparent);
   --brand-sidebar-foreground: var(--muted-foreground);
   --brand-sidebar-active: color-mix(in oklab, var(--primary) 13%, var(--card));
   --brand-sidebar-active-foreground: var(--primary);
   --shadow-card: var(--admin-card-shadow);
-  --shadow-soft: 0 1px 2px color-mix(in oklab, black 4%, transparent), 0 8px 18px color-mix(in oklab, black 5%, transparent);
-  --shadow-floating: 0 1px 2px color-mix(in oklab, black 5%, transparent), 0 14px 32px color-mix(in oklab, black 10%, transparent);
+  --shadow-soft:
+    0 1px 2px color-mix(in oklab, black 4%, transparent),
+    0 8px 18px color-mix(in oklab, black 5%, transparent);
+  --shadow-floating:
+    0 1px 2px color-mix(in oklab, black 5%, transparent),
+    0 14px 32px color-mix(in oklab, black 10%, transparent);
 
   --surface-canvas: color-mix(in oklab, var(--background) 88%, var(--muted));
   --surface-1: var(--card);
@@ -356,7 +397,8 @@
   --admin-row-hover: color-mix(in oklab, var(--primary) 6%, var(--surface-2));
   --admin-active: color-mix(in oklab, var(--primary) 9%, var(--surface-1));
   --admin-card-shadow: 0 14px 34px color-mix(in oklab, black 7%, transparent);
-  --admin-card-shadow-hover: 0 18px 42px color-mix(in oklab, black 10%, transparent);
+  --admin-card-shadow-hover: 0 18px 42px
+    color-mix(in oklab, black 10%, transparent);
   --admin-grid-line: color-mix(in oklab, var(--border) 76%, transparent);
 
   --shell-glow-strong: transparent;
@@ -378,18 +420,33 @@
   --background: var(--tenant-dark-background, var(--platform-background));
   --foreground: var(--tenant-dark-foreground, var(--platform-foreground));
   --card: var(--tenant-dark-card, var(--platform-card));
-  --card-foreground: var(--tenant-dark-card-foreground, var(--platform-card-foreground));
+  --card-foreground: var(
+    --tenant-dark-card-foreground,
+    var(--platform-card-foreground)
+  );
   --muted: var(--tenant-dark-muted, var(--platform-muted));
-  --muted-foreground: var(--tenant-dark-muted-foreground, var(--platform-muted-foreground));
+  --muted-foreground: var(
+    --tenant-dark-muted-foreground,
+    var(--platform-muted-foreground)
+  );
   --border: var(--tenant-dark-border, var(--platform-border));
   --input: var(--tenant-dark-input, var(--platform-input));
   --ring: var(--tenant-dark-primary, var(--platform-primary));
   --primary: var(--tenant-dark-primary, var(--platform-primary));
-  --primary-foreground: var(--tenant-dark-primary-foreground, var(--platform-primary-foreground));
+  --primary-foreground: var(
+    --tenant-dark-primary-foreground,
+    var(--platform-primary-foreground)
+  );
   --accent: var(--tenant-dark-accent, var(--platform-accent));
-  --accent-foreground: var(--tenant-dark-accent-foreground, var(--platform-accent-foreground));
+  --accent-foreground: var(
+    --tenant-dark-accent-foreground,
+    var(--platform-accent-foreground)
+  );
   --popover: var(--tenant-dark-popover, var(--platform-popover));
-  --popover-foreground: var(--tenant-dark-popover-foreground, var(--platform-popover-foreground));
+  --popover-foreground: var(
+    --tenant-dark-popover-foreground,
+    var(--platform-popover-foreground)
+  );
   --success: var(--tenant-dark-success, var(--platform-success));
   --warning: var(--tenant-dark-warning, var(--platform-warning));
   --danger: var(--tenant-dark-danger, var(--platform-danger));
@@ -400,7 +457,10 @@
   --brand-foreground: var(--foreground);
   --brand-primary: var(--primary);
   --brand-primary-foreground: var(--primary-foreground);
-  --brand-secondary: var(--tenant-dark-secondary, color-mix(in oklab, var(--primary) 45%, #38bdf8));
+  --brand-secondary: var(
+    --tenant-dark-secondary,
+    color-mix(in oklab, var(--primary) 45%, #38bdf8)
+  );
   --brand-accent: var(--accent);
   --brand-accent-foreground: var(--accent-foreground);
   --brand-muted: var(--muted);
@@ -420,15 +480,23 @@
   --brand-gradient-end: var(--brand-secondary);
   --brand-hero-foreground: var(--primary-foreground);
   --brand-hero-glow: transparent;
-  --brand-hero-background:
-    linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 58%, var(--brand-gradient-end) 112%);
+  --brand-hero-background: linear-gradient(
+    135deg,
+    var(--brand-gradient-start) 0%,
+    var(--brand-gradient-mid) 58%,
+    var(--brand-gradient-end) 112%
+  );
   --brand-sidebar-background: color-mix(in oklab, var(--card) 82%, transparent);
   --brand-sidebar-foreground: var(--muted-foreground);
   --brand-sidebar-active: color-mix(in oklab, var(--primary) 18%, transparent);
   --brand-sidebar-active-foreground: var(--primary);
   --shadow-card: var(--admin-card-shadow);
-  --shadow-soft: 0 1px 2px color-mix(in oklab, black 8%, transparent), 0 8px 18px color-mix(in oklab, black 12%, transparent);
-  --shadow-floating: 0 1px 2px color-mix(in oklab, black 10%, transparent), 0 14px 32px color-mix(in oklab, black 18%, transparent);
+  --shadow-soft:
+    0 1px 2px color-mix(in oklab, black 8%, transparent),
+    0 8px 18px color-mix(in oklab, black 12%, transparent);
+  --shadow-floating:
+    0 1px 2px color-mix(in oklab, black 10%, transparent),
+    0 14px 32px color-mix(in oklab, black 18%, transparent);
 
   --surface-canvas: color-mix(in oklab, var(--background) 92%, black);
   --surface-1: var(--card);
@@ -440,7 +508,8 @@
   --admin-row-hover: color-mix(in oklab, var(--primary) 7%, var(--surface-2));
   --admin-active: color-mix(in oklab, var(--primary) 10%, var(--surface-1));
   --admin-card-shadow: 0 18px 48px color-mix(in oklab, black 22%, transparent);
-  --admin-card-shadow-hover: 0 22px 56px color-mix(in oklab, black 28%, transparent);
+  --admin-card-shadow-hover: 0 22px 56px
+    color-mix(in oklab, black 28%, transparent);
   --admin-grid-line: color-mix(in oklab, var(--border) 72%, transparent);
 
   --shell-glow-strong: transparent;
@@ -477,13 +546,20 @@ body {
 }
 
 [data-student-shell] {
-  background:
-    linear-gradient(180deg, color-mix(in oklab, var(--background) 92%, #ffffff), var(--background));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--background) 92%, #ffffff),
+    var(--background)
+  );
 }
 
 [data-student-app-theme="light"] [data-student-shell] {
-  background:
-    linear-gradient(180deg, #fbfcff 0%, var(--brand-background) 52%, #f3f5fb 100%);
+  background: linear-gradient(
+    180deg,
+    #fbfcff 0%,
+    var(--brand-background) 52%,
+    #f3f5fb 100%
+  );
 }
 
 [data-student-app-theme="light"] {
@@ -499,7 +575,10 @@ body {
   --popover: #ffffff !important;
   --popover-foreground: #101323 !important;
   --primary: var(--tenant-light-primary, #5a4bff) !important;
-  --primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
+  --primary-foreground: var(
+    --tenant-light-primary-foreground,
+    #ffffff
+  ) !important;
   --primary-soft: color-mix(in oklab, var(--primary) 12%, white) !important;
   --ring: var(--primary) !important;
   --accent: #f0edff !important;
@@ -507,9 +586,16 @@ body {
   --brand-background: #f7f8fc !important;
   --brand-foreground: #101323 !important;
   --brand-primary: var(--tenant-light-primary, #5a4bff) !important;
-  --brand-primary-foreground: var(--tenant-light-primary-foreground, #ffffff) !important;
+  --brand-primary-foreground: var(
+    --tenant-light-primary-foreground,
+    #ffffff
+  ) !important;
   --brand-secondary: #2fb7ff !important;
-  --brand-accent: color-mix(in oklab, var(--brand-primary) 12%, white) !important;
+  --brand-accent: color-mix(
+    in oklab,
+    var(--brand-primary) 12%,
+    white
+  ) !important;
   --brand-accent-foreground: #33257f !important;
   --brand-muted: #f1f3f8 !important;
   --brand-muted-foreground: #475467 !important;
@@ -517,11 +603,18 @@ body {
   --brand-ring: var(--brand-primary) !important;
   --brand-sidebar-background: rgba(255, 255, 255, 0.86) !important;
   --brand-sidebar-foreground: #344054 !important;
-  --brand-sidebar-active: color-mix(in oklab, var(--brand-primary) 13%, white) !important;
+  --brand-sidebar-active: color-mix(
+    in oklab,
+    var(--brand-primary) 13%,
+    white
+  ) !important;
   --brand-sidebar-active-foreground: var(--brand-primary) !important;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06) !important;
-  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05) !important;
-  --shadow-floating: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1) !important;
+  --shadow-card:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06) !important;
+  --shadow-soft:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05) !important;
+  --shadow-floating:
+    0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1) !important;
   --color-background: var(--background) !important;
   --color-foreground: var(--foreground) !important;
   --color-card: var(--card) !important;
@@ -552,7 +645,9 @@ body {
   --color-brand-sidebar-background: var(--brand-sidebar-background) !important;
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground) !important;
   --color-brand-sidebar-active: var(--brand-sidebar-active) !important;
-  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground) !important;
+  --color-brand-sidebar-active-foreground: var(
+    --brand-sidebar-active-foreground
+  ) !important;
 }
 
 [data-student-app-theme="light"] [class~="text-brand-foreground"],
@@ -607,7 +702,11 @@ body {
 }
 
 [data-student-app-theme="light"] [class~="bg-brand-sidebar-active"] {
-  background-color: color-mix(in oklab, var(--brand-primary) 13%, #ffffff) !important;
+  background-color: color-mix(
+    in oklab,
+    var(--brand-primary) 13%,
+    #ffffff
+  ) !important;
 }
 
 [data-student-app-theme="light"] [class~="text-white"] {
@@ -638,7 +737,11 @@ body {
 [data-student-app-theme="light"] [class~="text-white/26"],
 [data-student-app-theme="light"] [class~="text-white/24"],
 [data-student-app-theme="light"] [class~="text-white/18"] {
-  color: color-mix(in oklab, var(--brand-muted-foreground) 62%, transparent) !important;
+  color: color-mix(
+    in oklab,
+    var(--brand-muted-foreground) 62%,
+    transparent
+  ) !important;
 }
 
 [data-student-app-theme="light"] [class~="border-white/20"],
@@ -659,12 +762,20 @@ body {
 [data-student-app-theme="light"] [class~="bg-white/[0.05]"],
 [data-student-app-theme="light"] [class~="bg-white/[0.06]"],
 [data-student-app-theme="light"] [class~="bg-white/[0.08]"] {
-  background-color: color-mix(in oklab, var(--brand-muted) 46%, white) !important;
+  background-color: color-mix(
+    in oklab,
+    var(--brand-muted) 46%,
+    white
+  ) !important;
 }
 
 [data-student-app-theme="light"] [class~="bg-black/10"],
 [data-student-app-theme="light"] [class~="bg-black/15"] {
-  background-color: color-mix(in oklab, var(--brand-primary) 8%, white) !important;
+  background-color: color-mix(
+    in oklab,
+    var(--brand-primary) 8%,
+    white
+  ) !important;
 }
 
 [data-student-hero],
@@ -713,9 +824,12 @@ body {
   --brand-card-background: #ffffff;
   --brand-card-foreground: #101323;
   --brand-card-border: #e2e7f0;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06);
-  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05);
-  --shadow-floating: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1);
+  --shadow-card:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.06);
+  --shadow-soft:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px rgba(15, 23, 42, 0.05);
+  --shadow-floating:
+    0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 32px rgba(15, 23, 42, 0.1);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -752,14 +866,15 @@ body {
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
   --color-brand-sidebar-muted: var(--brand-sidebar-muted);
   --color-brand-sidebar-active: var(--brand-sidebar-active);
-  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
+  --color-brand-sidebar-active-foreground: var(
+    --brand-sidebar-active-foreground
+  );
   --color-brand-sidebar-border: var(--brand-sidebar-border);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--background) 98%, #ffffff),
-      var(--background)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--background) 98%, #ffffff),
+    var(--background)
+  );
 }
 
 [data-management-shell] {
@@ -840,8 +955,10 @@ body {
   --admin-sidebar: var(--brand-sidebar-background);
   --admin-row-hover: color-mix(in oklab, var(--primary) 6%, #ffffff);
   --admin-active: color-mix(in oklab, var(--primary) 12%, #ffffff);
-  --admin-card-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
-  --admin-card-shadow-hover: 0 22px 54px rgba(15, 23, 42, 0.12);
+  --admin-card-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.035), 0 10px 28px rgba(15, 23, 42, 0.055);
+  --admin-card-shadow-hover:
+    0 2px 4px rgba(15, 23, 42, 0.05), 0 16px 36px rgba(15, 23, 42, 0.09);
   --admin-grid-line: #dfe5ef;
   --shadow-card: var(--admin-card-shadow);
   --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.07);
@@ -876,9 +993,135 @@ body {
   --color-brand-sidebar-background: var(--brand-sidebar-background);
   --color-brand-sidebar-foreground: var(--brand-sidebar-foreground);
   --color-brand-sidebar-active: var(--brand-sidebar-active);
-  --color-brand-sidebar-active-foreground: var(--brand-sidebar-active-foreground);
-  background:
-    linear-gradient(180deg, #fbfcff 0%, var(--brand-background) 48%, #eef2f8 100%);
+  --color-brand-sidebar-active-foreground: var(
+    --brand-sidebar-active-foreground
+  );
+  background: linear-gradient(
+    180deg,
+    #fbfcff 0%,
+    var(--brand-background) 48%,
+    #eef2f8 100%
+  );
+}
+
+[data-management-shell] [data-ui-card] {
+  border-radius: 1rem;
+  border-color: color-mix(in oklab, var(--border) 88%, transparent);
+  background: var(--surface-1);
+  box-shadow: var(--admin-card-shadow);
+}
+
+[data-management-shell] [data-ui-card] [data-ui-card] {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+[data-management-shell] [data-ui-card-header] {
+  gap: 0.25rem;
+  padding: 1rem 1rem 0;
+}
+
+[data-management-shell] [data-ui-card-content] {
+  padding: 0.75rem 1rem 1rem;
+}
+
+[data-management-shell] [data-ui-card-title] {
+  color: var(--foreground);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+[data-management-shell] [data-admin-page-root] {
+  overscroll-behavior: contain;
+}
+
+[data-management-shell] [data-admin-page-root] :where(table) {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-management-shell] [data-admin-page-root] :where(thead) {
+  background: var(--surface-2);
+}
+
+[data-management-shell] [data-admin-page-root] :where(input, select, textarea) {
+  border-color: color-mix(in oklab, var(--border) 92%, transparent);
+}
+
+[data-management-shell]
+  [data-admin-page-root]
+  :where(input, select, textarea):focus {
+  border-color: color-mix(in oklab, var(--primary) 52%, var(--border));
+}
+
+[data-management-shell] details[data-admin-disclosure] {
+  overflow: clip;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface-1);
+  box-shadow: var(--admin-card-shadow);
+}
+
+[data-management-shell] details[data-admin-disclosure] > summary {
+  display: flex;
+  min-height: 4rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+[data-management-shell]
+  details[data-admin-disclosure]
+  > summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-management-shell] details[data-admin-disclosure] > summary::after {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+[data-management-shell] details[data-admin-disclosure][open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+[data-management-shell] details[data-admin-disclosure][open] > summary::after {
+  transform: rotate(225deg);
+}
+
+[data-management-shell]
+  details[data-admin-disclosure]
+  > [data-disclosure-content] {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+@media (max-width: 639px) {
+  [data-management-shell]
+    [data-admin-page-root]
+    :where(input, select, textarea) {
+    font-size: 16px;
+  }
+
+  [data-management-shell] [data-ui-card-header] {
+    padding: 0.875rem 0.875rem 0;
+  }
+
+  [data-management-shell] [data-ui-card-content] {
+    padding: 0.75rem 0.875rem 0.875rem;
+  }
 }
 
 .bg-planning-lesson {
@@ -1014,7 +1257,11 @@ body {
 }
 
 .theme-cta {
-  background: linear-gradient(135deg, var(--cta-gradient-start), var(--cta-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--cta-gradient-start),
+    var(--cta-gradient-end)
+  );
   box-shadow: none;
 }
 

@@ -1,4 +1,7 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 def envValue = { String name, String fallback ->
     def value = System.getenv(name)
@@ -8,6 +11,29 @@ def uploadKeystorePath = System.getenv("ANDROID_UPLOAD_KEYSTORE_PATH")
 def uploadKeystorePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
 def uploadKeyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
 def uploadKeyPassword = System.getenv("ANDROID_UPLOAD_KEY_PASSWORD")
+def buildGitSha = envValue("ANDROID_GIT_SHA", "local")
+    .replaceAll("[^0-9A-Za-z._-]", "")
+    .take(40)
+if (buildGitSha.isEmpty()) {
+    buildGitSha = "local"
+}
+def validatedApiUrl = { String name, String fallback ->
+    def value = envValue(name, fallback).replaceAll('/+$', '')
+    if (!(value ==~ /^https:\/\/[A-Za-z0-9.-]+(?::[0-9]+)?(?:\/.*)?$/)) {
+        throw new GradleException(
+            "${name} must be an https URL without query or fragment."
+        )
+    }
+    return value.replace("\\", "\\\\").replace("\"", "\\\"")
+}
+def productionApiBaseUrl = validatedApiUrl(
+    "NXTDRIVE_ANDROID_API_BASE_URL",
+    "https://nxtdrive.io"
+)
+def stagingApiBaseUrl = validatedApiUrl(
+    "NXTDRIVE_ANDROID_STAGING_API_BASE_URL",
+    "https://staging.nxtdrive.io"
+)
 def productionSigningReady = [
     uploadKeystorePath,
     uploadKeystorePassword,
@@ -25,11 +51,9 @@ android {
         versionCode Integer.parseInt(envValue("ANDROID_VERSION_CODE", "1"))
         versionName envValue("ANDROID_VERSION_NAME", "1.0.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
-        }
+        buildConfigField "String", "GIT_SHA", "\"${buildGitSha}\""
+        buildConfigField "String", "RELEASE_CHANNEL", "\"unknown\""
+        buildConfigField "String", "API_BASE_URL", "\"${productionApiBaseUrl}\""
     }
     signingConfigs {
         production {
@@ -50,6 +74,8 @@ android {
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
             resValue "string", "app_name", "NXTDRIVE Instructeur Debug"
+            buildConfigField "String", "RELEASE_CHANNEL", "\"debug\""
+            buildConfigField "String", "API_BASE_URL", "\"${stagingApiBaseUrl}\""
         }
         staging {
             initWith debug
@@ -59,6 +85,8 @@ android {
             signingConfig signingConfigs.debug
             matchingFallbacks = ["debug"]
             resValue "string", "app_name", "NXTDRIVE Instructeur Staging"
+            buildConfigField "String", "RELEASE_CHANNEL", "\"staging\""
+            buildConfigField "String", "API_BASE_URL", "\"${stagingApiBaseUrl}\""
         }
         release {
             minifyEnabled false
@@ -75,7 +103,24 @@ android {
             matchingFallbacks = ["release"]
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             resValue "string", "app_name", "NXTDRIVE Instructeur"
+            buildConfigField "String", "RELEASE_CHANNEL", "\"production\""
+            buildConfigField "String", "API_BASE_URL", "\"${productionApiBaseUrl}\""
         }
+    }
+    buildFeatures {
+        buildConfig = true
+        compose = true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    sourceSets.configureEach {
+        // The full-native app intentionally has no WebView asset source set.
+        assets.srcDirs = []
     }
     testOptions {
         unitTests.returnDefaultValues = true
@@ -84,8 +129,6 @@ android {
         abortOnError true
         checkReleaseBuilds true
         warningsAsErrors true
-        // Capacitor/Cordova resolves these template resources dynamically.
-        disable "UnusedResources"
     }
 }
 
@@ -104,24 +147,39 @@ tasks.configureEach { task ->
 }
 
 repositories {
-    flatDir{
-        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
-    }
+    google()
+    mavenCentral()
 }
 
 dependencies {
-    implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.activity:activity-compose:1.11.0"
+    implementation "androidx.core:core-ktx:$androidxCoreVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
-    implementation project(':capacitor-android')
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:2.9.4"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4"
+    implementation "androidx.navigation:navigation-compose:2.9.5"
+    def composeBom = platform("androidx.compose:compose-bom:2025.10.01")
+    implementation composeBom
+    androidTestImplementation composeBom
+    implementation "androidx.compose.material3:material3"
+    implementation "androidx.compose.material:material-icons-extended"
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+    androidTestImplementation "androidx.compose.ui:ui-test-junit4"
+    debugImplementation "androidx.compose.ui:ui-test-manifest"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
+    implementation platform("com.squareup.okhttp3:okhttp-bom:5.3.0")
+    implementation "com.squareup.okhttp3:okhttp"
+
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-    implementation project(':capacitor-cordova-android-plugins')
 }
-
-apply from: 'capacitor.build.gradle'
 
 try {
     def servicesJSON = file('google-services.json')

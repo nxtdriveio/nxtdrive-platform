@@ -1672,31 +1672,33 @@ export function InstructorSettingsView({
             )}
           </div>
         </InstructorCard>
-        <InstructorCard title="Profiel" icon={User}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-bold text-foreground">
-              Naam
-              <Input defaultValue={data.profile.name} />
-            </label>
-            <label className="grid gap-2 text-sm font-bold text-foreground">
-              Telefoon
-              <Input
-                defaultValue={data.profile.phone ?? ""}
-                placeholder="Niet ingevuld"
-              />
-            </label>
-            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">
-              E-mail
-              <Input
-                defaultValue={data.profile.email ?? ""}
-                placeholder="Niet ingevuld"
-              />
-            </label>
-          </div>
-          <button className={cn(buttonVariants(), "mt-5")}>
-            Instellingen opslaan
-          </button>
-        </InstructorCard>
+        <div className="space-y-4">
+          <InstructorCard title="Profiel" icon={User}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-bold text-foreground">
+                Naam
+                <Input defaultValue={data.profile.name} />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-foreground">
+                Telefoon
+                <Input
+                  defaultValue={data.profile.phone ?? ""}
+                  placeholder="Niet ingevuld"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">
+                E-mail
+                <Input
+                  defaultValue={data.profile.email ?? ""}
+                  placeholder="Niet ingevuld"
+                />
+              </label>
+            </div>
+            <button className={cn(buttonVariants(), "mt-5")}>
+              Instellingen opslaan
+            </button>
+          </InstructorCard>
+        </div>
       </div>
     </InstructorPage>
   );

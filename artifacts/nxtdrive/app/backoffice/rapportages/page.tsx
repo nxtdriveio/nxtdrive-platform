@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { Download, TrendingUp, TrendingDown, Users, Inbox, Wallet, CheckCircle2, XCircle, Clock, AlertCircle, Star } from "lucide-react";
+import {
+  Download,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Inbox,
+  Wallet,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+  Star,
+} from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -36,6 +48,10 @@ import { RevenueBarChart } from "@/components/charts/RevenueBarChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { PLAN_LABELS } from "@/lib/platform/features";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
+import {
+  AdminPage,
+  AdminPageHeader,
+} from "@/components/backoffice/admin-primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +72,11 @@ function TrendBadge({ pct }: { pct: number | null }) {
         up ? "text-emerald-400" : "text-red-400"
       }`}
     >
-      {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {up ? (
+        <TrendingUp className="h-3 w-3" />
+      ) : (
+        <TrendingDown className="h-3 w-3" />
+      )}
       {up ? "+" : ""}
       {pct}%
     </span>
@@ -90,8 +110,14 @@ function buildMonthOptions(): { value: string; label: string }[] {
     const key = monthKeyOffset(i);
     const [y, m] = key.split("-");
     const date = new Date(Number(y), Number(m) - 1, 15);
-    const label = new Intl.DateTimeFormat("nl-NL", { month: "long", year: "numeric" }).format(date);
-    opts.push({ value: key, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    const label = new Intl.DateTimeFormat("nl-NL", {
+      month: "long",
+      year: "numeric",
+    }).format(date);
+    opts.push({
+      value: key,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+    });
   }
   return opts;
 }
@@ -130,31 +156,52 @@ export default async function RapportagesPage({
   const defaultTo = `${selectedMonth}-${String(lastDayOfMonth).padStart(2, "0")}`;
 
   const from = normalizeYmd(params.from) ?? defaultFrom;
-  const to = (normalizeYmd(params.to) ?? defaultTo) < from ? from : (normalizeYmd(params.to) ?? defaultTo);
+  const to =
+    (normalizeYmd(params.to) ?? defaultTo) < from
+      ? from
+      : (normalizeYmd(params.to) ?? defaultTo);
 
   const exportHref = `/backoffice/rapportages/export?from=${from}&to=${to}`;
   const monthOptions = buildMonthOptions();
 
   // Load all data in parallel
-  const [kpis, monthlyRevenue, funnel, sources, lessons, review, quality, topTegoed, openInvoices, studentsWithout, report] =
-    await Promise.all([
-      getRapportagesKpis(supabase, tenant.id, selectedMonth),
-      getMonthlyRevenue(supabase, tenant.id, 6),
-      getConversionFunnel(supabase, tenant.id, cStart, cEnd),
-      getMarketingSources(supabase, tenant.id),
-      getLessonStats(supabase, tenant.id, cStart, cEnd),
-      loadTenantReviewOverview(supabase, tenant.id),
-      loadTenantQualityOverview(supabase, tenant.id),
-      getTopTegoed(supabase, tenant.id, 5),
-      getOpenInvoiceSummary(supabase, tenant.id),
-      getStudentsWithoutNextLesson(supabase, tenant.id),
-      getReport(supabase, tenant.id, from, to),
-    ]);
+  const [
+    kpis,
+    monthlyRevenue,
+    funnel,
+    sources,
+    lessons,
+    review,
+    quality,
+    topTegoed,
+    openInvoices,
+    studentsWithout,
+    report,
+  ] = await Promise.all([
+    getRapportagesKpis(supabase, tenant.id, selectedMonth),
+    getMonthlyRevenue(supabase, tenant.id, 6),
+    getConversionFunnel(supabase, tenant.id, cStart, cEnd),
+    getMarketingSources(supabase, tenant.id),
+    getLessonStats(supabase, tenant.id, cStart, cEnd),
+    loadTenantReviewOverview(supabase, tenant.id),
+    loadTenantQualityOverview(supabase, tenant.id),
+    getTopTegoed(supabase, tenant.id, 5),
+    getOpenInvoiceSummary(supabase, tenant.id),
+    getStudentsWithoutNextLesson(supabase, tenant.id),
+    getReport(supabase, tenant.id, from, to),
+  ]);
 
   // Pass bijna-examenrijp count from quality to exam stats
-  const exams = await getExamStats(supabase, tenant.id, cStart, cEnd, quality.bijnaExamenrijpCount);
+  const exams = await getExamStats(
+    supabase,
+    tenant.id,
+    cStart,
+    cEnd,
+    quality.bijnaExamenrijpCount,
+  );
 
-  const selectedLabel = monthOptions.find((o) => o.value === selectedMonth)?.label ?? selectedMonth;
+  const selectedLabel =
+    monthOptions.find((o) => o.value === selectedMonth)?.label ?? selectedMonth;
   const averageRevenueCents =
     monthlyRevenue.length > 0
       ? Math.round(
@@ -218,47 +265,42 @@ export default async function RapportagesPage({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Rapportages
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Overzicht van {tenant.name} — actuele data uit het systeem.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <form method="get" className="flex items-center gap-2">
-            <select
-              name="month"
-              defaultValue={selectedMonth}
-              className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {monthOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
+    <AdminPage>
+      <AdminPageHeader
+        title="Rapportages"
+        description={`Overzicht van ${tenant.name} — actuele data uit het systeem.`}
+        actions={
+          <>
+            <form method="get" className="flex items-center gap-2">
+              <select
+                name="month"
+                defaultValue={selectedMonth}
+                className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {monthOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Tonen
+              </button>
+            </form>
+            <Link
+              href={exportHref}
+              prefetch={false}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Tonen
-            </button>
-          </form>
-          <Link
-            href={exportHref}
-            prefetch={false}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <Download className="h-4 w-4" aria-hidden />
-            CSV
-          </Link>
-        </div>
-      </div>
+              <Download className="h-4 w-4" aria-hidden />
+              CSV
+            </Link>
+          </>
+        }
+      />
 
       {/* ── KPI cards ── */}
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)_minmax(0,0.8fr)]">
@@ -271,9 +313,12 @@ export default async function RapportagesPage({
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 Planning
               </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">{planningFollowUpLabel}</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {planningFollowUpLabel}
+              </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Leerlingen zonder vervolgafspraak vertragen omzet, slagingsritme en capaciteit.
+                Leerlingen zonder vervolgafspraak vertragen omzet, slagingsritme
+                en capaciteit.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-muted/20 p-4">
@@ -284,7 +329,8 @@ export default async function RapportagesPage({
                 Gemiddeld {formatEuros(averageRevenueCents)}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                gemiddelde maandelijkse omzet op basis van de laatste zes maanden.
+                gemiddelde maandelijkse omzet op basis van de laatste zes
+                maanden.
               </p>
             </div>
           </CardContent>
@@ -296,7 +342,9 @@ export default async function RapportagesPage({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">Openstaande facturen</p>
+              <p className="text-sm font-medium text-foreground">
+                Openstaande facturen
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {openInvoices.count === 0
                   ? "Geen directe betaalachterstand."
@@ -304,13 +352,18 @@ export default async function RapportagesPage({
               </p>
             </div>
             <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">Bijna examenrijp</p>
+              <p className="text-sm font-medium text-foreground">
+                Bijna examenrijp
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {quality.bijnaExamenrijpCount.toLocaleString("nl-NL")} leerlingen naderen examengereedheid.
+                {quality.bijnaExamenrijpCount.toLocaleString("nl-NL")}{" "}
+                leerlingen naderen examengereedheid.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">Sterkste bron</p>
+              <p className="text-sm font-medium text-foreground">
+                Sterkste bron
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {topMarketingSource
                   ? `${topMarketingSource.label} levert nu de meeste instroom op.`
@@ -340,7 +393,8 @@ export default async function RapportagesPage({
             >
               <p className="font-medium text-foreground">Leerlingen opvolgen</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open dossiers zonder vervolgafspraak en stuur planning direct bij.
+                Open dossiers zonder vervolgafspraak en stuur planning direct
+                bij.
               </p>
             </Link>
             <Link
@@ -359,7 +413,8 @@ export default async function RapportagesPage({
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpiCards.map((kpi) => {
           const Icon = kpi.icon;
-          const trend = kpi.prev !== null ? trendPct(kpi.value, kpi.prev) : null;
+          const trend =
+            kpi.prev !== null ? trendPct(kpi.value, kpi.prev) : null;
           return (
             <Card key={kpi.label}>
               <CardHeader>
@@ -372,7 +427,9 @@ export default async function RapportagesPage({
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold text-foreground">
-                  {kpi.isMoney ? formatEuros(kpi.value) : kpi.value.toLocaleString("nl-NL")}
+                  {kpi.isMoney
+                    ? formatEuros(kpi.value)
+                    : kpi.value.toLocaleString("nl-NL")}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-xs text-muted-foreground">{kpi.hint}</p>
@@ -453,7 +510,9 @@ export default async function RapportagesPage({
           </CardHeader>
           <CardContent className="pt-2">
             {sources.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Geen brondata beschikbaar.</p>
+              <p className="text-sm text-muted-foreground">
+                Geen brondata beschikbaar.
+              </p>
             ) : (
               <DonutChart data={sources} />
             )}
@@ -494,7 +553,10 @@ export default async function RapportagesPage({
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="flex items-center justify-between text-sm">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="flex items-center gap-2 text-muted-foreground">
                     <Icon className={`h-3.5 w-3.5 ${item.color}`} aria-hidden />
                     {item.label}
@@ -536,7 +598,10 @@ export default async function RapportagesPage({
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="flex items-center justify-between text-sm">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="flex items-center gap-2 text-muted-foreground">
                     <Icon className={`h-3.5 w-3.5 ${item.color}`} aria-hidden />
                     {item.label}
@@ -550,13 +615,19 @@ export default async function RapportagesPage({
             {exams.passPct !== null && (
               <div className="mt-2 border-t border-border pt-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Slagingspercentage</span>
-                  <span className="font-bold text-emerald-400">{exams.passPct}%</span>
+                  <span className="text-muted-foreground">
+                    Slagingspercentage
+                  </span>
+                  <span className="font-bold text-emerald-400">
+                    {exams.passPct}%
+                  </span>
                 </div>
               </div>
             )}
             {exams.passed === 0 && exams.failed === 0 && (
-              <p className="text-xs text-muted-foreground">Geen examens afgelegd in dit tijdvak.</p>
+              <p className="text-xs text-muted-foreground">
+                Geen examens afgelegd in dit tijdvak.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -568,7 +639,9 @@ export default async function RapportagesPage({
           </CardHeader>
           <CardContent className="pt-2">
             {review.count === 0 ? (
-              <p className="text-sm text-muted-foreground">Nog geen reviews ontvangen.</p>
+              <p className="text-sm text-muted-foreground">
+                Nog geen reviews ontvangen.
+              </p>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -585,10 +658,18 @@ export default async function RapportagesPage({
                 <div className="space-y-1">
                   {([5, 4, 3, 2, 1] as const).map((star) => {
                     const count = review.distribution[star];
-                    const pct = review.count > 0 ? Math.round((count / review.count) * 100) : 0;
+                    const pct =
+                      review.count > 0
+                        ? Math.round((count / review.count) * 100)
+                        : 0;
                     return (
-                      <div key={star} className="flex items-center gap-2 text-xs">
-                        <span className="w-2 text-muted-foreground">{star}</span>
+                      <div
+                        key={star}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <span className="w-2 text-muted-foreground">
+                          {star}
+                        </span>
                         <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                           <div
@@ -618,19 +699,26 @@ export default async function RapportagesPage({
           </CardHeader>
           <CardContent className="pt-2">
             {topTegoed.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Geen leerlingen met saldo.</p>
+              <p className="text-sm text-muted-foreground">
+                Geen leerlingen met saldo.
+              </p>
             ) : (
               <ul className="space-y-2.5">
                 {topTegoed.map((row, i) => {
                   const hours = Math.round(row.balanceMinutes / 60);
                   return (
-                    <li key={row.studentId} className="flex items-center gap-3 text-sm">
+                    <li
+                      key={row.studentId}
+                      className="flex items-center gap-3 text-sm"
+                    >
                       <span
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}
                       >
                         {row.initials}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-foreground">{row.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        {row.name}
+                      </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {hours} les{hours !== 1 ? "sen" : ""} over
                       </span>
@@ -649,20 +737,26 @@ export default async function RapportagesPage({
           </CardHeader>
           <CardContent className="pt-2">
             {openInvoices.count === 0 ? (
-              <p className="text-sm text-muted-foreground">Geen openstaande facturen.</p>
+              <p className="text-sm text-muted-foreground">
+                Geen openstaande facturen.
+              </p>
             ) : (
               <div className="space-y-3">
                 <div>
                   <div className="text-3xl font-bold text-foreground">
                     {openInvoices.count}
                   </div>
-                  <p className="text-xs text-muted-foreground">openstaande facturen</p>
+                  <p className="text-xs text-muted-foreground">
+                    openstaande facturen
+                  </p>
                 </div>
                 <div>
                   <div className="text-xl font-semibold text-foreground">
                     {formatEuros(openInvoices.totalCents)}
                   </div>
-                  <p className="text-xs text-muted-foreground">totaal openstaand</p>
+                  <p className="text-xs text-muted-foreground">
+                    totaal openstaand
+                  </p>
                 </div>
                 <Link
                   href="/backoffice/facturen"
@@ -704,95 +798,121 @@ export default async function RapportagesPage({
       </section>
 
       {/* ── Dagelijkse uitsplitsing (periode-tabel) ── */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Dagelijkse activiteit — {formatYmd(from)} t/m {formatYmd(to)}</CardTitle>
-          </div>
-        </CardHeader>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Datum</th>
-                <th className="px-4 py-3 text-right font-medium">Lessen gegeven</th>
-                <th className="px-4 py-3 text-right font-medium">Omzet</th>
-                <th className="px-4 py-3 text-right font-medium">Nieuwe leads</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {report.rows.map((row) => (
-                <tr key={row.date}>
-                  <td className="px-4 py-2.5 text-foreground">{formatYmd(row.date)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
-                    {row.lessonsGiven.toLocaleString("nl-NL")}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
-                    {formatEuros(row.revenueCents)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
-                    {row.newLeads.toLocaleString("nl-NL")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t border-border bg-muted/40 font-semibold">
-              <tr>
-                <td className="px-4 py-3 text-foreground">Totaal</td>
-                <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                  {report.totals.lessonsGiven.toLocaleString("nl-NL")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                  {formatEuros(report.totals.revenueCents)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                  {report.totals.newLeads.toLocaleString("nl-NL")}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+      <details data-admin-disclosure>
+        <summary>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
+              Dagelijkse uitsplitsing
+            </span>
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Lessen, omzet en nieuwe leads van {formatYmd(from)} t/m{" "}
+              {formatYmd(to)}.
+            </span>
+          </span>
+        </summary>
+        <div data-disclosure-content>
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>
+                Dagelijkse activiteit — {formatYmd(from)} t/m {formatYmd(to)}
+              </CardTitle>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Datum</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Lessen gegeven
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">Omzet</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Nieuwe leads
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {report.rows.map((row) => (
+                    <tr key={row.date}>
+                      <td className="px-4 py-2.5 text-foreground">
+                        {formatYmd(row.date)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                        {row.lessonsGiven.toLocaleString("nl-NL")}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                        {formatEuros(row.revenueCents)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
+                        {row.newLeads.toLocaleString("nl-NL")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-border bg-muted/40 font-semibold">
+                  <tr>
+                    <td className="px-4 py-3 text-foreground">Totaal</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {report.totals.lessonsGiven.toLocaleString("nl-NL")}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {formatEuros(report.totals.revenueCents)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {report.totals.newLeads.toLocaleString("nl-NL")}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </details>
 
       {/* ── Examenrijpheid & kwaliteit (existing section) ── */}
-      <div className="border-t border-border pt-6">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">
-          Examenrijpheid &amp; kwaliteit
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Actuele stand op basis van de leskaart — onafhankelijk van de gekozen periode.
-        </p>
-      </div>
+      <details data-admin-disclosure>
+        <summary>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
+              Examenrijpheid &amp; kwaliteit
+            </span>
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Actuele leskaartinzichten, los van de gekozen rapportageperiode.
+            </span>
+          </span>
+        </summary>
+        <div data-disclosure-content className="space-y-4">
+          {hasAdvancedReports ? (
+            <>
+              <QualityKpis data={quality} />
 
-      {hasAdvancedReports ? (
-        <>
-          <QualityKpis data={quality} />
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <PhaseDistribution data={quality} />
+                <InstructorProgressTable instructors={quality.instructors} />
+              </section>
 
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <PhaseDistribution data={quality} />
-            <InstructorProgressTable instructors={quality.instructors} />
-          </section>
-
-          <StudentReadinessTable students={quality.students} />
-        </>
-      ) : (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle>Uitgebreide rapportages</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Examenrijpheid, kwaliteitsmetingen en leskaart-analyses zijn
-              beschikbaar vanaf het{" "}
-              {PLAN_LABELS[advancedReportsGate.requiredPlan]}-abonnement.
-            </p>
-            <p>
-              Je basisrapportages blijven beschikbaar, maar deze verdiepende
-              kwaliteitslaag is vergrendeld op Start.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+              <StudentReadinessTable students={quality.students} />
+            </>
+          ) : (
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle>Uitgebreide rapportages</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Examenrijpheid, kwaliteitsmetingen en leskaart-analyses zijn
+                  beschikbaar vanaf het{" "}
+                  {PLAN_LABELS[advancedReportsGate.requiredPlan]}-abonnement.
+                </p>
+                <p>
+                  Je basisrapportages blijven beschikbaar, maar deze verdiepende
+                  kwaliteitslaag is vergrendeld op Start.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </details>
+    </AdminPage>
   );
 }

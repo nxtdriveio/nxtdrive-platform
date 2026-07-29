@@ -1,4 +1,4 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import sharp from "sharp";
@@ -54,59 +54,6 @@ for (const [density, size] of Object.entries(densitySizes)) {
     sharp(foreground).toFile(join(directory, "ic_launcher_foreground.png")),
   ]);
 }
-
-const splashSizes = {
-  "drawable-port-mdpi": [320, 480],
-  "drawable-port-hdpi": [480, 720],
-  "drawable-port-xhdpi": [640, 960],
-  "drawable-port-xxhdpi": [960, 1440],
-  "drawable-port-xxxhdpi": [1280, 1920],
-  "drawable-land-mdpi": [480, 320],
-  "drawable-land-hdpi": [720, 480],
-  "drawable-land-xhdpi": [960, 640],
-  "drawable-land-xxhdpi": [1440, 960],
-  "drawable-land-xxxhdpi": [1920, 1280],
-};
-
-for (const [directoryName, [width, height]] of Object.entries(splashSizes)) {
-  const directory = join(androidResources, directoryName);
-  await mkdir(directory, { recursive: true });
-  const markSize = Math.round(Math.min(width, height) * 0.32);
-  const mark = await sharp(iconSource)
-    .resize(markSize, markSize, { fit: "contain" })
-    .png()
-    .toBuffer();
-  await sharp({
-    create: {
-      width,
-      height,
-      channels: 4,
-      background: "#0f172a",
-    },
-  })
-    .composite([{ input: mark, gravity: "center" }])
-    .png()
-    .toFile(join(directory, "splash.png"));
-}
-
-await rm(join(androidResources, "drawable", "splash.png"), { force: true });
-const densityIndependentSplash = join(androidResources, "drawable-nodpi");
-await mkdir(densityIndependentSplash, { recursive: true });
-const fallbackMark = await sharp(iconSource)
-  .resize(154, 154, { fit: "contain" })
-  .png()
-  .toBuffer();
-await sharp({
-  create: {
-    width: 480,
-    height: 480,
-    channels: 4,
-    background: "#0f172a",
-  },
-})
-  .composite([{ input: fallbackMark, gravity: "center" }])
-  .png()
-  .toFile(join(densityIndependentSplash, "splash.png"));
 
 await mkdir(join(playStoreRoot, "icon"), { recursive: true });
 await sharp(iconSource)

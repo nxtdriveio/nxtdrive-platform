@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -44,6 +45,7 @@ import {
   Lightbulb,
   Rocket,
   ToggleLeft,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
@@ -459,6 +461,32 @@ export function BackofficeSidebar({
         : pathname === item.href || pathname.startsWith(`${item.href}/`),
     )
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const activeSection =
+    NAV_SECTIONS.find((section) =>
+      section.items.some((item) => item.href === activeHref),
+    )?.label ?? "Overzicht";
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set(["Overzicht", activeSection]),
+  );
+
+  useEffect(() => {
+    setOpenSections((current) => {
+      if (current.has(activeSection)) return current;
+      const next = new Set(current);
+      next.add(activeSection);
+      return next;
+    });
+  }, [activeSection]);
+
+  function toggleSection(label: string) {
+    if (label === "Overzicht") return;
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   return (
     <div className="relative flex h-full flex-col text-brand-sidebar-foreground">
@@ -468,6 +496,7 @@ export function BackofficeSidebar({
           className="text-lg font-semibold text-white"
           logoUrl={logoUrl}
           brandName={tenantName}
+          inverse
         />
       </div>
 
@@ -508,11 +537,34 @@ export function BackofficeSidebar({
           if (sectionItems.length === 0) return null;
 
           return (
-            <div key={section.label} className="mb-4">
-              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-sidebar-muted/78">
-                {section.label}
-              </p>
-              <ul className="space-y-0.5">
+            <div key={section.label} className="mb-2">
+              <button
+                type="button"
+                onClick={() => toggleSection(section.label)}
+                aria-expanded={openSections.has(section.label)}
+                className={cn(
+                  "mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-sidebar-muted/78 transition-colors",
+                  section.label !== "Overzicht" &&
+                    "hover:bg-white/5 hover:text-white",
+                )}
+              >
+                <span>{section.label}</span>
+                {section.label !== "Overzicht" ? (
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      openSections.has(section.label) && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                ) : null}
+              </button>
+              <ul
+                className={cn(
+                  "space-y-0.5",
+                  !openSections.has(section.label) && "hidden",
+                )}
+              >
                 {sectionItems.map((item) => {
                   const active = item.href === activeHref;
                   const Icon = item.icon;

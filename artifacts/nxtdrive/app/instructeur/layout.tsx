@@ -76,7 +76,7 @@ export async function generateViewport(): Promise<Viewport> {
       brandingContext.tenant,
       theme,
       brandingContext.bundle,
-    "#f7f8fc",
+      "#f7f8fc",
     ),
     width: "device-width",
     initialScale: 1,
@@ -148,7 +148,6 @@ export default async function InstructorLayout({
           />
           <ServiceWorkerRegister />
           <InstallPromptBanner app="instructor" />
-
           <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.75rem] pt-4 sm:px-5 sm:pb-24 md:px-6 lg:min-h-0 lg:overflow-y-auto lg:px-8 lg:pb-8 lg:pt-6">
             <div className="mx-auto w-full max-w-[96rem] lg:flex lg:min-h-full lg:flex-col">
               <Suspense fallback={<InstructorSplash />}>{children}</Suspense>

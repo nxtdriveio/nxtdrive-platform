@@ -22,11 +22,11 @@ export function DashboardCard({
   return (
     <div
       className={cn(
-        "flex min-h-[20rem] max-h-[24rem] flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[var(--admin-card-shadow)]",
+        "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-brand-border/90 bg-white shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-brand-border px-4 py-3">
+      <div className="flex min-h-12 items-center justify-between gap-2 border-b border-brand-border/80 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm font-black text-foreground">
           {title}
         </div>
@@ -44,7 +44,7 @@ export function DashboardCard({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 [scrollbar-color:color-mix(in_oklab,var(--brand-primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent",
+          "min-h-0 flex-1 overflow-x-hidden px-4 py-4",
           contentClassName,
         )}
       >
@@ -62,7 +62,7 @@ export function DashboardEmptyState({
   message: string;
 }) {
   return (
-    <div className="flex min-h-[7rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[var(--surface-2)] p-4 text-center text-sm text-muted-foreground">
+    <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[var(--surface-2)] p-4 text-center text-sm text-muted-foreground">
       {icon && <div className="text-muted-foreground/60">{icon}</div>}
       <span>{message}</span>
     </div>

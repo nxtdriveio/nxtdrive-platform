@@ -1,5 +1,10 @@
 # NXTDRIVE Instructor Test Readiness Mega-Sprint — eindrapport
 
+> **Historisch sprintbewijs.** De beschreven Capacitor-build was de toestand
+> tijdens deze sprint. De actuele Android-app is daarna vervangen door een
+> full-native Kotlin/Jetpack Compose-implementatie. Zie
+> `docs/release/android-release.md` voor het actuele releasecontract.
+
 Datum: 2026-07-29
 Branch: `main`
 Bron-SHA: `5f4c94d63d1dc0b1bd4656a44b19cf6a6abdccf4`

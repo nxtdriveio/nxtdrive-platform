@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -37,6 +38,17 @@ await checkImage(
 if (requireScreenshots) {
   for (const directory of ["phone", "tablet-7", "tablet-10"]) {
     const screenshotRoot = resolve(store, "graphics", directory);
+    let provenance;
+    try {
+      provenance = JSON.parse(
+        await readFile(resolve(screenshotRoot, "provenance.json"), "utf8"),
+      );
+    } catch {
+      failures.push(
+        `graphics/${directory}/provenance.json is missing or invalid; browser captures are not accepted`,
+      );
+      continue;
+    }
     const files = (await readdir(screenshotRoot)).filter((file) =>
       /\.(?:png|jpe?g)$/i.test(file),
     );
@@ -59,6 +71,26 @@ if (requireScreenshots) {
           `graphics/${directory}/${file} looks invalid or placeholder-only`,
         );
       }
+      const recorded = provenance.files?.find((entry) => entry.file === file);
+      const actualSha = createHash("sha256")
+        .update(await readFile(resolve(screenshotRoot, file)))
+        .digest("hex");
+      if (
+        provenance.source !== "installed-android-build" ||
+        provenance.syntheticDataConfirmed !== true ||
+        provenance.packageName !== "io.nxtdrive.instructeur" ||
+        !recorded ||
+        recorded.sha256 !== actualSha
+      ) {
+        failures.push(
+          `graphics/${directory}/${file} lacks matching installed-build provenance`,
+        );
+      }
+    }
+    if (!String(provenance.versionName ?? "").startsWith("1.0.0")) {
+      failures.push(
+        `graphics/${directory} was not captured from a 1.0.0 installed build`,
+      );
     }
   }
 }

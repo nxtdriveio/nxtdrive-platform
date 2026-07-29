@@ -9,7 +9,7 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml .github/workflows scripts/release artifacts/nxtdrive/capacitor.config.ts artifacts/nxtdrive/android/play-store docs/release",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml .github/workflows scripts/release artifacts/nxtdrive/android/play-store docs/release",
     "lint": "node scripts/release/lint-repository.mjs",
     "test:unit": "pnpm --filter @workspace/nxtdrive run test",
     "test:integration": "pnpm --filter @workspace/nxtdrive exec tsx --test lib/invoices/payments.rpc.test.ts",

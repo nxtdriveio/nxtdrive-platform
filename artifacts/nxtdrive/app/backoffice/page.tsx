@@ -1,21 +1,10 @@
 import Link from "next/link";
 import {
   BadgeCheck,
-  BarChart3,
-  BookOpenCheck,
-  CalendarClock,
-  Car,
-  ClipboardList,
   Gift,
-  GraduationCap,
-  Inbox,
   Layers3,
-  MapPin,
-  Network,
   Package,
-  Receipt,
   Settings,
-  Users,
   Wallet,
 } from "lucide-react";
 
@@ -48,10 +37,7 @@ import {
   getStudentProgressSummary,
   getUpcomingTrialLessons,
 } from "@/lib/dashboard/reports-data";
-import {
-  FEATURE_LABELS,
-  lockedFeatures,
-} from "@/lib/platform/features";
+import { FEATURE_LABELS, lockedFeatures } from "@/lib/platform/features";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
@@ -60,59 +46,20 @@ export const dynamic = "force-dynamic";
 
 const FUNNEL_STAGES = [
   { key: "new" as const, label: "Nieuw", href: "/backoffice/leads?tab=today" },
-  { key: "contacted" as const, label: "Benaderd", href: "/backoffice/leads?status=contacted" },
-  { key: "package_advised" as const, label: "Pakket", href: "/backoffice/leads?status=package_advised" },
-  { key: "converted" as const, label: "Klant", href: "/backoffice/leads?status=converted" },
-];
-
-const CORE_MODULES = [
   {
-    href: "/backoffice/leerlingen",
-    label: "Leerlingen",
-    description: "Dossiers, tegoed, RIS-voortgang en opvolging.",
-    icon: GraduationCap,
+    key: "contacted" as const,
+    label: "Benaderd",
+    href: "/backoffice/leads?status=contacted",
   },
   {
-    href: "/backoffice/instructeurs",
-    label: "Instructeurs",
-    description: "Beschikbaarheid, rayons, eigenschappen en agenda.",
-    icon: Users,
+    key: "package_advised" as const,
+    label: "Pakket",
+    href: "/backoffice/leads?status=package_advised",
   },
   {
-    href: "/backoffice/planning-board",
-    label: "Planning",
-    description: "Resource board, open queue en planningsvalidatie.",
-    icon: CalendarClock,
-  },
-  {
-    href: "/backoffice/voertuigen",
-    label: "Voertuigen",
-    description: "APK, onderhoud, schade, km-standen en koppelingen.",
-    icon: Car,
-  },
-  {
-    href: "/backoffice/leads",
-    label: "Leads",
-    description: "Aanvragen, proeflessen, opvolging en conversie.",
-    icon: Inbox,
-  },
-  {
-    href: "/backoffice/facturen",
-    label: "Facturen",
-    description: "Open posten, betalingen, pakketten en Mollie-status.",
-    icon: Receipt,
-  },
-  {
-    href: "/backoffice/ris",
-    label: "RIS-leskaart",
-    description: "RIS-scripts, publicaties en moduletoetsen.",
-    icon: BookOpenCheck,
-  },
-  {
-    href: "/backoffice/rapportages",
-    label: "Rapportages",
-    description: "Omzet, lesvolume, capaciteit en aandachtssignalen.",
-    icon: BarChart3,
+    key: "converted" as const,
+    label: "Klant",
+    href: "/backoffice/leads?status=converted",
   },
 ];
 
@@ -185,7 +132,8 @@ export default async function BackofficePage() {
         title="Dashboard"
         description={
           <>
-            Operationeel overzicht van vandaag. {today.charAt(0).toUpperCase() + today.slice(1)}.
+            Operationeel overzicht van vandaag.{" "}
+            {today.charAt(0).toUpperCase() + today.slice(1)}.
           </>
         }
       />
@@ -343,46 +291,6 @@ export default async function BackofficePage() {
           </AdminPanel>
         )}
       </AdminGrid>
-
-      <AdminPanel
-        title="Modules"
-        description="Werk vanuit lijsten en detailpagina's in plaats van losse cockpitblokken."
-        info="Deze tegels zijn module-ingangen; de onderliggende pagina's worden stap voor stap naar hetzelfde lijst/detailpatroon gebracht."
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {CORE_MODULES.map((module) => (
-            <AdminModuleTile key={module.href} {...module} />
-          ))}
-          {roles.includes("tenant_admin") ? (
-            <>
-              <AdminModuleTile
-                href="/backoffice/franchise"
-                icon={Network}
-                label="Franchise"
-                description="Netwerkoverzicht, templates en prestatievergelijking."
-              />
-              <AdminModuleTile
-                href="/backoffice/rayons"
-                icon={MapPin}
-                label="Rayons"
-                description="Servicegebieden, reistijd en instructeurdekking."
-              />
-              <AdminModuleTile
-                href="/backoffice/planning-queue"
-                icon={ClipboardList}
-                label="Planning queue"
-                description="Open afspraken die nog ingepland moeten worden."
-              />
-              <AdminModuleTile
-                href="/backoffice/packages"
-                icon={Package}
-                label="Pakketten"
-                description="Aanbod, tegoed en commerciele inrichting."
-              />
-            </>
-          ) : null}
-        </div>
-      </AdminPanel>
     </AdminPage>
   );
 }

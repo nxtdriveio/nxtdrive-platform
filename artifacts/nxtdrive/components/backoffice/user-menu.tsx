@@ -32,16 +32,16 @@ export function UserMenu({
   }, []);
 
   return (
-    <div ref={ref} className="relative ml-1">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Gebruikersmenu voor ${userLabel}`}
-        className="flex h-10 items-center gap-2.5 rounded-full border border-brand-border bg-white py-1 pl-1 pr-3 shadow-sm transition-colors hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-border bg-white p-0 shadow-sm transition-colors hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring sm:h-10 sm:w-auto sm:justify-start sm:gap-2.5 sm:py-1 sm:pl-1 sm:pr-3"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[11px] font-black text-primary-foreground sm:h-8 sm:w-8 sm:text-xs">
           {initials || "?"}
         </span>
         <div className="hidden text-left sm:block">

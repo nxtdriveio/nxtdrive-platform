@@ -15,7 +15,7 @@ export function AdminPage({
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto flex max-w-[1540px] flex-col gap-4", className)}>
+    <div className={cn("flex w-full flex-col gap-5", className)}>
       {children}
     </div>
   );
@@ -35,8 +35,8 @@ export function AdminPageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <section>
-      <div className="min-w-0 space-y-2">
+    <section className="border-b border-border/70 pb-4">
+      <div className="min-w-0 space-y-1.5">
         {eyebrow ? (
           <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
             {eyebrow}
@@ -47,7 +47,7 @@ export function AdminPageHeader({
         </h1>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           {description ? (
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            <p className="max-w-3xl text-sm leading-5 text-muted-foreground">
               {description}
             </p>
           ) : (
@@ -77,7 +77,7 @@ export function AdminGrid({
   return (
     <div
       className={cn(
-        "grid gap-4",
+        "grid items-start gap-4",
         columns === "2" && "lg:grid-cols-2",
         columns === "3" && "xl:grid-cols-3",
         columns === "4" && "md:grid-cols-2 xl:grid-cols-4",
@@ -111,18 +111,20 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-brand-border bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]",
+        "overflow-hidden rounded-2xl border border-brand-border/90 bg-[var(--surface-1)] shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
-      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-brand-border/80 px-4 py-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <span className="truncate">{title}</span>
             {info ? <InfoBubble>{info}</InfoBubble> : null}
           </div>
           {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
         {actionHref ? (
@@ -172,20 +174,20 @@ export function AdminMetricStrip({
   items: Array<{ label: string; value: ReactNode; hint?: ReactNode }>;
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-2xl border border-border bg-[var(--surface-1)] px-4 py-3 shadow-[var(--admin-card-shadow)]"
+          className="min-w-0 rounded-2xl border border-border bg-[var(--surface-1)] px-3.5 py-3 shadow-[var(--admin-card-shadow)] sm:px-4"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px] sm:tracking-[0.2em]">
             {item.label}
           </p>
-          <div className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+          <div className="mt-1 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
             {item.value}
           </div>
           {item.hint ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground sm:text-xs sm:leading-5">
               {item.hint}
             </p>
           ) : null}
@@ -223,16 +225,16 @@ export function AdminTable({
           <tbody className="divide-y divide-border">{children}</tbody>
         </table>
       </div>
-      {empty ? <div className="p-8 text-center text-sm text-muted-foreground">{empty}</div> : null}
+      {empty ? (
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          {empty}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function AdminTableRow({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function AdminTableRow({ children }: { children: ReactNode }) {
   return (
     <tr className="group transition-colors hover:bg-[var(--admin-row-hover)]">
       {children}

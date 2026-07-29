@@ -17,16 +17,18 @@ export function MiniBarChart({
   data,
   height = 56,
   barColor = "var(--primary)",
+  showLabels = false,
 }: {
   data: Point[];
   height?: number;
   barColor?: string;
+  showLabels?: boolean;
 }) {
   const maxCents = Math.max(1, ...data.map((point) => point.cents));
 
   return (
     <div
-      className="flex w-full items-end gap-1.5"
+      className="flex w-full items-end gap-2"
       style={{ height }}
       role="img"
       aria-label="Omzettrend per maand"
@@ -37,14 +39,23 @@ export function MiniBarChart({
         return (
           <span
             key={point.label}
-            className="min-w-0 flex-1 rounded-t-[3px] opacity-90 transition-opacity hover:opacity-100"
-            style={{
-              height: `${percentage}%`,
-              backgroundColor: barColor,
-            }}
+            className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1.5"
             title={`${point.label}: ${value}`}
             aria-label={`${point.label}: ${value}`}
-          />
+          >
+            <span
+              className="mx-auto min-h-1 w-full max-w-8 rounded-t-[3px] opacity-90 transition-opacity hover:opacity-100"
+              style={{
+                height: `${percentage}%`,
+                backgroundColor: barColor,
+              }}
+            />
+            {showLabels ? (
+              <span className="truncate text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {point.label}
+              </span>
+            ) : null}
+          </span>
         );
       })}
     </div>
