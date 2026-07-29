@@ -7,7 +7,7 @@
  *
  * Optional:
  *   NXTDRIVE_VISUAL_BASE_URL=http://127.0.0.1:22557
- *   NXTDRIVE_VISUAL_ROUTES='[{"name":"student-mobile","path":"/student","width":390,"height":900}]'
+ *   NXTDRIVE_VISUAL_ROUTES='[{"name":"learner-mobile","path":"/leerling","width":390,"height":900}]'
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -26,16 +26,22 @@ type VisualCase = {
 const DEFAULT_CASES: VisualCase[] = [
   { name: "login-desktop", path: "/login", width: 1440, height: 1000 },
   {
-    name: "intake-widget-mobile",
-    path: "/widget/intake/demo-academy",
+    name: "login-mobile",
+    path: "/login",
     width: 390,
-    height: 900,
+    height: 844,
   },
   {
-    name: "intake-widget-desktop",
-    path: "/widget/intake/demo-academy",
-    width: 760,
-    height: 900,
+    name: "privacy-tablet",
+    path: "/privacy",
+    width: 1024,
+    height: 1366,
+  },
+  {
+    name: "account-deletion-mobile",
+    path: "/account-verwijderen",
+    width: 390,
+    height: 844,
   },
 ];
 

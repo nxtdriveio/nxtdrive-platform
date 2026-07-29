@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-29",
+  "publicReleaseSmoke": {
+    "status": "pass",
+    "checks": [
+      "liveness",
+      "asset-links-no-placeholder",
+      "canonical-learner-manifest",
+      "instructor-308-query-preservation",
+      "learner-308-query-preservation",
+      "login-form",
+      "mobile-horizontal-overflow",
+      "public-privacy-routes"
+    ]
+  },
+  "authenticatedBusinessFlows": {
+    "status": "not-run",
+    "reason": "No reachable staging Supabase and authenticated pilot accounts were supplied to this repository run."
+  }
+}

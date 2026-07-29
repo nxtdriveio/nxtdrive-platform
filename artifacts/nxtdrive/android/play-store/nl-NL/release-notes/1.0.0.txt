@@ -1,0 +1,6 @@
+Eerste technische pilotrelease van NXTDRIVE Instructeur.
+
+• Tablet- en mobiele Android-shell.
+• Veilige HTTPS-configuratie en geverifieerde app-links.
+• Agenda, leerlingen en lesworkflow vanuit één app.
+• Release- en signingcontroles voor de interne testtrack.

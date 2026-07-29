@@ -22,34 +22,62 @@ import { renderStudentWelcome } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/provider";
 import { getPlatformEmailConfig } from "@/lib/email/platform-config";
 import { generateTemporaryPassword } from "@/lib/auth/generate-password";
+import {
+  consumeRateLimit,
+  type RateLimitDecision,
+} from "@/lib/security/rate-limit";
+import {
+  hasExpectedDocumentSignature,
+  scanDocumentForMalware,
+} from "@/lib/security/uploads";
+import { requireActiveTenant } from "@/lib/auth/require-role";
+import {
+  parseStudentProfileInput,
+  portalStatusForStudent,
+  type StudentPortalStatus,
+} from "@/lib/students/create-profile";
 
 export type CreateStudentDirectResult =
-  | { ok: true; studentId: string; emailWarning?: string }
+  | {
+      ok: true;
+      studentId: string;
+      portalStatus: StudentPortalStatus;
+      emailWarning?: string;
+    }
   | { ok: false; error: string };
 
 /**
- * Directly create a student account without going through the lead funnel.
- * Intended for walk-in students or students registered by phone/in-person.
+ * Create a student profile without going through the lead funnel.
+ * The profile and portal account are deliberately separate: email is optional
+ * and an auth user is only provisioned when a real email address is supplied.
  *
- * - Validates naam + email + password strength (zxcvbn score ≥ 2 = "Matig") server-side
- * - Creates Supabase auth user with email_confirm: true and must_change_password
- * - Upserts profiles + memberships + students rows
+ * - Validates the short intake server-side
+ * - Creates profiles + memberships only when portal activation is possible
+ * - Creates a nullable-email student row without placeholder credentials
+ * - Materializes the current instructor relationship in chat_conversations
  * - Logs to audit_log
- * - Sends welcome email with temporary password via SendGrid
+ * - Sends a welcome email only when an auth account was created
  *
  * Never redirects — the dialog must be able to surface errors.
  */
 export async function createStudentDirect(
   formData: FormData,
 ): Promise<CreateStudentDirectResult> {
-  const { user, organization: tenant } = await requireOrganizationPermission(
-    "student:manage",
-    { allowedRoles: [...STUDENT_BACKOFFICE_ADMIN_ROLES] },
-  );
+  const { user, tenant, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
 
   const naam = String(formData.get("naam") ?? "").trim().slice(0, 200);
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const emailRaw = String(formData.get("email") ?? "");
   const telefoon = String(formData.get("telefoon") ?? "").trim().slice(0, 30) || null;
+  const educationType = String(
+    formData.get("opleidingstype") ?? "STANDARD",
+  ) as "STANDARD" | "RIS_2_0" | "RIS_1_0_LEGACY";
+  const startDate =
+    String(formData.get("startdatum") ?? "").trim().slice(0, 10) || null;
+  const privacyConfirmed =
+    String(formData.get("privacy_confirmed") ?? "") === "true";
   const postcode = String(formData.get("postcode") ?? "").trim().slice(0, 10) || null;
   const geboortedatum =
     String(formData.get("geboortedatum") ?? "").trim().slice(0, 10) || null;
@@ -59,13 +87,19 @@ export async function createStudentDirect(
   const ophaaladres =
     String(formData.get("ophaaladres") ?? "").trim().slice(0, 240) || null;
 
-  if (!naam) return { ok: false, error: "Naam is verplicht." };
-  if (!email || !EMAIL_RE.test(email)) {
-    return { ok: false, error: "Vul een geldig e-mailadres in." };
-  }
+  const parsed = parseStudentProfileInput({
+    displayName: naam,
+    email: emailRaw,
+    phone: telefoon,
+    educationType,
+    startDate,
+    privacyConfirmed,
+  });
+  if (!parsed.ok) return parsed;
   if (geboortedatum && !isIsoDate(geboortedatum)) {
     return { ok: false, error: "Vul een geldige geboortedatum in." };
   }
+  const { displayName, email } = parsed.value;
 
   const nawNotes = buildDirectStudentNawNotes({
     geboortedatum,
@@ -74,45 +108,83 @@ export async function createStudentDirect(
     woonplaats,
     ophaaladres,
   });
-
-  const tijdelijkWachtwoord = generateTemporaryPassword();
+  const profileNotes = nawNotes;
 
   const service = createServiceRoleClient();
+  const duplicateChecks = await Promise.all([
+    email
+      ? service
+          .from("students")
+          .select("id, full_name")
+          .eq("tenant_id", tenant.id)
+          .ilike("email", email)
+          .limit(3)
+      : Promise.resolve({ data: [], error: null }),
+    telefoon
+      ? service
+          .from("students")
+          .select("id, full_name")
+          .eq("tenant_id", tenant.id)
+          .eq("phone", telefoon)
+          .limit(3)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const duplicate = duplicateChecks
+    .flatMap((result) => result.data ?? [])
+    .find((candidate) => candidate.id);
+  if (duplicate) {
+    return {
+      ok: false,
+      error: `Mogelijke dubbele leerling gevonden: ${duplicate.full_name}. Open het bestaande dossier of controleer de contactgegevens.`,
+    };
+  }
 
-  const { data: created, error: createErr } =
-    await service.auth.admin.createUser({
-      email,
-      password: tijdelijkWachtwoord,
-      email_confirm: true,
-      user_metadata: { must_change_password: true, full_name: naam },
-    });
+  let newUserId: string | null = null;
+  let tijdelijkWachtwoord: string | null = null;
+  if (email) {
+    tijdelijkWachtwoord = generateTemporaryPassword();
+    const { data: created, error: createErr } =
+      await service.auth.admin.createUser({
+        email,
+        password: tijdelijkWachtwoord,
+        email_confirm: true,
+        user_metadata: {
+          must_change_password: true,
+          full_name: displayName,
+        },
+      });
 
-  if (createErr || !created.user) {
-    const msg = createErr?.message ?? "Accountaanmaak mislukt.";
-    if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already been registered")) {
-      return { ok: false, error: "Dit e-mailadres is al in gebruik." };
+    if (createErr || !created.user) {
+      const msg = createErr?.message ?? "Accountaanmaak mislukt.";
+      if (
+        msg.toLowerCase().includes("already registered") ||
+        msg.toLowerCase().includes("already been registered")
+      ) {
+        return { ok: false, error: "Dit e-mailadres is al in gebruik." };
+      }
+      return { ok: false, error: msg };
     }
-    return { ok: false, error: msg };
+    newUserId = created.user.id;
   }
 
-  const newUserId = created.user.id;
+  if (newUserId) {
+    const { error: profileErr } = await service.from("profiles").upsert(
+      { id: newUserId, email, full_name: displayName },
+      { onConflict: "id" },
+    );
+    if (profileErr) {
+      await service.auth.admin.deleteUser(newUserId).catch(() => {});
+      return { ok: false, error: profileErr.message };
+    }
 
-  const { error: profileErr } = await service.from("profiles").upsert(
-    { id: newUserId, email, full_name: naam },
-    { onConflict: "id" },
-  );
-  if (profileErr) {
-    await service.auth.admin.deleteUser(newUserId).catch(() => {});
-    return { ok: false, error: profileErr.message };
-  }
-
-  const { error: membershipErr } = await service.from("memberships").upsert(
-    { user_id: newUserId, tenant_id: tenant.id, role: "student" },
-    { onConflict: "user_id,tenant_id,role" },
-  );
-  if (membershipErr) {
-    await service.auth.admin.deleteUser(newUserId).catch(() => {});
-    return { ok: false, error: membershipErr.message };
+    const { error: membershipErr } = await service.from("memberships").upsert(
+      { user_id: newUserId, tenant_id: tenant.id, role: "student" },
+      { onConflict: "user_id,tenant_id,role" },
+    );
+    if (membershipErr) {
+      await service.auth.admin.deleteUser(newUserId).catch(() => {});
+      return { ok: false, error: membershipErr.message };
+    }
   }
 
   const { data: studentRow, error: studentErr } = await service
@@ -121,35 +193,114 @@ export async function createStudentDirect(
       tenant_id: tenant.id,
       user_id: newUserId,
       lead_id: null,
-      full_name: naam,
+      full_name: displayName,
       email,
       phone: telefoon,
       postcode,
-      notes: nawNotes,
+      notes: profileNotes,
     })
     .select("id")
     .single();
 
   if (studentErr || !studentRow) {
-    await service.auth.admin.deleteUser(newUserId).catch(() => {});
+    if (newUserId) {
+      await service.auth.admin.deleteUser(newUserId).catch(() => {});
+    }
     return { ok: false, error: studentErr?.message ?? "Leerlingrij aanmaken mislukt." };
   }
 
   const studentId: string = studentRow.id as string;
+  const { data: enrollmentId, error: enrollmentError } = await service.rpc(
+    "create_training_enrollment",
+    {
+      p_tenant_id: tenant.id,
+      p_student_id: studentId,
+      p_training_method: parsed.value.educationType,
+      p_curriculum_version_id: null,
+      p_actor: user.id,
+      p_started_at: parsed.value.startDate
+        ? `${parsed.value.startDate}T00:00:00.000Z`
+        : null,
+    },
+  );
+  if (enrollmentError || !enrollmentId) {
+    if (enrollmentError) {
+      console.error(
+        "[createStudentDirect] training enrollment failed:",
+        enrollmentError.message,
+      );
+    }
+    await service
+      .from("students")
+      .delete()
+      .eq("id", studentId)
+      .eq("tenant_id", tenant.id);
+    if (newUserId) {
+      await service.auth.admin.deleteUser(newUserId).catch(() => {});
+    }
+    return {
+      ok: false,
+      error: "De gekozen opleiding kon niet aan de leerling worden gekoppeld.",
+    };
+  }
 
+  if (roles.includes("instructor")) {
+    const { error: assignmentError } = await service
+      .from("chat_conversations")
+      .upsert(
+        {
+          tenant_id: tenant.id,
+          student_id: studentId,
+          instructor_id: user.id,
+        },
+        { onConflict: "tenant_id,student_id,instructor_id" },
+      );
+    if (assignmentError) {
+      await service
+        .from("training_enrollments")
+        .delete()
+        .eq("id", String(enrollmentId))
+        .eq("tenant_id", tenant.id);
+      await service
+        .from("students")
+        .delete()
+        .eq("id", studentId)
+        .eq("tenant_id", tenant.id);
+      if (newUserId) {
+        await service.auth.admin.deleteUser(newUserId).catch(() => {});
+      }
+      return {
+        ok: false,
+        error: "Leerling kon niet veilig aan de instructeur worden gekoppeld.",
+      };
+    }
+  }
+
+  const portalStatus = portalStatusForStudent({
+    email,
+    authUserId: newUserId,
+  });
   await service.from("audit_log").insert({
     actor_user_id: user.id,
     tenant_id: tenant.id,
     action: "student_created_direct",
     target_type: "student",
     target_id: studentId,
-    payload: { full_name: naam, email, has_naw_details: Boolean(nawNotes) },
+    payload: {
+      full_name: displayName,
+      has_email: Boolean(email),
+      has_naw_details: Boolean(nawNotes),
+      education_type: parsed.value.educationType,
+      requested_start_date: parsed.value.startDate,
+      portal_status: portalStatus,
+      assigned_instructor_id: roles.includes("instructor") ? user.id : null,
+    },
   });
 
   // Send welcome email — best-effort: creation always succeeds; email failure
   // surfaces as a warning so the admin knows to resend manually.
   let emailWarning: string | undefined;
-  try {
+  if (email && tijdelijkWachtwoord) try {
     const [branding, platformConfig] = await Promise.all([
       loadEmailBranding(service, tenant.id),
       getPlatformEmailConfig(service).catch(() => null),
@@ -157,10 +308,10 @@ export async function createStudentDirect(
     const appUrl =
       process.env["NEXT_PUBLIC_APP_URL"] ??
       process.env["NEXTAUTH_URL"] ??
-      "https://app.nxtdrive.io";
+      "https://nxtdrive.io";
     const loginUrl = `${appUrl}/login`;
     const emailContent = renderStudentWelcome(branding, {
-      studentName: naam,
+      studentName: displayName,
       email,
       temporaryPassword: tijdelijkWachtwoord,
       loginUrl,
@@ -185,7 +336,8 @@ export async function createStudentDirect(
   }
 
   revalidatePath("/backoffice/leerlingen");
-  return { ok: true, studentId, emailWarning };
+  revalidatePath("/instructeur/leerlingen");
+  return { ok: true, studentId, portalStatus, emailWarning };
 }
 
 export type ResendWelcomeEmailResult =
@@ -251,7 +403,7 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
     const appUrl =
       process.env["NEXT_PUBLIC_APP_URL"] ??
       process.env["NEXTAUTH_URL"] ??
-      "https://app.nxtdrive.io";
+      "https://nxtdrive.io";
     const loginUrl = `${appUrl}/login`;
     const emailContent = renderStudentWelcome(branding, {
       studentName: student.full_name,
@@ -476,10 +628,32 @@ export async function uploadStudentDocument(formData: FormData) {
   if (!student) redirect("/backoffice/leerlingen");
 
   const { user, organization: tenant } = context;
+  let uploadLimit: RateLimitDecision;
+  try {
+    uploadLimit = await consumeRateLimit({
+      purpose: "upload",
+      identifiers: [tenant.id, user.id],
+    });
+  } catch {
+    redirect(`${base}?doc_error=scan_unavailable`);
+  }
+  if (!uploadLimit.allowed) {
+    redirect(`${base}?doc_error=rate_limited`);
+  }
   const safeName = sanitizeFileName(file.name);
   const storagePath = `${tenant.id}/${studentId}/${randomUUID()}-${safeName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!hasExpectedDocumentSignature(buffer, file.type)) {
+    redirect(`${base}?doc_error=bad_signature`);
+  }
+  const malwareScan = await scanDocumentForMalware(buffer);
+  if (malwareScan === "INFECTED") {
+    redirect(`${base}?doc_error=malware`);
+  }
+  if (malwareScan === "UNAVAILABLE") {
+    redirect(`${base}?doc_error=scan_unavailable`);
+  }
   const { error: uploadError } = await service.storage
     .from(STUDENT_DOCUMENT_BUCKET)
     .upload(storagePath, buffer, {

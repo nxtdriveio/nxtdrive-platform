@@ -21,7 +21,6 @@ import { loadStudentCbrSummary } from "@/lib/cbr/data";
 import { loadStudentRisProgress } from "@/lib/ris/data";
 import { StudentDocumentsCard } from "@/components/students/StudentDocumentsCard";
 import { GuardianManagerCard } from "@/components/students/GuardianManagerCard";
-import { AiProgressAnalysis } from "@/components/instructor/AiProgressAnalysis";
 import {
   IntakeCard,
   ReadinessCard,
@@ -345,8 +344,6 @@ export default async function StudentDetailPage({
           />
 
           <TasksCard tasks={dossier.tasks} />
-
-          <AiProgressAnalysis studentId={student.id} />
 
           <StudentNotesCard studentId={student.id} notes={student.notes} />
 

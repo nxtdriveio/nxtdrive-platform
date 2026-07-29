@@ -22,7 +22,7 @@ export const PLAN_DESCRIPTIONS: Record<TenantPlan, string> = {
   pro:
     "Voor groeiende rijscholen met meerdere medewerkers, vestigingen en behoefte aan extra managementinzicht.",
   elite:
-    "Voor multi-vestiging, franchise, white-label en AI-gedreven operatie met centrale governance.",
+    "Voor multi-vestiging, franchise, white-label en centrale governance.",
 };
 
 export const PLAN_HIGHLIGHTS: Record<TenantPlan, string[]> = {
@@ -39,7 +39,7 @@ export const PLAN_HIGHLIGHTS: Record<TenantPlan, string[]> = {
   elite: [
     "White-label branding en custom domains",
     "Franchise-netwerksturing",
-    "AI-functies en centrale governance",
+    "Centrale governance en uitgebreide controle",
   ],
 };
 
@@ -96,7 +96,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   franchise_as_franchisee: "Franchise (deelnemer)",
   white_label: "White-label huisstijl",
   franchise_as_franchisegever: "Franchise (netwerk beheer)",
-  ai_features: "AI-functies",
+  ai_features: "Toekomstige assistentiefuncties",
 };
 
 export type EntitlementLimitKey =

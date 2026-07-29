@@ -40,6 +40,7 @@ import {
   generatePackageAdvice,
   type PackageAdvice,
 } from "@/lib/ai/leskaart-advisor";
+import { isFeatureEnabled } from "@/lib/features/flags";
 import {
   completeBookingHold,
   createBookingConfirmationsForCandidate,
@@ -120,7 +121,7 @@ export async function convertLeadToStudent(formData: FormData) {
         const appUrl =
           process.env["NEXT_PUBLIC_APP_URL"] ??
           process.env["NEXTAUTH_URL"] ??
-          "https://app.nxtdrive.io";
+          "https://nxtdrive.io";
         const [branding, platformConfig] = await Promise.all([
           loadEmailBranding(service, tenant.id),
           getPlatformEmailConfig(service).catch(() => null),
@@ -1185,6 +1186,9 @@ function aiAdviceError(err: unknown): string {
 export async function generatePackageAdviceAction(
   leadId: string,
 ): Promise<{ advice?: PackageAdvice; error?: string }> {
+  if (!isFeatureEnabled("ai.admin.enabled")) {
+    return { error: "Deze functie is tijdens de pilot uitgeschakeld." };
+  }
   const { tenant } = await requireActiveTenant(["tenant_admin", "instructor"]);
   if (!leadId) return { error: "lead_id ontbreekt." };
 

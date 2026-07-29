@@ -32,7 +32,7 @@ export async function notifyChatMessage(
     if (!recipientUserId) return;
 
     const link = toInstructor
-      ? `/instructor/berichten/${params.conversationId}`
+      ? `/instructeur/berichten/${params.conversationId}`
       : `/student/berichten`;
 
     await dispatchInApp(service, {

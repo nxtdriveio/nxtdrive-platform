@@ -52,7 +52,7 @@ export type InstructorStudent = {
   nextLesson: string;
   latestLesson: string;
   phone: string;
-  email: string;
+  email: string | null;
   attention: string;
   readiness: string;
 };
@@ -168,4 +168,5 @@ export type InstructorExperience = {
     reason: string;
     priority: InstructorTaskPriority;
   }>;
+  nextAction: import("./next-action").InstructorNextAction;
 };

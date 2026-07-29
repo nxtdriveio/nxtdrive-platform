@@ -3,8 +3,9 @@
   "short_name": "NXTDRIVE",
   "description": "De instructeurs-app van NXTDRIVE — agenda, leerlingen en voortgang in één overzicht.",
   "lang": "nl",
-  "start_url": "/instructor",
-  "scope": "/instructor",
+  "id": "/instructeur",
+  "start_url": "/instructeur",
+  "scope": "/instructeur",
   "display": "standalone",
   "background_color": "#08080f",
   "theme_color": "#6b4eff",
@@ -32,20 +33,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/instructor-1.png",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Instructeur dagplanning"
-    },
-    {
-      "src": "/screenshots/instructor-2.png",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Instructeur leerlingoverzicht"
     }
   ]
 }

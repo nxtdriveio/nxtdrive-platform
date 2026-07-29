@@ -75,7 +75,7 @@ export async function globalSearch(query: string): Promise<SearchResults> {
     type: "student",
     title: student.full_name,
     subtitle: student.email ?? student.phone ?? "Geen contact",
-    href: `/instructor/leerlingen/${student.id}`,
+    href: `/instructeur/leerlingen/${student.id}`,
   }));
 
   const leads: SearchResultItem[] = (leadsRes.data ?? []).map((lead) => ({
@@ -111,7 +111,7 @@ export async function globalSearch(query: string): Promise<SearchResults> {
         type: "lesson",
         title: studentMap.get(lesson.student_id) ?? "Leerling",
         subtitle: `${dateFmt.format(new Date(lesson.starts_at))} · ${LESSON_STATUS_LABEL[lesson.status as keyof typeof LESSON_STATUS_LABEL] ?? lesson.status}`,
-        href: `/instructor/${lesson.id}`,
+        href: `/instructeur/lessen/${lesson.id}`,
       }));
     }
   }

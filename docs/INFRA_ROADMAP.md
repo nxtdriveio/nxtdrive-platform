@@ -56,7 +56,7 @@ path to scale.
    cookie/membership-based resolution). Host routing is **purely additive** and
    never throws.
 
-> The authenticated app (`app.nxtdrive.io`) keeps cookie-based active-tenant
+> The authenticated app (`nxtdrive.io`) keeps cookie-based active-tenant
 > resolution. Host-based resolution drives the public/marketing + white-label
 > surfaces. The two never conflict because `app.` is a reserved label.
 
@@ -122,7 +122,7 @@ A tenant_admin adds a domain in **Backoffice → Instellingen → Domeinen** and
 1. **Ownership** — a TXT record at `_nxtdrive-verify.<host>` = the verification
    token. "Verifiëren" runs a server-side DNS TXT lookup and, on success, flips
    the row to `active`.
-2. **Traffic** — a `CNAME <host> → app.nxtdrive.io` (sub-domain) or an
+2. **Traffic** — a `CNAME <host> → nxtdrive.io` (sub-domain) or an
    `A`/`ALIAS` record (apex). DNS-only, so Caddy can complete the TLS handshake.
 
 ## Scale roadmap (next)

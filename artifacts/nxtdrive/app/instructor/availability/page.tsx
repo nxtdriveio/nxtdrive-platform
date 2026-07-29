@@ -1,7 +1,1 @@
-import { redirect } from "next/navigation";
-
-export const dynamic = "force-dynamic";
-
-export default function InstructorAvailabilityAliasPage() {
-  redirect("/instructor/beschikbaarheid");
-}
+export { default } from "../beschikbaarheid/page";

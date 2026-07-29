@@ -1,14 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
+  BookOpen,
   CalendarDays,
-  CarFront,
   Clock3,
-  FileText,
   Home,
   ListTodo,
   MessageCircle,
@@ -19,84 +16,82 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
+import {
+  instructorRoutes,
+  visibleInstructorNavigation,
+  type InstructorRouteDefinition,
+  type InstructorRouteId,
+} from "@/lib/instructor/routes";
+import type { InstructorLiveCounts } from "@/lib/instructor/counts-server";
 import { cn } from "@/lib/utils";
 
+type IconComponent = typeof Home;
+
 type NavItem = {
-  href: string;
-  label: string;
-  icon: typeof Home;
-  match: "exact" | "prefix";
-  mobile?: boolean;
+  route: InstructorRouteDefinition;
+  icon: IconComponent;
   badge?: number;
 };
 
-const SIDEBAR_NAV: NavItem[] = [
-  { href: "/instructor", label: "Cockpit", icon: Home, match: "exact", mobile: true },
-  { href: "/instructor/agenda", label: "Agenda", icon: CalendarDays, match: "prefix", mobile: true },
-  { href: "/instructor/leerlingen", label: "Leerlingen", icon: Users, match: "prefix", mobile: true },
-  { href: "/instructor/les-evaluaties", label: "Lesevaluaties", icon: FileText, match: "prefix" },
-  { href: "/instructor/berichten", label: "Berichten", icon: MessageCircle, match: "prefix", mobile: true, badge: 3 },
-  { href: "/instructor/taken", label: "Taken", icon: ListTodo, match: "prefix", badge: 4 },
-  { href: "/instructor/voertuigen", label: "Voertuigen", icon: CarFront, match: "prefix" },
-  { href: "/instructor/beschikbaarheid", label: "Beschikbaarheid", icon: Clock3, match: "prefix" },
-  { href: "/instructor/rapportages", label: "Rapportages", icon: BarChart3, match: "prefix" },
-  { href: "/instructor/instellingen", label: "Instellingen", icon: Settings, match: "prefix" },
-];
+const NAV_ICONS: Partial<Record<InstructorRouteId, IconComponent>> = {
+  home: Home,
+  agenda: CalendarDays,
+  students: Users,
+  messages: MessageCircle,
+  tasks: ListTodo,
+  availability: Clock3,
+  theory: BookOpen,
+  settings: Settings,
+  more: MoreHorizontal,
+};
 
-const MOBILE_NAV: NavItem[] = [
-  SIDEBAR_NAV[0]!,
-  SIDEBAR_NAV[1]!,
-  SIDEBAR_NAV[2]!,
-  SIDEBAR_NAV[4]!,
-  { href: "/instructor/meer", label: "Meer", icon: MoreHorizontal, match: "prefix" },
-];
+const MOBILE_ROUTE_IDS = new Set<InstructorRouteId>([
+  "home",
+  "agenda",
+  "students",
+  "messages",
+]);
 
-function isActive(pathname: string, item: NavItem) {
-  if (item.href === "/instructor") return pathname === "/instructor";
-  if (item.href === "/instructor/agenda") {
-    return pathname.startsWith("/instructor/agenda") ||
-      pathname.startsWith("/instructor/week") ||
-      pathname.startsWith("/instructor/afspraak");
+function isActive(pathname: string, route: InstructorRouteDefinition) {
+  if (route.id === "home") return pathname === route.canonicalPath;
+  if (route.id === "agenda" && pathname.startsWith("/instructeur/lessen/")) {
+    return true;
   }
-  if (item.href === "/instructor/leerlingen") {
-    return pathname.startsWith("/instructor/students") ||
-      pathname.startsWith("/instructor/leerlingen");
-  }
-  if (item.href === "/instructor/les-evaluaties") {
-    return pathname.startsWith("/instructor/evaluations") ||
-      pathname.startsWith("/instructor/les-evaluaties");
-  }
-  if (item.href === "/instructor/berichten") {
-    return pathname.startsWith("/instructor/messages") ||
-      pathname.startsWith("/instructor/berichten");
-  }
-  if (item.href === "/instructor/taken") return pathname.startsWith("/instructor/tasks") || pathname.startsWith("/instructor/taken");
-  if (item.href === "/instructor/voertuigen") return pathname.startsWith("/instructor/vehicles") || pathname.startsWith("/instructor/voertuigen");
-  if (item.href === "/instructor/beschikbaarheid") return pathname.startsWith("/instructor/availability") || pathname.startsWith("/instructor/beschikbaarheid");
-  if (item.href === "/instructor/instellingen") return pathname.startsWith("/instructor/settings") || pathname.startsWith("/instructor/instellingen");
-  if (item.href === "/instructor/meer") return pathname.startsWith("/instructor/more") || pathname.startsWith("/instructor/meer");
-  return item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);
+  return pathname.startsWith(route.canonicalPath);
 }
 
-function NavLink({ item, mobile = false }: { item: NavItem; mobile?: boolean }) {
+function NavLink({
+  item,
+  mobile = false,
+}: {
+  item: NavItem;
+  mobile?: boolean;
+}) {
   const pathname = usePathname() ?? "";
-  const active = isActive(pathname, item);
+  const active = isActive(pathname, item.route);
   const Icon = item.icon;
 
   if (mobile) {
     return (
       <Link
-        href={item.href}
+        href={item.route.canonicalPath}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "relative flex min-w-0 flex-col items-center gap-1 rounded-[1.1rem] px-1.5 py-1.5 text-[10px] font-bold transition",
-          active ? "bg-brand-accent text-brand-primary" : "text-muted-foreground hover:text-foreground",
+          "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-[1.1rem] px-1.5 py-1.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring",
+          active
+            ? "bg-brand-accent text-brand-primary"
+            : "text-muted-foreground hover:text-foreground",
         )}
       >
         <Icon className="h-4 w-4" aria-hidden />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{item.route.navLabel}</span>
         {item.badge ? (
-          <span className="absolute right-2 top-1 h-2 w-2 rounded-full bg-brand-primary" />
+          <span
+            aria-label={`${item.badge} ongelezen`}
+            className="absolute right-1 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-brand-primary px-1 text-[9px] font-black text-white"
+          >
+            {item.badge > 99 ? "99+" : item.badge}
+          </span>
         ) : null}
       </Link>
     );
@@ -104,46 +99,76 @@ function NavLink({ item, mobile = false }: { item: NavItem; mobile?: boolean }) 
 
   return (
     <Link
-      href={item.href}
+      href={item.route.canonicalPath}
       aria-current={active ? "page" : undefined}
-        className={cn(
-          "group flex items-center gap-3 rounded-[1.05rem] px-3 py-2.5 text-sm font-bold transition",
-          active
+      className={cn(
+        "group flex min-h-11 items-center gap-3 rounded-[1.05rem] px-3 py-2.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+        active
           ? "bg-brand-sidebar-active text-brand-sidebar-active-foreground"
           : "text-brand-sidebar-foreground/78 hover:bg-white/8 hover:text-white",
       )}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span className="min-w-0 flex-1 truncate">{item.route.navLabel}</span>
       {item.badge ? <Badge variant="primary">{item.badge}</Badge> : null}
     </Link>
   );
+}
+
+function navItems(liveCounts: InstructorLiveCounts): NavItem[] {
+  return visibleInstructorNavigation({ roles: ["instructor"] }).map((route) => ({
+    route,
+    icon: NAV_ICONS[route.id] ?? Home,
+    badge:
+      route.id === "messages"
+        ? liveCounts.unreadMessages
+        : route.id === "tasks"
+          ? liveCounts.openTasks
+          : undefined,
+  }));
 }
 
 export function InstructorSidebar({
   tenantName,
   userLabel,
   logoUrl,
+  liveCounts,
 }: {
   tenantName: string;
   userLabel: string;
   logoUrl?: string | null;
-  notifications?: ReactNode;
+  liveCounts: InstructorLiveCounts;
 }) {
+  const items = navItems(liveCounts);
+  const moreRoute = instructorRoutes.find((route) => route.id === "more")!;
+  const mobileItems = [
+    ...items.filter((item) => MOBILE_ROUTE_IDS.has(item.route.id)),
+    { route: moreRoute, icon: MoreHorizontal },
+  ];
+
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden border-r border-white/10 bg-brand-sidebar-background text-brand-sidebar-foreground xl:flex xl:flex-col xl:w-[18.5rem]">
+      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden border-r border-white/10 bg-brand-sidebar-background text-brand-sidebar-foreground lg:flex lg:flex-col lg:w-[18.5rem]">
         <div className="relative flex min-h-0 flex-1 flex-col p-4">
-          <div className="relative">
-            <Link href="/instructor" className="inline-flex items-center">
-              <NxtdriveLogo className="text-xl font-semibold text-white" logoUrl={logoUrl} brandName={tenantName} />
-            </Link>
-          </div>
+          <Link
+            href="/instructeur"
+            className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <NxtdriveLogo
+              className="text-xl font-semibold text-white"
+              inverse
+              logoUrl={logoUrl}
+              brandName={tenantName}
+            />
+          </Link>
 
-          <nav className="relative mt-7 min-h-0 flex-1 overflow-auto" aria-label="Instructeur navigatie">
+          <nav
+            className="relative mt-7 min-h-0 flex-1 overflow-auto"
+            aria-label="Instructeurnavigatie"
+          >
             <ul className="space-y-1.5">
-              {SIDEBAR_NAV.map((item) => (
-                <li key={item.href}>
+              {items.map((item) => (
+                <li key={item.route.id}>
                   <NavLink item={item} />
                 </li>
               ))}
@@ -155,45 +180,54 @@ export function InstructorSidebar({
             <div className="min-w-0">
               <p className="truncate text-sm font-black text-white">{userLabel}</p>
               <p className="truncate text-xs text-white/60">Instructeur</p>
-              <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Online
-              </p>
             </div>
           </div>
-
         </div>
       </aside>
 
       <header
-        className="sticky top-0 z-30 border-b border-brand-border/80 bg-white/88 backdrop-blur-xl xl:hidden"
+        className="sticky top-0 z-30 border-b border-brand-border/80 bg-white/88 backdrop-blur-xl lg:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="flex h-[3.5rem] items-center justify-between gap-3 px-4">
-          <Link href="/instructor" className="min-w-0">
-            <NxtdriveLogo className="text-sm font-semibold text-foreground" logoUrl={logoUrl} brandName={tenantName} />
+        <div className="flex min-h-14 items-center justify-between gap-3 px-4">
+          <Link
+            href="/instructeur"
+            className="flex min-h-11 min-w-0 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+          >
+            <NxtdriveLogo
+              className="text-sm font-semibold text-foreground"
+              logoUrl={logoUrl}
+              brandName={tenantName}
+            />
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href="/instructor/berichten"
-              aria-label="Berichten"
-              className="grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm"
+              href="/instructeur/berichten"
+              aria-label={
+                liveCounts.unreadMessages
+                  ? `Berichten, ${liveCounts.unreadMessages} ongelezen`
+                  : "Berichten"
+              }
+              className="relative grid h-11 w-11 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
+              {liveCounts.unreadMessages ? (
+                <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-primary" />
+              ) : null}
             </Link>
-            <Avatar name={userLabel} className="h-10 w-10 text-xs" />
+            <Avatar name={userLabel} className="h-11 w-11 text-xs" />
           </div>
         </div>
       </header>
 
       <nav
-        aria-label="Mobiele instructeur navigatie"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 xl:hidden"
+        aria-label="Mobiele instructeurnavigatie"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 lg:hidden"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.55rem)" }}
       >
         <ul className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 rounded-[1.45rem] border border-brand-border/80 bg-white/92 p-1.5 shadow-brand-card backdrop-blur-xl">
-          {MOBILE_NAV.map((item) => (
-            <li key={item.href} className="min-w-0">
+          {mobileItems.map((item) => (
+            <li key={item.route.id} className="min-w-0">
               <NavLink item={item} mobile />
             </li>
           ))}

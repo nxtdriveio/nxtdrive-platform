@@ -19,7 +19,7 @@ export async function updateInstructorProfile(formData: FormData) {
 
   if (error) return { error: "Profiel kon niet worden opgeslagen." };
 
-  revalidatePath("/instructor/instellingen");
+  revalidatePath("/instructeur/instellingen");
   return { error: null };
 }
 
@@ -52,8 +52,8 @@ export async function updateInstructorAgendaPreferences(formData: FormData) {
     return { error: "Agenda-instellingen konden niet worden opgeslagen." };
   }
 
-  revalidatePath("/instructor");
-  revalidatePath("/instructor/week");
-  revalidatePath("/instructor/instellingen");
+  revalidatePath("/instructeur");
+  revalidatePath("/instructeur/agenda");
+  revalidatePath("/instructeur/instellingen");
   return { error: null };
 }

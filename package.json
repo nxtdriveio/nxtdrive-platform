@@ -3,9 +3,20 @@
   "version": "0.0.0",
   "license": "MIT",
   "packageManager": "pnpm@10.26.1",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml .github/workflows scripts/release artifacts/nxtdrive/capacitor.config.ts artifacts/nxtdrive/android/play-store docs/release",
+    "lint": "node scripts/release/lint-repository.mjs",
+    "test:unit": "pnpm --filter @workspace/nxtdrive run test",
+    "test:integration": "pnpm --filter @workspace/nxtdrive exec tsx --test lib/invoices/payments.rpc.test.ts",
+    "migration:smoke": "node scripts/release/migration-smoke.mjs",
+    "security:audit": "pnpm audit --prod --audit-level high",
+    "security:secrets": "node scripts/release/secret-scan.mjs",
+    "release:evidence": "node scripts/release/generate-evidence.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

@@ -1,18 +1,17 @@
-import { InstructorAppointmentDetailManager } from "@/components/instructor/AppointmentManagers";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorAgendaDetailPage({
+export default async function InstructorAppointmentLegacyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ appointmentId: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
   const { appointmentId } = await params;
-  return (
-    <InstructorAppointmentDetailManager
-      appointmentId={appointmentId}
-      formPath={`/instructor/agenda/${appointmentId}`}
-      redirectTo="/instructor/agenda"
-    />
+  permanentRedirectToInstructorRoute(
+    "appointment",
+    { appointmentId },
+    await searchParams,
   );
 }

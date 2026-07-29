@@ -23,7 +23,10 @@ export async function InstructorAvailabilityManager({
   redirectTo,
 }: {
   error?: string;
-  redirectTo: "/instructor/availability" | "/instructor/beschikbaarheid";
+  redirectTo:
+    | "/instructeur/beschikbaarheid"
+    | "/instructor/availability"
+    | "/instructor/beschikbaarheid";
 }) {
   const { tenant, user } = await requireActiveTenant(["instructor", "tenant_admin"]);
   const supabase = await createServerSupabaseClient();
@@ -54,7 +57,7 @@ export async function InstructorAvailabilityManager({
             Beheer je wekelijkse lesruimte en uitzonderingen. Deze tijden worden direct gebruikt voor planning en beschikbaarheidschecks.
           </p>
         </div>
-        <Link href="/instructor/agenda" className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-primary">
+        <Link href="/instructeur/agenda" className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-primary">
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Terug naar agenda
         </Link>

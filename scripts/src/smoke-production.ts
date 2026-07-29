@@ -2,19 +2,23 @@
  * Production/staging smoke flow runner.
  *
  * Examples:
- *   SMOKE_BASE_URL=https://app.nxtdrive.io pnpm --filter @workspace/scripts run smoke:production
- *   SMOKE_BASE_URL=https://app.nxtdrive.io SMOKE_STUDENT_EMAIL=... SMOKE_STUDENT_PASSWORD=... pnpm --filter @workspace/scripts run smoke:production
+ *   SMOKE_BASE_URL=https://nxtdrive.io pnpm --filter @workspace/scripts run smoke:production
+ *   SMOKE_BASE_URL=https://nxtdrive.io SMOKE_STUDENT_EMAIL=... SMOKE_STUDENT_PASSWORD=... pnpm --filter @workspace/scripts run smoke:production
  */
 import { chromium, type Browser, type Page } from "playwright";
 
 type SmokeResult = "OK" | "SKIP" | "FAIL";
 type BrowserMode = "required" | "off";
 
-const baseUrl = normalizeBaseUrl(process.env["SMOKE_BASE_URL"] ?? "http://127.0.0.1:5001");
+const baseUrl = normalizeBaseUrl(
+  process.env["SMOKE_BASE_URL"] ?? "http://127.0.0.1:5001",
+);
 const timeoutMs = Number(process.env["SMOKE_TIMEOUT_MS"] ?? "15000");
 const allowDegradedReady = process.env["SMOKE_ALLOW_DEGRADED_READY"] === "1";
 const tenantHost = normalizeOptionalUrl(process.env["SMOKE_TENANT_HOST"]);
-const customDomainHost = normalizeOptionalUrl(process.env["SMOKE_CUSTOM_DOMAIN_HOST"]);
+const customDomainHost = normalizeOptionalUrl(
+  process.env["SMOKE_CUSTOM_DOMAIN_HOST"],
+);
 const browserMode = normalizeBrowserMode(process.env["SMOKE_BROWSER_MODE"]);
 
 const studentEmail = process.env["SMOKE_STUDENT_EMAIL"];
@@ -48,7 +52,10 @@ function record(status: SmokeResult, name: string, detail?: string): void {
   if (status === "FAIL") failures++;
 }
 
-async function checkJsonEndpoint(path: string, expectedStatus = 200): Promise<void> {
+async function checkJsonEndpoint(
+  path: string,
+  expectedStatus = 200,
+): Promise<void> {
   const startedAt = Date.now();
   const response = await fetch(url(path), {
     headers: {
@@ -61,13 +68,21 @@ async function checkJsonEndpoint(path: string, expectedStatus = 200): Promise<vo
   const latency = `${Date.now() - startedAt}ms`;
 
   if (response.status !== expectedStatus) {
-    record("FAIL", `GET ${path}`, `expected ${expectedStatus}, got ${response.status}`);
+    record(
+      "FAIL",
+      `GET ${path}`,
+      `expected ${expectedStatus}, got ${response.status}`,
+    );
     return;
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
-    record("FAIL", `GET ${path}`, `unexpected content-type ${contentType || "empty"}`);
+    record(
+      "FAIL",
+      `GET ${path}`,
+      `unexpected content-type ${contentType || "empty"}`,
+    );
     return;
   }
 
@@ -92,7 +107,11 @@ async function checkReadinessEndpoint(): Promise<void> {
   }
 
   if (allowDegradedReady && response.status === 503) {
-    record("SKIP", "GET /api/health/ready", "degraded allowed for local/non-production smoke");
+    record(
+      "SKIP",
+      "GET /api/health/ready",
+      "degraded allowed for local/non-production smoke",
+    );
     return;
   }
 
@@ -103,7 +122,11 @@ async function checkReadinessEndpoint(): Promise<void> {
     body = await response.text();
   }
 
-  record("FAIL", "GET /api/health/ready", `expected 200, got ${response.status}: ${body.slice(0, 500)}`);
+  record(
+    "FAIL",
+    "GET /api/health/ready",
+    `expected 200, got ${response.status}: ${body.slice(0, 500)}`,
+  );
 }
 
 async function checkManifest(path: string): Promise<void> {
@@ -122,11 +145,18 @@ async function checkManifest(path: string): Promise<void> {
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("json") && !contentType.includes("manifest")) {
-    record("FAIL", `GET ${path}`, `unexpected content-type ${contentType || "empty"}`);
+    record(
+      "FAIL",
+      `GET ${path}`,
+      `unexpected content-type ${contentType || "empty"}`,
+    );
     return;
   }
 
-  const manifest = (await response.json()) as { name?: string; start_url?: string };
+  const manifest = (await response.json()) as {
+    name?: string;
+    start_url?: string;
+  };
   if (!manifest.name || !manifest.start_url) {
     record("FAIL", `GET ${path}`, "manifest missing name or start_url");
     return;
@@ -141,8 +171,12 @@ async function checkLoginPage(page: Page): Promise<void> {
     timeout: timeoutMs,
   });
 
-  const email = page.locator('input[type="email"], input[name="email"]').first();
-  const password = page.locator('input[type="password"], input[name="password"]').first();
+  const email = page
+    .locator('input[type="email"], input[name="email"]')
+    .first();
+  const password = page
+    .locator('input[type="password"], input[name="password"]')
+    .first();
 
   if ((await email.count()) === 0 || (await password.count()) === 0) {
     record("FAIL", "GET /login browser", "email/password fields not found");
@@ -152,7 +186,11 @@ async function checkLoginPage(page: Page): Promise<void> {
   record("OK", "GET /login browser", "login form rendered");
 }
 
-async function checkLoginPageHttp(path: string, label: string, base = baseUrl): Promise<void> {
+async function checkLoginPageHttp(
+  path: string,
+  label: string,
+  base = baseUrl,
+): Promise<void> {
   const response = await fetch(`${base}${path}`, {
     headers: {
       Accept: "text/html",
@@ -193,8 +231,12 @@ async function checkHostedLoginPage(
       timeout: timeoutMs,
     });
 
-    const email = page.locator('input[type="email"], input[name="email"]').first();
-    const password = page.locator('input[type="password"], input[name="password"]').first();
+    const email = page
+      .locator('input[type="email"], input[name="email"]')
+      .first();
+    const password = page
+      .locator('input[type="password"], input[name="password"]')
+      .first();
 
     if ((await email.count()) === 0 || (await password.count()) === 0) {
       record("FAIL", label, "email/password fields not found");
@@ -203,13 +245,20 @@ async function checkHostedLoginPage(
 
     record("OK", label, `${targetBaseUrl}/login`);
   } catch (error) {
-    record("FAIL", label, error instanceof Error ? error.message : "unknown error");
+    record(
+      "FAIL",
+      label,
+      error instanceof Error ? error.message : "unknown error",
+    );
   } finally {
     await page.close();
   }
 }
 
-async function checkHostedLoginPageHttp(label: string, targetBaseUrl: string | null): Promise<void> {
+async function checkHostedLoginPageHttp(
+  label: string,
+  targetBaseUrl: string | null,
+): Promise<void> {
   if (!targetBaseUrl) {
     record("SKIP", label, "host not configured");
     return;
@@ -225,13 +274,17 @@ async function checkLoginFlow(
   password?: string,
 ): Promise<void> {
   if (!email || !password) {
-    record("SKIP", `${label} login`, `set SMOKE_${label.toUpperCase()}_EMAIL and SMOKE_${label.toUpperCase()}_PASSWORD`);
+    record(
+      "SKIP",
+      `${label} login`,
+      `set SMOKE_${label.toUpperCase()}_EMAIL and SMOKE_${label.toUpperCase()}_PASSWORD`,
+    );
     return;
   }
 
   const context = await browser.newContext();
   const page = await context.newPage();
-  const expectedPath = label === "student" ? "/student" : "/instructor";
+  const expectedPath = label === "student" ? "/leerling" : "/instructeur";
 
   try {
     await page.goto(url("/login"), {
@@ -239,17 +292,33 @@ async function checkLoginFlow(
       timeout: timeoutMs,
     });
 
-    await page.locator('input[type="email"], input[name="email"]').first().fill(email);
-    await page.locator('input[type="password"], input[name="password"]').first().fill(password);
-    await page.getByRole("button", { name: /inloggen|login/i }).first().click();
+    await page
+      .locator('input[type="email"], input[name="email"]')
+      .first()
+      .fill(email);
+    await page
+      .locator('input[type="password"], input[name="password"]')
+      .first()
+      .fill(password);
+    await page
+      .getByRole("button", { name: /inloggen|login/i })
+      .first()
+      .click();
 
-    await page.waitForURL((currentUrl) => currentUrl.pathname.startsWith(expectedPath), {
-      timeout: timeoutMs,
-    });
+    await page.waitForURL(
+      (currentUrl) => currentUrl.pathname.startsWith(expectedPath),
+      {
+        timeout: timeoutMs,
+      },
+    );
 
     record("OK", `${label} login`, page.url());
   } catch (error) {
-    record("FAIL", `${label} login`, error instanceof Error ? error.message : "unknown error");
+    record(
+      "FAIL",
+      `${label} login`,
+      error instanceof Error ? error.message : "unknown error",
+    );
   } finally {
     await context.close();
   }
@@ -262,13 +331,16 @@ async function main(): Promise<void> {
   await checkJsonEndpoint("/api/health");
   await checkReadinessEndpoint();
   await checkManifest("/manifest.webmanifest");
-  await checkManifest("/student/manifest.webmanifest");
-  await checkManifest("/instructor/manifest.webmanifest");
+  await checkManifest("/leerling/manifest.webmanifest");
+  await checkManifest("/instructeur/manifest.webmanifest");
 
   if (browserMode === "off") {
     await checkLoginPageHttp("/login", "GET /login html shell");
     await checkHostedLoginPageHttp("tenant host login shell", tenantHost);
-    await checkHostedLoginPageHttp("custom domain login shell", customDomainHost);
+    await checkHostedLoginPageHttp(
+      "custom domain login shell",
+      customDomainHost,
+    );
     record("SKIP", "student login", "browser mode off");
     record("SKIP", "instructor login", "browser mode off");
   } else {
@@ -278,10 +350,23 @@ async function main(): Promise<void> {
       await checkLoginPage(page);
       await page.close();
 
-      await checkHostedLoginPage(browser, "tenant host login shell", tenantHost);
-      await checkHostedLoginPage(browser, "custom domain login shell", customDomainHost);
+      await checkHostedLoginPage(
+        browser,
+        "tenant host login shell",
+        tenantHost,
+      );
+      await checkHostedLoginPage(
+        browser,
+        "custom domain login shell",
+        customDomainHost,
+      );
       await checkLoginFlow(browser, "student", studentEmail, studentPassword);
-      await checkLoginFlow(browser, "instructor", instructorEmail, instructorPassword);
+      await checkLoginFlow(
+        browser,
+        "instructor",
+        instructorEmail,
+        instructorPassword,
+      );
     } finally {
       await browser.close();
     }
@@ -297,6 +382,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  record("FAIL", "smoke runner", error instanceof Error ? error.message : "unknown error");
+  record(
+    "FAIL",
+    "smoke runner",
+    error instanceof Error ? error.message : "unknown error",
+  );
   process.exit(1);
 });

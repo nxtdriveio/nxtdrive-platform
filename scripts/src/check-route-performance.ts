@@ -14,10 +14,13 @@ type RouteBudget = {
 
 const routeBudgets: RouteBudget[] = [
   { path: "/account/wachtwoord-wijzigen", maxFirstLoadKb: 250 },
-  { path: "/student", maxFirstLoadKb: 170 },
-  { path: "/instructor", maxFirstLoadKb: 155 },
+  { path: "/leerling", maxFirstLoadKb: 170 },
+  { path: "/instructeur", maxFirstLoadKb: 155 },
   { path: "/backoffice", maxFirstLoadKb: 290 },
-  { path: "/admin/notifications/templates/[key]/[channel]", maxFirstLoadKb: 190 },
+  {
+    path: "/admin/notifications/templates/[key]/[channel]",
+    maxFirstLoadKb: 190,
+  },
   {
     path: "/backoffice/instellingen/notificaties/templates/[key]/[channel]",
     maxFirstLoadKb: 190,
@@ -38,13 +41,18 @@ function parseKb(line: string): number | null {
 
 async function runBuild(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const command =
-      process.platform === "win32"
-        ? "cmd.exe"
-        : "corepack";
+    const command = process.platform === "win32" ? "cmd.exe" : "corepack";
     const args =
       process.platform === "win32"
-        ? ["/c", "corepack", "pnpm", "--filter", "@workspace/nxtdrive", "run", "build"]
+        ? [
+            "/c",
+            "corepack",
+            "pnpm",
+            "--filter",
+            "@workspace/nxtdrive",
+            "run",
+            "build",
+          ]
         : ["pnpm", "--filter", "@workspace/nxtdrive", "run", "build"];
 
     const child = spawn(command, args, {
@@ -83,8 +91,9 @@ function findRouteFirstLoad(output: string, path: string): number | null {
     .find((candidate) => new RegExp(`\\s${escapedPath}\\s+`).test(candidate));
 
   if (!line) return null;
-  const match = line.match(/([\d.]+)\s*kB\s+([\d.]+)\s*kB\s*$/);
-  return match ? Number.parseFloat(match[2]) : null;
+  const sizes = Array.from(line.matchAll(/([\d.]+)\s*kB/g));
+  const firstLoad = sizes.at(-1)?.[1];
+  return firstLoad ? Number.parseFloat(firstLoad) : null;
 }
 
 function findSharedFirstLoad(output: string): number | null {
@@ -127,7 +136,9 @@ async function main(): Promise<void> {
   if (shared === null) {
     failures.push("missing 'First Load JS shared by all' in build output");
   } else if (shared > sharedBudgetKb) {
-    failures.push(`shared first load ${shared} kB exceeds ${sharedBudgetKb} kB`);
+    failures.push(
+      `shared first load ${shared} kB exceeds ${sharedBudgetKb} kB`,
+    );
   } else {
     console.log(`OK shared first load ${shared} kB <= ${sharedBudgetKb} kB`);
   }
@@ -136,9 +147,13 @@ async function main(): Promise<void> {
   if (middleware === null) {
     failures.push("missing middleware size in build output");
   } else if (middleware > middlewareBudgetKb) {
-    failures.push(`middleware bundle ${middleware} kB exceeds ${middlewareBudgetKb} kB`);
+    failures.push(
+      `middleware bundle ${middleware} kB exceeds ${middlewareBudgetKb} kB`,
+    );
   } else {
-    console.log(`OK middleware bundle ${middleware} kB <= ${middlewareBudgetKb} kB`);
+    console.log(
+      `OK middleware bundle ${middleware} kB <= ${middlewareBudgetKb} kB`,
+    );
   }
 
   if (failures.length > 0) {

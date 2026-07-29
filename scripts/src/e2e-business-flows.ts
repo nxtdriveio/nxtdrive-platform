@@ -8,7 +8,7 @@
  * Environment:
  *   E2E_BASE_URL                 Optional app origin. Defaults per env:
  *                                staging    -> https://staging.nxtdrive.io
- *                                production -> https://app.nxtdrive.io
+ *                                production -> https://nxtdrive.io
  *   E2E_TIMEOUT_MS              Optional per-step timeout in ms (default 20000)
  *   E2E_HEADLESS                "0" for headed, default headless
  *   E2E_TENANT_ID               Override test tenant id
@@ -23,9 +23,19 @@
  *   staging    -> SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
  *   production -> PRODUCTION_SUPABASE_URL + PRODUCTION_SUPABASE_SERVICE_ROLE_KEY
  */
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bannerFor, parseEnvFromArgv, resolveSupabaseAdminClient, type DbEnv } from "./lib/db-env.js";
+import {
+  bannerFor,
+  parseEnvFromArgv,
+  resolveSupabaseAdminClient,
+  type DbEnv,
+} from "./lib/db-env.js";
 
 type SuiteStatus = "OK" | "SKIP" | "FAIL";
 type Result = { status: SuiteStatus; name: string; detail?: string };
@@ -59,7 +69,10 @@ const DEFAULT_TENANT_ID = "926d29c2-4d77-4ab9-824b-f566725f9ae9";
 
 const env = parseEnvFromArgv(process.argv);
 const baseUrl = normalizeBaseUrl(
-  process.env["E2E_BASE_URL"] ?? (env === "production" ? "https://app.nxtdrive.io" : "https://staging.nxtdrive.io"),
+  process.env["E2E_BASE_URL"] ??
+    (env === "production"
+      ? "https://nxtdrive.io"
+      : "https://staging.nxtdrive.io"),
 );
 const timeoutMs = Number(process.env["E2E_TIMEOUT_MS"] ?? "20000");
 const headless = process.env["E2E_HEADLESS"] !== "0";
@@ -77,13 +90,13 @@ const accounts: Account[] = [
     label: "instructor",
     email: process.env["E2E_INSTRUCTOR_EMAIL"] ?? "instructeur1@nxtdrive.io",
     password: process.env["E2E_INSTRUCTOR_PASSWORD"] ?? "instructeur1",
-    expectedPath: "/instructor",
+    expectedPath: "/instructeur",
   },
   {
     label: "student",
     email: process.env["E2E_STUDENT_EMAIL"] ?? "leerling1@nxtdrive.io",
     password: process.env["E2E_STUDENT_PASSWORD"] ?? "leerling1",
-    expectedPath: "/student",
+    expectedPath: "/leerling",
   },
 ];
 
@@ -105,8 +118,9 @@ function assertPersistentSessionCookies(
   account: Account,
   storage: AuthCookieState,
 ): string {
-  const sessionCookies = storage.cookies.filter((cookie) =>
-    cookie.name.includes("sb-") && cookie.name.includes("auth-token"),
+  const sessionCookies = storage.cookies.filter(
+    (cookie) =>
+      cookie.name.includes("sb-") && cookie.name.includes("auth-token"),
   );
 
   if (sessionCookies.length === 0) {
@@ -150,7 +164,11 @@ function appUrl(path: string): string {
   return `${baseUrl}${path}`;
 }
 
-function plusDaysIso(daysAhead: number, hourUtc: number, minuteUtc = 0): string {
+function plusDaysIso(
+  daysAhead: number,
+  hourUtc: number,
+  minuteUtc = 0,
+): string {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + daysAhead);
   date.setUTCHours(hourUtc, minuteUtc, 0, 0);
@@ -175,7 +193,11 @@ async function expect<T>(
     record("OK", name, detailFor?.(value));
     return value;
   } catch (error) {
-    record("FAIL", name, error instanceof Error ? error.message : "unknown error");
+    record(
+      "FAIL",
+      name,
+      error instanceof Error ? error.message : "unknown error",
+    );
     return null;
   }
 }
@@ -187,7 +209,9 @@ async function lookupTenant(): Promise<TenantRow> {
     .eq("id", tenantId)
     .maybeSingle();
   if (error || !data) {
-    throw new Error(`tenant lookup failed: ${error?.message ?? `tenant ${tenantId} not found`}`);
+    throw new Error(
+      `tenant lookup failed: ${error?.message ?? `tenant ${tenantId} not found`}`,
+    );
   }
   return data as TenantRow;
 }
@@ -199,12 +223,17 @@ async function lookupUserIdByEmail(email: string): Promise<string> {
     .eq("email", email.toLowerCase())
     .maybeSingle();
   if (error || !data?.id) {
-    throw new Error(`profile lookup failed for ${email}: ${error?.message ?? "not found"}`);
+    throw new Error(
+      `profile lookup failed for ${email}: ${error?.message ?? "not found"}`,
+    );
   }
   return data.id as string;
 }
 
-async function lookupStudentByUserEmail(tenant: TenantRow, email: string): Promise<{ id: string; full_name: string }> {
+async function lookupStudentByUserEmail(
+  tenant: TenantRow,
+  email: string,
+): Promise<{ id: string; full_name: string }> {
   const userId = await lookupUserIdByEmail(email);
   const { data, error } = await service
     .from("students")
@@ -213,7 +242,9 @@ async function lookupStudentByUserEmail(tenant: TenantRow, email: string): Promi
     .eq("user_id", userId)
     .maybeSingle();
   if (error || !data?.id) {
-    throw new Error(`student lookup failed for ${email}: ${error?.message ?? "not found"}`);
+    throw new Error(
+      `student lookup failed for ${email}: ${error?.message ?? "not found"}`,
+    );
   }
   return { id: data.id as string, full_name: data.full_name as string };
 }
@@ -229,17 +260,39 @@ async function createPage(context: BrowserContext): Promise<Page> {
   return page;
 }
 
-async function loginViaUi(page: Page, account: Account, loginUrl = appUrl("/login")): Promise<void> {
-  await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  await page.locator('input[name="email"], input[type="email"]').first().fill(account.email);
-  await page.locator('input[name="password"], input[type="password"]').first().fill(account.password);
-  await page.getByRole("button", { name: /inloggen/i }).first().click();
-  await page.waitForURL((currentUrl) => currentUrl.pathname.startsWith(account.expectedPath), {
+async function loginViaUi(
+  page: Page,
+  account: Account,
+  loginUrl = appUrl("/login"),
+): Promise<void> {
+  await page.goto(loginUrl, {
+    waitUntil: "domcontentloaded",
     timeout: timeoutMs,
   });
+  await page
+    .locator('input[name="email"], input[type="email"]')
+    .first()
+    .fill(account.email);
+  await page
+    .locator('input[name="password"], input[type="password"]')
+    .first()
+    .fill(account.password);
+  await page
+    .getByRole("button", { name: /inloggen/i })
+    .first()
+    .click();
+  await page.waitForURL(
+    (currentUrl) => currentUrl.pathname.startsWith(account.expectedPath),
+    {
+      timeout: timeoutMs,
+    },
+  );
 }
 
-async function verifyRoleLogin(browser: Browser, account: Account): Promise<void> {
+async function verifyRoleLogin(
+  browser: Browser,
+  account: Account,
+): Promise<void> {
   const context = await browser.newContext();
   const page = await createPage(context);
   try {
@@ -260,7 +313,9 @@ async function verifyRoleLogin(browser: Browser, account: Account): Promise<void
         waitUntil: "domcontentloaded",
         timeout: timeoutMs,
       });
-      if (!new URL(restoredPage.url()).pathname.startsWith(account.expectedPath)) {
+      if (
+        !new URL(restoredPage.url()).pathname.startsWith(account.expectedPath)
+      ) {
         throw new Error(`restored session redirected to ${restoredPage.url()}`);
       }
     } finally {
@@ -271,7 +326,11 @@ async function verifyRoleLogin(browser: Browser, account: Account): Promise<void
   }
 }
 
-async function poll<T>(fn: () => Promise<T>, ok: (value: T) => boolean, label: string): Promise<T> {
+async function poll<T>(
+  fn: () => Promise<T>,
+  ok: (value: T) => boolean,
+  label: string,
+): Promise<T> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const value = await fn();
@@ -294,7 +353,11 @@ async function cleanupLeadArtifacts(): Promise<void> {
   }
 }
 
-async function verifyLeadToTrialToStudent(browser: Browser, tenant: TenantRow, instructorId: string): Promise<void> {
+async function verifyLeadToTrialToStudent(
+  browser: Browser,
+  tenant: TenantRow,
+  instructorId: string,
+): Promise<void> {
   const admin = accounts[0];
   const leadName = `E2E Lead ${Date.now()}`;
   const leadPhone = `+316${String(Date.now()).slice(-8)}`;
@@ -303,14 +366,20 @@ async function verifyLeadToTrialToStudent(browser: Browser, tenant: TenantRow, i
 
   try {
     await loginViaUi(page, admin);
-    await page.goto(appUrl("/backoffice/leads"), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await page.goto(appUrl("/backoffice/leads"), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
     await page.getByText("Nieuwe lead toevoegen", { exact: false }).click();
     await page.getByPlaceholder("Naam").fill(leadName);
     await page.getByPlaceholder("Telefoon").fill(leadPhone);
     await page.getByRole("button", { name: "Lead aanmaken" }).click();
-    await page.waitForURL((url) => /^\/backoffice\/leads\/[0-9a-f-]+$/i.test(url.pathname), {
-      timeout: timeoutMs,
-    });
+    await page.waitForURL(
+      (url) => /^\/backoffice\/leads\/[0-9a-f-]+$/i.test(url.pathname),
+      {
+        timeout: timeoutMs,
+      },
+    );
 
     const leadId = page.url().split("/").at(-1);
     if (!leadId) throw new Error("lead detail url did not contain an id");
@@ -332,7 +401,10 @@ async function verifyLeadToTrialToStudent(browser: Browser, tenant: TenantRow, i
     const trialId = booked.data as string;
 
     await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
-    await page.getByRole("button", { name: /^Bevestigen$/ }).first().click();
+    await page
+      .getByRole("button", { name: /^Bevestigen$/ })
+      .first()
+      .click();
 
     await poll(
       async () =>
@@ -346,9 +418,12 @@ async function verifyLeadToTrialToStudent(browser: Browser, tenant: TenantRow, i
     );
 
     await page.getByRole("button", { name: "Leerling aanmaken" }).click();
-    await page.waitForURL((url) => /^\/backoffice\/leerlingen\/[0-9a-f-]+$/i.test(url.pathname), {
-      timeout: timeoutMs,
-    });
+    await page.waitForURL(
+      (url) => /^\/backoffice\/leerlingen\/[0-9a-f-]+$/i.test(url.pathname),
+      {
+        timeout: timeoutMs,
+      },
+    );
 
     const student = await poll(
       async () =>
@@ -462,7 +537,12 @@ async function verifyLessonPlanningAndCompletion(
   const page = await createPage(context);
 
   try {
-    await ensureInstructorStudentLink(tenant, adminUserId, instructorId, studentId);
+    await ensureInstructorStudentLink(
+      tenant,
+      adminUserId,
+      instructorId,
+      studentId,
+    );
     const lessonId = await createPlannedLessonForFlow(
       tenant,
       adminUserId,
@@ -470,7 +550,7 @@ async function verifyLessonPlanningAndCompletion(
       studentId,
     );
     await loginViaUi(page, account);
-    await page.goto(appUrl(`/instructor/${lessonId}`), {
+    await page.goto(appUrl(`/instructeur/lessen/${lessonId}`), {
       waitUntil: "domcontentloaded",
       timeout: timeoutMs,
     });
@@ -491,7 +571,11 @@ async function verifyLessonPlanningAndCompletion(
     await page.getByRole("button", { name: "Volgende" }).click();
     await page.getByRole("button", { name: "Volgende" }).click();
     await page.getByRole("button", { name: "Lesscore: 7" }).click();
-    await page.locator("#finish-summary").fill("Je hield het tempo goed vast en werkte rustig aan kijkgedrag en positie.");
+    await page
+      .locator("#finish-summary")
+      .fill(
+        "Je hield het tempo goed vast en werkte rustig aan kijkgedrag en positie.",
+      );
     await page.getByRole("button", { name: "Volgende" }).click();
     await page.getByRole("button", { name: "Rond les af" }).click();
 
@@ -510,7 +594,11 @@ async function verifyLessonPlanningAndCompletion(
   }
 }
 
-async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId: string): Promise<void> {
+async function verifyMessaging(
+  browser: Browser,
+  tenant: TenantRow,
+  instructorId: string,
+): Promise<void> {
   const studentAccount = accounts[2];
   const instructorAccount = accounts[1];
   const student = await lookupStudentByUserEmail(tenant, studentAccount.email);
@@ -524,13 +612,22 @@ async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId
 
   try {
     const adminUserId = await lookupUserIdByEmail(accounts[0].email);
-    await ensureInstructorStudentLink(tenant, adminUserId, instructorId, student.id);
+    await ensureInstructorStudentLink(
+      tenant,
+      adminUserId,
+      instructorId,
+      student.id,
+    );
     await loginViaUi(studentPage, studentAccount);
     await studentPage.goto(
-      appUrl(`/student/berichten?instructor=${encodeURIComponent(instructorId)}`),
+      appUrl(
+        `/leerling/berichten?instructor=${encodeURIComponent(instructorId)}`,
+      ),
       { waitUntil: "domcontentloaded", timeout: timeoutMs },
     );
-    await studentPage.getByPlaceholder("Typ een bericht...").fill(studentMessage);
+    await studentPage
+      .getByPlaceholder("Typ een bericht...")
+      .fill(studentMessage);
     await studentPage.getByRole("button", { name: "Verzenden" }).click();
     await studentPage
       .locator("p.whitespace-pre-wrap")
@@ -565,11 +662,14 @@ async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId
       (value) => Boolean(value.data?.id),
       "student message persistence",
     );
-    if (sentMessage.data?.id) createdMessageIds.push(sentMessage.data.id as string);
+    if (sentMessage.data?.id)
+      createdMessageIds.push(sentMessage.data.id as string);
 
     await loginViaUi(instructorPage, instructorAccount);
     await instructorPage.goto(
-      appUrl(`/instructor/berichten?conversation=${encodeURIComponent(conversationId)}`),
+      appUrl(
+        `/instructeur/berichten?conversation=${encodeURIComponent(conversationId)}`,
+      ),
       { waitUntil: "domcontentloaded", timeout: timeoutMs },
     );
     await instructorPage
@@ -577,7 +677,9 @@ async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId
       .filter({ hasText: studentMessage })
       .first()
       .waitFor({ timeout: timeoutMs });
-    await instructorPage.getByPlaceholder("Typ een bericht...").fill(instructorReply);
+    await instructorPage
+      .getByPlaceholder("Typ een bericht...")
+      .fill(instructorReply);
     await instructorPage.getByRole("button", { name: "Verzenden" }).click();
     await instructorPage
       .locator("p.whitespace-pre-wrap")
@@ -598,7 +700,10 @@ async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId
     );
     if (reply.data?.id) createdMessageIds.push(reply.data.id as string);
 
-    await studentPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await studentPage.reload({
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
     await studentPage
       .locator("p.whitespace-pre-wrap")
       .filter({ hasText: instructorReply })
@@ -610,7 +715,10 @@ async function verifyMessaging(browser: Browser, tenant: TenantRow, instructorId
   }
 }
 
-async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: string): Promise<BranchFixture> {
+async function createBranchIsolationFixture(
+  tenant: TenantRow,
+  adminUserId: string,
+): Promise<BranchFixture> {
   const stamp = Date.now();
   const password = `BranchE2E!${stamp}`;
 
@@ -631,7 +739,9 @@ async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: stri
     p_actor: adminUserId,
   });
   if (branchA.error || !branchA.data || branchB.error || !branchB.data) {
-    throw new Error(`branch setup failed: ${branchA.error?.message ?? branchB.error?.message}`);
+    throw new Error(
+      `branch setup failed: ${branchA.error?.message ?? branchB.error?.message}`,
+    );
   }
 
   const branchAId = branchA.data as string;
@@ -645,7 +755,9 @@ async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: stri
     password,
   });
   if (managerUser.error || !managerUser.data.user) {
-    throw new Error(`branch manager createUser failed: ${managerUser.error?.message}`);
+    throw new Error(
+      `branch manager createUser failed: ${managerUser.error?.message}`,
+    );
   }
 
   const branchManagerUserId = managerUser.data.user.id;
@@ -666,7 +778,9 @@ async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: stri
     .select("id")
     .single();
   if (membership.error || !membership.data) {
-    throw new Error(`branch manager membership failed: ${membership.error?.message}`);
+    throw new Error(
+      `branch manager membership failed: ${membership.error?.message}`,
+    );
   }
 
   const branchManagerMembershipId = membership.data.id as string;
@@ -685,8 +799,18 @@ async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: stri
   const students = await service
     .from("students")
     .insert([
-      { tenant_id: tenant.id, full_name: studentAName, branch_id: branchAId, phone: `+316${String(stamp).slice(-8)}` },
-      { tenant_id: tenant.id, full_name: studentBName, branch_id: branchBId, phone: `+317${String(stamp).slice(-8)}` },
+      {
+        tenant_id: tenant.id,
+        full_name: studentAName,
+        branch_id: branchAId,
+        phone: `+316${String(stamp).slice(-8)}`,
+      },
+      {
+        tenant_id: tenant.id,
+        full_name: studentBName,
+        branch_id: branchBId,
+        phone: `+317${String(stamp).slice(-8)}`,
+      },
     ])
     .select("id, full_name, branch_id");
   if (students.error || !students.data) {
@@ -714,7 +838,11 @@ async function createBranchIsolationFixture(tenant: TenantRow, adminUserId: stri
   };
 }
 
-async function verifyBranchIsolation(browser: Browser, tenant: TenantRow, adminUserId: string): Promise<void> {
+async function verifyBranchIsolation(
+  browser: Browser,
+  tenant: TenantRow,
+  adminUserId: string,
+): Promise<void> {
   const fixture = await createBranchIsolationFixture(tenant, adminUserId);
   const context = await browser.newContext();
   const page = await createPage(context);
@@ -726,7 +854,10 @@ async function verifyBranchIsolation(browser: Browser, tenant: TenantRow, adminU
       password: fixture.branchManagerPassword,
       expectedPath: "/backoffice",
     });
-    await page.goto(appUrl("/backoffice/leerlingen"), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await page.goto(appUrl("/backoffice/leerlingen"), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
     await page
       .locator(`a[href="/backoffice/leerlingen/${fixture.studentAId}"]`)
       .first()
@@ -754,10 +885,17 @@ function deriveTenantHost(base: string, tenantSlug: string): string | null {
   return null;
 }
 
-async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promise<void> {
+async function verifyWhiteLabelHost(
+  browser: Browser,
+  tenant: TenantRow,
+): Promise<void> {
   const tenantHost = deriveTenantHost(baseUrl, tenant.slug);
   if (!tenantHost) {
-    record("SKIP", "white-label subdomain shell", "set E2E_TENANT_HOST to verify host routing");
+    record(
+      "SKIP",
+      "white-label subdomain shell",
+      "set E2E_TENANT_HOST to verify host routing",
+    );
     return;
   }
 
@@ -767,7 +905,9 @@ async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promis
       waitUntil: "domcontentloaded",
       timeout: timeoutMs,
     });
-    await page.getByRole("heading", { name: "Inloggen" }).waitFor({ timeout: timeoutMs });
+    await page
+      .getByRole("heading", { name: "Inloggen" })
+      .waitFor({ timeout: timeoutMs });
     const bodyText = await page.locator("body").innerText();
     const matchesTenantText =
       bodyText.includes(`Log in op ${tenant.name}.`) ||
@@ -776,7 +916,9 @@ async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promis
       throw new Error(`tenant branding text not detected on ${tenantHost}`);
     }
     if (bodyText.includes("Aangedreven door NXTDRIVE")) {
-      throw new Error("white-label shell still shows public NXTDRIVE footer copy");
+      throw new Error(
+        "white-label shell still shows public NXTDRIVE footer copy",
+      );
     }
   } finally {
     await page.context().close();
@@ -784,7 +926,11 @@ async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promis
 
   const customHost = process.env["E2E_CUSTOM_DOMAIN_HOST"]?.trim();
   if (!customHost) {
-    record("SKIP", "white-label custom-domain shell", "set E2E_CUSTOM_DOMAIN_HOST to verify custom domain routing");
+    record(
+      "SKIP",
+      "white-label custom-domain shell",
+      "set E2E_CUSTOM_DOMAIN_HOST to verify custom domain routing",
+    );
     return;
   }
 
@@ -794,7 +940,9 @@ async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promis
       waitUntil: "domcontentloaded",
       timeout: timeoutMs,
     });
-    await page2.getByRole("heading", { name: "Inloggen" }).waitFor({ timeout: timeoutMs });
+    await page2
+      .getByRole("heading", { name: "Inloggen" })
+      .waitFor({ timeout: timeoutMs });
     const bodyText = await page2.locator("body").innerText();
     if (!bodyText.includes(tenant.name)) {
       throw new Error(`tenant name not visible on custom host ${customHost}`);
@@ -804,7 +952,11 @@ async function verifyWhiteLabelHost(browser: Browser, tenant: TenantRow): Promis
   }
 }
 
-async function createTestInvoice(tenant: TenantRow, adminUserId: string, studentId: string): Promise<string> {
+async function createTestInvoice(
+  tenant: TenantRow,
+  adminUserId: string,
+  studentId: string,
+): Promise<string> {
   const created = await service.rpc("create_invoice", {
     p_tenant_id: tenant.id,
     p_actor: adminUserId,
@@ -845,7 +997,11 @@ async function createTestInvoice(tenant: TenantRow, adminUserId: string, student
   return invoiceId;
 }
 
-async function verifyPayments(browser: Browser, tenant: TenantRow, adminUserId: string): Promise<void> {
+async function verifyPayments(
+  browser: Browser,
+  tenant: TenantRow,
+  adminUserId: string,
+): Promise<void> {
   const studentAccount = accounts[2];
   const student = await lookupStudentByUserEmail(tenant, studentAccount.email);
   const invoiceId = await createTestInvoice(tenant, adminUserId, student.id);
@@ -854,24 +1010,43 @@ async function verifyPayments(browser: Browser, tenant: TenantRow, adminUserId: 
   const page = await createPage(context);
   try {
     await loginViaUi(page, studentAccount);
-    await page.goto(appUrl("/student/betalingen"), { waitUntil: "domcontentloaded", timeout: timeoutMs });
-    await page.getByRole("heading", { name: "Betalingen" }).waitFor({ timeout: timeoutMs });
-    await page.getByText(/^Factuur #/).first().waitFor({ timeout: timeoutMs });
+    await page.goto(appUrl("/leerling/betalingen"), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    await page
+      .getByRole("heading", { name: "Betalingen" })
+      .waitFor({ timeout: timeoutMs });
+    await page
+      .getByText(/^Factuur #/)
+      .first()
+      .waitFor({ timeout: timeoutMs });
 
     const payButton = page.getByRole("button", { name: /Betaal nu/i });
     if ((await payButton.count()) === 0) {
-      record("SKIP", "student payment redirect boundary", "online payment is not active for this tenant");
+      record(
+        "SKIP",
+        "student payment redirect boundary",
+        "online payment is not active for this tenant",
+      );
       return;
     }
 
     if (!allowPaymentRedirect) {
-      record("SKIP", "student payment redirect boundary", "set E2E_ENABLE_PAYMENT_REDIRECT=1 to follow external PSP redirect");
+      record(
+        "SKIP",
+        "student payment redirect boundary",
+        "set E2E_ENABLE_PAYMENT_REDIRECT=1 to follow external PSP redirect",
+      );
       return;
     }
 
     await payButton.first().click();
     await page.waitForURL(
-      (url) => !url.pathname.startsWith("/student") && !url.pathname.startsWith("/facturen") && !url.pathname.startsWith("/betalingen"),
+      (url) =>
+        !url.pathname.startsWith("/leerling") &&
+        !url.pathname.startsWith("/facturen") &&
+        !url.pathname.startsWith("/betalingen"),
       { timeout: timeoutMs },
     );
   } finally {
@@ -881,14 +1056,20 @@ async function verifyPayments(browser: Browser, tenant: TenantRow, adminUserId: 
       .select("id")
       .eq("invoice_id", invoiceId);
     for (const row of paymentIdRows.data ?? []) {
-      await service.from("payment_records").delete().eq("id", row.id as string);
+      await service
+        .from("payment_records")
+        .delete()
+        .eq("id", row.id as string);
     }
   }
 }
 
 async function cleanupLessons(): Promise<void> {
   for (const lessonId of createdLessonIds) {
-    await service.from("lesson_skill_scores").delete().eq("lesson_id", lessonId);
+    await service
+      .from("lesson_skill_scores")
+      .delete()
+      .eq("lesson_id", lessonId);
     await service.from("lesson_notes").delete().eq("lesson_id", lessonId);
     await service.from("lessons").delete().eq("id", lessonId);
   }
@@ -896,32 +1077,63 @@ async function cleanupLessons(): Promise<void> {
 
 async function cleanupStudents(): Promise<void> {
   for (const studentId of createdStudentIds) {
-    await ignoreQuery(service.from("student_reviews").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("lesson_skill_scores").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("lesson_notes").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("credit_ledger").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("invoice_lines").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("payment_records").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("invoices").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("trial_lessons").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("lessons").delete().eq("student_id", studentId));
-    await ignoreQuery(service.from("chat_conversations").delete().eq("student_id", studentId));
+    await ignoreQuery(
+      service.from("student_reviews").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("lesson_skill_scores").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("lesson_notes").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("credit_ledger").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("invoice_lines").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("payment_records").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("invoices").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("trial_lessons").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("lessons").delete().eq("student_id", studentId),
+    );
+    await ignoreQuery(
+      service.from("chat_conversations").delete().eq("student_id", studentId),
+    );
     await service.from("students").delete().eq("id", studentId);
   }
 }
 
 async function cleanupInvoices(): Promise<void> {
   for (const invoiceId of createdInvoiceIds) {
-    await ignoreQuery(service.from("payment_records").delete().eq("invoice_id", invoiceId));
-    await ignoreQuery(service.from("invoice_lines").delete().eq("invoice_id", invoiceId));
+    await ignoreQuery(
+      service.from("payment_records").delete().eq("invoice_id", invoiceId),
+    );
+    await ignoreQuery(
+      service.from("invoice_lines").delete().eq("invoice_id", invoiceId),
+    );
     await ignoreQuery(service.from("invoices").delete().eq("id", invoiceId));
   }
 }
 
 async function cleanupMembershipsAndUsers(): Promise<void> {
   for (const membershipId of createdMembershipIds) {
-    await ignoreQuery(service.from("membership_branches").delete().eq("membership_id", membershipId));
-    await ignoreQuery(service.from("memberships").delete().eq("id", membershipId));
+    await ignoreQuery(
+      service
+        .from("membership_branches")
+        .delete()
+        .eq("membership_id", membershipId),
+    );
+    await ignoreQuery(
+      service.from("memberships").delete().eq("id", membershipId),
+    );
   }
   for (const userId of createdUserIds) {
     await ignoreQuery(service.from("profiles").delete().eq("id", userId));
@@ -937,7 +1149,9 @@ async function cleanupBranches(): Promise<void> {
 
 async function cleanupMessagesAndConversations(): Promise<void> {
   for (const messageId of createdMessageIds) {
-    await ignoreQuery(service.from("chat_messages").delete().eq("id", messageId));
+    await ignoreQuery(
+      service.from("chat_messages").delete().eq("id", messageId),
+    );
   }
   for (const conversationId of createdConversationIds) {
     const remaining = await service
@@ -945,7 +1159,9 @@ async function cleanupMessagesAndConversations(): Promise<void> {
       .select("id", { count: "exact", head: true })
       .eq("conversation_id", conversationId);
     if ((remaining.count ?? 0) === 0) {
-      await ignoreQuery(service.from("chat_conversations").delete().eq("id", conversationId));
+      await ignoreQuery(
+        service.from("chat_conversations").delete().eq("id", conversationId),
+      );
     }
   }
 }
@@ -963,9 +1179,12 @@ async function main(): Promise<void> {
   const browser = await createBrowser();
   try {
     for (const account of accounts) {
-      await expect(`login + session persistence (${account.label})`, async () => {
-        await verifyRoleLogin(browser, account);
-      });
+      await expect(
+        `login + session persistence (${account.label})`,
+        async () => {
+          await verifyRoleLogin(browser, account);
+        },
+      );
     }
 
     await expect("lead -> trial -> student conversion", async () => {
@@ -1017,6 +1236,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  record("FAIL", "business-flow suite", error instanceof Error ? error.message : "unknown error");
+  record(
+    "FAIL",
+    "business-flow suite",
+    error instanceof Error ? error.message : "unknown error",
+  );
   process.exit(1);
 });

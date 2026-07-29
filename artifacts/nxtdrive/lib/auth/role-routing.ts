@@ -11,8 +11,8 @@ export function homePathForRoles(roles: MemberRole[]): string {
   if (roles.includes("planner")) return "/backoffice";
   if (roles.includes("admin_staff")) return "/backoffice";
   if (roles.includes("marketing")) return "/backoffice";
-  if (roles.includes("instructor")) return "/instructor";
-  if (roles.includes("student")) return "/student";
+  if (roles.includes("instructor")) return "/instructeur";
+  if (roles.includes("student")) return "/leerling";
   if (roles.includes("parent")) return "/ouder";
   return "/";
 }

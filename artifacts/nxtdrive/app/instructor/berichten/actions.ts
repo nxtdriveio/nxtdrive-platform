@@ -9,14 +9,14 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 export async function openInstructorConversationAction(formData: FormData) {
   const studentId = String(formData.get("student_id") ?? "").trim();
   if (!studentId) {
-    redirect("/instructor/berichten?error=missing-student");
+    redirect("/instructeur/berichten?error=missing-student");
   }
 
   const { user, tenant } = await requireActiveTenant(["instructor", "tenant_admin"]);
   const service = createServiceRoleClient();
   const access = await requireInstructorStudentAccess(service, studentId);
   if (!access.student) {
-    redirect("/instructor/berichten?error=forbidden");
+    redirect("/instructeur/berichten?error=forbidden");
   }
 
   const conversationId = await ensureConversation({
@@ -26,5 +26,5 @@ export async function openInstructorConversationAction(formData: FormData) {
     actorId: user.id,
   });
 
-  redirect(`/instructor/berichten?conversation=${conversationId}`);
+  redirect(`/instructeur/berichten?conversation=${conversationId}`);
 }

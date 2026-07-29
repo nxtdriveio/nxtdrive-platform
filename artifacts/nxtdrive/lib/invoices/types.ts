@@ -1,9 +1,4 @@
-export const INVOICE_STATUSES = [
-  "draft",
-  "open",
-  "paid",
-  "cancelled",
-] as const;
+export const INVOICE_STATUSES = ["draft", "open", "paid", "cancelled"] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
@@ -97,12 +92,19 @@ export type InvoiceLine = {
  */
 export type DisplayStatus = InvoiceStatus | "overdue" | "partially_paid";
 
-export function displayStatus(invoice: {
-  status: InvoiceStatus;
-  due_date: string | null;
-  amount_paid_cents?: number;
-  total_cents?: number;
-}): DisplayStatus {
+export function displayStatus(
+  invoice: {
+    status: InvoiceStatus;
+    due_date: string | null;
+    amount_paid_cents?: number;
+    total_cents?: number;
+  },
+  options: {
+    clock?: Clock;
+    timeZone?: string;
+    todayYmd?: string;
+  } = {},
+): DisplayStatus {
   if (invoice.status === "open") {
     const paid = invoice.amount_paid_cents ?? 0;
     const total = invoice.total_cents ?? 0;
@@ -110,10 +112,10 @@ export function displayStatus(invoice: {
       return "partially_paid";
     }
     if (invoice.due_date) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const due = new Date(invoice.due_date);
-      if (due < today) return "overdue";
+      const todayYmd =
+        options.todayYmd ??
+        todayInTimeZone(options.clock ?? systemClock, options.timeZone);
+      if (invoice.due_date.slice(0, 10) < todayYmd) return "overdue";
     }
   }
   return invoice.status;
@@ -173,3 +175,5 @@ export function parseEurosToCents(input: string): number | null {
   if (!Number.isFinite(parsed) || parsed < 0) return null;
   return Math.round(parsed * 100);
 }
+import type { Clock } from "@/lib/time/clock";
+import { systemClock, todayInTimeZone } from "@/lib/time/clock";

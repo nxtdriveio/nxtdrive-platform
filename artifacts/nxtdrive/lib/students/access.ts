@@ -100,19 +100,33 @@ export async function loadInstructorAccessibleStudentIds(
   tenantId: string,
   instructorId: string,
 ): Promise<string[]> {
-  const { data, error } = await client
-    .from("lessons")
-    .select("student_id")
-    .eq("tenant_id", tenantId)
-    .eq("instructor_id", instructorId);
+  const [lessonsResult, conversationsResult] = await Promise.all([
+    client
+      .from("lessons")
+      .select("student_id")
+      .eq("tenant_id", tenantId)
+      .eq("instructor_id", instructorId),
+    client
+      .from("chat_conversations")
+      .select("student_id")
+      .eq("tenant_id", tenantId)
+      .eq("instructor_id", instructorId),
+  ]);
 
-  if (error) {
-    throw new Error(`loadInstructorAccessibleStudentIds: ${error.message}`);
+  if (lessonsResult.error) {
+    throw new Error(
+      `loadInstructorAccessibleStudentIds: ${lessonsResult.error.message}`,
+    );
+  }
+  if (conversationsResult.error) {
+    throw new Error(
+      `loadInstructorAccessibleStudentIds: ${conversationsResult.error.message}`,
+    );
   }
 
   return Array.from(
     new Set(
-      (data ?? [])
+      [...(lessonsResult.data ?? []), ...(conversationsResult.data ?? [])]
         .map((row) => row.student_id as string | null)
         .filter((value): value is string => Boolean(value)),
     ),

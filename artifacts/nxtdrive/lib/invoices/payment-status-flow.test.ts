@@ -5,6 +5,7 @@ import {
   type InvoicePaymentStatusFlow,
 } from "./payment-status-flow";
 import type { Invoice } from "./types";
+import { FixedClock } from "@/lib/time/clock";
 
 const baseInvoice: Invoice = {
   id: "inv_1",
@@ -69,6 +70,20 @@ test("overdue invoice takes action-required status", () => {
   assert.equal(result.displayStatus, "overdue");
   assert.equal(result.badgeVariant, "danger");
   assert.equal(result.dueLabel, "13 dagen verlopen");
+});
+
+test("status and due label use the same injected clock and tenant timezone", () => {
+  const result = buildInvoicePaymentStatusFlow(
+    { ...baseInvoice, due_date: "2026-06-23" },
+    {
+      mollieConfigured: true,
+      clock: new FixedClock("2026-06-23T22:30:00.000Z"),
+      timeZone: "Europe/Amsterdam",
+    },
+  );
+
+  assert.equal(result.displayStatus, "overdue");
+  assert.equal(result.dueLabel, "1 dag verlopen");
 });
 
 test("processing blocks a second online payment action", () => {

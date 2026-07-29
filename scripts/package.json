@@ -97,6 +97,7 @@
     "visual:update": "tsx ./src/visual-regression.ts --update",
     "smoke:production": "tsx ./src/smoke-production.ts",
     "e2e:business-flows": "tsx ./src/e2e-business-flows.ts",
+    "e2e:release-smoke": "tsx ./src/e2e-release-smoke.ts",
     "check-route-performance": "tsx ./src/check-route-performance.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

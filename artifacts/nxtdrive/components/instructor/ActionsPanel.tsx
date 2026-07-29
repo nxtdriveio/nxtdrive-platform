@@ -219,22 +219,22 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={CalendarPlus}
             label="Lesuren plannen"
-            href={`/instructor/les/nieuw?student_id=${studentId}`}
+            href={`/instructeur/agenda/nieuw?student_id=${studentId}`}
           />
           <LinkTile
             icon={ClipboardCheck}
             label="Proefles beoordelen"
-            href="/instructor/intake"
+            href="/instructeur/intake"
           />
           <LinkTile
             icon={PackagePlus}
             label="Pakketadvies"
-            href={`/instructor/leerlingen/${studentId}`}
+            href={`/instructeur/leerlingen/${studentId}`}
           />
           <LinkTile
             icon={Wallet}
             label="Tegoed & saldo"
-            href={`/instructor/leerlingen/${studentId}`}
+            href={`/instructeur/leerlingen/${studentId}`}
           />
           <ActionTile
             icon={UserX}
@@ -253,12 +253,12 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={GraduationCap}
             label="Examenstatus"
-            href={`/instructor/leerlingen/${studentId}`}
+            href={`/instructeur/leerlingen/${studentId}`}
           />
           <LinkTile
             icon={ListTodo}
             label="Bekijk taken"
-            href="/instructor/taken"
+            href="/instructeur/taken"
           />
           <LinkTile
             icon={Phone}

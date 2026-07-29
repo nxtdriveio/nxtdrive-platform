@@ -1,9 +1,10 @@
-import { InstructorAgendaView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorWeekPage() {
-  const data = await loadInstructorExperience();
-  return <InstructorAgendaView data={data} />;
+export default async function InstructorWeekLegacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<InstructorSearchParams>;
+}) {
+  permanentRedirectToInstructorRoute("agenda", {}, await searchParams);
 }

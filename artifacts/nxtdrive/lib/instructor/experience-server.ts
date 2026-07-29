@@ -39,6 +39,7 @@ import {
   type InstructorTaskPriority,
   type InstructorVehicle,
 } from "@/lib/instructor/redesign-data";
+import { deriveNextInstructorAction } from "@/lib/instructor/next-action";
 
 type StudentSummary = Pick<Student, "id" | "full_name" | "phone" | "postcode" | "email">;
 type DashboardTask = Pick<Task, "id" | "title" | "priority" | "due_date" | "created_at" | "updated_at">;
@@ -139,7 +140,7 @@ function mapLesson(
     location: lesson.location ?? student?.postcode ?? "Locatie volgt",
     vehicle: vehicleLabel(vehicle),
     status: lesson.status === "completed" ? "completed" : lesson.status === "in_progress" ? "confirmed" : "planned",
-    href: `/instructor/les-evaluaties/${lesson.id}`,
+    href: `/instructeur/lessen/${lesson.id}`,
   };
 }
 
@@ -157,7 +158,7 @@ function mapTrial(
     duration: `${trial.duration_min} min`,
     location: trial.pickup_location ?? "Ophaallocatie volgt",
     status: trial.status === "confirmed" ? "confirmed" : "planned",
-    href: "/instructor/intake",
+    href: "/instructeur/intake",
   };
 }
 
@@ -178,7 +179,7 @@ function mapAppointment(
     location: appointment.location ?? appointment.team_name ?? APPOINTMENT_TYPE_LABEL[appointment.type],
     vehicle: vehicleLabel(vehicle),
     status: appointment.status === "completed" ? "completed" : "planned",
-    href: `/instructor/agenda/${appointment.id}`,
+    href: `/instructeur/agenda/${appointment.id}`,
   };
 }
 
@@ -207,7 +208,7 @@ function mapStudent(
     nextLesson: next ? `${dateLabel(next.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(next.starts_at))}` : "Niet gepland",
     latestLesson: latest ? `${dateLabel(latest.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(latest.starts_at))}` : "Nog geen les afgerond",
     phone: student.phone ?? "Niet ingevuld",
-    email: student.email ?? "Niet ingevuld",
+    email: student.email,
     attention: balance <= 300 ? "Lespakket bijna op of vervolgplanning nodig." : "Geen urgente aandachtspunten.",
     readiness: `${progress}% voortgang`,
   };
@@ -333,6 +334,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       ...appointmentWindow
         .map((appointment) => appointment.student_id)
         .filter((studentId): studentId is string => Boolean(studentId)),
+      ...conversations.map((conversation) => conversation.studentId),
     ]),
   );
 
@@ -422,6 +424,18 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     todayAppointments.reduce((sum, appointment) => sum + durationMinutes(appointment.starts_at, appointment.ends_at), 0);
   const availableTodayMinutes = todayAvailability?.availableMinutes ?? 0;
 
+  const mappedTasks = ((openTasksResult.data ?? []) as DashboardTask[]).map(
+    (task) => mapTask(task, formatters),
+  );
+  const mappedStudents = students.map((student) =>
+    mapStudent(student, lessonWindow, balanceMap, formatters),
+  );
+  const nextAction = deriveNextInstructorAction({
+    appointments: mappedAppointments,
+    tasks: mappedTasks,
+    radar,
+  });
+
   return {
     profile: {
       name: profileName,
@@ -438,8 +452,8 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       { label: "Open taken", value: String(openTaskCountResult.count ?? openTasksResult.data?.length ?? 0), hint: "Totaal", tone: "green" },
     ],
     appointments: mappedAppointments,
-    students: students.map((student) => mapStudent(student, lessonWindow, balanceMap, formatters)),
-    tasks: ((openTasksResult.data ?? []) as DashboardTask[]).map((task) => mapTask(task, formatters)),
+    students: mappedStudents,
+    tasks: mappedTasks,
     messages,
     vehicles: activeVehicles.map((vehicle) => ({
       id: vehicle.id,
@@ -464,6 +478,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       sourceLabel: todayAvailability?.sourceLabel ?? "Geen schema",
     },
     radar,
+    nextAction,
   };
 }
 

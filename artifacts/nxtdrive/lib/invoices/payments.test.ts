@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { displayStatus, remainingCents } from "./types";
+import { FixedClock } from "@/lib/time/clock";
 
 test("remainingCents returns the outstanding balance, never negative", () => {
   assert.equal(
@@ -61,6 +62,35 @@ test("an open invoice with nothing paid is overdue when past due", () => {
       total_cents: 10000,
     }),
     "overdue",
+  );
+});
+
+test("displayStatus derives the date in the configured tenant timezone", () => {
+  const clock = new FixedClock("2026-06-23T22:30:00.000Z");
+
+  assert.equal(
+    displayStatus(
+      {
+        status: "open",
+        due_date: "2026-06-23",
+        amount_paid_cents: 0,
+        total_cents: 10000,
+      },
+      { clock, timeZone: "Europe/Amsterdam" },
+    ),
+    "overdue",
+  );
+  assert.equal(
+    displayStatus(
+      {
+        status: "open",
+        due_date: "2026-06-23",
+        amount_paid_cents: 0,
+        total_cents: 10000,
+      },
+      { clock, timeZone: "America/New_York" },
+    ),
+    "open",
   );
 });
 

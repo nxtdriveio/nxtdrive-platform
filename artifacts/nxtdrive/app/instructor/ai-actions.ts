@@ -14,6 +14,7 @@ import {
   type WeakSkill,
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
+import { isFeatureEnabled } from "@/lib/features/flags";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { requireStudentBackofficeAccess } from "@/lib/students/access";
 import type { Lesson } from "@/lib/lessons/types";
@@ -86,12 +87,15 @@ function aiErrorMessage(err: unknown): string {
 }
 
 function aiPlanError(): string {
-  return "AI-functies vereisen het Elite-abonnement.";
+  return "Deze functie is tijdens de pilot uitgeschakeld.";
 }
 
 export async function generateLessonReportAction(
   formData: FormData,
 ): Promise<{ report?: string; error?: string }> {
+  if (!isFeatureEnabled("ai.instructor.enabled")) {
+    return { error: aiPlanError() };
+  }
   const lessonId = String(formData.get("lesson_id") ?? "");
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 4000);
   if (!notes) return { error: "Voer eerst korte notities in." };
@@ -177,6 +181,9 @@ function pickWeakestSkills(
 export async function analyzeProgressAction(
   formData: FormData,
 ): Promise<{ analysis?: ProgressAnalysis; error?: string }> {
+  if (!isFeatureEnabled("ai.instructor.enabled")) {
+    return { error: aiPlanError() };
+  }
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -227,6 +234,9 @@ export async function analyzeProgressAction(
 export async function analyzeInternalAttentionAction(
   formData: FormData,
 ): Promise<{ attention?: InternalAttention; error?: string }> {
+  if (!isFeatureEnabled("ai.instructor.enabled")) {
+    return { error: aiPlanError() };
+  }
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") return { error: ctx };
@@ -318,6 +328,9 @@ export async function analyzeInternalAttentionAction(
 export async function analyzeRetakeAction(
   studentId: string,
 ): Promise<{ analysis?: ProgressAnalysis; error?: string }> {
+  if (!isFeatureEnabled("ai.admin.enabled")) {
+    return { error: aiPlanError() };
+  }
   if (!studentId) return { error: "student_id ontbreekt" };
   const service = createServiceRoleClient();
   const { context, student } = await requireStudentBackofficeAccess(

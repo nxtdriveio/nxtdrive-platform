@@ -1,7 +1,10 @@
-import { InstructorNotificationsView } from "@/components/instructor/RedesignViews";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default function InstructorNotificationsPage() {
-  return <InstructorNotificationsView />;
+export default async function InstructorNotificationsLegacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<InstructorSearchParams>;
+}) {
+  permanentRedirectToInstructorRoute("notifications", {}, await searchParams);
 }

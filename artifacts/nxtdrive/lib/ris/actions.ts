@@ -28,6 +28,9 @@ import {
   normalizeRisStep,
   risStepNumber,
   translateRisStepForStudent,
+  type RisPerformanceOutcome,
+  type RisSafetyStatus,
+  type RisSupportLevel,
   type RISStepValue,
 } from "@workspace/leskaart";
 import {
@@ -148,6 +151,10 @@ export async function setRisConceptScoreAction(input: {
   isFeaturedForLesson?: boolean;
   shouldRepeat?: boolean;
   readyForTest?: boolean;
+  performanceOutcome?: RisPerformanceOutcome;
+  supportLevel?: RisSupportLevel;
+  safetyStatus?: RisSafetyStatus;
+  contextTags?: string[];
   instructorNote?: string | null;
   studentVisibleNote?: string | null;
 }): Promise<ActionResult<{ assessmentId?: string }>> {
@@ -160,27 +167,69 @@ export async function setRisConceptScoreAction(input: {
     if (!step) return { error: "Kies een geldige RIS-score: N of 1 t/m 8." };
 
     const service = createServiceRoleClient();
-    const { data, error } = await service.rpc("set_ris_concept_score", {
-      p_tenant_id: tenant.id,
-      p_lesson_id: requiredId(input.lessonId, "Les"),
-      p_actor: user.id,
-      p_script_id: requiredId(input.scriptId, "RIS-script"),
-      p_script_variant_id: input.scriptVariantId ?? null,
-      p_concept_ris_step: step,
-      p_status: input.status ?? "progressing",
-      p_is_attention_point: input.isAttentionPoint ?? false,
-      p_is_featured_for_lesson: input.isFeaturedForLesson ?? false,
-      p_should_repeat: input.shouldRepeat ?? false,
-      p_ready_for_test: input.readyForTest ?? false,
-      p_instructor_note: input.instructorNote ?? null,
-      p_student_visible_note: input.studentVisibleNote ?? null,
-    });
+    const status = input.status ?? "progressing";
+    const { data, error } = await service.rpc(
+      "set_ris_concept_observation_v2",
+      {
+        p_tenant_id: tenant.id,
+        p_lesson_id: requiredId(input.lessonId, "Les"),
+        p_actor: user.id,
+        p_script_id: requiredId(input.scriptId, "RIS-script"),
+        p_script_variant_id: input.scriptVariantId ?? null,
+        p_concept_ris_step: step,
+        p_performance_outcome:
+          input.performanceOutcome ?? performanceFromLegacyStatus(status),
+        p_support_level:
+          input.supportLevel ??
+          supportFromInstructionStage(risStepNumber(step)),
+        p_safety_status:
+          input.safetyStatus ??
+          (input.isAttentionPoint ? "ATTENTION" : "NOT_ASSESSED"),
+        p_context_tags: input.contextTags ?? [],
+        p_status: status,
+        p_is_attention_point: input.isAttentionPoint ?? false,
+        p_is_featured_for_lesson: input.isFeaturedForLesson ?? false,
+        p_should_repeat: input.shouldRepeat ?? false,
+        p_ready_for_test: input.readyForTest ?? false,
+        p_instructor_note: input.instructorNote ?? null,
+        p_student_visible_note: input.studentVisibleNote ?? null,
+      },
+    );
     if (error) return { error: error.message };
-    revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
+    revalidatePath(`/instructeur/lessen/${input.lessonId}`);
     return { assessmentId: typeof data === "string" ? data : undefined };
   } catch (error) {
     return { error: err(error) };
   }
+}
+
+function performanceFromLegacyStatus(
+  status: RisScriptStatus,
+): RisPerformanceOutcome {
+  switch (status) {
+    case "not_started":
+      return "NOT_OBSERVED";
+    case "needs_attention":
+      return "ATTENTION_REQUIRED";
+    case "prepared":
+    case "explained":
+    case "practiced":
+    case "progressing":
+      return "DEVELOPING";
+    case "sufficient":
+    case "independent":
+      return "SUFFICIENT";
+    case "mastered":
+    case "ready_for_test":
+      return "STABLE";
+  }
+}
+
+function supportFromInstructionStage(stage: number | null): RisSupportLevel {
+  if (stage === null || stage <= 3) return "DIRECT_INSTRUCTION";
+  if (stage === 4) return "PROMPTING";
+  if (stage === 5) return "COACHING";
+  return "OBSERVATION_ONLY";
 }
 
 export async function setGuidedReflectionAction(input: {
@@ -213,8 +262,8 @@ export async function setGuidedReflectionAction(input: {
       p_instructor_context_note: input.instructorContextNote ?? null,
     });
     if (error) return { error: error.message };
-    revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
+    revalidatePath("/instructeur");
+    if (input.lessonId) revalidatePath(`/instructeur/lessen/${input.lessonId}`);
     return {};
   } catch (error) {
     return { error: err(error) };
@@ -259,11 +308,13 @@ export async function saveRisLessonCardDraftAction(input: {
     });
     if (error) return { error: error.message };
     const lessonCardId = typeof data === "string" ? data : null;
-    if (!lessonCardId) return { error: "RIS-leskaart kon niet worden aangemaakt." };
+    if (!lessonCardId)
+      return { error: "RIS-leskaart kon niet worden aangemaakt." };
 
     const patch: Record<string, string | null> = {};
     if ("internalSummary" in input) {
-      patch.internal_summary = input.internalSummary?.trim().slice(0, 2000) || null;
+      patch.internal_summary =
+        input.internalSummary?.trim().slice(0, 2000) || null;
     }
     if ("studentFriendlySummary" in input) {
       patch.student_friendly_summary =
@@ -285,12 +336,15 @@ export async function saveRisLessonCardDraftAction(input: {
         .maybeSingle();
       if (updateError) return { error: updateError.message };
       if (!updated) {
-        return { error: "Deze RIS-leskaart is al gepubliceerd en kan niet meer als concept worden aangepast." };
+        return {
+          error:
+            "Deze RIS-leskaart is al gepubliceerd en kan niet meer als concept worden aangepast.",
+        };
       }
     }
 
-    revalidatePath("/instructor");
-    revalidatePath(`/instructor/les-evaluaties/${lessonId}`);
+    revalidatePath("/instructeur");
+    revalidatePath(`/instructeur/lessen/${lessonId}`);
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonCardId };
   } catch (error) {
@@ -321,8 +375,8 @@ export async function publishRisLessonCardAction(input: {
       p_homework_or_next_focus: input.homeworkOrNextFocus ?? null,
     });
     if (error) return { error: error.message };
-    revalidatePath("/instructor");
-    if (input.lessonId) revalidatePath(`/instructor/les-evaluaties/${input.lessonId}`);
+    revalidatePath("/instructeur");
+    if (input.lessonId) revalidatePath(`/instructeur/lessen/${input.lessonId}`);
     if (input.studentId) {
       revalidatePath("/student");
       revalidatePath("/student/voortgang");
@@ -347,20 +401,27 @@ export async function submitStudentRisLessonResponseAction(input: {
       "student",
       "parent",
     ]);
-    const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
+    const { student, needsChildPicker } = await getActiveStudent(
+      user,
+      tenant.id,
+      roles,
+    );
     if (needsChildPicker || !student) {
       return { error: "Geen actief leerlingdossier gekozen." };
     }
 
     const service = createServiceRoleClient();
-    const { data, error } = await service.rpc("mark_ris_lesson_card_student_response", {
-      p_lesson_card_id: requiredId(input.lessonCardId, "RIS-leskaart"),
-      p_tenant_id: tenant.id,
-      p_actor: user.id,
-      p_comment_text: input.commentText ?? null,
-      p_next_lesson_wish: input.nextLessonWish ?? null,
-      p_skipped_response: input.skippedResponse ?? false,
-    });
+    const { data, error } = await service.rpc(
+      "mark_ris_lesson_card_student_response",
+      {
+        p_lesson_card_id: requiredId(input.lessonCardId, "RIS-leskaart"),
+        p_tenant_id: tenant.id,
+        p_actor: user.id,
+        p_comment_text: input.commentText ?? null,
+        p_next_lesson_wish: input.nextLessonWish ?? null,
+        p_skipped_response: input.skippedResponse ?? false,
+      },
+    );
     if (error) return { error: error.message };
 
     revalidatePath("/student");
@@ -420,7 +481,9 @@ export async function upsertPlanningCardAction(input: {
       } | null;
       if (!lesson) return { error: "Les voor deze plankaart niet gevonden." };
       if (!roles.includes("tenant_admin") && lesson.instructor_id !== user.id) {
-        return { error: "Je kunt alleen plankaarten maken voor je eigen lessen." };
+        return {
+          error: "Je kunt alleen plankaarten maken voor je eigen lessen.",
+        };
       }
     }
 
@@ -492,9 +555,9 @@ export async function upsertPlanningCardAction(input: {
       }
     }
 
-    revalidatePath("/instructor");
+    revalidatePath("/instructeur");
     if (input.nextLessonId) {
-      revalidatePath(`/instructor/les-evaluaties/${input.nextLessonId}`);
+      revalidatePath(`/instructeur/lessen/${input.nextLessonId}`);
       revalidatePath(`/student/lessons/${input.nextLessonId}`);
     }
     revalidatePath("/student");
@@ -539,7 +602,9 @@ async function loadValidatedNextLessonSuggestion(
   if (!lesson) throw new Error("Les niet gevonden.");
   const isAdmin = roles.includes("tenant_admin");
   if (!isAdmin && lesson.instructor_id !== user.id) {
-    throw new Error("Je kunt alleen een volgende les plannen voor je eigen les.");
+    throw new Error(
+      "Je kunt alleen een volgende les plannen voor je eigen les.",
+    );
   }
 
   const state = await loadEndOfLessonSchedulingState(service, {
@@ -562,7 +627,9 @@ async function loadValidatedNextLessonSuggestion(
       item.durationMin === input.durationMin,
   );
   if (!suggestion) {
-    throw new Error("Dit voorstel is niet meer beschikbaar. Vernieuw de leskaart.");
+    throw new Error(
+      "Dit voorstel is niet meer beschikbaar. Vernieuw de leskaart.",
+    );
   }
   if (!state.instructorId) {
     throw new Error("Deze les heeft geen instructeur gekoppeld.");
@@ -695,9 +762,9 @@ async function notifyNextLessonProposal(input: {
     new Set(
       [
         (studentRaw as { user_id?: string | null } | null)?.user_id,
-        ...((guardianRows as Array<{ user_id: string | null }> | null) ?? []).map(
-          (row) => row.user_id,
-        ),
+        ...(
+          (guardianRows as Array<{ user_id: string | null }> | null) ?? []
+        ).map((row) => row.user_id),
       ].filter((value): value is string => Boolean(value)),
     ),
   );
@@ -722,12 +789,10 @@ async function notifyNextLessonProposal(input: {
     },
   }));
 
-  const { error } = await input.service
-    .from("app_notifications")
-    .upsert(rows, {
-      onConflict: "tenant_id,dedupe_key",
-      ignoreDuplicates: true,
-    });
+  const { error } = await input.service.from("app_notifications").upsert(rows, {
+    onConflict: "tenant_id,dedupe_key",
+    ignoreDuplicates: true,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -766,8 +831,8 @@ export async function planInstructorNextLessonAction(
       bookingCandidateId: candidateId,
       actor: user.id,
     });
-    revalidatePath("/instructor");
-    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
+    revalidatePath("/instructeur");
+    revalidatePath(`/instructeur/lessen/${lesson.id}`);
     revalidatePath("/student");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonId: nextLessonId };
@@ -807,7 +872,9 @@ export async function proposeInstructorNextLessonAction(
       requiresBackoffice: false,
       requiresInstructor: false,
       requiresStudent: true,
-      studentExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      studentExpiresAt: new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      ).toISOString(),
       metadata: { source: "instructor_next_lesson" },
     });
     await notifyNextLessonProposal({
@@ -819,8 +886,8 @@ export async function proposeInstructorNextLessonAction(
       startsAt: suggestion.startsAt,
       durationMin: suggestion.durationMin,
     });
-    revalidatePath("/instructor");
-    revalidatePath(`/instructor/les-evaluaties/${lesson.id}`);
+    revalidatePath("/instructeur");
+    revalidatePath(`/instructeur/lessen/${lesson.id}`);
     revalidatePath("/student");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { bookingRequestId: requestId };
@@ -851,7 +918,9 @@ export async function setRisModuleTestAction(input: {
       { allowedRoles: RIS_MODULE_TEST_WRITE_ROLES },
     );
     if (!access.student) {
-      return { error: "Geen toegang tot deze leerling binnen je vestigingsscope." };
+      return {
+        error: "Geen toegang tot deze leerling binnen je vestigingsscope.",
+      };
     }
     const { organization: tenant, user } = access.context;
     const { data, error } = await service.rpc("set_ris_module_test", {
@@ -867,8 +936,7 @@ export async function setRisModuleTestAction(input: {
       p_instructor_id: input.instructorId ?? null,
       p_cbr_reference: input.cbrReference ?? null,
       p_notes: input.notes ?? null,
-      p_exemption_special_manoeuvres:
-        input.exemptionSpecialManoeuvres ?? false,
+      p_exemption_special_manoeuvres: input.exemptionSpecialManoeuvres ?? false,
     });
     if (error) return { error: error.message };
     revalidatePath("/backoffice/ris");

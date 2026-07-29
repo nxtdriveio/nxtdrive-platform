@@ -110,7 +110,7 @@ export async function convertExamSignalsToTasks(
   }
 
   revalidatePath(`/backoffice/agenda/afspraak/${appointmentId}`);
-  revalidatePath(`/instructor/afspraak/${appointmentId}`);
+  revalidatePath(`/instructeur/agenda/${appointmentId}`);
   revalidatePath("/backoffice/taken");
   return { ok: true, created, existing };
 }

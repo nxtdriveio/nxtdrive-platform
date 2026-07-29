@@ -12,6 +12,7 @@ import { computeMrr } from "@/lib/platform/mrr-config";
 import { getPlatformGrowthData } from "@/lib/platform/growth-data";
 import { getPlatformEmailConfigStatus } from "@/lib/email/platform-config";
 import { getAiConfigStatus } from "@/lib/ai/platform-config";
+import { isFeatureEnabled } from "@/lib/features/flags";
 import { listThemePresets } from "@/lib/branding";
 import {
   PLAN_DESCRIPTIONS,
@@ -151,6 +152,7 @@ export default async function PlatformAdminPage({
     : null;
 
   const aiConfigStatus = activeTab === "ai"
+    && isFeatureEnabled("ai.admin.enabled")
     ? await getAiConfigStatus(service)
     : null;
   const themeTabData: {
@@ -360,7 +362,9 @@ export default async function PlatformAdminPage({
             { id: "groei", label: "Groei & MRR" },
             { id: "tenant", label: "Nieuwe rijschool" },
             { id: "email", label: "E-mail" },
-            { id: "ai", label: "AI-model" },
+            ...(isFeatureEnabled("ai.admin.enabled")
+              ? [{ id: "ai", label: "Assistentiemodel" }]
+              : []),
             { id: "themes", label: "Thema's" },
           ].map((tab) => (
             <Link key={tab.id} href={`/admin?tab=${tab.id}`} className={tabClass(tab.id)}>
@@ -663,12 +667,17 @@ export default async function PlatformAdminPage({
                       description: "SendGrid sleutel en from-address beheren.",
                       icon: CreditCard,
                     },
-                    {
-                      href: "/admin?tab=ai",
-                      label: "Platform AI",
-                      description: "OpenAI configuratie voor tenantfeatures.",
-                      icon: Palette,
-                    },
+                    ...(isFeatureEnabled("ai.admin.enabled")
+                      ? [
+                          {
+                            href: "/admin?tab=ai",
+                            label: "Assistentiemodel",
+                            description:
+                              "Configuratie voor goedgekeurde assistentiefuncties.",
+                            icon: Palette,
+                          },
+                        ]
+                      : []),
                   ].map((item) => {
                     const Icon = item.icon;
                     return (

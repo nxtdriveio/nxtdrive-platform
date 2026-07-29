@@ -14,22 +14,22 @@ test("pure parent is routed to /ouder", () => {
   assert.equal(roleHomePath(userWith(["parent"]), "t1"), "/ouder");
 });
 
-test("student plus parent stays in /student", () => {
-  assert.equal(roleHomePath(userWith(["parent", "student"]), "t1"), "/student");
+test("student plus parent stays in /leerling", () => {
+  assert.equal(roleHomePath(userWith(["parent", "student"]), "t1"), "/leerling");
 });
 
 test("admin plus parent lands in /backoffice", () => {
   const home = roleHomePath(userWith(["tenant_admin", "parent"]), "t1");
   assert.equal(home, "/backoffice");
-  assert.notEqual(home, "/student");
+  assert.notEqual(home, "/leerling");
 });
 
-test("plain student is routed to /student", () => {
-  assert.equal(roleHomePath(userWith(["student"]), "t1"), "/student");
+test("plain student is routed to /leerling", () => {
+  assert.equal(roleHomePath(userWith(["student"]), "t1"), "/leerling");
 });
 
-test("student plus instructor resolves to /instructor so no app selector is needed", () => {
-  assert.equal(roleHomePath(userWith(["student", "instructor"]), "t1"), "/instructor");
+test("student plus instructor resolves to /instructeur so no app selector is needed", () => {
+  assert.equal(roleHomePath(userWith(["student", "instructor"]), "t1"), "/instructeur");
 });
 
 test("tenant admin plus instructor resolves to /backoffice over the instructor app", () => {

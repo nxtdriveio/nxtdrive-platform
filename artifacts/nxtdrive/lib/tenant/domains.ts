@@ -71,7 +71,9 @@ export function classifyHostname(
 }
 
 /** The DNS TXT record a school must add to prove ownership of a custom domain. */
-export function verificationRecord(domain: Pick<TenantDomain, "hostname" | "verification_token">): {
+export function verificationRecord(
+  domain: Pick<TenantDomain, "hostname" | "verification_token">,
+): {
   name: string;
   type: "TXT";
   value: string;
@@ -111,7 +113,7 @@ export function trafficRecords(hostname: string): Array<{
       name: hostname,
       type: "CNAME",
       value: `app.${ROOT_DOMAIN}`,
-      note: "Zet een CNAME naar app.nxtdrive.io. Gebruik DNS-only (geen Cloudflare-proxy) zodat Caddy het certificaat kan ophalen.",
+      note: "Zet een CNAME naar nxtdrive.io. Gebruik DNS-only (geen Cloudflare-proxy) zodat Caddy het certificaat kan ophalen.",
     },
   ];
 }

@@ -1,0 +1,815 @@
+{
+  "mode": "disposable-postgres-empty-and-existing-fixture",
+  "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
+  "emptyDatabase": "passed",
+  "existingFixtureUpgrade": "passed",
+  "migrationCount": 158,
+  "fixture": {
+    "tenants": 2,
+    "users": 2,
+    "memberships": 1,
+    "students": 2,
+    "lessons": 1,
+    "invoices": 1
+  },
+  "checks": [
+    "all migrations applied",
+    "core RLS enabled",
+    "tenant-consistent foreign keys",
+    "invoice uniqueness",
+    "authorized tenant visibility",
+    "cross-tenant isolation"
+  ],
+  "entries": [
+    {
+      "file": "0001_init.sql",
+      "sha256": "7d3525f9bf6a48a0cab30643b4dd02c42e905985bcca4586ccc4a49882557643",
+      "bytes": 2832
+    },
+    {
+      "file": "0002_tenants.sql",
+      "sha256": "fefab0c78b33089600d04aae878e542467bb68427b2d0e9de69125a4cd77ef54",
+      "bytes": 2449
+    },
+    {
+      "file": "0003_memberships.sql",
+      "sha256": "7c6750859e32b5ce033ef2cda27b2142c148c2ef4b19795e0d89f04533725261",
+      "bytes": 504
+    },
+    {
+      "file": "0004_rls_helpers.sql",
+      "sha256": "6f8dfb3e70d3c142d8db00df75c88b7528ebe47b3f8263b189accd49e1ad8fe9",
+      "bytes": 1556
+    },
+    {
+      "file": "0005_rls_policies.sql",
+      "sha256": "7b5d10833f598aec697c673bd275e705032220f9c9903f7f639c2e74cd67bcfe",
+      "bytes": 3838
+    },
+    {
+      "file": "0006_indexes.sql",
+      "sha256": "c350989f95c3c6f9a7781c65a6db2bc0c4dd5e88e3d998783e4b344750b48c49",
+      "bytes": 798
+    },
+    {
+      "file": "0007_leads.sql",
+      "sha256": "717c0307dc3f067c8cbbc84b9602860d5f44f8e72789af353fdeac011f334b16",
+      "bytes": 3684
+    },
+    {
+      "file": "0008_leads_rls.sql",
+      "sha256": "54f36ec48ea045275455f887474e8583cc5d2edb92086fae8a3ca35e04d6465e",
+      "bytes": 1476
+    },
+    {
+      "file": "0009_leads_hardening.sql",
+      "sha256": "d729b60cbd93b118d1f9f1f9b91f6ff1099e2180c8f197af336a9d44c62f4668",
+      "bytes": 5702
+    },
+    {
+      "file": "0010_packages.sql",
+      "sha256": "51a2afb3636977a30780b89c8c8a13694958cb376c32e08f042f0e36f8e0825f",
+      "bytes": 2100
+    },
+    {
+      "file": "0011_students.sql",
+      "sha256": "fd1f2df48aa03ca6695ce6711a70e2f6aa9c42c442b99ff03b25a4a068baa055",
+      "bytes": 2189
+    },
+    {
+      "file": "0012_credit_ledger.sql",
+      "sha256": "8aee2e2f921290921a073e1b12595adc9bc4237d1a1392b4bf876671c6a65d34",
+      "bytes": 8188
+    },
+    {
+      "file": "0013_credits_hardening.sql",
+      "sha256": "b4efc51a62c3147d749daac6750177ef0d3513446f2b26db817dca9c5d410f99",
+      "bytes": 4048
+    },
+    {
+      "file": "0014_lessons.sql",
+      "sha256": "9b39e132e3c996138832526d720c587ceff3eb522e9cfd140eab54be2dded3fd",
+      "bytes": 11092
+    },
+    {
+      "file": "0015_lessons_hardening.sql",
+      "sha256": "21ef0d11814f438cf176ec335e718b573911d596724e1388dca6c07caac5eea5",
+      "bytes": 9315
+    },
+    {
+      "file": "0016_lesson_progress.sql",
+      "sha256": "15b11d944e7538f25ba6f99a22fc4030a010c67703eb50f028c07f77b332be23",
+      "bytes": 6853
+    },
+    {
+      "file": "0017_student_visibility.sql",
+      "sha256": "b89c1b74a80f23c6145ae2fe3b41ea3a9473e5e8580611d28910bc96f9b798db",
+      "bytes": 2751
+    },
+    {
+      "file": "0018_student_rls_hardening.sql",
+      "sha256": "4602095f3dc93c1907117a5f0bb06b5e4c4c55026df6be37005d1a6270fd89e1",
+      "bytes": 3441
+    },
+    {
+      "file": "0019_invoices.sql",
+      "sha256": "bfd546aa1f68b7acdf83b16e06b4e54a8a2310e585e5749482a04a110b25acd1",
+      "bytes": 19011
+    },
+    {
+      "file": "0019_student_guardians.sql",
+      "sha256": "15c07a3acd6e6728408157d08cea7a5425c5d35c279a32dc4ebd9dcf0a80edc3",
+      "bytes": 6335
+    },
+    {
+      "file": "0020_invoices_rpc_revoke.sql",
+      "sha256": "87511131a02cf73a7c86d601ce792c5f3ef1b056e7743fbbd19a11b7e87d4f4d",
+      "bytes": 1202
+    },
+    {
+      "file": "0021_invoices_payment_fk_pairing.sql",
+      "sha256": "e4dd661b32b2866b82845a86398b17fedc90145f356b18fcd233b4f3cdfb9e69",
+      "bytes": 1019
+    },
+    {
+      "file": "0022_cbr_checklist.sql",
+      "sha256": "095e5f509406b1a773584b8147e02779aafba64576969f49e80a35dd703bcf8b",
+      "bytes": 9847
+    },
+    {
+      "file": "0023_rpc_grant_lockdown.sql",
+      "sha256": "3a46a37270d77c16c1acc4abdf944732fcfb5e3eb119df17f4de6d8c7301261d",
+      "bytes": 4739
+    },
+    {
+      "file": "0024_mollie_payments.sql",
+      "sha256": "11ac2587d955682d2b3094267a9baa60dedca71b0dfbcfbc923ede8c0e229358",
+      "bytes": 15033
+    },
+    {
+      "file": "0025_mollie_payment_binding.sql",
+      "sha256": "688a5588bcc990a825c8d2e381307dbc1da7f3d44f95889df05ae695ca007b9b",
+      "bytes": 6439
+    },
+    {
+      "file": "0026_notifications.sql",
+      "sha256": "45989c592d4f316a5c9af262d3e6fafc7a048fb920380aa1538ad05de4577d9a",
+      "bytes": 10205
+    },
+    {
+      "file": "0027_tasks.sql",
+      "sha256": "5d4190bf5e6a0627f25198ef3b2cecfce11f18fa2ee97cf39e941dbb8c27bdf9",
+      "bytes": 39766
+    },
+    {
+      "file": "0028_tasks_hardening.sql",
+      "sha256": "7de5e57b65e6c5252358426e1c74c3ae06b1e03ab69a87ebde5612c278db6bb8",
+      "bytes": 7327
+    },
+    {
+      "file": "0029_task_assignment_rules.sql",
+      "sha256": "0ec201b7fb8d404724921f2bcb22b2462b5a8bfd5752c3a8ea077bbb258393de",
+      "bytes": 20337
+    },
+    {
+      "file": "0030_leskaart_skills.sql",
+      "sha256": "9c6d5aa66f18be1cf1b264026d25e319ac0493c59a61934b67ab52c902390849",
+      "bytes": 30784
+    },
+    {
+      "file": "0031_exam_readiness_inputs.sql",
+      "sha256": "7667ea99049b3db9b1c11c0f1dd282970fd74fcddf57f689e48a5a98c600e941",
+      "bytes": 6300
+    },
+    {
+      "file": "0032_lesson_context.sql",
+      "sha256": "3af6bf3682b5728247783a817b77ac529be11c3d8e77a5e9dec820122a26178e",
+      "bytes": 20700
+    },
+    {
+      "file": "0033_theory.sql",
+      "sha256": "ea914466e2bb9963fda28f8c5632d008c1d7b4d48d7dc9bb92edf553ce6ee9ae",
+      "bytes": 21290
+    },
+    {
+      "file": "0034_rpc_grant_lockdown.sql",
+      "sha256": "647f5285c8454f5f929dc3abb30af3986a8eae8f79983bc21920a593320a771b",
+      "bytes": 2204
+    },
+    {
+      "file": "0035_lead_intake_details.sql",
+      "sha256": "aecd56540281ff6669650759b15d02337b8e0ea3676328669129627f3db2ee17",
+      "bytes": 9848
+    },
+    {
+      "file": "0036_lead_intake_analysis.sql",
+      "sha256": "e68c449c9ce48cf7d8e0ee618b7c537d88e397d79b16105e98d8d08fa5e9c4d0",
+      "bytes": 5553
+    },
+    {
+      "file": "0037_trial_lessons.sql",
+      "sha256": "96abf442da2afbd72da0c7658987f7a2cf0d53d1d8ff23d91e6cd567ccb98dcf",
+      "bytes": 16824
+    },
+    {
+      "file": "0038_book_trial_lesson_confirmed_guard.sql",
+      "sha256": "faab55970dbafb79273deeadf236cc49b31ffd61f767ffb1662c8493f5f3ad81",
+      "bytes": 4472
+    },
+    {
+      "file": "0039_route_intelligence.sql",
+      "sha256": "44f6e2d6199a804ef138e05def97ba9f13e31f71554e8465258b111a0768b833",
+      "bytes": 22360
+    },
+    {
+      "file": "0040_lead_dashboard.sql",
+      "sha256": "d8dd727cb2e9f431b72b6450e4f04ba37ac11cdce7fa8e721a308cb161bbd822",
+      "bytes": 24921
+    },
+    {
+      "file": "0041_convert_lead_terminal_state.sql",
+      "sha256": "61d14bbff4a391d3758ab75c7409becd4760d5621a36dad788f959ee26687ebd",
+      "bytes": 3540
+    },
+    {
+      "file": "0042_lead_score_policy.sql",
+      "sha256": "39556bbcf397b616a0a635ca2034bdd028d9666bbc73ffac2f89c5963f5749cf",
+      "bytes": 1772
+    },
+    {
+      "file": "0043_intake_city_structured.sql",
+      "sha256": "a7d2a2a01d260bde9b789e343a8874c29f521c5dece14ec90268e26b0f5e2445",
+      "bytes": 8305
+    },
+    {
+      "file": "0044_lead_intake_tasks.sql",
+      "sha256": "8dd12b23ebbd9daa9de325c019173db403d00971b871aea3604363468178dd17",
+      "bytes": 6336
+    },
+    {
+      "file": "0045_trial_lesson_notifications.sql",
+      "sha256": "7d4ff1287ec71330f031e8b55cdd82bee19fa128e0d81df0802564cd9bd410ac",
+      "bytes": 1800
+    },
+    {
+      "file": "0046_tegoed_uren.sql",
+      "sha256": "e9da16fe393b142068473ec47d2fec171fc563d11bec4853be94689b082abfab",
+      "bytes": 8482
+    },
+    {
+      "file": "0047_schedule_lesson_lockdown.sql",
+      "sha256": "0df5d3f670f4f2244ea660d87b1cfbfefadba913aa3b6997d52d1a9c2864eefb",
+      "bytes": 1354
+    },
+    {
+      "file": "0048_instructor_availability.sql",
+      "sha256": "994162cfd832604b5ed42249287de3d8cb3a962eef97f797c001d16fc354e1fb",
+      "bytes": 17121
+    },
+    {
+      "file": "0049_agenda_appointments.sql",
+      "sha256": "3e0013377d176b6316ba62120baaf55ceb8105bd85ca29a882c108e8d82a676a",
+      "bytes": 22017
+    },
+    {
+      "file": "0050_lesson_refill_waitlist.sql",
+      "sha256": "42d169fdf9bd48ff18491c215b1d00f6935660392936c21928aad1287d63c704",
+      "bytes": 23586
+    },
+    {
+      "file": "0051_lesson_refill_invitation_hardening.sql",
+      "sha256": "9113288c073f49adf61c5c69c29a90aeb78d2e2ebb9a2924e86bc6b9e8434ce8",
+      "bytes": 13684
+    },
+    {
+      "file": "0052_student_dossier.sql",
+      "sha256": "cfa5ef980429df8f55bfa70746d75c3d1720642eb69c796126efeadbeae18ce1",
+      "bytes": 4824
+    },
+    {
+      "file": "0053_student_documents.sql",
+      "sha256": "c696c3cf4990392212767df44a6479769bc1d22b40d2156d3e0d3985268eca9f",
+      "bytes": 7189
+    },
+    {
+      "file": "0054_lesson_advice.sql",
+      "sha256": "9e2b89f38da8efa5f05ddba98565085062de23f1ba59d60369045f7c396a8668",
+      "bytes": 6101
+    },
+    {
+      "file": "0055_lesson_in_progress.sql",
+      "sha256": "14819c2680e48258ffe4406d1602a9d0a81c70c70110f96f76be283f519660c5",
+      "bytes": 4195
+    },
+    {
+      "file": "0056_lesson_actor_authorization.sql",
+      "sha256": "4bcb91e51e669bf50fefc1a8aade1c734d294b83aa97d08f2155162e00206c67",
+      "bytes": 3685
+    },
+    {
+      "file": "0057_schedule_lesson_instructor.sql",
+      "sha256": "f96eaecec43855ee2567d8a1706373cbe57dda19517c4ad9b60c4ad6e7dab3e4",
+      "bytes": 5664
+    },
+    {
+      "file": "0058_parent_portal.sql",
+      "sha256": "104bb1f105f8b8f8d1af07609f00313e1fc7bdfea0608f1cec3b182edcf3ae31",
+      "bytes": 8159
+    },
+    {
+      "file": "0059_parent_portal_documents.sql",
+      "sha256": "ae06d5eaec5bacd4749a9ecb2a5fbc9e0121a286a5945dc76fae596b6891b3e0",
+      "bytes": 1821
+    },
+    {
+      "file": "0060_parent_portal_agenda.sql",
+      "sha256": "375c07e751150081a4af3aa6515bbd4fb644100327315db74a052ce9583f1425",
+      "bytes": 2453
+    },
+    {
+      "file": "0061_invoice_installments_credit_notes.sql",
+      "sha256": "5bcf2095ad50d670146f5f27018fc354a014a87faaf536db43aa23cba0d13ac2",
+      "bytes": 15357
+    },
+    {
+      "file": "0062_payment_reminder_notification.sql",
+      "sha256": "48e414fd67f1604acd4b4e4943138b0693574be3fde15087ed54cb790563b86a",
+      "bytes": 1583
+    },
+    {
+      "file": "0063_products_packages_extend.sql",
+      "sha256": "81d0063b8a50a386f77c912cad632c63de0e5b12ac34403dd910371aeab76458",
+      "bytes": 7304
+    },
+    {
+      "file": "0064_credit_expired_reason.sql",
+      "sha256": "62209d3e3501c7c6c6d92e7b4173aba23cc7fdbb6e3a543c742f747a25021e76",
+      "bytes": 419
+    },
+    {
+      "file": "0065_credit_breakdown_expiry_signal.sql",
+      "sha256": "6f468f56f06ba2375ef439cade941d1adbb0cd1c9466b79328cefddfc47b0390",
+      "bytes": 15145
+    },
+    {
+      "file": "0066_package_signals.sql",
+      "sha256": "a21f94264159f82a14eae387bb4beef2fb3d91e73726679b130f797ae4ca363f",
+      "bytes": 3744
+    },
+    {
+      "file": "0067_cbr_status_fase1.sql",
+      "sha256": "7405a5c2de69bf10257c763698363f4568d5ee2ab472ca76e4294df1b8520fac",
+      "bytes": 8942
+    },
+    {
+      "file": "0068_exam_invitations.sql",
+      "sha256": "3b2f1dfe7bc641b8875402493f68b8bb3735421f4e2f0d10f84403a719fe5f40",
+      "bytes": 18653
+    },
+    {
+      "file": "0069_exam_preparation.sql",
+      "sha256": "10926eab228ab5442eca9ea79b0f8ad4349971f47edc72a312198bec64af0011",
+      "bytes": 11494
+    },
+    {
+      "file": "0070_exam_signals.sql",
+      "sha256": "a740ca04043c1777fdf6c45496681b52d7aae606b475086d4e0a94fd3077153a",
+      "bytes": 8284
+    },
+    {
+      "file": "0071_post_exam.sql",
+      "sha256": "8c07e4d5215ec5bcf71b27d8a3d6a6a7355b09ce262d99f5a268a87ec3375c30",
+      "bytes": 6993
+    },
+    {
+      "file": "0072_notification_catalogue.sql",
+      "sha256": "c1384b4518c52d356d5b97ccc0846fc10f9731678d4fd62ff16d0b11381226e6",
+      "bytes": 3028
+    },
+    {
+      "file": "0073_in_app_notifications.sql",
+      "sha256": "699b6b3321500f4cfa5f9993af8f8868ecdd050c0df43cc55399d2fbd917d9e4",
+      "bytes": 8784
+    },
+    {
+      "file": "0074_web_push.sql",
+      "sha256": "813854c268aa5ad754ce5ecbede333629394510fa34e1e4c7ef54d63ac6f9375",
+      "bytes": 7884
+    },
+    {
+      "file": "0075_installment_credit_release.sql",
+      "sha256": "8a2f54e1557d2b3aaf5f5b5fc6ecf416b695d9c96c8c1782dbc041f5e6e1421b",
+      "bytes": 26713
+    },
+    {
+      "file": "0076_review_referral.sql",
+      "sha256": "eb4c1bcb5353c2782fe6e16e0982ff83a2f4b74ec9e4817d2b4338483e298399",
+      "bytes": 15104
+    },
+    {
+      "file": "0077_student_cancel_lesson.sql",
+      "sha256": "faef6be0caa58e6de0abc7f517da0940eb350cdc48da8c25fad9962eaf08057e",
+      "bytes": 5455
+    },
+    {
+      "file": "0078_student_cancel_future_guard.sql",
+      "sha256": "530fee6fb3238af1055f9f873aa0c2f8396947286ff2395c877a341442587686",
+      "bytes": 5594
+    },
+    {
+      "file": "0079_student_instructor_chat.sql",
+      "sha256": "e9374e13159b58e155f194b4307ae7d5807621f34f7af65a46273cb3fdf8e51e",
+      "bytes": 15725
+    },
+    {
+      "file": "0080_student_reviews.sql",
+      "sha256": "abe4abebcc40393fc4ac2b51a11cba74ac9bb739eb0d4bac110becbd934fe019",
+      "bytes": 6928
+    },
+    {
+      "file": "0081_parent_notifications.sql",
+      "sha256": "f37088ecacccb4edcbfcfabf9ff08d51831a427bee795354cdd1bd017c212e7c",
+      "bytes": 3261
+    },
+    {
+      "file": "0082_partial_payments.sql",
+      "sha256": "0cd31c2c9a8f8c92a32a8b8d5e73b8cc0d1304326d1af80483cbbb4013a6dcea",
+      "bytes": 17844
+    },
+    {
+      "file": "0083_partial_payments_overpay_guard.sql",
+      "sha256": "7537ee7b6ef4570e2ed0dfd2392f45dd45eec71e0923cf8d20156a874fbd08b0",
+      "bytes": 12093
+    },
+    {
+      "file": "0084_payment_ledger_completeness.sql",
+      "sha256": "1539daa7349e11cb563eb9a0e2eb4e1b767b424ae85e1079e395e4de2ab2b619",
+      "bytes": 9357
+    },
+    {
+      "file": "0085_student_reschedule_lesson.sql",
+      "sha256": "b79fe8ac3aa53a785ab958bf6ecc74155e50e325d6b084eeb61aaa5eef90dea1",
+      "bytes": 6697
+    },
+    {
+      "file": "0086_lesson_rescheduled_notification.sql",
+      "sha256": "236b7a45667343a65c2b6f3463b843a6e33537295fdbd98332173fd4f335730e",
+      "bytes": 3262
+    },
+    {
+      "file": "0087_parent_invoice_paid_notification.sql",
+      "sha256": "0cf5d6d95cf86a0ea674bfbf4771322e0d44f7f3f2d508d7f8ab28706dcb4e7c",
+      "bytes": 3381
+    },
+    {
+      "file": "0088_tenant_domains.sql",
+      "sha256": "16c3f7130a8c6e4e63b088e242b59a2a95c0ba798f2d353e7ce15de69c1f4024",
+      "bytes": 12484
+    },
+    {
+      "file": "0089_notification_preferences.sql",
+      "sha256": "5f0123c15342ecdd4a980f09bc77d94c9939313b7376acbc430225afb8880a62",
+      "bytes": 2553
+    },
+    {
+      "file": "0090_notification_type_preferences.sql",
+      "sha256": "d34a63ab6389ff08dce4dcc70478576ebe837ece61c967cb4243dffd33dc7e34",
+      "bytes": 1348
+    },
+    {
+      "file": "0091_branches.sql",
+      "sha256": "e4eefa9eb975687006cb8baaa548e0a7eabc0be6929e2a8c80faf981c717cafa",
+      "bytes": 23951
+    },
+    {
+      "file": "0091_platform_settings.sql",
+      "sha256": "9c969ac9530ba975a13cfd64168551915a32bdcbaa1893a91c5b5437d00e4afe",
+      "bytes": 1057
+    },
+    {
+      "file": "0092_franchise.sql",
+      "sha256": "1da1672a088c1c7b1842ccd60e4c3608415d6114f7c66031e6b288c9313add66",
+      "bytes": 25366
+    },
+    {
+      "file": "0093_platform_notification_config.sql",
+      "sha256": "2ffe25aa2b546e8c70a5ceee10ad3469929caea4d6089546d3c114028c2e05d2",
+      "bytes": 15337
+    },
+    {
+      "file": "0094_notification_config_complete.sql",
+      "sha256": "a358adef2a748dc63c0211dd4f5d087737ee39403889172e264407ce818d2a09",
+      "bytes": 15722
+    },
+    {
+      "file": "0095_notification_template_defaults.sql",
+      "sha256": "69fc4860aa5f651a4f75804bd2cb192b95be1682113b09c61e7c092027534e26",
+      "bytes": 16169
+    },
+    {
+      "file": "0096_fix_channel_constraints.sql",
+      "sha256": "26ce8e487ea9dd12e37e532d873471c65d66457651dcf14481f3c89f9be880e9",
+      "bytes": 2130
+    },
+    {
+      "file": "0097_tenant_branding_welcome_message.sql",
+      "sha256": "90da2a87390b0786f389ca2423384c32985774560dbde0b62cddf9cd5dfce276",
+      "bytes": 626
+    },
+    {
+      "file": "0098_organization_profiles.sql",
+      "sha256": "fd7f52858efa6ddddb5a5445600771867a7884ac79d0e835d230cd804e817760",
+      "bytes": 7574
+    },
+    {
+      "file": "0099_permission_scope_foundation.sql",
+      "sha256": "b5f72b0b77590442dc9b2e2cb4908c1894ea3ac68ec18f97c269ed6abea13a2d",
+      "bytes": 3379
+    },
+    {
+      "file": "0100_agenda_appointment_branch_scope.sql",
+      "sha256": "e7d8306b37ecadb25ba67b69bb1b83586eddcce2eab389185c632b181c584501",
+      "bytes": 10248
+    },
+    {
+      "file": "0101_agenda_appointment_branch_rls.sql",
+      "sha256": "a338291755ae9dbbb112d386ef675a860a9562a37ff1c77d2f7902bd40bd09b4",
+      "bytes": 1597
+    },
+    {
+      "file": "0102_agenda_appointment_branch_write_authorization.sql",
+      "sha256": "d0967b84e873e5e47a537b7ad60ca9c2647fb43f3d87370109b493bbebde5685",
+      "bytes": 10077
+    },
+    {
+      "file": "0103_vehicle_location_branch_scope.sql",
+      "sha256": "3fe5742fdf6be42c773cc86c9d6b3edf9f31c7318a898ad64d5c6cd2e1ba1a31",
+      "bytes": 2038
+    },
+    {
+      "file": "0104_vehicle_location_branch_assignment_rpc.sql",
+      "sha256": "d4ecce845f61bbb5f2c88c2508360e3238f04b93499787ffee600ffbffc940ca",
+      "bytes": 2504
+    },
+    {
+      "file": "0105_task_branch_scope.sql",
+      "sha256": "e7f7c64b23fa169c68d072aac8075b5cadbb219be87f8917be9193bfef768eb3",
+      "bytes": 3216
+    },
+    {
+      "file": "0106_invoice_branch_scope.sql",
+      "sha256": "4764a70cc4165d31c55565f7c9aec49333ffd19f4c8ef7bd3a3984b686a1425c",
+      "bytes": 4830
+    },
+    {
+      "file": "0107_branch_cross_scope_rls.sql",
+      "sha256": "8c67fcd4b8b36bceb50957d261d4b8a250908acae5f6a4788126baa90c499cb9",
+      "bytes": 10077
+    },
+    {
+      "file": "0108_enable_branch_complete_rls.sql",
+      "sha256": "0d27d847c8497e3562bf1b5fd0071740357ed8a53d21fb2be70a56f64c1cfd7b",
+      "bytes": 924
+    },
+    {
+      "file": "0109_vehicle_location_read_rls_baseline.sql",
+      "sha256": "d01d94e1bafa0aefcc97990a84569063bde65681e107d7186f7ebd492f9de6ae",
+      "bytes": 1312
+    },
+    {
+      "file": "0110_organization_profile_tenant_admin_upsert.sql",
+      "sha256": "ff7d8beceef6c5366a17ecd0ec917acb621572039f7af996b4db36db35fb27f7",
+      "bytes": 4758
+    },
+    {
+      "file": "0111_organization_teams.sql",
+      "sha256": "0f74b6d0f01c218aff8ce4e407843a644ec459f9ae482bc9b58ce6c20939aaea",
+      "bytes": 11965
+    },
+    {
+      "file": "0112_staff_team_assignment.sql",
+      "sha256": "a152d2158d3c8bcc7c069e1d72d579a0b3fd52f62fcf7429eb99e876c0f890f3",
+      "bytes": 3479
+    },
+    {
+      "file": "0113_manageable_role_permission_overrides.sql",
+      "sha256": "7b6c47b5838b46a72d735bec6c3f7b4b101e9ce11350a04d72b2449ceb092040",
+      "bytes": 5266
+    },
+    {
+      "file": "0114_instructor_agenda_preferences.sql",
+      "sha256": "f9a573b3affc021adb843e10fdf53db8c827484ddbe80e516c86fe5ad2eb0186",
+      "bytes": 630
+    },
+    {
+      "file": "0115_allow_in_progress_lesson_progress.sql",
+      "sha256": "b7bd21b6eae900af9da04d88fdd69d114c0968e1585d17efae5428fb2ef0f4e9",
+      "bytes": 1701
+    },
+    {
+      "file": "0116_theme_presets.sql",
+      "sha256": "683eb28e8a3f47b2bd08beede2bbd557048ded3062211eb952364896bbd6a510",
+      "bytes": 7157
+    },
+    {
+      "file": "0117_planning_core_schema_foundation.sql",
+      "sha256": "9bd5dc0d12ff3479857d05ca6a2e694b67b9779dc69641edf616146658f980fa",
+      "bytes": 43840
+    },
+    {
+      "file": "0118_availability_branch_management.sql",
+      "sha256": "bcecbff1b74ab3eb463734dc89b8109536132dc243ab396da41ba8964a2c4a0b",
+      "bytes": 10772
+    },
+    {
+      "file": "20260615213219_vehicle_constraints_planning_core.sql",
+      "sha256": "e27cb9a514ebb72ebb815755eabb8c6e4cde4844b4c4895c3f0649376452331e",
+      "bytes": 23919
+    },
+    {
+      "file": "20260615221124_rayons_capabilities_planning_core.sql",
+      "sha256": "b5b7217d3219339673f8428f9978a64d01912a0b9c333ff77ecddce4721bd369",
+      "bytes": 31719
+    },
+    {
+      "file": "20260615230726_planning_queue_scheduling_flow.sql",
+      "sha256": "479abd721e8ffad878028f58258fcf2388efc15ec14c1c6921dafdbf20f83ca5",
+      "bytes": 18531
+    },
+    {
+      "file": "20260615235705_planning_board_atomic_queue_scheduling.sql",
+      "sha256": "c15bc1691372693835874e92c9ff3637113b17627cbab6ea2149e1f2bd724313",
+      "bytes": 11319
+    },
+    {
+      "file": "20260616070639_planning_board_reschedule_events.sql",
+      "sha256": "0148cd87b92cb40885d69aee68935a4868ecfdcdc5cbedf77ad86a10725bbc5e",
+      "bytes": 14435
+    },
+    {
+      "file": "20260616083837_lesson_duration_buffer_settings.sql",
+      "sha256": "8893854608e9f6e170fe41404a0441e78d3e5e88972b7e9793a465b650f11f94",
+      "bytes": 4528
+    },
+    {
+      "file": "20260616104647_ris_lesson_card_foundation.sql",
+      "sha256": "98ebcb568576fbcbedfb7bd5a235d44c13e3b778a0dcd86c428e7cfe7ac2b791",
+      "bytes": 59388
+    },
+    {
+      "file": "20260616170639_ris_release_hardening_reflection_rls.sql",
+      "sha256": "676a60110ca425a9e59e2715c032fea487359da32f3dbd6d50e9a8dda160bf66",
+      "bytes": 1438
+    },
+    {
+      "file": "20260616181232_ris_clean_start_default.sql",
+      "sha256": "bef7d070dff6146a81342dfa9a69fec9889330ecc2e2471479baad7c3aa7d93c",
+      "bytes": 7241
+    },
+    {
+      "file": "20260616191138_tenant_staff_authorized_helper.sql",
+      "sha256": "46d2d0da201b4901425462838eec0b5724c24324f4ffb5890644d0ffd7211a06",
+      "bytes": 1446
+    },
+    {
+      "file": "20260618152240_ris_canonical_lesson_cycle.sql",
+      "sha256": "180e81f4e1c16d7855d88e6a05caa2cd8a25e38f9fc1689ea1e43958795f6355",
+      "bytes": 32131
+    },
+    {
+      "file": "20260618194500_ris_lesson_card_clean_start_alignment.sql",
+      "sha256": "1daf519ba15aea7acf54febafb5cb1b4bb7975b879224afdfc39e60121560e62",
+      "bytes": 571
+    },
+    {
+      "file": "20260621123000_ris_score_model_1_to_10.sql",
+      "sha256": "c28e5737e9be878a8d16fe06a3aaadae0b2e838946fd6beebbc2b1d5fb00c81b",
+      "bytes": 16406
+    },
+    {
+      "file": "20260621155933_deepen_franchise_delegation_model.sql",
+      "sha256": "3e4761a11cedd02e48e04fc3cb76540ba1a0e5654e500357bb3cf01a4a043568",
+      "bytes": 7146
+    },
+    {
+      "file": "20260621162000_lead_routed_event_type.sql",
+      "sha256": "7e647a943eaf81c2ca27bf5ba164977b1803f3e63981b112de50f40a3ef8ebf5",
+      "bytes": 146
+    },
+    {
+      "file": "20260621163154_formalize_franchise_template_apply_rpc.sql",
+      "sha256": "36547d0aa65293127363f2b6c1622fd2618792ae091f5fcce669e2bca4358a28",
+      "bytes": 6445
+    },
+    {
+      "file": "20260621165659_franchise_lead_assignments.sql",
+      "sha256": "7060cdb42c010a631d08f3fff45c8456ea7055f75da1ad7d559da9c2e8edddf5",
+      "bytes": 16011
+    },
+    {
+      "file": "20260621173027_franchise_benchmark_action_workflow.sql",
+      "sha256": "7501bc492de318fd1b8de98170bd3fe6221a3bbb892003b7b6fcb55e0c0736ac",
+      "bytes": 22312
+    },
+    {
+      "file": "20260621183651_franchise_planning_action_workflow.sql",
+      "sha256": "3df38b6170be4478838bb7151bd61e23d606834de8ed654cfcb570cbcd008538",
+      "bytes": 25935
+    },
+    {
+      "file": "20260621220933_tenant_timezone.sql",
+      "sha256": "80474953376dbe854c691fdaab16c6b1f71cd908d8e368c25bf7e1a736eb4a39",
+      "bytes": 480
+    },
+    {
+      "file": "20260622012303_franchise_command_center.sql",
+      "sha256": "b0cc2f75fbaf18012df2a1232edd8d594e2f419597afc06d1eb244cd120f9326",
+      "bytes": 7704
+    },
+    {
+      "file": "20260622091831_smart_booking_phase1.sql",
+      "sha256": "e6e92acfec4e20a1bc6b33c183b00b01cdca9d51291bd08733c96fa6586b1b1e",
+      "bytes": 39267
+    },
+    {
+      "file": "20260622103336_smart_booking_phase2_preferences.sql",
+      "sha256": "e312998fb091886047f8a7ee4cbcdc66194258b3690230d68af694d15966c465",
+      "bytes": 11442
+    },
+    {
+      "file": "20260622121817_smart_booking_phase3_confirmations.sql",
+      "sha256": "bf2a8fb57c2ad77b850290526b3de70fe88de235fa1fc576bab93cfcdb22d313",
+      "bytes": 25074
+    },
+    {
+      "file": "20260622195814_student_self_booking_phase5.sql",
+      "sha256": "2562f4a1b256c7912dd12294c2ee44cbcf1a5d1b8139a578142c1370b19bc360",
+      "bytes": 22626
+    },
+    {
+      "file": "20260622205823_student_reschedule_cancel_phase6.sql",
+      "sha256": "a2298b976483c4516b9574b566ac998ddb7c61f47448a652a29ed83c074dd1ff",
+      "bytes": 15935
+    },
+    {
+      "file": "20260622215442_slot_recovery_phase7.sql",
+      "sha256": "0649074a9a33ef32cf70e6fd70a4885ec05dea4681ca17605cfcb11a27306da9",
+      "bytes": 40643
+    },
+    {
+      "file": "20260622225528_end_of_lesson_scheduling_phase8.sql",
+      "sha256": "6ad79ab8aa5c84c0dd2f5a45418da62dedf70774810a088758394babdecd34c6",
+      "bytes": 7277
+    },
+    {
+      "file": "20260623000939_ai_ready_planning_metrics_phase10.sql",
+      "sha256": "c3607e69af25ea80af06544649f41124d2399736a76f7e3147d736315b8060f8",
+      "bytes": 14324
+    },
+    {
+      "file": "20260623112554_tenant_product_ops_center.sql",
+      "sha256": "8aa5caffc2df58c1b7c92cb928442c280c31d9f8c79a6ae18c07d8edbc28b65f",
+      "bytes": 24176
+    },
+    {
+      "file": "20260623231131_notification_delivery_dashboard.sql",
+      "sha256": "9d0720263c5709ac062a4947b4c9a4e5e32b477e8712ab87bf02d67eb54d557d",
+      "bytes": 9894
+    },
+    {
+      "file": "20260623234655_franchise_playbook_programs.sql",
+      "sha256": "b5d4b12d3c8efc3fd4402690bb03820a38e1a4488d64c99dc5e154104c6d85d9",
+      "bytes": 11428
+    },
+    {
+      "file": "20260624001545_franchise_benchmark_coaching_flow.sql",
+      "sha256": "353a4627f0e38616e63036d3b76c079b8ae5b2954fd5ed0650e1c9c16b98b342",
+      "bytes": 7639
+    },
+    {
+      "file": "20260624081046_ris_score_model_n_1_to_8.sql",
+      "sha256": "ab3db8c68bbbb9b6f695fb99e4dbfe5808e47f43dd1b1c8d8de45062616f7188",
+      "bytes": 14250
+    },
+    {
+      "file": "20260729090000_security_privacy_foundation.sql",
+      "sha256": "46d550a36dff961455b98a9cea18a643707c4c992e29d318727fdf8a71fb5c6c",
+      "bytes": 12275
+    },
+    {
+      "file": "20260729093000_offline_lesson_drafts.sql",
+      "sha256": "1f760b3d2152d28a3c899b65b03d58c0d9fba569a94ad9f120449eedaa159231",
+      "bytes": 5808
+    },
+    {
+      "file": "20260729143000_training_readiness_assessment_foundation.sql",
+      "sha256": "a0d094a1244902b614cb0524902305b43cb02366d20d5f7109c2411f662a54a8",
+      "bytes": 52777
+    },
+    {
+      "file": "20260729143100_ris_observations_and_publication_guards.sql",
+      "sha256": "82097cb0ea2a4f45adc068a99f5c43080aa8e14e61d0b4bdc5fcc140e390151f",
+      "bytes": 25809
+    }
+  ]
+}

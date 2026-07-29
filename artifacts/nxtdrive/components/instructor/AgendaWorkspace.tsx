@@ -150,7 +150,7 @@ function minutesBetween(start: string, end: string) {
 }
 
 function buildHref(view: InstructorAgendaView, date: Date) {
-  return `/instructor/week?view=${view}&date=${dayKey(date)}`;
+  return `/instructeur/agenda?view=${view}&date=${dayKey(date)}`;
 }
 
 function eventClasses(event: InstructorAgendaEvent) {

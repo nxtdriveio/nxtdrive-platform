@@ -441,7 +441,7 @@ export function LessonHistoryCard({
                 className="flex items-center justify-between gap-3 py-2.5"
               >
                 <Link
-                  href={scope === "instructor" ? `/instructor/${l.id}` : `/backoffice/agenda/${l.id}`}
+                  href={scope === "instructor" ? `/instructeur/lessen/${l.id}` : `/backoffice/agenda/${l.id}`}
                   className="flex-1 hover:underline"
                 >
                   <div className="text-sm font-medium text-foreground">
@@ -492,7 +492,7 @@ export function PlannedCard({
             <Link
               href={
                 scope === "instructor"
-                  ? `/instructor/les/nieuw?student_id=${studentId}`
+                  ? `/instructeur/agenda/nieuw?student_id=${studentId}`
                   : `/backoffice/agenda/nieuw?student_id=${studentId}`
               }
               className="text-primary hover:underline"
@@ -524,7 +524,7 @@ export function PlannedCard({
                 className="flex items-center justify-between gap-3 py-2.5"
               >
                 <Link
-                  href={scope === "instructor" ? `/instructor/${l.id}` : `/backoffice/agenda/${l.id}`}
+                  href={scope === "instructor" ? `/instructeur/lessen/${l.id}` : `/backoffice/agenda/${l.id}`}
                   className="flex-1 hover:underline"
                 >
                   <div className="text-sm font-medium text-foreground">

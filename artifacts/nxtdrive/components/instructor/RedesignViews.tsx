@@ -36,6 +36,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import {
   type InstructorAppointment,
   type InstructorAppointmentType,
@@ -49,6 +50,31 @@ import {
 } from "@/lib/instructor/redesign-data";
 
 type IconComponent = typeof CalendarDays;
+
+const cockpitCardClassName = "h-full min-h-0 flex flex-col";
+const cockpitCardContentClassName =
+  "min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-gutter:stable]";
+
+function currentMonthCalendar() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const mondayFirstOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const label = new Intl.DateTimeFormat("nl-NL", {
+    month: "long",
+    year: "numeric",
+  }).format(today);
+
+  return {
+    label: `${label.charAt(0).toUpperCase()}${label.slice(1)}`,
+    today: today.getDate(),
+    days: [
+      ...Array.from({ length: mondayFirstOffset }, () => null),
+      ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+    ],
+  };
+}
 
 const appointmentTone: Record<InstructorAppointmentType, string> = {
   lesson: "border-blue-200 bg-blue-50 text-blue-700",
@@ -343,13 +369,13 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
       <InstructorCard
         title="Volgende les"
         icon={CalendarDays}
-        className="h-full"
-        contentClassName="space-y-3"
+        className={cockpitCardClassName}
+        contentClassName={cn(cockpitCardContentClassName, "space-y-3")}
       >
         <p className="text-sm leading-6 text-muted-foreground">
           Er staat vandaag nog geen les in je agenda.
         </p>
-        <Link href="/instructor/agenda/new" className={buttonVariants({ size: "sm" })}>
+        <Link href="/instructeur/agenda/nieuw" className={buttonVariants({ size: "sm" })}>
           Les plannen
         </Link>
       </InstructorCard>
@@ -361,8 +387,8 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
       title="Volgende les"
       icon={CalendarDays}
       right={<Badge variant="primary">{lesson.startsAt}</Badge>}
-      className="h-full"
-      contentClassName="space-y-3"
+      className={cockpitCardClassName}
+      contentClassName={cn(cockpitCardContentClassName, "space-y-3")}
     >
       <div className="flex items-start gap-3">
         <Avatar name={lesson.studentName ?? lesson.title} className="h-12 w-12 text-sm" />
@@ -405,18 +431,50 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
   const firstName = data.profile.name.split(" ")[0] ?? data.profile.name;
 
   return (
-    <InstructorPage className="space-y-3 xl:space-y-4">
+    <InstructorPage className="space-y-3 lg:grid lg:h-[calc(100dvh-3.5rem)] lg:min-h-0 lg:grid-rows-[auto_auto_auto_minmax(0,1fr)] lg:gap-3 lg:space-y-0 xl:h-[calc(100dvh-7.5rem)] xl:space-y-0">
       <PageHeader
         eyebrow={data.profile.tenantName}
         title={`Dag ${firstName}!`}
         subtitle="Alles voor je lesdag staat klaar: lessen, taken, aandachtspunten en berichten."
         actions={
-          <Link href="/instructor/agenda/new" className={buttonVariants()}>
+          <Link href="/instructeur/agenda/nieuw" className={buttonVariants()}>
             <CalendarPlus className="h-4 w-4" aria-hidden />
             Nieuwe afspraak
           </Link>
         }
       />
+
+      <InstructorCard
+        title="Volgende actie"
+        icon={Target}
+        right={<Badge variant="primary">{data.nextAction.urgency}</Badge>}
+        className="border-brand-primary/25 bg-gradient-to-br from-white to-brand-accent/45"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-foreground">
+              {data.nextAction.title}
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {data.nextAction.reason}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-muted-foreground">
+              {data.nextAction.subject ? (
+                <span>Leerling / onderwerp: {data.nextAction.subject}</span>
+              ) : null}
+              {data.nextAction.time ? <span>Tijd: {data.nextAction.time}</span> : null}
+              <span>Reden: {data.nextAction.reasonCode}</span>
+            </div>
+          </div>
+          <Link
+            href={data.nextAction.href}
+            className={cn(buttonVariants(), "min-h-11 shrink-0")}
+          >
+            Open actie
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
+      </InstructorCard>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {data.stats.map((stat) => (
@@ -439,34 +497,24 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         ))}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
-        <NextLessonCard appointments={data.appointments} />
+      <div className="grid min-h-0 gap-3 lg:grid-cols-3 lg:grid-rows-2">
+        <div className="min-h-0 lg:col-start-1 lg:row-start-1">
+          <NextLessonCard appointments={data.appointments} />
+        </div>
 
-        <InstructorCard title="Op de radar" icon={Target} className="h-full">
-          <div className="space-y-3">
-            {data.radar.length > 0 ? data.radar.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-brand-border/70 bg-brand-muted/45 p-3">
-                <Avatar name={item.student} className="h-10 w-10 text-xs" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{item.student}</p>
-                  <p className="truncate text-xs text-muted-foreground">{item.reason}</p>
-                </div>
-                <span className={cn("h-2.5 w-2.5 rounded-full", priorityLabel[item.priority].dot)} />
-              </div>
-            )) : (
-              <p className="text-sm leading-6 text-muted-foreground">Geen urgente aandachtspunten voor vandaag.</p>
-            )}
-            <Link href="/instructor/leerlingen" className="inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
-              Naar alle aandachtspunten
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-        </InstructorCard>
-
-        <InstructorCard title="Openstaande taken" icon={ListTodo} right={<Badge variant="primary">{data.tasks.length}</Badge>}>
+        <InstructorCard
+          title="Taken"
+          icon={ListTodo}
+          right={<Badge variant="primary">{data.tasks.length}</Badge>}
+          className={cn(
+            cockpitCardClassName,
+            "lg:col-start-2 lg:row-start-1",
+          )}
+          contentClassName={cockpitCardContentClassName}
+        >
           <div className="space-y-2">
             {data.tasks.length > 0 ? data.tasks.slice(0, 5).map((task) => (
-              <Link key={task.id} href="/instructor/taken" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
+              <Link key={task.id} href="/instructeur/taken" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <span className="h-4 w-4 rounded border border-muted-foreground/40" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
@@ -479,13 +527,19 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
             )}
           </div>
         </InstructorCard>
-      </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.72fr)_minmax(0,0.92fr)]">
-        <InstructorCard title="Berichten" icon={MessageCircle}>
+        <InstructorCard
+          title="Berichten"
+          icon={MessageCircle}
+          className={cn(
+            cockpitCardClassName,
+            "lg:col-start-1 lg:row-start-2",
+          )}
+          contentClassName={cockpitCardContentClassName}
+        >
           <div className="space-y-2">
             {data.messages.length > 0 ? data.messages.slice(0, 4).map((thread) => (
-              <Link key={thread.id} href={`/instructor/berichten/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
+              <Link key={thread.id} href={`/instructeur/berichten/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
                 <Avatar name={thread.name} className="h-10 w-10 text-xs" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{thread.name}</p>
@@ -499,30 +553,15 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
           </div>
         </InstructorCard>
 
-        <InstructorCard title="Quick links" icon={Route}>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ["Leerlingen", "/instructor/leerlingen", Users],
-              ["Agenda", "/instructor/agenda", CalendarDays],
-              ["Lesevaluaties", "/instructor/les-evaluaties", FileText],
-              ["Voertuigen", "/instructor/voertuigen", CarFront],
-              ["Beschikbaarheid", "/instructor/beschikbaarheid", Clock3],
-              ["Rapportages", "/instructor/rapportages", BarChart3],
-            ].map(([label, href, Icon]) => {
-              const LinkIcon = Icon as IconComponent;
-              return (
-                <Link key={String(href)} href={String(href)} className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm hover:border-brand-primary/40">
-                  <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
-                    <LinkIcon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="mt-2 block text-xs font-bold text-foreground">{String(label)}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </InstructorCard>
-
-        <InstructorCard title="Dagoverzicht" icon={BarChart3}>
+        <InstructorCard
+          title="Dagoverzicht"
+          icon={BarChart3}
+          className={cn(
+            cockpitCardClassName,
+            "lg:col-start-2 lg:row-start-2",
+          )}
+          contentClassName={cockpitCardContentClassName}
+        >
           <div className="flex items-center gap-5">
             <ProgressRing value={data.availabilityToday.utilizationPct} label="Bezet" />
             <div className="min-w-0 flex-1 space-y-2">
@@ -544,10 +583,41 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
               ))}
             </div>
           </div>
-          <Link href="/instructor/agenda" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
+          <Link href="/instructeur/agenda" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
             Naar volledige agenda
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
+        </InstructorCard>
+
+        <InstructorCard
+          title="Quick links"
+          icon={Route}
+          className={cn(
+            cockpitCardClassName,
+            "lg:col-start-3 lg:row-span-2 lg:row-start-1",
+          )}
+          contentClassName={cockpitCardContentClassName}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ["Leerlingen", "/instructeur/leerlingen", Users],
+              ["Agenda", "/instructeur/agenda", CalendarDays],
+              ["Lesevaluaties", "/instructeur/agenda", FileText],
+              ["Voertuigen", "/instructeur/voertuigen", CarFront],
+              ["Beschikbaarheid", "/instructeur/beschikbaarheid", Clock3],
+              ["Rapportages", "/instructeur/rapportages", BarChart3],
+            ].map(([label, href, Icon]) => {
+              const LinkIcon = Icon as IconComponent;
+              return (
+                <Link key={String(href)} href={String(href)} className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm hover:border-brand-primary/40">
+                  <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
+                    <LinkIcon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="mt-2 block text-xs font-bold text-foreground">{String(label)}</span>
+                </Link>
+              );
+            })}
+          </div>
         </InstructorCard>
       </div>
     </InstructorPage>
@@ -556,6 +626,7 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
 
 export function InstructorAgendaView({ data }: { data?: InstructorExperience }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
+  const calendar = currentMonthCalendar();
 
   return (
     <InstructorPage>
@@ -565,11 +636,11 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
         subtitle="Plan je dag, week en maand met snelle toegang tot lessen, proeflessen en administratieve blokken."
         actions={
           <>
-            <Link href="/instructor/agenda/new" className={buttonVariants()}>
+            <Link href="/instructeur/agenda/nieuw" className={buttonVariants()}>
               <Plus className="h-4 w-4" aria-hidden />
               Nieuwe afspraak
             </Link>
-            <Link href="/instructor/beschikbaarheid" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/instructeur/beschikbaarheid" className={buttonVariants({ variant: "outline" })}>
               Beschikbaarheid
             </Link>
           </>
@@ -608,16 +679,29 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
         </InstructorCard>
 
         <div className="space-y-4">
-          <InstructorCard title="Mei 2025" icon={CalendarDays}>
+          <InstructorCard title={calendar.label} icon={CalendarDays}>
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
               {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => (
                 <span key={day} className="py-1 font-bold text-muted-foreground">{day}</span>
               ))}
-              {Array.from({ length: 35 }, (_, index) => index + 1).map((day) => (
-                <span key={day} className={cn("rounded-xl py-2", day === 23 ? "bg-brand-primary text-white" : "text-foreground hover:bg-brand-muted")}>
-                  {day}
-                </span>
-              ))}
+              {calendar.days.map((day, index) =>
+                day === null ? (
+                  <span key={`empty-${index}`} aria-hidden className="py-2" />
+                ) : (
+                  <span
+                    key={day}
+                    aria-current={day === calendar.today ? "date" : undefined}
+                    className={cn(
+                      "rounded-xl py-2",
+                      day === calendar.today
+                        ? "bg-brand-primary text-white"
+                        : "text-foreground hover:bg-brand-muted",
+                    )}
+                  >
+                    {day}
+                  </span>
+                ),
+              )}
             </div>
           </InstructorCard>
           <InstructorCard title="Afspraken" icon={ListTodo}>
@@ -639,7 +723,7 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
 function StudentListItem({ student, active }: { student: InstructorStudent; active?: boolean }) {
   return (
     <Link
-      href={`/instructor/leerlingen/${student.id}`}
+      href={`/instructeur/leerlingen/${student.id}`}
       className={cn(
         "flex items-center gap-3 rounded-2xl border p-3 transition",
         active ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white hover:border-brand-primary/35",
@@ -665,6 +749,7 @@ export function InstructorStudentsView({ data }: { data?: InstructorExperience }
         eyebrow="Leerlingen"
         title="Mijn leerlingen"
         subtitle="Zoek, filter en open direct het dossier of de voortgang van je gekoppelde leerlingen."
+        actions={<AddStudentDialog />}
       />
       <div className="grid gap-4 xl:grid-cols-[24rem_1fr]">
         <InstructorCard title="Leerlingenlijst" icon={Users}>
@@ -700,15 +785,19 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
             <h2 className="text-2xl font-black text-foreground">{student.name}</h2>
             <p className="text-sm text-muted-foreground">{student.license} - {studentStatus[student.status].label}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/instructor/berichten" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href="/instructeur/berichten" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <MessageCircle className="h-4 w-4" aria-hidden /> Bericht
               </Link>
               <a href={`tel:${student.phone}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <Phone className="h-4 w-4" aria-hidden /> Bel
               </a>
-              <a href={`mailto:${student.email}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                <Mail className="h-4 w-4" aria-hidden /> Mail
-              </a>
+              {student.email ? (
+                <a href={`mailto:${student.email}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  <Mail className="h-4 w-4" aria-hidden /> Mail
+                </a>
+              ) : (
+                <Badge variant="outline">Portaal nog niet geactiveerd</Badge>
+              )}
             </div>
           </div>
         </div>
@@ -782,13 +871,17 @@ export function InstructorStudentDetailView({
             )}
           </div>
         </InstructorCard>
-        <InstructorCard title="AI coachnotitie" icon={Sparkles}>
+        <InstructorCard title="Volgende focus" icon={Target}>
           <p className="text-sm leading-6 text-muted-foreground">
             {student.attention === "Geen urgente aandachtspunten."
               ? `${student.name} heeft geen urgente aandachtspunten. Gebruik de volgende les om de voortgang actueel te houden.`
               : student.attention}
           </p>
-          <Link href={studentEvaluation ? `/instructor/les-evaluaties/${studentEvaluation.id}` : "/instructor/les-evaluaties"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <dl className="mt-3 grid gap-1 text-xs text-muted-foreground">
+            <div><dt className="inline font-bold text-foreground">Reden: </dt><dd className="inline">planning, leshistorie en actueel tegoed</dd></div>
+            <div><dt className="inline font-bold text-foreground">Ontbrekend bewijs: </dt><dd className="inline">nieuwe lesobservaties worden pas na beoordeling meegenomen</dd></div>
+          </dl>
+          <Link href={studentEvaluation ? `/instructeur/lessen/${studentEvaluation.id}` : "/instructeur/agenda"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
             Open lesevaluatie
           </Link>
         </InstructorCard>
@@ -806,7 +899,7 @@ export function InstructorEvaluationsView({ data }: { data?: InstructorExperienc
         <div className="space-y-3">
           {data.evaluations.length > 0 ? (
             data.evaluations.map((evaluation) => (
-              <Link key={evaluation.id} href={`/instructor/les-evaluaties/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
+              <Link key={evaluation.id} href={`/instructeur/lessen/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 gap-3">
                   <Avatar name={evaluation.studentName} className="h-11 w-11 text-xs" />
                   <div className="min-w-0">
@@ -896,18 +989,19 @@ export function InstructorEvaluationDetailView({
           </div>
         </InstructorCard>
         <div className="space-y-4">
-          <InstructorCard title="Samenvatting concept" icon={Sparkles}>
+          <InstructorCard title="Samenvatting concept" icon={FileText}>
             <p className="text-sm leading-6 text-muted-foreground">
               Er is nog geen conceptsamenvatting opgeslagen voor deze leskaart.
             </p>
           </InstructorCard>
           <InstructorCard title="Publiceren" icon={Send}>
             <p className="text-sm leading-6 text-muted-foreground">
-              AI-tekst blijft een voorstel. Pas na jouw bevestiging ziet de leerling de reflectie; interne notities blijven verborgen.
+              Controleer de samenvatting voordat je publiceert. Pas na jouw
+              bevestiging ziet de leerling de reflectie; interne notities blijven
+              verborgen.
             </p>
             <div className="mt-4 grid gap-2">
               <button className={buttonVariants({ variant: "outline" })}>Opslaan als concept</button>
-              <button className={buttonVariants({ variant: "outline" })}>AI-voorstel genereren</button>
               <button className={buttonVariants()}>Afronden & publiceren</button>
             </div>
           </InstructorCard>
@@ -950,7 +1044,7 @@ export function InstructorMessagesView({
             {data.messages.length > 0 ? data.messages.map((thread) => (
               <Link
                 key={thread.id}
-                href={`/instructor/berichten/${thread.id}`}
+                href={`/instructeur/berichten/${thread.id}`}
                 className={cn(
                   "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
                   thread.id === active?.id
@@ -984,7 +1078,7 @@ export function InstructorMessagesView({
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
               <Link
-                href="/instructor/berichten"
+                href="/instructeur/berichten"
                 aria-label="Terug naar gesprekken"
                 className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
               >
@@ -1186,12 +1280,13 @@ export function InstructorProfileView({ data }: { data?: InstructorExperience })
 
 export function InstructorMoreView() {
   const links = [
-    ["Taken", "/instructor/taken", ListTodo],
-    ["Voertuigen", "/instructor/voertuigen", CarFront],
-    ["Beschikbaarheid", "/instructor/beschikbaarheid", Clock3],
-    ["Rapportages", "/instructor/rapportages", BarChart3],
-    ["Instellingen", "/instructor/instellingen", Settings],
-    ["Profiel", "/instructor/profiel", User],
+    ["Taken", "/instructeur/taken", ListTodo],
+    ["Theorie", "/instructeur/theorie", BookOpen],
+    ["Voertuigen", "/instructeur/voertuigen", CarFront],
+    ["Beschikbaarheid", "/instructeur/beschikbaarheid", Clock3],
+    ["Rapportages", "/instructeur/rapportages", BarChart3],
+    ["Instellingen", "/instructeur/instellingen", Settings],
+    ["Profiel", "/instructeur/profiel", User],
   ] as const;
 
   return (

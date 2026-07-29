@@ -41,7 +41,7 @@ takes the live site down. `current/` only moves after a successful build.
 | Environment | systemd unit | Port | Domain |
 |---|---|---|---|
 | staging | `nxtdrive-staging` | 5000 | `staging.nxtdrive.io` |
-| production | `nxtdrive-production` | 5001 | `app.nxtdrive.io` |
+| production | `nxtdrive-production` | 5001 | `nxtdrive.io` |
 | redirect | n/a | n/a | `nxtdrive.io` -> `rijschool.nxtdrive.io` |
 
 ### Filesystem permissions
@@ -62,14 +62,14 @@ not for the fast systemd restart gate.
 Production smoke checks:
 
 ```bash
-SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_BASE_URL=https://nxtdrive.io \
   pnpm --filter @workspace/scripts run smoke:production
 ```
 
 Optional host-shell coverage:
 
 ```bash
-SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_BASE_URL=https://nxtdrive.io \
 SMOKE_TENANT_HOST=https://test.nxtdrive.io \
 SMOKE_CUSTOM_DOMAIN_HOST=https://rijschool.example.nl \
   pnpm --filter @workspace/scripts run smoke:production

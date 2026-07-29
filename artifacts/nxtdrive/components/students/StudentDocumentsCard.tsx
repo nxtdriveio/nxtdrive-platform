@@ -27,6 +27,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   ...DOCUMENT_VALIDATION_MESSAGE,
   upload_failed: "Uploaden mislukt. Probeer het opnieuw.",
   delete_failed: "Verwijderen mislukt. Probeer het opnieuw.",
+  bad_signature:
+    "De bestandsinhoud komt niet overeen met het opgegeven bestandstype.",
+  malware: "Het bestand is door de beveiligingsscan geblokkeerd.",
+  scan_unavailable:
+    "De beveiligingsscan is tijdelijk niet beschikbaar. Uploaden is veilig geblokkeerd.",
+  rate_limited:
+    "Te veel uploads in korte tijd. Wacht even en probeer het opnieuw.",
 };
 
 /**

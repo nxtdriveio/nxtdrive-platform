@@ -10,7 +10,6 @@ import {
   Lock,
   MessageSquareText,
   Send,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -20,7 +19,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  generateRisLessonAiDraftAction,
   publishRisLessonCardAction,
   saveRisLessonCardDraftAction,
   setGuidedReflectionAction,
@@ -33,7 +31,7 @@ import type {
 import { RIS_REFLECTION_RATING_LABELS } from "@/lib/ris/data";
 import { risStepNumber, type RISStepValue } from "@workspace/leskaart";
 
-type PublicationMode = "reflection" | "summary";
+type PublicationMode = "reflection" | "summary" | "quick";
 
 type ScriptMeta = {
   code: string;
@@ -142,14 +140,12 @@ export function RisLessonPublicationPanel({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     ris.card ? "saved" : "idle",
   );
   const [cardId, setCardId] = useState(ris.card?.id ?? null);
   const [isPending, startTransition] = useTransition();
-  const [isAiPending, startAiTransition] = useTransition();
 
   const scriptMap = useMemo(() => buildScriptMap(ris), [ris]);
   const conceptAssessments = useMemo(
@@ -230,7 +226,7 @@ export function RisLessonPublicationPanel({
   }
 
   useEffect(() => {
-    if (locked || mode !== "summary") return;
+    if (locked || (mode !== "summary" && mode !== "quick")) return;
     if (draftSignature === lastDraftSignature.current) return;
     setSaveState("saving");
     setError(null);
@@ -263,7 +259,7 @@ export function RisLessonPublicationPanel({
   ]);
 
   useEffect(() => {
-    if (locked || mode !== "reflection") return;
+    if (locked || (mode !== "reflection" && mode !== "quick")) return;
     if (reflectionSignature === lastReflectionSignature.current) return;
     setSaveState("saving");
     setError(null);
@@ -385,34 +381,61 @@ export function RisLessonPublicationPanel({
     });
   }
 
-  function generateAiDraft() {
-    setAiError(null);
-    setSuccess(null);
-    startAiTransition(async () => {
-      const ensured = await ensureCard();
-      if (!ensured) return;
-      const result = await generateRisLessonAiDraftAction({ lessonId });
-      if ("error" in result && result.error) {
-        setAiError(result.error);
-        return;
-      }
-      const draft = "draft" in result ? result.draft : undefined;
-      if (!draft) {
-        setAiError("De AI gaf geen bruikbaar RIS-voorstel terug.");
-        return;
-      }
-      setStudentFriendlySummary(draft.studentSummary || suggestion.studentSummary);
-      setHomeworkOrNextFocus(draft.homeworkOrNextFocus || suggestion.homework);
-      setInternalSummary(draft.internalSummary || suggestion.internalSummary);
-      if (draft.internalAttentionPoints.length > 0) {
-        setInstructorContextNote(draft.internalAttentionPoints.join("\n"));
-      }
-      if (!oneSentenceReflection.trim()) {
-        setOneSentenceReflection(suggestion.oneSentence);
-      }
-      setSuccess("AI-voorstel geladen. Controleer en pas aan voordat je publiceert.");
-    });
-  }
+  const reflectionEditor = (
+    <section className="space-y-4 rounded-2xl border border-border bg-card/70 p-4">
+      <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-foreground">
+        <input
+          type="checkbox"
+          checked={studentPresent}
+          disabled={locked}
+          onChange={(event) => setStudentPresent(event.target.checked)}
+          className="h-5 w-5 rounded border-border"
+        />
+        Leerling was aanwezig bij de reflectie
+      </label>
+
+      <RatingRow
+        label="Algemene reflectie"
+        value={overallRating}
+        onChange={setOverallRating}
+        disabled={locked}
+      />
+      <RatingRow
+        label="Zelfstandigheid"
+        value={independenceRating}
+        onChange={setIndependenceRating}
+        disabled={locked}
+      />
+      <RatingRow
+        label="Inzicht"
+        value={insightRating}
+        onChange={setInsightRating}
+        disabled={locked}
+      />
+      <RatingRow
+        label="Vertrouwen"
+        value={confidenceRating}
+        onChange={setConfidenceRating}
+        disabled={locked}
+      />
+
+      <LabeledTextarea
+        label="Reflectie in een zin"
+        value={oneSentenceReflection}
+        onChange={setOneSentenceReflection}
+        disabled={locked}
+        placeholder="Bijvoorbeeld: Ik keek rustiger vooruit en hield beter overzicht bij rotondes."
+        rows={3}
+      />
+      <LabeledTextarea
+        label="Interne instructeursnotitie"
+        value={instructorContextNote}
+        onChange={setInstructorContextNote}
+        disabled={locked}
+        placeholder="Context voor opvolging, planning of volgende instructeur."
+      />
+    </section>
+  );
 
   if (mode === "reflection") {
     return (
@@ -428,59 +451,7 @@ export function RisLessonPublicationPanel({
 
           {locked && card ? <PublishedSummary card={card} /> : null}
 
-          <section className="space-y-4 rounded-2xl border border-border bg-card/70 p-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <input
-                type="checkbox"
-                checked={studentPresent}
-                disabled={locked}
-                onChange={(event) => setStudentPresent(event.target.checked)}
-                className="h-4 w-4 rounded border-border"
-              />
-              Leerling was aanwezig bij de reflectie
-            </label>
-
-            <RatingRow
-              label="Algemene reflectie"
-              value={overallRating}
-              onChange={setOverallRating}
-              disabled={locked}
-            />
-            <RatingRow
-              label="Zelfstandigheid"
-              value={independenceRating}
-              onChange={setIndependenceRating}
-              disabled={locked}
-            />
-            <RatingRow
-              label="Inzicht"
-              value={insightRating}
-              onChange={setInsightRating}
-              disabled={locked}
-            />
-            <RatingRow
-              label="Vertrouwen"
-              value={confidenceRating}
-              onChange={setConfidenceRating}
-              disabled={locked}
-            />
-
-            <LabeledTextarea
-              label="Reflectie in een zin"
-              value={oneSentenceReflection}
-              onChange={setOneSentenceReflection}
-              disabled={locked}
-              placeholder="Bijvoorbeeld: Ik keek rustiger vooruit en hield beter overzicht bij rotondes."
-              rows={3}
-            />
-            <LabeledTextarea
-              label="Interne instructeursnotitie"
-              value={instructorContextNote}
-              onChange={setInstructorContextNote}
-              disabled={locked}
-              placeholder="Context voor opvolging, planning of volgende instructeur."
-            />
-          </section>
+          {reflectionEditor}
 
           <Feedback error={error} success={success} />
         </CardContent>
@@ -493,9 +464,17 @@ export function RisLessonPublicationPanel({
       <CardContent className="space-y-5 pt-5">
         <PanelHeader
           icon={ClipboardCheck}
-          eyebrow="Afronding"
-          title={`Leskaart afronden voor ${studentName}`}
-          description="Controleer de behandelde scripts, reflectie en leerlingtekst voordat je publiceert."
+          eyebrow={mode === "quick" ? "Snel afronden" : "Afronding"}
+          title={
+            mode === "quick"
+              ? `Reflecteren en afronden met ${studentName}`
+              : `Leskaart afronden voor ${studentName}`
+          }
+          description={
+            mode === "quick"
+              ? "Leg alleen de noodzakelijke reflectie vast, controleer het regelgebaseerde voorstel en rond de les af."
+              : "Controleer de behandelde scripts, reflectie en leerlingtekst voordat je publiceert."
+          }
           status={<SaveStatus state={saveState} locked={locked} />}
         />
 
@@ -503,6 +482,8 @@ export function RisLessonPublicationPanel({
           <PublishedSummary card={card} />
         ) : (
           <>
+            {mode === "quick" ? reflectionEditor : null}
+
             <section className="grid gap-3 lg:grid-cols-3">
               <PublicationCheck
                 ok={conceptAssessments.length > 0}
@@ -586,33 +567,11 @@ export function RisLessonPublicationPanel({
                   <div>
                     <h3 className="font-black text-foreground">Samenvatting</h3>
                     <p className="text-sm text-muted-foreground">
-                      Schrijf zelf, laat AI een voorstel doen, en bewerk daarna vrij.
+                      Het voorstel gebruikt alleen de beoordeelde focusscripts en
+                      aandachtspunten. Controleer en bewerk het voor publicatie.
                     </p>
                   </div>
-                  {ris.settings.aiAssistEnabled ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={generateAiDraft}
-                      disabled={isAiPending || conceptAssessments.length === 0}
-                      className="shrink-0"
-                    >
-                      {isAiPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      ) : (
-                        <Sparkles className="h-4 w-4" aria-hidden />
-                      )}
-                      AI-voorstel
-                    </Button>
-                  ) : null}
                 </div>
-
-                {aiError ? (
-                  <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-sm text-warning">
-                    {aiError}
-                  </div>
-                ) : null}
 
                 <LabeledTextarea
                   label="Leerlingvriendelijke samenvatting"
@@ -800,7 +759,7 @@ function RatingRow({
             disabled={disabled}
             onClick={() => onChange(value === rating ? null : rating)}
             className={cn(
-              "min-h-10 rounded-xl border px-2 py-2 text-xs font-black transition-colors",
+              "min-h-11 rounded-xl border px-2 py-2 text-xs font-black transition-colors",
               value === rating
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground",

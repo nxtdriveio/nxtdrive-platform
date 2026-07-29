@@ -1,9 +1,10 @@
-import { InstructorMessagesView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorMessagesPage() {
-  const data = await loadInstructorExperience();
-  return <InstructorMessagesView data={data} />;
+export default async function InstructorMessagesLegacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<InstructorSearchParams>;
+}) {
+  permanentRedirectToInstructorRoute("messages", {}, await searchParams);
 }

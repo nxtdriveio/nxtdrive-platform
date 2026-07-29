@@ -81,6 +81,7 @@ import type { TrialLesson, TrialSuggestion } from "@/lib/trial-lessons/types";
 import { getTrialNeighbours } from "@/lib/trial-lessons/neighbours";
 import type { MapPoint } from "@/components/trial-route-map";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
+import { isFeatureEnabled } from "@/lib/features/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -536,7 +537,9 @@ export default async function LeadDetailPage({
             <IntakeAnalysisCard analysis={analysis} leadId={lead.id} />
           ) : null}
 
-          {analysis && !existingStudent ? (
+          {analysis &&
+          !existingStudent &&
+          isFeatureEnabled("ai.admin.enabled") ? (
             <AiPackageAdvice
               leadId={lead.id}
               available={aiPackageAdviceAvailable}

@@ -51,7 +51,7 @@ chmod +x bootstrap.sh
    | Record | Target |
    |---|---|
    | `staging.nxtdrive.io` | VPS IP |
-   | `app.nxtdrive.io` | VPS IP |
+   | `app.nxtdrive.io` | VPS IP (legacy host; redirects to `nxtdrive.io`) |
    | `nxtdrive.io` | VPS IP |
    | `rijschool.nxtdrive.io` | VPS IP (marketing, later) |
 

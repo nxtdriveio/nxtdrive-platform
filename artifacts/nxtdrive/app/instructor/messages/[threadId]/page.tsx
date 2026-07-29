@@ -1,12 +1,17 @@
-import { redirect } from "next/navigation";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorMessageAliasPage({
+export default async function InstructorMessageEnglishLegacyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ threadId: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
   const { threadId } = await params;
-  redirect(`/instructor/berichten/${threadId}`);
+  permanentRedirectToInstructorRoute(
+    "message",
+    { conversationId: threadId },
+    await searchParams,
+  );
 }

@@ -1,7 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseCookieOptions } from "@/lib/supabase/cookie-options";
-import { getServerSupabaseAnonKey, getServerSupabaseUrl } from "@/lib/supabase/env";
+import {
+  getServerSupabaseAnonKey,
+  getServerSupabaseUrl,
+} from "@/lib/supabase/env";
+import {
+  CORRELATION_ID_HEADER,
+  CSP_NONCE_HEADER,
+  normalizeCorrelationId,
+  securityHeaders,
+} from "@/lib/security/headers";
+import { canonicalizeAppPath } from "@/lib/routes";
 
 const CHANGE_PASSWORD_PATH = "/account/wachtwoord-wijzigen";
 
@@ -13,43 +23,65 @@ const BYPASS_PATHS = [
   "/privacy",
   "/manifest.webmanifest",
   "/student/manifest.webmanifest",
+  "/leerling/manifest.webmanifest",
   "/instructor/manifest.webmanifest",
+  "/instructeur/manifest.webmanifest",
 ];
 
 const PROTECTED_PATHS = [
   "/admin",
   "/backoffice",
   "/student",
+  "/leerling",
   "/instructor",
+  "/instructeur",
   "/ouder",
   "/account",
   "/select-tenant",
 ];
 
-const PUBLIC_FILE_RE = /\.(?:css|js|map|json|webmanifest|svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$/i;
+const PUBLIC_FILE_RE =
+  /\.(?:css|js|map|json|webmanifest|svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$/i;
 
 function isBypassPath(pathname: string): boolean {
   return BYPASS_PATHS.some((p) => pathname === p || pathname.startsWith(p));
 }
 
 function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return PROTECTED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }
 
 function shouldSkipAuthRefresh(pathname: string): boolean {
   return isBypassPath(pathname) || PUBLIC_FILE_RE.test(pathname);
 }
 
-function withAppSecurityHeaders(response: NextResponse): NextResponse {
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+function withAppSecurityHeaders(
+  response: NextResponse,
+  context: {
+    nonce: string;
+    correlationId: string;
+    production: boolean;
+  },
+): NextResponse {
+  const headers = securityHeaders({
+    ...context,
+    supabaseOrigin: process.env["NEXT_PUBLIC_SUPABASE_URL"],
+  });
+  for (const [name, value] of Object.entries(headers)) {
+    response.headers.set(name, value);
+  }
   return response;
 }
 
 function isLocalHost(host: string): boolean {
   const normalized = host.toLowerCase().split(":")[0];
-  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1"
+  );
 }
 
 function buildRedirectUrl(request: NextRequest, pathname: string): string {
@@ -70,11 +102,37 @@ function buildRedirectUrl(request: NextRequest, pathname: string): string {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const nonce = crypto.randomUUID().replaceAll("-", "");
+  const correlationId = normalizeCorrelationId(
+    request.headers.get(CORRELATION_ID_HEADER),
+    () => crypto.randomUUID(),
+  );
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(CSP_NONCE_HEADER, nonce);
+  requestHeaders.set(CORRELATION_ID_HEADER, correlationId);
+
+  const securityContext = {
+    nonce,
+    correlationId,
+    production: process.env["NODE_ENV"] === "production",
+  };
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
   const pathname = request.nextUrl.pathname;
+  const canonicalPath = canonicalizeAppPath(pathname);
+
+  if (canonicalPath && canonicalPath !== pathname) {
+    const canonicalUrl = new URL(buildRedirectUrl(request, canonicalPath));
+    canonicalUrl.search = request.nextUrl.search;
+    return withAppSecurityHeaders(
+      NextResponse.redirect(canonicalUrl, 308),
+      securityContext,
+    );
+  }
 
   if (!isProtectedPath(pathname) || shouldSkipAuthRefresh(pathname)) {
-    return withAppSecurityHeaders(response);
+    return withAppSecurityHeaders(response, securityContext);
   }
 
   let supabaseUrl: string;
@@ -83,7 +141,7 @@ export async function middleware(request: NextRequest) {
     supabaseUrl = getServerSupabaseUrl().url;
     supabaseAnonKey = getServerSupabaseAnonKey();
   } catch {
-    return withAppSecurityHeaders(response);
+    return withAppSecurityHeaders(response, securityContext);
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -102,7 +160,9 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        response = NextResponse.next({ request });
+        response = NextResponse.next({
+          request: { headers: requestHeaders },
+        });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options as never);
         }
@@ -110,7 +170,9 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // First-login gate: redirect to password change page if must_change_password
   // is set in user_metadata. Skip for logout/auth/intake/api routes and the
@@ -122,20 +184,15 @@ export async function middleware(request: NextRequest) {
   ) {
     return withAppSecurityHeaders(
       NextResponse.redirect(buildRedirectUrl(request, CHANGE_PASSWORD_PATH)),
+      securityContext,
     );
   }
 
-  return withAppSecurityHeaders(response);
+  return withAppSecurityHeaders(response, securityContext);
 }
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/backoffice/:path*",
-    "/student/:path*",
-    "/instructor/:path*",
-    "/ouder/:path*",
-    "/account/:path*",
-    "/select-tenant",
+    "/((?!_next/static|_next/image|favicon.ico|icons/|screenshots/|splash/).*)",
   ],
 };

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "commitSha": "5f4c94d63d1dc0b1bd4656a44b19cf6a6abdccf4",
+  "branch": "main",
+  "buildTime": "2026-07-29T11:17:15.226Z",
+  "nodeVersion": "v24.18.0",
+  "packageManager": "pnpm@10.26.1",
+  "appVersion": "1.0.0-staging-dry-run",
+  "databaseMigrationVersion": "20260729143100_ris_observations_and_publication_guards.sql",
+  "readinessEngineVersion": null,
+  "curriculumVersions": [],
+  "dependencyAuditStatus": "pass",
+  "testSummary": "typecheck,format,lint,206-unit,3-integration,migration-smoke,next-build,performance,e2e-public,visual,actionlint,android-tests-lint-and-staging-aab-pass",
+  "aabPath": "artifacts/nxtdrive/android/app/build/outputs/bundle/staging/app-staging.aab",
+  "aabKind": "staging-dry-run",
+  "aabChecksum": "6d8ec44645a7fa0a7c50ec52b30a921f00d1368c8f5fc374b4f14cb7cce12332",
+  "signingCertificateFingerprint": null,
+  "deploymentStatus": "not-deployed"
+}

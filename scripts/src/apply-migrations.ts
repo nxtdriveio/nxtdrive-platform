@@ -54,9 +54,15 @@ async function main(): Promise<void> {
       );
     `);
 
+    const maxFile = process.env["MIGRATION_MAX_FILE"];
     const files = (await readdir(MIGRATIONS_DIR))
       .filter((f) => f.endsWith(".sql"))
-      .sort();
+      .sort()
+      .filter((file) => !maxFile || file <= maxFile);
+
+    if (maxFile) {
+      console.log(`Migration ceiling for smoke fixture: ${maxFile}`);
+    }
 
     const { rows } = await client.query<{ filename: string }>(
       "select filename from public._migrations",
@@ -76,8 +82,7 @@ async function main(): Promise<void> {
       // transaction that added it (error: "unsafe use of new value of enum type").
       // Solution: run ALTER TYPE ... ADD VALUE statements BEFORE the transaction
       // so they auto-commit and are visible to the subsequent transaction.
-      const enumAddRe =
-        /^\s*alter\s+type\s+\S+\s+add\s+value\s+[^;]+;/gim;
+      const enumAddRe = /^\s*alter\s+type\s+\S+\s+add\s+value\s+[^;]+;/gim;
       const enumStatements = sql.match(enumAddRe) ?? [];
       const sqlWithoutEnumAdds = sql.replace(enumAddRe, "");
 

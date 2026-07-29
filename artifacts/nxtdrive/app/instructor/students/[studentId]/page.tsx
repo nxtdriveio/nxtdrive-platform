@@ -1,12 +1,17 @@
-import { redirect } from "next/navigation";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorStudentAliasPage({
+export default async function InstructorStudentEnglishLegacyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ studentId: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
   const { studentId } = await params;
-  redirect(`/instructor/leerlingen/${studentId}`);
+  permanentRedirectToInstructorRoute(
+    "student",
+    { studentId },
+    await searchParams,
+  );
 }

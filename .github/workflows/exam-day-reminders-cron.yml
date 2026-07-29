@@ -8,7 +8,7 @@ name: Exam day reminders cron
 # Required secrets/vars (set per repo or environment in GitHub):
 #   secrets.CRON_SECRET        - must match the CRON_SECRET env on the target app
 #   vars.NXTDRIVE_STAGING_URL  - e.g. https://staging.nxtdrive.io (optional)
-#   vars.NXTDRIVE_PROD_URL     - e.g. https://app.nxtdrive.io (optional)
+#   vars.NXTDRIVE_PROD_URL     - e.g. https://nxtdrive.io (optional)
 # A target is skipped when its URL var is empty, so staging-only or prod-only
 # setups work without edits.
 

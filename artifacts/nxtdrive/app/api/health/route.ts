@@ -1,19 +1,8 @@
-import { NextResponse } from "next/server";
+import { GET as liveGET } from "@/app/health/live/route";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export function GET() {
-  return NextResponse.json(
-    {
-      status: "ok",
-      service: "nxtdrive",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
-      },
-    },
-  );
+  return liveGET();
 }

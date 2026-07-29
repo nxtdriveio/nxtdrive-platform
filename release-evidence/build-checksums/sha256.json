@@ -1,0 +1,14 @@
+[
+  {
+    "file": "artifacts/nxtdrive/android/play-store/graphics/feature-graphic/feature-graphic-1024x500.png",
+    "sha256": "fd8e8ce53c2c853dbd6a13eb811669d4565854fd2a14e0d6c02bdbefa55cd3a0"
+  },
+  {
+    "file": "artifacts/nxtdrive/android/play-store/graphics/icon/icon-512.png",
+    "sha256": "ab3ab90bd47e3b57d6fe72b575b49e4a51e768f83a2ff7c2db5a27b080e1fe09"
+  },
+  {
+    "file": "artifacts/nxtdrive/android/app/build/outputs/bundle/staging/app-staging.aab",
+    "sha256": "6d8ec44645a7fa0a7c50ec52b30a921f00d1368c8f5fc374b4f14cb7cce12332"
+  }
+]

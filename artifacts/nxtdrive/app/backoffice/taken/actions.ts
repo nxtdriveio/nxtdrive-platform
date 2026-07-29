@@ -305,7 +305,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
   }
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true };
 }
 
@@ -335,7 +335,7 @@ export async function linkTaskEntity(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true, linkId: (linkId as string) ?? undefined };
 }
 
@@ -368,7 +368,7 @@ export async function unlinkTaskEntity(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true };
 }
 
@@ -614,7 +614,7 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
   await notifyAssignee(service, tenant.id, taskId, assignee);
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true };
 }
 
@@ -649,7 +649,7 @@ export async function moveTask(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true };
 }
 
@@ -669,6 +669,6 @@ export async function archiveTask(formData: FormData): Promise<ActionResult> {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/taken");
-  revalidatePath("/instructor/taken");
+  revalidatePath("/instructeur/taken");
   return { ok: true };
 }

@@ -1,9 +1,14 @@
 # NXTDRIVE — Faseplan
 
-> **Lees altijd eerst `docs/NXTDRIVE_CANON.md` (productcanon) en daarna dit faseplan**
-> voordat je aan een taak begint. De canon is de bron van waarheid voor _wat_ NXTDRIVE
-> wordt; dit faseplan is de bron van waarheid voor _in welke volgorde_ we het bouwen en
-> _wat al af is_.
+> **Actuele uitvoeringsplanning:** voor nieuwe werkzaamheden vanaf 2026-07-20 is
+> `docs/NXTDRIVE_DELIVERY_ROADMAP_2026.md` de centrale sprintroadmap. Dit
+> faseplan blijft beschikbaar als historische implementatie- en contextbron.
+
+> **Lees altijd eerst `docs/NXTDRIVE_CANON.md` (productcanon) en daarna
+> `docs/NXTDRIVE_DELIVERY_ROADMAP_2026.md`** voordat je aan nieuw werk begint.
+> De canon is de bron van waarheid voor _wat_ NXTDRIVE wordt; de delivery-roadmap
+> bepaalt de actuele volgorde. Gebruik dit faseplan voor historische
+> implementatiecontext en bewijs van eerder afgerond werk.
 
 Laatst bijgewerkt: 2026-06-05
 

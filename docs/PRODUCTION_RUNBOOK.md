@@ -8,7 +8,7 @@ Last updated: 2026-06-15
 
 Dit runbook beschrijft de minimale productiehandelingen voor deploy verificatie,
 smoke tests, incident triage en rollback. Het is bedoeld als praktische checklist
-voor `app.nxtdrive.io` en later exact hetzelfde voor staging.
+voor `nxtdrive.io` en later exact hetzelfde voor staging.
 
 ## Endpoints
 
@@ -32,19 +32,19 @@ Na iedere productie-deploy:
 2. Controleer proces-health:
 
 ```bash
-curl -fsS https://app.nxtdrive.io/api/health
+curl -fsS https://nxtdrive.io/api/health
 ```
 
 3. Controleer readiness:
 
 ```bash
-curl -fsS https://app.nxtdrive.io/api/health/ready
+curl -fsS https://nxtdrive.io/api/health/ready
 ```
 
 4. Controleer beveiligingsheaders:
 
 ```bash
-curl -I https://app.nxtdrive.io/login
+curl -I https://nxtdrive.io/login
 ```
 
 Minimaal verwacht:
@@ -68,14 +68,14 @@ Zonder testaccounts controleert de smoke-runner health, readiness, PWA manifests
 en de loginpagina:
 
 ```bash
-SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_BASE_URL=https://nxtdrive.io \
   pnpm --filter @workspace/scripts run smoke:production
 ```
 
 Met testaccounts controleert hij ook echte student- en instructeur-login:
 
 ```bash
-SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_BASE_URL=https://nxtdrive.io \
 SMOKE_STUDENT_EMAIL="student@example.com" \
 SMOKE_STUDENT_PASSWORD="..." \
 SMOKE_INSTRUCTOR_EMAIL="instructor@example.com" \
@@ -89,7 +89,7 @@ waar runtime secrets bewust incompleet zijn. Niet gebruiken als productie-gate.
 Wanneer subdomain/custom-domain login shells expliciet mee moeten in de smoke:
 
 ```bash
-SMOKE_BASE_URL=https://app.nxtdrive.io \
+SMOKE_BASE_URL=https://nxtdrive.io \
 SMOKE_TENANT_HOST=https://test.nxtdrive.io \
 SMOKE_CUSTOM_DOMAIN_HOST=https://rijschool.example.nl \
   pnpm --filter @workspace/scripts run smoke:production
@@ -261,8 +261,8 @@ sudo caddy add-package github.com/caddy-dns/cloudflare
 
 Minimale externe monitoring:
 
-- uptime probe op `https://app.nxtdrive.io/api/health`;
-- readiness probe op `https://app.nxtdrive.io/api/health/ready`;
+- uptime probe op `https://nxtdrive.io/api/health`;
+- readiness probe op `https://nxtdrive.io/api/health/ready`;
 - alert bij 2 opeenvolgende readiness-failures;
 - alert bij GitHub Actions deploy failure;
 - alert bij Caddy 5xx stijging;
@@ -303,13 +303,13 @@ Gebruik deze volgorde bij productieproblemen:
 1. Is de app bereikbaar?
 
 ```bash
-curl -i https://app.nxtdrive.io/api/health
+curl -i https://nxtdrive.io/api/health
 ```
 
 2. Is de runtime klaar?
 
 ```bash
-curl -i https://app.nxtdrive.io/api/health/ready
+curl -i https://nxtdrive.io/api/health/ready
 ```
 
 3. Controleer systemd:
@@ -323,7 +323,7 @@ sudo journalctl -u nxtdrive-production -n 200 --no-pager
 
 ```bash
 sudo systemctl status caddy --no-pager -l
-sudo tail -n 200 /var/log/caddy/app.nxtdrive.io.log
+sudo tail -n 200 /var/log/caddy/nxtdrive.io.log
 ```
 
 5. Controleer GitHub Actions deploy logs.

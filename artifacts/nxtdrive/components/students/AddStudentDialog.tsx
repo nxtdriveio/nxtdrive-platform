@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { UserPlus, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogTrigger,
@@ -16,6 +18,7 @@ import {
 import { createStudentDirect } from "@/app/backoffice/leerlingen/actions";
 
 export function AddStudentDialog() {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -30,6 +33,11 @@ export function AddStudentDialog() {
   const [adres, setAdres] = React.useState("");
   const [woonplaats, setWoonplaats] = React.useState("");
   const [ophaaladres, setOphaaladres] = React.useState("");
+  const [opleidingstype, setOpleidingstype] = React.useState<
+    "STANDARD" | "RIS_2_0"
+  >("STANDARD");
+  const [startdatum, setStartdatum] = React.useState("");
+  const [privacyConfirmed, setPrivacyConfirmed] = React.useState(false);
 
   function reset() {
     setNaam("");
@@ -40,6 +48,9 @@ export function AddStudentDialog() {
     setAdres("");
     setWoonplaats("");
     setOphaaladres("");
+    setOpleidingstype("STANDARD");
+    setStartdatum("");
+    setPrivacyConfirmed(false);
     setError(null);
     setDone(false);
     setEmailWarning(null);
@@ -67,12 +78,16 @@ export function AddStudentDialog() {
     fd.set("adres", adres);
     fd.set("woonplaats", woonplaats);
     fd.set("ophaaladres", ophaaladres);
+    fd.set("opleidingstype", opleidingstype);
+    fd.set("startdatum", startdatum);
+    fd.set("privacy_confirmed", String(privacyConfirmed));
 
     try {
       const result = await createStudentDirect(fd);
       if (result.ok) {
         setEmailWarning(result.emailWarning ?? null);
         setDone(true);
+        router.refresh();
       } else {
         setError(result.error ?? "Er is een fout opgetreden.");
       }
@@ -86,19 +101,19 @@ export function AddStudentDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
-        <Button size="md" className="gap-2">
+        <Button size="md" className="min-h-11 gap-2">
           <UserPlus className="h-4 w-4" />
           Leerling toevoegen
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-2xl overflow-y-auto sm:max-h-[90dvh]">
         <DialogHeader>
           <DialogTitle>Leerling direct toevoegen</DialogTitle>
           <DialogDescription>
-            Maak direct een leerlingaccount aan. De leerling ontvangt
-            automatisch een welkomstmail met tijdelijke inloggegevens en wordt
-            bij de eerste login gevraagd een nieuw wachtwoord in te stellen.
+            Maak snel een leerlingprofiel aan. E-mail is optioneel; zonder
+            e-mailadres blijft het dossier volledig bruikbaar en kan het portaal
+            later veilig worden geactiveerd.
           </DialogDescription>
         </DialogHeader>
 
@@ -111,16 +126,21 @@ export function AddStudentDialog() {
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{emailWarning}</span>
               </div>
-            ) : (
+            ) : email ? (
               <p className="text-sm text-muted-foreground">
                 Er is een welkomstmail verstuurd naar{" "}
                 <strong>{email}</strong>.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Het profiel is zonder portaalaccount aangemaakt. Voeg later een
+                echt e-mailadres toe om een uitnodiging te versturen.
               </p>
             )}
             <Button
               variant="outline"
               onClick={() => handleOpen(false)}
-              className="mt-2"
+              className="mt-2 min-h-11"
             >
               Sluiten
             </Button>
@@ -143,7 +163,7 @@ export function AddStudentDialog() {
 
             <div className="space-y-1.5">
               <Label htmlFor="add-student-email">
-                E-mailadres <span className="text-danger">*</span>
+                E-mailadres <span className="font-normal text-muted-foreground">(optioneel)</span>
               </Label>
               <Input
                 id="add-student-email"
@@ -151,12 +171,45 @@ export function AddStudentDialog() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="naam@voorbeeld.nl"
-                required
-                autoComplete="off"
+                autoComplete="email"
+                aria-describedby="add-student-email-help"
               />
+              <p id="add-student-email-help" className="text-xs leading-5 text-muted-foreground">
+                Alleen invullen als dit het echte adres van de leerling is.
+                Zonder e-mail maken we geen tijdelijk of fictief account aan.
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="add-student-opleidingstype">
+                  Opleidingstype <span className="text-danger">*</span>
+                </Label>
+                <Select
+                  id="add-student-opleidingstype"
+                  value={opleidingstype}
+                  onChange={(event) =>
+                    setOpleidingstype(
+                      event.target.value as "STANDARD" | "RIS_2_0",
+                    )
+                  }
+                  required
+                >
+                  <option value="STANDARD">Reguliere rijopleiding</option>
+                  <option value="RIS_2_0">RIS 2.0</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="add-student-startdatum">
+                  Gewenste startdatum
+                </Label>
+                <Input
+                  id="add-student-startdatum"
+                  type="date"
+                  value={startdatum}
+                  onChange={(event) => setStartdatum(event.target.value)}
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="add-student-telefoon">Telefoon</Label>
                 <Input
@@ -179,6 +232,29 @@ export function AddStudentDialog() {
                 />
               </div>
             </div>
+
+            <label
+              htmlFor="add-student-privacy"
+              className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/20 p-3 text-sm"
+            >
+              <input
+                id="add-student-privacy"
+                type="checkbox"
+                checked={privacyConfirmed}
+                onChange={(event) => setPrivacyConfirmed(event.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+                required
+              />
+              <span>
+                <span className="font-semibold text-foreground">
+                  Privacyproces bevestigd
+                </span>
+                <span className="mt-0.5 block leading-5 text-muted-foreground">
+                  Ik heb deze gegevens volgens het afgesproken tenantproces
+                  ontvangen en leg alleen noodzakelijke informatie vast.
+                </span>
+              </span>
+            </label>
 
             <div className="rounded-xl border border-border bg-muted/20 p-3">
               <div className="mb-3">
@@ -247,6 +323,7 @@ export function AddStudentDialog() {
               <Button
                 type="button"
                 variant="outline"
+                className="min-h-11"
                 onClick={() => handleOpen(false)}
                 disabled={pending}
               >
@@ -254,7 +331,8 @@ export function AddStudentDialog() {
               </Button>
               <Button
                 type="submit"
-                disabled={pending || !naam || !email}
+                className="min-h-11"
+                disabled={pending || !naam.trim() || !privacyConfirmed}
               >
                 {pending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

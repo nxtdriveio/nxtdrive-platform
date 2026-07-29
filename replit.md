@@ -59,12 +59,12 @@ Subscription tiers (data model ready from day 1, enforcement deferred):
 |---|---|
 | `nxtdrive.io` | Root / redirect |
 | `rijschool.nxtdrive.io` | Public SaaS marketing site |
-| `app.nxtdrive.io` | Unified login + all app routes |
+| `nxtdrive.io` | Unified login + all app routes |
 | `staging.nxtdrive.io` | Staging environment (mirrors production) |
-| `app.nxtdrive.io/admin` | Platform admin |
-| `app.nxtdrive.io/backoffice` | Tenant admin + instructor backoffice |
-| `app.nxtdrive.io/instructor` | Instructor PWA |
-| `app.nxtdrive.io/student` | Student PWA |
+| `nxtdrive.io/admin` | Platform admin |
+| `nxtdrive.io/backoffice` | Tenant admin + instructor backoffice |
+| `nxtdrive.io/instructeur` | Instructeur PWA |
+| `nxtdrive.io/leerling` | Leerling PWA |
 
 ## Infrastructure
 

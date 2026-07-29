@@ -24,7 +24,6 @@ export async function GET() {
     start_url: "/student",
     scope: "/student",
     display: "standalone",
-    orientation: "portrait",
     background_color: "#0F172A",
     theme_color: brandingContext.themeColor,
     categories: ["education", "productivity"],
@@ -54,29 +53,14 @@ export async function GET() {
         purpose: "maskable",
       },
     ],
-    screenshots: [
-      {
-        src: "/screenshots/student-1.png",
-        sizes: "1080x1920",
-        type: "image/png",
-        form_factor: "narrow",
-        label: "Home — volgende les, tegoed en voortgang",
-      },
-      {
-        src: "/screenshots/student-2.png",
-        sizes: "1080x1920",
-        type: "image/png",
-        form_factor: "narrow",
-        label: "Voortgang en lessen",
-      },
-    ],
   };
 
   return NextResponse.json(manifest, {
     headers: {
       "Content-Type": "application/manifest+json; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
-      "Vary": "Host, X-Forwarded-Host",
+      "Cache-Control":
+        "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      Vary: "Host, X-Forwarded-Host",
     },
   });
 }

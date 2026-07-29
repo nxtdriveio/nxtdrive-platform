@@ -401,7 +401,7 @@ export async function InstructorAppointmentDetailManager({
         <div className="space-y-4">
           {linked && appointment.student_id ? (
             <Link
-              href={`/instructor/leerlingen/${appointment.student_id}`}
+              href={`/instructeur/leerlingen/${appointment.student_id}`}
               className="inline-flex text-sm font-bold text-brand-primary hover:underline"
             >
               Open leerlingdossier

@@ -1,4 +1,9 @@
-// Leskaart L1 — Examenrijpheid-engine (pure, deterministic, ADVISORY).
+// LEGACY leskaart L1 compatibility projection.
+//
+// New readiness decisions MUST use evaluateReadiness from
+// ./readiness-engine.ts. This file remains temporarily exported because older
+// reporting/UI projections still consume its shape. It is not an authorized
+// persistence, publication or assessment-planning boundary.
 //
 // Given a student's latest per-skill scores (1..8), the critical-skill flags,
 // the per-lesson score history and the three CBR preconditions, this computes:
@@ -162,6 +167,11 @@ function phaseForPct(pct: number): ReadinessPhase {
   return "examenwaardig";
 }
 
+/**
+ * @deprecated Use `evaluateReadiness` with normalized evidence. This legacy
+ * projection treats numeric STANDARD-era scores as a display aggregate and
+ * must not drive a new readiness decision or assessment override.
+ */
 export function computeReadiness(input: ReadinessInput): ReadinessResult {
   const { skills, lessons, preconditions } = input;
 
@@ -225,7 +235,10 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
       ? 0
       : Math.max(
           0,
-          Math.min(100, Math.round(((averageScoreRaw - 1) / (SCORE_MAX - 1)) * 100)),
+          Math.min(
+            100,
+            Math.round(((averageScoreRaw - 1) / (SCORE_MAX - 1)) * 100),
+          ),
         );
   const phase = phaseForPct(readinessPct);
 

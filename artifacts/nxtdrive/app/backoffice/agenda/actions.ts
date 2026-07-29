@@ -235,10 +235,10 @@ export async function scheduleLesson(formData: FormData) {
   }
 
   revalidatePath("/backoffice/agenda");
-  revalidatePath("/instructor/les/nieuw");
+  revalidatePath("/instructeur/agenda/nieuw");
   revalidatePath(`/backoffice/leerlingen/${studentId}`);
-  revalidatePath(`/instructor/leerlingen/${studentId}`);
-  revalidatePath("/instructor/week");
+  revalidatePath(`/instructeur/leerlingen/${studentId}`);
+  revalidatePath("/instructeur/agenda");
   redirect(`${detailBase}/${lessonId as string}`);
 }
 

@@ -213,14 +213,14 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
       <div className="flex flex-col gap-4 rounded-[1.6rem] border border-border bg-card/85 p-4 shadow-brand-card lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <Link
-            href="/instructor/les-evaluaties"
+            href="/instructeur/agenda"
             className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            Terug naar lesevaluaties
+            Terug naar agenda
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="primary">Lesevaluatie</Badge>
+            <Badge variant="primary">Lesson Cockpit</Badge>
             <Badge variant={lesson.status === "completed" ? "success" : "outline"}>
               {LESSON_STATUS_LABEL[lesson.status] ?? lesson.status}
             </Badge>
@@ -229,7 +229,7 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
             ) : null}
           </div>
           <h1 className="mt-3 text-[1.65rem] font-black leading-tight text-foreground sm:text-2xl xl:text-[2.35rem]">
-            Lesevaluatie
+            Lesson Cockpit
           </h1>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {student.full_name} - {dateFmt.format(new Date(lesson.starts_at))} -

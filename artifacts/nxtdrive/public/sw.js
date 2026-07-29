@@ -25,7 +25,7 @@ const STATIC_CACHE = `nxtdrive-static-${CACHE_VERSION}`;
 const SHELL_CACHE = `nxtdrive-shell-${CACHE_VERSION}`;
 
 const STUDENT_OFFLINE = "/student/offline";
-const INSTRUCTOR_OFFLINE = "/instructor/offline";
+const INSTRUCTOR_OFFLINE = "/instructeur/offline";
 
 // Precached at install. App-shell offline pages are best-effort (they render
 // inside an authed layout, so the fetch needs the user's cookies — which the SW
@@ -93,7 +93,7 @@ self.addEventListener("activate", (event) => {
 });
 
 function offlineFallbackFor(url) {
-  const isInstructor = url.pathname.startsWith("/instructor");
+  const isInstructor = url.pathname.startsWith("/instructeur");
   return isInstructor ? INSTRUCTOR_OFFLINE : STUDENT_OFFLINE;
 }
 

@@ -1,10 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/redirect-by-role";
 import { getPublicOrigin } from "@/lib/utils/public-origin";
+import {
+  consumeRateLimit,
+  type RateLimitDecision,
+} from "@/lib/security/rate-limit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const AUTH_UPSTREAM_ERROR =
@@ -25,6 +30,39 @@ function loginErrorMessage(error: unknown): string {
   return message || "Inloggen is mislukt. Controleer je gegevens en probeer opnieuw.";
 }
 
+async function enforceAuthenticationLimit(
+  purpose: "login" | "otp",
+  email: string,
+) {
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const clientIp =
+    forwardedFor ?? requestHeaders.get("x-real-ip") ?? "unavailable-ip";
+  let decision: RateLimitDecision;
+  try {
+    decision = await consumeRateLimit({
+      purpose,
+      identifiers: [clientIp, email],
+    });
+  } catch {
+    redirect(
+      `/login?error=${encodeURIComponent(
+        "Inloggen is tijdelijk niet beschikbaar. Probeer het zo opnieuw.",
+      )}`,
+    );
+  }
+  if (!decision.allowed) {
+    redirect(
+      `/login?error=${encodeURIComponent(
+        `Te veel pogingen. Probeer het over ${Math.max(
+          Math.ceil(decision.retryAfterSeconds / 60),
+          1,
+        )} minuut opnieuw.`,
+      )}`,
+    );
+  }
+}
+
 export async function signInWithPassword(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -35,6 +73,7 @@ export async function signInWithPassword(formData: FormData) {
   if (!password) {
     redirect(`/login?error=${encodeURIComponent("Vul je wachtwoord in.")}`);
   }
+  await enforceAuthenticationLimit("login", email);
 
   let error: unknown = null;
   try {
@@ -59,6 +98,7 @@ export async function sendMagicLink(formData: FormData) {
   if (!email || !EMAIL_RE.test(email)) {
     redirect(`/login?error=${encodeURIComponent("Vul een geldig e-mailadres in.")}`);
   }
+  await enforceAuthenticationLimit("otp", email);
 
   const origin = await getPublicOrigin();
   let error: unknown = null;

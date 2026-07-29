@@ -1514,7 +1514,7 @@ export async function notifyLessonRescheduled(
         recipientUserId: instructorId,
         title: "Rijles verzet",
         body: `${studentName} heeft een rijles verzet naar ${formatWhenNL(newStartsAt)}.`,
-        link: "/instructor/week",
+        link: "/instructeur/agenda",
         vars: {
           tenant_name: branding.tenantName,
           instructor_name: (instructor?.full_name as string | null) ?? instructorName ?? "",

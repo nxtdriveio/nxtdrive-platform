@@ -39,17 +39,19 @@ export default function PrivacyPage() {
 
         <h2 className="pt-2 text-lg font-semibold">Waarvoor</h2>
         <p>
-          We gebruiken je gegevens uitsluitend om de rijopleiding te plannen, je
-          voortgang bij te houden, betalingen te verwerken en je te informeren.
-          Je gegevens zijn alleen toegankelijk voor jouw rijschool en, waar van
-          toepassing, je ouder/verzorger.
+          Het platform verwerkt gegevens voor het plannen en uitvoeren van de
+          rijopleiding, voortgang, communicatie en waar van toepassing
+          betalingen. Toegang wordt beperkt op rol, tenant en relevante
+          relatie. De eigenaar moet de definitieve doeleinden, grondslagen en
+          verwerkers juridisch controleren.
         </p>
 
         <h2 className="pt-2 text-lg font-semibold">Bewaren en verwijderen</h2>
         <p>
-          Gegevens worden bewaard zolang dat nodig is voor je opleiding en
-          wettelijke verplichtingen (zoals de bewaarplicht voor facturen). Je kunt
-          via je rijschool een verzoek tot inzage of verwijdering indienen.
+          Bewaarregels zijn versieerbaar en ondersteunen preview, legal hold,
+          anonimisering en audit. Onbekende termijnen blijven bewust leeg tot
+          juridische goedkeuring. Je kunt een data-export of
+          accountverwijdering aanvragen via de selfservice.
         </p>
 
         <h2 className="pt-2 text-lg font-semibold">Beveiliging</h2>
@@ -66,9 +68,20 @@ export default function PrivacyPage() {
       </section>
 
       <div className="mt-8">
-        <Link href="/" className="text-sm text-primary hover:underline">
-          ← Terug naar start
-        </Link>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Link
+            href="/account-verwijderen"
+            className="text-primary hover:underline"
+          >
+            Accountverwijdering
+          </Link>
+          <Link href="/beveiliging" className="text-primary hover:underline">
+            Beveiliging
+          </Link>
+          <Link href="/" className="text-primary hover:underline">
+            Terug naar start
+          </Link>
+        </div>
       </div>
     </main>
   );

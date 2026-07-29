@@ -7,11 +7,14 @@ import { cn } from "@/lib/utils";
 export function NxtdriveLogo({
   className,
   showWordmark = true,
+  inverse = false,
   logoUrl,
   brandName,
 }: {
   className?: string;
   showWordmark?: boolean;
+  /** Use light wordmark colors on a dark navigation surface. */
+  inverse?: boolean;
   /** When set (white-label active), render this logo instead of the wordmark. */
   logoUrl?: string | null;
   /** Accessible name / alt text for the tenant logo. */
@@ -74,8 +77,12 @@ export function NxtdriveLogo({
       </svg>
       {showWordmark && (
         <span className="text-[1em] leading-none">
-          <span className="text-foreground">NXT</span>
-          <span className="text-muted-foreground">DRIVE</span>
+          <span className={inverse ? "text-white" : "text-foreground"}>
+            NXT
+          </span>
+          <span className={inverse ? "text-white/65" : "text-muted-foreground"}>
+            DRIVE
+          </span>
         </span>
       )}
     </span>

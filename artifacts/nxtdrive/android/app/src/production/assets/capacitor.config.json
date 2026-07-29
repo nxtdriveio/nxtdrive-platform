@@ -1,0 +1,16 @@
+{
+  "appId": "io.nxtdrive.instructeur",
+  "appName": "NXTDRIVE Instructeur",
+  "webDir": "public",
+  "server": {
+    "url": "https://nxtdrive.io/instructeur",
+    "cleartext": false,
+    "androidScheme": "https",
+    "allowNavigation": ["nxtdrive.io"]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

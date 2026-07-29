@@ -1,0 +1,164 @@
+name: Android production promotion
+
+on:
+  push:
+    tags:
+      - "instructor-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      internal_run_id:
+        description: Successful Android internal workflow run containing the tested AAB
+        required: false
+        type: string
+      rollout_fraction:
+        description: Initial staged rollout fraction
+        required: true
+        default: "0.1"
+        type: choice
+        options:
+          - "0.05"
+          - "0.1"
+          - "0.2"
+          - "0.5"
+      privacy_approved:
+        description: Privacy policy and Data Safety inventory received human approval
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: android-production
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+
+  promote:
+    name: Promote the tested AAB with staged rollout
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.ref, 'refs/tags/instructor-v') &&
+      !contains(github.ref_name, '-rc.'))
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: google-play-production
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+        with:
+          run_install: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Setup Java 21
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Frozen install
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce human privacy approval and Play credentials
+        env:
+          PLAY_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          PRIVACY_APPROVED: ${{ inputs.privacy_approved }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] &&
+             [ "$PRIVACY_APPROVED" != "true" ]; then
+            echo "::error::Manual production promotion requires privacy_approved=true."
+            exit 1
+          fi
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not configured."
+            exit 1
+          fi
+
+      - name: Find successful internal release for this commit
+        id: internal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN_ID: ${{ inputs.internal_run_id }}
+        run: |
+          run_id="$REQUESTED_RUN_ID"
+          if [ -z "$run_id" ]; then
+            run_id="$(gh run list \
+              --workflow android-internal.yml \
+              --commit "$GITHUB_SHA" \
+              --status success \
+              --limit 20 \
+              --json databaseId \
+              --jq '.[0].databaseId')"
+          fi
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::No successful internal Android run exists for commit $GITHUB_SHA."
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact internally tested production AAB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-evidence/android
+          gh run download "${{ steps.internal.outputs.run_id }}" \
+            --name "android-production-aab-${GITHUB_SHA}" \
+            --dir release-evidence/android
+
+      - name: Verify artifact signature and checksum
+        id: artifact
+        run: |
+          aab="$(find release-evidence/android -name '*production*.aab' -type f -print -quit)"
+          test -n "$aab"
+          # Upload keys are normally self-signed; verify entry signatures
+          # without requiring a public PKIX trust chain.
+          jarsigner -verify -certs "$aab"
+          expected="$(cut -d' ' -f1 release-evidence/android/SHA256SUMS)"
+          actual="$(sha256sum "$aab" | cut -d' ' -f1)"
+          test "$expected" = "$actual"
+          echo "aab=$aab" >> "$GITHUB_OUTPUT"
+          echo "checksum=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Validate complete Play listing assets
+        run: pnpm --filter @workspace/nxtdrive exec node scripts/validate-play-assets.mjs
+
+      - name: Prepare localized release notes
+        run: |
+          mkdir -p "$RUNNER_TEMP/whatsnew"
+          cp artifacts/nxtdrive/android/play-store/nl-NL/release-notes/1.0.0.txt \
+            "$RUNNER_TEMP/whatsnew/whatsnew-nl-NL"
+
+      - name: Start staged production rollout
+        uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: io.nxtdrive.instructeur
+          releaseFiles: ${{ steps.artifact.outputs.aab }}
+          track: production
+          status: inProgress
+          userFraction: ${{ inputs.rollout_fraction || '0.1' }}
+          whatsNewDirectory: ${{ runner.temp }}/whatsnew
+
+      - name: Upload production evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-production-evidence-${{ github.sha }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 180

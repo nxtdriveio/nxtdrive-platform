@@ -643,7 +643,7 @@ export default async function BackofficeRisPage({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <Link
-                        href={`/instructor/${card.lessonId}`}
+                        href={`/instructeur/lessen/${card.lessonId}`}
                         className="font-medium text-foreground hover:text-primary hover:underline"
                       >
                         {card.studentName}

@@ -59,6 +59,10 @@ scripts/.visual-regression/
 .env.*
 !.env.example
 *.env.local
+*.jks
+*.keystore
+*.p12
+google-play-service-account*.json
 
 # Local artifact build output
 artifacts/*/dist

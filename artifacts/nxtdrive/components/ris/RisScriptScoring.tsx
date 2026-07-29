@@ -123,11 +123,13 @@ export function RisScriptScoring({
   studentName,
   ris,
   onAssessmentsChange,
+  compact = false,
 }: {
   lessonId: string;
   studentName: string;
   ris: InstructorRisLessonCard;
   onAssessmentsChange?: (assessments: RisScriptAssessment[]) => void;
+  compact?: boolean;
 }) {
   const [assessments, setAssessments] = useState(ris.assessments);
   const [pendingScriptId, setPendingScriptId] = useState<string | null>(null);
@@ -163,6 +165,20 @@ export function RisScriptScoring({
   }, [assessmentByScript, ris.catalog.tree]);
 
   const allScripts = modules.flatMap((module) => module.scripts);
+  const compactModules = compact
+    ? modules
+        .map(({ module, scripts }) => ({
+          module,
+          scripts: scripts.filter(
+            (item) =>
+              item.assessment?.isFeaturedForLesson ||
+              item.assessment?.isAttentionPoint ||
+              item.assessment?.shouldRepeat ||
+              item.assessment?.conceptRisStep,
+          ),
+        }))
+        .filter(({ scripts }) => scripts.length > 0)
+    : modules;
   const scoredCount = allScripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
   const focusCount = allScripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
   const attentionCount = allScripts.filter((item) => item.assessment?.isAttentionPoint).length;
@@ -262,8 +278,9 @@ export function RisScriptScoring({
               Beoordeling voor {studentName}
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Werk per module de actuele RIS-score bij. Alle modules staan standaard
-              ingeklapt zodat de leskaart compact blijft.
+              {compact
+                ? "Alleen focusscripts, gewijzigde scripts en aandachtspunten staan hier klaar."
+                : "Werk per module de actuele RIS-stap bij. Alle modules staan standaard ingeklapt zodat de leskaart compact blijft."}
             </p>
           </div>
 
@@ -290,14 +307,21 @@ export function RisScriptScoring({
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             Er is nog geen RIS-catalogus beschikbaar voor deze tenant.
           </div>
+        ) : compact && compactModules.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-5 text-sm leading-6 text-muted-foreground">
+            Nog geen focusscripts of gewijzigde scripts. Kies in de volledige
+            beoordeling eerst de scripts die tijdens deze les zijn behandeld;
+            niet-beoordeelde scripts blijven N.
+          </div>
         ) : (
           <div className="space-y-3">
-            {modules.map(({ module, scripts }) => {
+            {compactModules.map(({ module, scripts }) => {
               const moduleScored = scripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
               const moduleAttention = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
               return (
                 <details
                   key={module.id}
+                  open={compact || undefined}
                   className="group rounded-2xl border border-border bg-card/75 shadow-sm"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
@@ -340,7 +364,7 @@ export function RisScriptScoring({
                               <button
                                 type="button"
                                 title={tooltip}
-                                className="inline-flex min-w-0 items-center gap-2 text-left text-sm font-black text-foreground"
+                                className="inline-flex min-h-11 min-w-0 items-center gap-2 text-left text-sm font-black text-foreground"
                               >
                                 <span className="shrink-0 text-primary">{script.code}:</span>
                                 <span className="truncate">{script.title}</span>
@@ -372,14 +396,14 @@ export function RisScriptScoring({
                                 onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
                                 aria-label={`Verlaag score voor ${script.title}`}
                                 className={cn(
-                                  "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
+                                  "grid h-11 w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
                                   (locked || pending || currentIndex <= MIN_SCORE_INDEX) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
                               >
                                 <Minus className="h-4 w-4" aria-hidden />
                               </button>
-                              <span className="grid h-8 min-w-16 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
+                              <span className="grid h-11 min-w-16 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
                                 {pending ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
                                 ) : step === "N" ? (
@@ -394,7 +418,7 @@ export function RisScriptScoring({
                                 onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
                                 aria-label={`Verhoog score voor ${script.title}`}
                                 className={cn(
-                                  "grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
+                                  "grid h-11 w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
                                   (locked || pending || currentIndex >= MAX_SCORE_INDEX) &&
                                     "cursor-not-allowed opacity-45",
                                 )}
@@ -483,7 +507,7 @@ function SummaryTagDropdown({
       <summary
         aria-label="Labels kiezen"
         className={cn(
-          "flex h-10 cursor-pointer list-none items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-black text-foreground shadow-sm transition hover:border-primary/50",
+          "flex h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-black text-foreground shadow-sm transition hover:border-primary/50",
           "[&::-webkit-details-marker]:hidden",
           disabled && "pointer-events-none opacity-60",
         )}
@@ -503,7 +527,7 @@ function SummaryTagDropdown({
             disabled={disabled}
             onClick={() => onToggle(option.patch)}
             className={cn(
-              "flex items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold transition",
+              "flex min-h-11 items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold transition",
               option.active
                 ? "border-primary/40 bg-primary-soft text-primary"
                 : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",

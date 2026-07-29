@@ -11,6 +11,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { learnerRoutes } from "@/lib/routes";
 
 export type StudentNavItem = {
   href: string;
@@ -20,29 +21,53 @@ export type StudentNavItem = {
   exact?: boolean;
 };
 
+type LearnerRouteId = (typeof learnerRoutes)[number]["id"];
+
+function learnerNavItem(
+  id: LearnerRouteId,
+  icon: LucideIcon,
+  exact = false,
+): StudentNavItem {
+  const route = learnerRoutes.find((candidate) => candidate.id === id);
+  if (!route) throw new Error(`Unknown learner route: ${id}`);
+  return {
+    href: route.canonicalPath,
+    label: route.navLabel,
+    icon,
+    exact,
+  };
+}
+
 export const STUDENT_BOTTOM_NAV_ITEMS: StudentNavItem[] = [
-  { href: "/student", label: "Home", icon: Home, exact: true },
-  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", icon: Route },
-  { href: "/student/theory", label: "Theorie", icon: BookOpen },
-  { href: "/student/more", label: "Meer", icon: MoreHorizontal },
+  learnerNavItem("learner.home", Home, true),
+  learnerNavItem("learner.lessons", CalendarDays),
+  learnerNavItem("learner.progress", Route),
+  learnerNavItem("learner.messages", MessageCircle),
+  { ...learnerNavItem("learner.settings", MoreHorizontal), label: "Meer" },
 ];
 
 export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
-  { href: "/student", label: "Dashboard", icon: Home, exact: true },
-  { href: "/student/journey", label: "Mijn reis", icon: Route },
-  { href: "/student/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/student/theory", label: "Theorie", icon: BookOpen },
-  { href: "/student/messages", label: "Berichten", icon: MessageCircle },
-  { href: "/student/payments", label: "Betalingen", icon: Wallet },
-  { href: "/student/cbr-exams", label: "CBR & Examens", icon: BadgeCheck },
-  { href: "/student/documents", label: "Documenten", icon: FileText },
-  { href: "/student/settings", label: "Instellingen", icon: Settings },
+  {
+    ...learnerNavItem("learner.home", Home, true),
+    label: "Dashboard",
+  },
+  learnerNavItem("learner.progress", Route),
+  learnerNavItem("learner.lessons", CalendarDays),
+  learnerNavItem("learner.reflection", Route),
+  learnerNavItem("learner.theory", BookOpen),
+  learnerNavItem("learner.messages", MessageCircle),
+  learnerNavItem("learner.payments", Wallet),
+  learnerNavItem("learner.exams", BadgeCheck),
+  learnerNavItem("learner.documents", FileText),
+  learnerNavItem("learner.settings", Settings),
 ];
 
 export const STUDENT_NAV_ITEMS = STUDENT_SIDEBAR_NAV_ITEMS;
 
-export function isNavItemActive(item: StudentNavItem, pathname: string): boolean {
+export function isNavItemActive(
+  item: StudentNavItem,
+  pathname: string,
+): boolean {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(item.href + "/");
 }

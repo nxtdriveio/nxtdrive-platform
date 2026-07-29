@@ -87,7 +87,7 @@ const APPOINTMENT_VISUALS: Record<AgendaAppointmentType, AgendaVisual> = {
 };
 
 function extractLessonId(pathname: string): string | undefined {
-  const match = pathname.match(/^\/instructor\/([^/]+)$/);
+  const match = pathname.match(/^\/instructeur\/lessen\/([^/]+)$/);
   return match?.[1];
 }
 
@@ -126,12 +126,12 @@ function itemPlace(item: DayItem) {
 
 function itemHref(item: DayItem) {
   if (item.kind === "lesson") {
-    return `/instructor/${item.lesson.id}`;
+    return `/instructeur/lessen/${item.lesson.id}`;
   }
   if (item.kind === "trial") {
-    return "/instructor/intake";
+    return "/instructeur/intake";
   }
-  return `/instructor/afspraak/${item.appointment.id}`;
+  return `/instructeur/agenda/${item.appointment.id}`;
 }
 
 function itemVisual(item: DayItem): AgendaVisual {
@@ -346,7 +346,7 @@ export function InstructorDayList({
       </div>
 
       <Link
-        href="/instructor/week"
+        href="/instructeur/agenda"
         className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-[1.15rem] border border-border/70 bg-background/65 px-4 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:bg-muted"
       >
         <CalendarRange className="h-4 w-4" aria-hidden />

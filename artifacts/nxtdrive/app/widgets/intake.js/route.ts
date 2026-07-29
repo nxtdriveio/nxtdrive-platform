@@ -17,7 +17,7 @@ const INTAKE_WIDGET_SCRIPT = `(function () {
     return;
   }
 
-  var appOrigin = "https://app.nxtdrive.nl";
+  var appOrigin = "https://nxtdrive.io";
   try {
     appOrigin = new URL(script.src, window.location.href).origin;
   } catch (error) {}

@@ -101,112 +101,105 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
   ],
   instructor: [
     {
-      href: "/instructor/afspraak/nieuw",
+      href: "/instructeur/agenda/nieuw",
       match: "prefix",
       title: "Nieuwe afspraak",
       description:
         "Plan hier een examen, theorieblok of ander agenda-item dat tijd reserveert.",
     },
     {
-      href: "/instructor/afspraak/",
+      href: "/instructeur/agenda/",
       match: "prefix",
       title: "Afspraak bewerken",
       description:
         "Werk een bestaand agenda-item bij of verwijder het wanneer de planning wijzigt.",
     },
     {
-      href: "/instructor/berichten/",
+      href: "/instructeur/berichten/",
       match: "prefix",
       title: "Gesprek",
       description:
         "Dit is de volledige chat met een leerling, zodat je snel kunt bijsturen of antwoorden.",
     },
     {
-      href: "/instructor/berichten",
+      href: "/instructeur/berichten",
       match: "prefix",
       title: "Berichten",
       description:
         "Bekijk al je gesprekken met leerlingen en open direct de juiste thread.",
     },
     {
-      href: "/instructor/beschikbaarheid",
+      href: "/instructeur/beschikbaarheid",
       match: "prefix",
       title: "Beschikbaarheid",
       description:
         "Stel je vaste beschikbaarheid en uitzonderingen in zodat planning en capaciteit kloppen.",
     },
     {
-      href: "/instructor/intake",
+      href: "/instructeur/intake",
       match: "prefix",
       title: "Intakeoverzicht",
       description:
         "Bekijk intakegegevens per leerling zonder de instructeurapp te verlaten.",
     },
     {
-      href: "/instructor/les/nieuw",
+      href: "/instructeur/agenda/nieuw",
       match: "prefix",
       title: "Nieuwe les",
       description:
         "Plan direct een reguliere les vanuit je instructeurcockpit en open daarna meteen de lesdetailpagina.",
     },
     {
-      href: "/instructor/leerlingen",
+      href: "/instructeur/leerlingen",
       match: "prefix",
       title: "Leerlingen",
       description:
         "Hier vind je je actieve leerlingenlijst met snelle toegang tot dossiers en lessen.",
     },
     {
-      href: "/instructor/les-evaluaties",
+      href: "/instructeur/lessen/",
       match: "prefix",
-      title: "Les evaluaties",
+      title: "Lesson Cockpit",
       description:
         "Bekijk recente lesuitkomsten, voortgangssamenvattingen en snelle feedback zonder je cockpit te verlaten.",
     },
     {
-      href: "/instructor/meldingen",
+      href: "/instructeur/meldingen",
       match: "prefix",
       title: "Meldingen",
       description:
         "Bekijk updates en beheer welke pushmeldingen je op je toestel wilt ontvangen.",
     },
     {
-      href: "/instructor/taken",
+      href: "/instructeur/taken",
       match: "prefix",
       title: "Taken",
       description:
         "Werk jouw toegewezen taken af en verplaats ze door je workflow.",
     },
     {
-      href: "/instructor/voertuigen",
+      href: "/instructeur/voertuigen",
       match: "prefix",
       title: "Voertuigen",
       description:
         "Bekijk je beschikbare lesauto's en locaties die je direct vanuit de instructeurapp kunt raadplegen.",
     },
     {
-      href: "/instructor/week",
+      href: "/instructeur/agenda",
       match: "prefix",
       title: "Agenda",
       description:
         "Je agenda toont dag, week en maand met lessen, afspraken en andere tijdsblokken in een overzicht.",
     },
     {
-      href: "/instructor/meer",
+      href: "/instructeur/meer",
       match: "prefix",
       title: "Meer",
       description:
         "Extra functies zoals instellingen en aanvullende tools voor je instructeurapp.",
     },
     {
-      href: "/instructor/",
-      match: "prefix",
-      title: "Lescockpit",
-      description:
-        "Werk hier een les af met alle context, acties, feedback en vervolg op een plek.",
-    },
-    {
-      href: "/instructor",
+      href: "/instructeur",
       match: "exact",
       title: "Vandaag",
       description:
@@ -534,7 +527,7 @@ const SCOPE_FALLBACK: Record<RouteInfoScope, RouteInfoEntry> = {
       "Deze app helpt leerlingen met planning, voortgang, betalingen en contact met de rijschool.",
   },
   instructor: {
-    href: "/instructor",
+    href: "/instructeur",
     match: "exact",
     title: "Instructeurapp",
     description:

@@ -115,8 +115,8 @@ function revalidateBrandingSurfaces() {
   revalidatePath("/backoffice/instellingen");
   revalidatePath("/student", "layout");
   revalidatePath("/student/manifest.webmanifest");
-  revalidatePath("/instructor", "layout");
-  revalidatePath("/instructor/manifest.webmanifest");
+  revalidatePath("/instructeur", "layout");
+  revalidatePath("/instructeur/manifest.webmanifest");
 }
 
 export async function saveBranding(formData: FormData) {

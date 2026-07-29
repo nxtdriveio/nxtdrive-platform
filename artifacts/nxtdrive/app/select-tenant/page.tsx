@@ -29,7 +29,7 @@ async function chooseTenant(formData: FormData) {
   if (roles.includes("tenant_admin") || user.profile?.is_platform_admin) {
     redirect("/backoffice");
   }
-  if (roles.includes("instructor")) redirect("/instructor");
+  if (roles.includes("instructor")) redirect("/instructeur");
   if (roles.includes("student") || roles.includes("parent")) {
     redirect("/student");
   }

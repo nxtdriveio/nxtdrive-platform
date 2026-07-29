@@ -156,7 +156,7 @@ export function StudentStatusBar({
         tone={nextLessonAt ? "info" : "muted"}
         href={
           scope === "instructor"
-            ? `/instructor/les/nieuw?student_id=${studentId}`
+            ? `/instructeur/agenda/nieuw?student_id=${studentId}`
             : `/backoffice/agenda/nieuw?student_id=${studentId}`
         }
       />

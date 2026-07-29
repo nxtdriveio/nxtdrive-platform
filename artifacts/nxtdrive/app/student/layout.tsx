@@ -39,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: brandingContext.brandTitle,
     description: brandingContext.brandDescription,
-    manifest: "/student/manifest.webmanifest",
+    manifest: "/leerling/manifest.webmanifest",
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
@@ -70,7 +70,6 @@ export async function generateViewport(): Promise<Viewport> {
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
-    maximumScale: 1,
   };
 }
 
@@ -84,7 +83,7 @@ export default async function StudentLayout({
     "parent",
   ]);
 
-  if (homePathForRoles(roles) !== "/student") {
+  if (homePathForRoles(roles) !== "/leerling") {
     redirect(roleHomePath(user, tenant.id));
   }
 

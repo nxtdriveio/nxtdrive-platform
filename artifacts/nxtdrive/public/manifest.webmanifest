@@ -33,19 +33,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/student-1.png",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Leerling dashboard"
-    },
-    {
-      "src": "/screenshots/student-2.png",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Leerling voortgang"
-    }
   ]
 }

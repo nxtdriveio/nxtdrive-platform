@@ -1,0 +1,16 @@
+NXTDRIVE Instructeur brengt het dagelijkse werk van een rijinstructeur samen in één rustige app.
+
+Bekijk je agenda, bereid lessen voor, open een leerlingdossier en leg lesobservaties en reflecties vast. De app ondersteunt zowel reguliere rijopleidingen als de binnen de rijschool geconfigureerde opleidingsmethode.
+
+Belangrijkste functies:
+
+• dagplanning en lesdetails;
+• leerlingoverzicht en voortgang;
+• lesvoorbereiding en lesafronding;
+• reflecties en vervolgafspraken;
+• berichten, taken en beschikbaarheid;
+• een tabletvriendelijke en mobiele interface.
+
+Je gebruikt de app met een account van een aangesloten rijschool. Welke onderdelen zichtbaar zijn, hangt af van je rol en de configuratie van je organisatie.
+
+NXTDRIVE neemt geen examenbesluiten en vervangt geen beoordeling door een bevoegde instructeur of officiële instantie.

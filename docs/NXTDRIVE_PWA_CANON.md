@@ -55,7 +55,7 @@ Wel:
 ## Domein
 
 ```text
-app.nxtdrive.nl
+nxtdrive.io
 ```
 
 Alle app-gebruikers loggen hier in.

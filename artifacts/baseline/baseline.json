@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-07-29",
+  "commit": "5f4c94d63d1dc0b1bd4656a44b19cf6a6abdccf4",
+  "branch": "main",
+  "node": "v24.18.0",
+  "pnpm": "10.26.1",
+  "workspaceProjects": 11,
+  "migrationFiles": 154,
+  "pageRoutes": 163,
+  "instructorPageRoutes": 40,
+  "productionFilesOver800Lines": 29,
+  "checks": {
+    "frozenInstall": "pass",
+    "typecheck": "pass",
+    "unitAndIntegration": {
+      "status": "fail",
+      "passed": 158,
+      "failed": 1,
+      "failure": "invoice status used the wall-clock date instead of the supplied test date"
+    },
+    "build": "pass",
+    "format": "missing",
+    "lint": "missing",
+    "e2eGate": "missing",
+    "visualGate": "missing",
+    "migrationGate": "missing",
+    "android": "missing"
+  },
+  "productionAudit": {
+    "critical": 0,
+    "high": 6,
+    "moderate": 7,
+    "low": 1
+  },
+  "preExistingUserChanges": [
+    "docs/PHASE_PLAN.md",
+    "docs/NXTDRIVE_DELIVERY_ROADMAP_2026.md"
+  ]
+}

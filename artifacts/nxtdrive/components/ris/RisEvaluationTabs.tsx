@@ -29,7 +29,13 @@ import type {
   RisScriptAssessment,
 } from "@/lib/ris/data";
 
-type TabKey = "info" | "planning" | "scoring" | "reflection" | "summary";
+type TabKey =
+  | "quick"
+  | "info"
+  | "planning"
+  | "scoring"
+  | "reflection"
+  | "summary";
 
 export type EvaluationLessonInfo = {
   studentName: string;
@@ -55,6 +61,7 @@ const TABS: Array<{
   label: string;
   icon: typeof FileText;
 }> = [
+  { key: "quick", label: "Snel afronden", icon: CheckCircle2 },
   { key: "info", label: "Lesinfo", icon: FileText },
   { key: "planning", label: "Plankaart", icon: Target },
   { key: "scoring", label: "Beoordeling", icon: BookOpenCheck },
@@ -89,7 +96,7 @@ export function RisEvaluationTabs({
   studentLearningWish: string | null;
   endOfLessonScheduling: EndOfLessonSchedulingState;
 }) {
-  const [activeTab, setActiveTab] = useState<TabKey>("info");
+  const [activeTab, setActiveTab] = useState<TabKey>("quick");
   const [risState, setRisState] = useState(ris);
 
   useEffect(() => {
@@ -100,6 +107,26 @@ export function RisEvaluationTabs({
     setRisState((current) => ({ ...current, assessments }));
   }
 
+  function moveTabFocus(
+    current: TabKey,
+    key: "ArrowLeft" | "ArrowRight" | "Home" | "End",
+  ) {
+    const currentIndex = TABS.findIndex((tab) => tab.key === current);
+    const nextIndex =
+      key === "Home"
+        ? 0
+        : key === "End"
+          ? TABS.length - 1
+          : (currentIndex + (key === "ArrowRight" ? 1 : -1) + TABS.length) %
+            TABS.length;
+    const next = TABS[nextIndex]?.key;
+    if (!next) return;
+    setActiveTab(next);
+    requestAnimationFrame(() => {
+      document.getElementById(`lesson-tab-${next}`)?.focus();
+    });
+  }
+
   const lessonCardLocked = Boolean(
     risState.card && !OPEN_RIS_CARD_STATUSES.has(risState.card.publicationStatus),
   );
@@ -107,14 +134,34 @@ export function RisEvaluationTabs({
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-2xl border border-border bg-card/85 p-1 shadow-brand-card">
-        <div className="flex min-w-max gap-1">
+        <div
+          className="flex min-w-max gap-1"
+          role="tablist"
+          aria-label="Onderdelen van de Lesson Cockpit"
+        >
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
+                id={`lesson-tab-${tab.key}`}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                aria-controls={`lesson-panel-${tab.key}`}
+                tabIndex={activeTab === tab.key ? 0 : -1}
                 onClick={() => setActiveTab(tab.key)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "ArrowLeft" ||
+                    event.key === "ArrowRight" ||
+                    event.key === "Home" ||
+                    event.key === "End"
+                  ) {
+                    event.preventDefault();
+                    moveTabFocus(tab.key, event.key);
+                  }
+                }}
                 className={cn(
                   "inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black transition",
                   activeTab === tab.key
@@ -130,37 +177,93 @@ export function RisEvaluationTabs({
         </div>
       </div>
 
-      {activeTab === "info" ? <LessonInfoTab info={lessonInfo} /> : null}
+      {activeTab === "quick" ? (
+        <div
+          id="lesson-panel-quick"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-quick"
+          className="space-y-4"
+        >
+          <Card className="border-primary/25 bg-primary-soft/20">
+            <CardContent className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+                  Lesson Cockpit
+                </div>
+                <h2 className="mt-1 text-xl font-black text-foreground">
+                  Beoordelen, reflecteren en afronden
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Werk de focusscripts bij, leg de reflectie vast en controleer
+                  de volgende les. Concepten worden tussentijds opgeslagen.
+                </p>
+              </div>
+              <Badge variant="primary">Doel: binnen 60 seconden</Badge>
+            </CardContent>
+          </Card>
+          <RisScriptScoring
+            lessonId={lessonId}
+            studentName={studentName}
+            ris={risState}
+            onAssessmentsChange={updateAssessments}
+            compact
+          />
+          <RisLessonPublicationPanel
+            lessonId={lessonId}
+            studentId={studentId}
+            studentName={studentName}
+            ris={risState}
+            mode="quick"
+          />
+          <EndOfLessonSchedulingPanel state={endOfLessonScheduling} />
+        </div>
+      ) : null}
+      {activeTab === "info" ? (
+        <div id="lesson-panel-info" role="tabpanel" aria-labelledby="lesson-tab-info">
+          <LessonInfoTab info={lessonInfo} />
+        </div>
+      ) : null}
       {activeTab === "planning" ? (
-        <InstructorPlanningCardPanel
-          lessonId={lessonId}
-          studentId={studentId}
-          studentName={studentName}
-          planningCard={planningCard}
-          goalOptions={goalOptions}
-          studentLearningWish={studentLearningWish}
-          lessonCardLocked={lessonCardLocked}
-        />
+        <div id="lesson-panel-planning" role="tabpanel" aria-labelledby="lesson-tab-planning">
+          <InstructorPlanningCardPanel
+            lessonId={lessonId}
+            studentId={studentId}
+            studentName={studentName}
+            planningCard={planningCard}
+            goalOptions={goalOptions}
+            studentLearningWish={studentLearningWish}
+            lessonCardLocked={lessonCardLocked}
+          />
+        </div>
       ) : null}
       {activeTab === "scoring" ? (
-        <RisScriptScoring
-          lessonId={lessonId}
-          studentName={studentName}
-          ris={risState}
-          onAssessmentsChange={updateAssessments}
-        />
+        <div id="lesson-panel-scoring" role="tabpanel" aria-labelledby="lesson-tab-scoring">
+          <RisScriptScoring
+            lessonId={lessonId}
+            studentName={studentName}
+            ris={risState}
+            onAssessmentsChange={updateAssessments}
+          />
+        </div>
       ) : null}
       {activeTab === "reflection" ? (
-        <RisLessonPublicationPanel
-          lessonId={lessonId}
-          studentId={studentId}
-          studentName={studentName}
-          ris={risState}
-          mode="reflection"
-        />
+        <div id="lesson-panel-reflection" role="tabpanel" aria-labelledby="lesson-tab-reflection">
+          <RisLessonPublicationPanel
+            lessonId={lessonId}
+            studentId={studentId}
+            studentName={studentName}
+            ris={risState}
+            mode="reflection"
+          />
+        </div>
       ) : null}
       {activeTab === "summary" ? (
-        <div className="space-y-4">
+        <div
+          id="lesson-panel-summary"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-summary"
+          className="space-y-4"
+        >
           <RisLessonPublicationPanel
             lessonId={lessonId}
             studentId={studentId}

@@ -1,0 +1,16 @@
+{
+  "appId": "io.nxtdrive.instructeur.staging",
+  "appName": "NXTDRIVE Instructeur Staging",
+  "webDir": "public",
+  "server": {
+    "url": "https://staging.nxtdrive.io/instructeur",
+    "cleartext": false,
+    "androidScheme": "https",
+    "allowNavigation": ["staging.nxtdrive.io"]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

@@ -64,7 +64,7 @@ async function databaseCheck(): Promise<CheckResult> {
       return {
         ok: false,
         latencyMs: Date.now() - startedAt,
-        message: error.message,
+        message: "Database query failed.",
       };
     }
 
@@ -76,21 +76,70 @@ async function databaseCheck(): Promise<CheckResult> {
     return {
       ok: false,
       latencyMs: Date.now() - startedAt,
-      message: error instanceof Error ? error.message : "Unknown database error.",
+      message: "Database connection failed.",
     };
+  }
+}
+
+async function migrationCheck(): Promise<CheckResult> {
+  try {
+    const service = createServiceRoleClient();
+    const { error } = await service
+      .from("tenants")
+      .select("id, timezone", { count: "exact", head: true })
+      .limit(1);
+    return error
+      ? { ok: false, message: "Expected database schema is not available." }
+      : { ok: true };
+  } catch {
+    return { ok: false, message: "Migration compatibility check failed." };
+  }
+}
+
+async function queueCheck(): Promise<CheckResult> {
+  try {
+    const service = createServiceRoleClient();
+    const { error } = await service
+      .from("notification_log")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+    return error
+      ? { ok: false, message: "Notification outbox is unavailable." }
+      : { ok: true };
+  } catch {
+    return { ok: false, message: "Notification outbox check failed." };
+  }
+}
+
+async function storageCheck(): Promise<CheckResult> {
+  try {
+    const service = createServiceRoleClient();
+    const { error } = await service.storage.listBuckets();
+    return error
+      ? { ok: false, message: "Object storage is unavailable." }
+      : { ok: true };
+  } catch {
+    return { ok: false, message: "Object storage check failed." };
   }
 }
 
 export async function GET() {
   const env = envCheck();
-  const database = env.ok
-    ? await databaseCheck()
-    : {
-        ok: false,
-        message: "Skipped because runtime environment is incomplete.",
-      };
+  const skipped = {
+    ok: false,
+    message: "Skipped because runtime environment is incomplete.",
+  };
+  const [database, migrations, queue, storage] = env.ok
+    ? await Promise.all([
+        databaseCheck(),
+        migrationCheck(),
+        queueCheck(),
+        storageCheck(),
+      ])
+    : [skipped, skipped, skipped, skipped];
 
-  const ok = env.ok && database.ok;
+  const ok =
+    env.ok && database.ok && migrations.ok && queue.ok && storage.ok;
 
   return NextResponse.json(
     {
@@ -100,6 +149,9 @@ export async function GET() {
       checks: {
         env,
         database,
+        migrations,
+        queue,
+        storage,
       },
     },
     {

@@ -6,6 +6,8 @@ import {
   firstOfNextMonth,
 } from "@/lib/dashboard/metrics";
 import { displayStatus, type DisplayStatus } from "@/lib/invoices/types";
+import type { Clock } from "@/lib/time/clock";
+import { systemClock, todayInTimeZone } from "@/lib/time/clock";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createServerSupabaseClient>
@@ -43,7 +45,11 @@ export type AccountingOverview = {
   from: string;
   to: string;
   monthly: MonthSummary[];
-  revenueTotals: { subtotalCents: number; taxCents: number; totalCents: number };
+  revenueTotals: {
+    subtotalCents: number;
+    taxCents: number;
+    totalCents: number;
+  };
   vatByRate: VatRateBucket[];
   vatTotals: { baseCents: number; vatCents: number; grossCents: number };
   outstanding: OutstandingInvoice[];
@@ -51,8 +57,11 @@ export type AccountingOverview = {
 };
 
 /** Default accounting range: Jan 1 of the current year → today (Amsterdam). */
-export function defaultAccountingRange(): { from: string; to: string } {
-  const today = amsterdamYmd(new Date());
+export function defaultAccountingRange(
+  clock: Clock = systemClock,
+  timeZone = "Europe/Amsterdam",
+): { from: string; to: string } {
+  const today = todayInTimeZone(clock, timeZone);
   return { from: `${today.slice(0, 4)}-01-01`, to: today };
 }
 
@@ -95,10 +104,14 @@ export async function getAccountingOverview(
   tenantId: string,
   fromYmd: string,
   toYmd: string,
+  options: { clock?: Clock; timeZone?: string } = {},
 ): Promise<AccountingOverview> {
   const rangeStart = startOfDayUtc(fromYmd).toISOString();
   const rangeEnd = startOfDayUtc(addDays(toYmd, 1)).toISOString();
-  const todayYmd = amsterdamYmd(new Date());
+  const todayYmd = todayInTimeZone(
+    options.clock ?? systemClock,
+    options.timeZone,
+  );
 
   // Paid invoices (revenue), open invoices (outstanding).
   const [paidRes, openRes] = await Promise.all([
@@ -120,10 +133,14 @@ export async function getAccountingOverview(
   ]);
 
   if (paidRes.error) {
-    throw new Error(`accounting: paid invoices read failed: ${paidRes.error.message}`);
+    throw new Error(
+      `accounting: paid invoices read failed: ${paidRes.error.message}`,
+    );
   }
   if (openRes.error) {
-    throw new Error(`accounting: open invoices read failed: ${openRes.error.message}`);
+    throw new Error(
+      `accounting: open invoices read failed: ${openRes.error.message}`,
+    );
   }
 
   const paid = paidRes.data ?? [];
@@ -221,7 +238,10 @@ export async function getAccountingOverview(
       dueDate,
       daysOverdue: daysOverdue(dueDate, todayYmd),
       totalCents: total,
-      display: displayStatus({ status: "open", due_date: dueDate }),
+      display: displayStatus(
+        { status: "open", due_date: dueDate },
+        { todayYmd },
+      ),
     });
     // Attribute outstanding to the month it was issued in (falls back to its
     // due date when an issue date is somehow absent).

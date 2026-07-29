@@ -1,12 +1,17 @@
-import { RisEvaluationWorkspace } from "../evaluations/[lessonId]/RisEvaluationWorkspace";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorLessonPage({
+export default async function InstructorLessonLegacyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lessonId: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
   const { lessonId } = await params;
-  return <RisEvaluationWorkspace lessonId={lessonId} />;
+  permanentRedirectToInstructorRoute(
+    "lesson",
+    { lessonId },
+    await searchParams,
+  );
 }

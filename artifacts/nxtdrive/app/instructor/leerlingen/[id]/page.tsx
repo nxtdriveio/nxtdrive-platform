@@ -1,14 +1,17 @@
-import { InstructorStudentDetailView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorStudentPage({
+export default async function InstructorStudentLegacyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
   const { id } = await params;
-  const data = await loadInstructorExperience();
-  return <InstructorStudentDetailView studentId={id} data={data} />;
+  permanentRedirectToInstructorRoute(
+    "student",
+    { studentId: id },
+    await searchParams,
+  );
 }

@@ -105,7 +105,7 @@ White-label is optioneel.
 ## Marketing
 
 ```text
-rijschool.nxtdrive.nl
+nxtdrive.io
 ```
 
 NXTDRIVE marketing website.
@@ -115,7 +115,7 @@ NXTDRIVE marketing website.
 ## Centrale Login
 
 ```text
-app.nxtdrive.nl
+nxtdrive.io
 ```
 
 Iedere gebruiker logt hier in.

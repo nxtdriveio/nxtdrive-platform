@@ -328,7 +328,7 @@ export async function inviteInstructor(formData: FormData) {
       const appUrl =
         process.env["NEXT_PUBLIC_APP_URL"] ??
         process.env["NEXTAUTH_URL"] ??
-        "https://app.nxtdrive.io";
+        "https://nxtdrive.io";
       const loginUrl = `${appUrl}/login`;
       const emailContent = renderStaffWelcome(branding, {
         staffName: fullName || email,

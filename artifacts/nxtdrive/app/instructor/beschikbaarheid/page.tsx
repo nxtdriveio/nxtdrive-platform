@@ -1,12 +1,10 @@
-import { InstructorAvailabilityManager } from "@/components/instructor/AvailabilityManager";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function InstructorAvailabilityPage({
+export default async function InstructorAvailabilityLegacyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<InstructorSearchParams>;
 }) {
-  const sp = await searchParams;
-  return <InstructorAvailabilityManager redirectTo="/instructor/beschikbaarheid" error={sp.error} />;
+  permanentRedirectToInstructorRoute("availability", {}, await searchParams);
 }

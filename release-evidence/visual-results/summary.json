@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-29",
+  "status": "pass",
+  "baselines": [
+    {
+      "name": "login-desktop",
+      "viewport": "1440x1000"
+    },
+    {
+      "name": "login-mobile",
+      "viewport": "390x844"
+    },
+    {
+      "name": "privacy-tablet",
+      "viewport": "1024x1366"
+    },
+    {
+      "name": "account-deletion-mobile",
+      "viewport": "390x844"
+    }
+  ],
+  "authenticatedStoreScreenshots": {
+    "status": "missing",
+    "validatorBehavior": "blocks-release"
+  }
+}

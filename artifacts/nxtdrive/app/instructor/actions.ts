@@ -157,9 +157,9 @@ export async function moveOwnedLessonAction(input: {
     return { error: planningErrorMessage(error) };
   }
 
-  revalidatePath("/instructor");
-  revalidatePath("/instructor/week");
-  revalidatePath(`/instructor/${input.lessonId}`);
+  revalidatePath("/instructeur");
+  revalidatePath("/instructeur/agenda");
+  revalidatePath(`/instructeur/lessen/${input.lessonId}`);
   return {};
 }
 
@@ -246,9 +246,9 @@ export async function moveOwnedAppointmentAction(input: {
     return { error: planningErrorMessage(error) };
   }
 
-  revalidatePath("/instructor");
-  revalidatePath("/instructor/week");
-  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  revalidatePath("/instructeur");
+  revalidatePath("/instructeur/agenda");
+  revalidatePath(`/instructeur/agenda/${input.appointmentId}`);
   return {};
 }
 
@@ -277,9 +277,9 @@ export async function setOwnedAppointmentColorAction(input: {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/instructor");
-  revalidatePath("/instructor/week");
-  revalidatePath(`/instructor/afspraak/${input.appointmentId}`);
+  revalidatePath("/instructeur");
+  revalidatePath("/instructeur/agenda");
+  revalidatePath(`/instructeur/agenda/${input.appointmentId}`);
   return {};
 }
 
@@ -287,7 +287,7 @@ export async function startLessonAction(formData: FormData): Promise<void> {
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") {
-    redirect(`/instructor/${lessonId}?error=${encodeURIComponent(ctx)}`);
+    redirect(`/instructeur/lessen/${lessonId}?error=${encodeURIComponent(ctx)}`);
   }
   const service = createServiceRoleClient();
   const { error } = await service.rpc("start_lesson", {
@@ -297,19 +297,19 @@ export async function startLessonAction(formData: FormData): Promise<void> {
   });
   if (error) {
     redirect(
-      `/instructor/${lessonId}?error=${encodeURIComponent(error.message)}`,
+      `/instructeur/lessen/${lessonId}?error=${encodeURIComponent(error.message)}`,
     );
   }
-  revalidatePath(`/instructor/${lessonId}`);
-  revalidatePath("/instructor");
-  redirect(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
+  revalidatePath("/instructeur");
+  redirect(`/instructeur/lessen/${lessonId}`);
 }
 
 export async function completeLessonAction(formData: FormData): Promise<void> {
   const lessonId = String(formData.get("lesson_id") ?? "");
   const ctx = await loadOwnedLesson(lessonId);
   if (typeof ctx === "string") {
-    redirect(`/instructor/${lessonId}?error=${encodeURIComponent(ctx)}`);
+    redirect(`/instructeur/lessen/${lessonId}?error=${encodeURIComponent(ctx)}`);
   }
   const service = createServiceRoleClient();
   const { error } = await service.rpc("complete_lesson", {
@@ -319,7 +319,7 @@ export async function completeLessonAction(formData: FormData): Promise<void> {
   });
   if (error) {
     redirect(
-      `/instructor/${lessonId}?error=${encodeURIComponent(error.message)}`,
+      `/instructeur/lessen/${lessonId}?error=${encodeURIComponent(error.message)}`,
     );
   }
   // Task #113 — beoordeel reviewmomenten (na N lessen / examenwaardig). Best-
@@ -329,9 +329,9 @@ export async function completeLessonAction(formData: FormData): Promise<void> {
     ctx.tenantId,
     ctx.lesson.student_id,
   );
-  revalidatePath(`/instructor/${lessonId}`);
-  revalidatePath("/instructor");
-  redirect(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
+  revalidatePath("/instructeur");
+  redirect(`/instructeur/lessen/${lessonId}`);
 }
 
 export async function cancelLessonAction(
@@ -354,8 +354,8 @@ export async function cancelLessonAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
-  revalidatePath("/instructor");
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
+  revalidatePath("/instructeur");
   return {};
 }
 
@@ -374,8 +374,8 @@ export async function markNoShowAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
-  revalidatePath("/instructor");
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
+  revalidatePath("/instructeur");
   return {};
 }
 
@@ -399,7 +399,7 @@ export async function addLessonNoteAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   return {};
 }
 
@@ -452,7 +452,7 @@ export async function toggleStudentCbrCompetencyAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/instructor", "layout");
+  revalidatePath("/instructeur", "layout");
   revalidatePath("/student", "layout");
   return {};
 }
@@ -486,7 +486,7 @@ export async function setLessonProgressAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   return {};
 }
 
@@ -520,7 +520,7 @@ export async function setSkillScoreAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   return {};
 }
 
@@ -576,7 +576,7 @@ export async function setLessonContextAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   revalidatePath("/student", "layout");
   return {};
 }
@@ -613,7 +613,7 @@ export async function assignTheoryHomeworkAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   revalidatePath("/student", "layout");
   return {};
 }
@@ -646,7 +646,7 @@ export async function setTheoryHomeworkStatusAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath(`/instructor/${lessonId}`);
+  revalidatePath(`/instructeur/lessen/${lessonId}`);
   revalidatePath("/student", "layout");
   return {};
 }
@@ -718,7 +718,7 @@ export async function setStudentCbrStatusAction(
     }
   }
 
-  revalidatePath("/instructor", "layout");
+  revalidatePath("/instructeur", "layout");
   revalidatePath("/student", "layout");
   return {};
 }

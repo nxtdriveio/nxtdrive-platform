@@ -1,7 +1,10 @@
-import { InstructorIntakeView } from "@/components/instructor/RedesignViews";
+import { permanentRedirectToInstructorRoute } from "@/lib/instructor/redirect";
+import type { InstructorSearchParams } from "@/lib/instructor/routes";
 
-export const dynamic = "force-dynamic";
-
-export default function InstructorIntakePage() {
-  return <InstructorIntakeView />;
+export default async function InstructorIntakeLegacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<InstructorSearchParams>;
+}) {
+  permanentRedirectToInstructorRoute("intake", {}, await searchParams);
 }

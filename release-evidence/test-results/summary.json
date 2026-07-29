@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-29",
+  "frozenInstall": "pass",
+  "format": "pass",
+  "repositoryLint": "pass",
+  "typecheck": "pass",
+  "unit": {
+    "status": "pass",
+    "passed": 206,
+    "failed": 0
+  },
+  "integration": {
+    "status": "pass",
+    "passed": 3,
+    "failed": 0
+  },
+  "workspaceBuild": "pass",
+  "migrationSmoke": {
+    "status": "pass",
+    "migrationCount": 158,
+    "emptyDatabase": "pass",
+    "populatedUpgrade": "pass"
+  },
+  "productionDependencyAudit": {
+    "status": "pass",
+    "critical": 0,
+    "high": 0,
+    "moderate": 0,
+    "low": 0
+  },
+  "secretScan": "pass"
+}

@@ -42,7 +42,7 @@ jobs:
 
       - name: Run production smoke
         env:
-          SMOKE_BASE_URL: https://app.nxtdrive.io
+          SMOKE_BASE_URL: https://nxtdrive.io
           SMOKE_TIMEOUT_MS: "30000"
           SMOKE_STUDENT_EMAIL: ${{ secrets.SMOKE_STUDENT_EMAIL }}
           SMOKE_STUDENT_PASSWORD: ${{ secrets.SMOKE_STUDENT_PASSWORD }}

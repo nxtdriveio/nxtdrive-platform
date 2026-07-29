@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -16,6 +16,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { clearEncryptedLessonDrafts } from "@/lib/offline/encrypted-draft-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,11 +29,23 @@ export function InstructorTopbar({
   notifications,
   theme,
   userLabel,
+  unreadMessages,
 }: {
   notifications?: ReactNode;
   theme: Theme;
   userLabel: string;
+  unreadMessages: number;
 }) {
+  async function handleLogout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    try {
+      await clearEncryptedLessonDrafts();
+    } finally {
+      form.submit();
+    }
+  }
+
   return (
     <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl xl:flex xl:px-6">
       <div className="relative max-w-3xl flex-1">
@@ -48,14 +61,20 @@ export function InstructorTopbar({
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Link
-          href="/instructor/berichten"
-          aria-label="Berichten"
-          className="relative grid h-10 w-10 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm transition hover:bg-brand-muted"
+          href="/instructeur/berichten"
+          aria-label={
+            unreadMessages
+              ? `Berichten, ${unreadMessages} ongelezen`
+              : "Berichten"
+          }
+          className="relative grid h-11 w-11 place-items-center rounded-full border border-brand-border bg-white text-foreground shadow-sm transition hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
         >
           <MessageCircle className="h-4 w-4" aria-hidden />
-          <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-primary px-1 text-[10px] font-black text-white">
-            2
-          </span>
+          {unreadMessages ? (
+            <span className="absolute right-0 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-brand-primary px-1 text-[10px] font-black text-white">
+              {unreadMessages > 99 ? "99+" : unreadMessages}
+            </span>
+          ) : null}
         </Link>
         <div className="relative">
           {notifications ?? (
@@ -81,32 +100,37 @@ export function InstructorTopbar({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuItem asChild>
-              <Link href="/instructor/agenda/new" className="flex items-center gap-2">
+              <Link href="/instructeur/agenda/nieuw" className="flex items-center gap-2">
                 <CalendarPlus aria-hidden />
                 Nieuwe afspraak
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/beschikbaarheid" className="flex items-center gap-2">
+              <Link href="/instructeur/beschikbaarheid" className="flex items-center gap-2">
                 <Moon aria-hidden />
                 Beschikbaarheid aanpassen
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/profiel" className="flex items-center gap-2">
+              <Link href="/instructeur/profiel" className="flex items-center gap-2">
                 <User aria-hidden />
                 Profiel
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructor/instellingen" className="flex items-center gap-2">
+              <Link href="/instructeur/instellingen" className="flex items-center gap-2">
                 <Settings aria-hidden />
                 Instellingen
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <form method="post" action="/auth/logout" className="w-full">
+              <form
+                method="post"
+                action="/auth/logout"
+                className="w-full"
+                onSubmit={(event) => void handleLogout(event)}
+              >
                 <button
                   type="submit"
                   className={cn("flex w-full items-center gap-2 text-left text-danger")}

@@ -7,13 +7,25 @@ import {
   type DisplayStatus,
   type Invoice,
 } from "@/lib/invoices/types";
+import type { Clock } from "@/lib/time/clock";
+import { systemClock, todayInTimeZone } from "@/lib/time/clock";
 
-export type PaymentStatusAction = "pay_online" | "wait" | "contact_school" | "none";
+export type PaymentStatusAction =
+  | "pay_online"
+  | "wait"
+  | "contact_school"
+  | "none";
 
 export type InvoicePaymentStatusFlow = {
   displayStatus: DisplayStatus | "processing" | "not_payable";
   badgeLabel: string;
-  badgeVariant: "default" | "info" | "success" | "warning" | "danger" | "outline";
+  badgeVariant:
+    | "default"
+    | "info"
+    | "success"
+    | "warning"
+    | "danger"
+    | "outline";
   title: string;
   description: string;
   action: PaymentStatusAction;
@@ -35,6 +47,8 @@ export function buildInvoicePaymentStatusFlow(
   options: {
     mollieConfigured: boolean;
     paymentProcessing?: boolean;
+    clock?: Clock;
+    timeZone?: string;
     todayYmd?: string;
   },
 ): InvoicePaymentStatusFlow {
@@ -47,7 +61,10 @@ export function buildInvoicePaymentStatusFlow(
           Math.min(100, Math.round((paidCents / invoice.total_cents) * 100)),
         )
       : 0;
-  const dueInfo = getDueInfo(invoice.due_date, options.todayYmd);
+  const todayYmd =
+    options.todayYmd ??
+    todayInTimeZone(options.clock ?? systemClock, options.timeZone);
+  const dueInfo = getDueInfo(invoice.due_date, todayYmd);
   const payable =
     invoice.kind === "invoice" &&
     invoice.status === "open" &&
@@ -95,8 +112,7 @@ export function buildInvoicePaymentStatusFlow(
       badgeLabel: "Betaald",
       badgeVariant: "success",
       title: "Deze factuur is betaald",
-      description:
-        "De betaling is geregistreerd en het dossier is bijgewerkt.",
+      description: "De betaling is geregistreerd en het dossier is bijgewerkt.",
       action: "none",
       canPayOnline: false,
       dueInfo,
@@ -140,7 +156,7 @@ export function buildInvoicePaymentStatusFlow(
     });
   }
 
-  const display = displayStatus(invoice);
+  const display = displayStatus(invoice, { todayYmd });
   if (display === "partially_paid") {
     return composeFlow(invoice, {
       displayStatus: display,
@@ -235,7 +251,9 @@ function composeFlow(
     timeline: [
       {
         label: "Factuur ontvangen",
-        description: invoice.issued_at ? "Verstuurd door de rijschool." : "Aangemaakt door de rijschool.",
+        description: invoice.issued_at
+          ? "Verstuurd door de rijschool."
+          : "Aangemaakt door de rijschool.",
         state: invoice.status === "draft" ? "active" : "done",
       },
       {
@@ -261,7 +279,7 @@ function composeFlow(
 
 function getDueInfo(
   dueDate: string | null,
-  todayYmd = new Date().toISOString().slice(0, 10),
+  todayYmd: string,
 ): { days: number | null; label: string | null } {
   if (!dueDate) return { days: null, label: null };
   const diff = daysBetweenYmd(todayYmd, dueDate.slice(0, 10));

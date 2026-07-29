@@ -1,7 +1,1 @@
-import { InstructorLessonPlanView } from "@/components/instructor/RedesignViews";
-
-export const dynamic = "force-dynamic";
-
-export default function InstructorNewLessonPage() {
-  return <InstructorLessonPlanView />;
-}
+export { default } from "../../agenda/new/page";

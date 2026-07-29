@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-29",
+  "status": "pass",
+  "budgetsKb": {
+    "learner": 170,
+    "instructor": 155,
+    "backoffice": 290,
+    "shared": 110,
+    "middleware": 95
+  },
+  "actualKb": {
+    "learner": 157,
+    "instructor": 120,
+    "backoffice": 216,
+    "shared": 103,
+    "middleware": 91.8
+  }
+}

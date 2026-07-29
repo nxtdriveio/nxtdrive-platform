@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NXTDRIVE Instructeur</string>
+    <string name="title_activity_main">NXTDRIVE Instructeur</string>
+    <string name="package_name">io.nxtdrive.instructeur</string>
+    <string name="custom_url_scheme">io.nxtdrive.instructeur</string>
+</resources>

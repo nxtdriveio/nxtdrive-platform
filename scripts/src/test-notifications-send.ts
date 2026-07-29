@@ -9,7 +9,7 @@
  * Next.js route is only reachable LOCALLY on the app's own port. This test
  * therefore defaults APP_BASE_URL to the nxtdrive dev port (http://localhost:22557).
  * Override APP_BASE_URL to target another host (e.g. a deployed staging URL,
- * where Caddy routes app.nxtdrive.io straight to Next.js).
+ * where Caddy routes nxtdrive.io straight to Next.js).
  *
  * What it proves (against the demo-academy tenant, with throwaway fixtures):
  *   1. The cron route rejects calls without / with a wrong x-cron-secret.

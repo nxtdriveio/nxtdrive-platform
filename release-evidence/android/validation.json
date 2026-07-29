@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-29",
+  "environment": "ghcr.io/cirruslabs/android-sdk:36",
+  "gradleVersion": "8.14.5",
+  "compileSdk": 36,
+  "targetSdk": 36,
+  "tasks": [
+    "testDebugUnitTest",
+    "testStagingUnitTest",
+    "lintDebug",
+    "lintStaging",
+    "bundleStaging"
+  ],
+  "taskCount": 228,
+  "status": "pass",
+  "artifact": {
+    "kind": "staging-dry-run",
+    "path": "artifacts/nxtdrive/android/app/build/outputs/bundle/staging/app-staging.aab",
+    "bytes": 3174473,
+    "sha256": "6d8ec44645a7fa0a7c50ec52b30a921f00d1368c8f5fc374b4f14cb7cce12332",
+    "signatureIntegrity": "pass",
+    "certificateSha256": "BF:84:AE:28:1D:F1:90:EB:C3:E2:73:70:3D:17:F9:37:B6:B6:88:0E:18:18:7E:D4:62:23:01:69:3D:EB:D7:BC",
+    "productionSuitable": false
+  },
+  "productionBundle": {
+    "status": "blocked-as-designed",
+    "reason": "ANDROID_UPLOAD_* signing variables are absent."
+  }
+}
