@@ -728,6 +728,41 @@ describe("validateScheduleCandidate", () => {
     assert.ok(!codes(result).includes("VEHICLE_HAS_OVERLAP"));
   });
 
+  it("allows a lesson in the exact free interval between appointment types", () => {
+    const result = validateScheduleCandidate(
+      candidate(),
+      data({
+        busyIntervals: [
+          {
+            id: "previous-exam",
+            entityType: "agenda_appointment",
+            instructorId: "instructor-1",
+            startsAt: "2026-06-15T07:00:00.000Z",
+            endsAt: "2026-06-15T08:00:00.000Z",
+            serviceAreaId: "area-a",
+          },
+          {
+            id: "next-admin-block",
+            entityType: "agenda_appointment",
+            instructorId: "instructor-1",
+            startsAt: "2026-06-15T09:00:00.000Z",
+            endsAt: "2026-06-15T10:00:00.000Z",
+            serviceAreaId: "area-a",
+          },
+        ],
+        settings: {
+          rayonPolicy: "hard_block",
+          sameAreaTravelMinutes: 0,
+          differentAreaTravelMinutes: 0,
+          defaultTravelBufferMinutes: 0,
+        },
+      }),
+    );
+
+    assert.equal(result.allowed, true);
+    assert.ok(!codes(result).includes("INSTRUCTOR_HAS_OVERLAP"));
+  });
+
   it("treats only active source rows as busy for planning conflicts", () => {
     for (const status of [
       "completed",
@@ -820,7 +855,9 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("MISSING_REQUIRED_CAPABILITY"));
     assert.ok(codes(result).includes("MISSING_REQUIRED_VEHICLE_CAPABILITY"));
 
-    const readable = result.blockingReasons.map(formatPlanningReason).join(" | ");
+    const readable = result.blockingReasons
+      .map(formatPlanningReason)
+      .join(" | ");
     assert.match(readable, /Instructeur niet beschikbaar/);
     assert.match(readable, /Voertuig heeft overlap/);
     assert.match(readable, /Buiten rayon/);

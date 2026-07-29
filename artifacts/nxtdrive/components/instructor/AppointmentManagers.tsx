@@ -23,8 +23,8 @@ import {
   setAppointmentResult,
   updateAppointment,
 } from "@/lib/agenda/actions";
+import { createInstructorAgendaItem } from "@/app/instructeur/agenda/nieuw/actions";
 import {
-  AGENDA_APPOINTMENT_TYPES,
   APPOINTMENT_DURATIONS,
   APPOINTMENT_RESULT_LABEL,
   APPOINTMENT_TYPE_LABEL,
@@ -32,7 +32,8 @@ import {
   appointmentDurationMinutes,
   isResultableType,
   isStudentLinkedType,
-  type AgendaAppointmentType,
+  isInstructorPlanningType,
+  type InstructorPlanningType,
 } from "@/lib/agenda/types";
 import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
@@ -55,16 +56,19 @@ type NewAppointmentSearchParams = {
 
 type ServiceArea = { id: string; name: string; branch_id: string | null };
 
-function param(value: string | undefined, maxLength = 1000): string | undefined {
+function param(
+  value: string | undefined,
+  maxLength = 1000,
+): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed.slice(0, maxLength) : undefined;
 }
 
-function appointmentType(value: string | undefined): AgendaAppointmentType | undefined {
+function appointmentType(
+  value: string | undefined,
+): InstructorPlanningType | undefined {
   const raw = param(value, 80);
-  return raw && (AGENDA_APPOINTMENT_TYPES as readonly string[]).includes(raw)
-    ? (raw as AgendaAppointmentType)
-    : undefined;
+  return raw && isInstructorPlanningType(raw) ? raw : undefined;
 }
 
 function dateParam(value: string | undefined): string | undefined {
@@ -141,11 +145,7 @@ async function loadActiveStudents(input: {
   return (data ?? []) as Pick<Student, "id" | "full_name" | "branch_id">[];
 }
 
-function ManagerPage({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function ManagerPage({ children }: { children: React.ReactNode }) {
   return <div className="min-w-0 space-y-4 xl:space-y-5">{children}</div>;
 }
 
@@ -173,7 +173,10 @@ function ManagerHeader({
           {subtitle}
         </p>
       </div>
-      <Link href={backHref} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-brand-primary">
+      <Link
+        href={backHref}
+        className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-brand-primary"
+      >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Terug naar agenda
       </Link>
@@ -219,7 +222,9 @@ export async function InstructorNewAppointmentManager({
   ]);
   const branches =
     branchScope.scope_type === "branches"
-      ? allBranches.filter((branch) => branchScope.branch_ids.includes(branch.id))
+      ? allBranches.filter((branch) =>
+          branchScope.branch_ids.includes(branch.id),
+        )
       : allBranches;
 
   const now = new Date();
@@ -227,19 +232,23 @@ export async function InstructorNewAppointmentManager({
   now.setHours(now.getHours() + 1);
 
   const defaultBranchId =
-    param(sp.branch_id, 80) && branches.some((branch) => branch.id === sp.branch_id)
+    param(sp.branch_id, 80) &&
+    branches.some((branch) => branch.id === sp.branch_id)
       ? sp.branch_id
-      : branches[0]?.id ?? null;
+      : (branches[0]?.id ?? null);
   const defaultInstructorId =
-    param(sp.instructor_id, 80) && instructors?.some((instructor) => instructor.id === sp.instructor_id)
+    param(sp.instructor_id, 80) &&
+    instructors?.some((instructor) => instructor.id === sp.instructor_id)
       ? sp.instructor_id
       : undefined;
   const defaultStudentId =
-    param(sp.student_id, 80) && students.some((student) => student.id === sp.student_id)
+    param(sp.student_id, 80) &&
+    students.some((student) => student.id === sp.student_id)
       ? sp.student_id
       : undefined;
   const defaultVehicleId =
-    param(sp.vehicle_id, 80) && vehicles.some((vehicle) => vehicle.id === sp.vehicle_id)
+    param(sp.vehicle_id, 80) &&
+    vehicles.some((vehicle) => vehicle.id === sp.vehicle_id)
       ? sp.vehicle_id
       : undefined;
   const defaultServiceAreaId =
@@ -267,13 +276,16 @@ export async function InstructorNewAppointmentManager({
         <Card className="rounded-[1.35rem] border-brand-border/80 bg-white/92 shadow-brand-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CalendarPlus className="h-5 w-5 text-brand-primary" aria-hidden />
+              <CalendarPlus
+                className="h-5 w-5 text-brand-primary"
+                aria-hidden
+              />
               Afspraakgegevens
             </CardTitle>
           </CardHeader>
           <CardContent>
             <AppointmentForm
-              action={createAppointment}
+              action={createInstructorAgendaItem}
               mode="create"
               redirectTo={redirectTo}
               errorTo={formPath}
@@ -288,7 +300,7 @@ export async function InstructorNewAppointmentManager({
               vehicles={vehicles}
               serviceAreas={serviceAreas}
               defaults={{
-                type: appointmentType(sp.type),
+                type: appointmentType(sp.type) ?? "lesson",
                 branchId: defaultBranchId,
                 instructorId: defaultInstructorId,
                 studentId: defaultStudentId,
@@ -296,12 +308,15 @@ export async function InstructorNewAppointmentManager({
                 pickupServiceAreaId: defaultServiceAreaId,
                 date: dateParam(sp.date) ?? now.toISOString().slice(0, 10),
                 time: timeParam(sp.time) ?? now.toISOString().slice(11, 16),
-                durationMin: durationParam(sp.duration_min) ?? planningSettings.defaultLessonDurationMinutes,
+                durationMin:
+                  durationParam(sp.duration_min) ??
+                  planningSettings.defaultLessonDurationMinutes,
                 bufferMin: planningSettings.defaultLessonBufferMinutes,
                 title: param(sp.title, 200) ?? null,
                 location: param(sp.location, 200) ?? null,
                 notes: param(sp.notes, 1000) ?? null,
               }}
+              allowLesson
               submitLabel="Afspraak inplannen"
             />
           </CardContent>
@@ -314,10 +329,13 @@ export async function InstructorNewAppointmentManager({
           <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
             <Badge variant="info">Echte planning-core</Badge>
             <p>
-              Bij opslaan controleert het systeem de beschikbaarheid, voertuigbezetting, leerlingplanning en rayons voordat de afspraak wordt aangemaakt.
+              Bij opslaan controleert het systeem de beschikbaarheid,
+              voertuigbezetting, leerlingplanning en rayons voordat de afspraak
+              wordt aangemaakt.
             </p>
             <p>
-              Beschikbare voertuigen en leerlingen komen rechtstreeks uit deze tenant.
+              Beschikbare voertuigen en leerlingen komen rechtstreeks uit deze
+              tenant.
             </p>
           </CardContent>
         </Card>
@@ -336,12 +354,8 @@ export async function InstructorAppointmentDetailManager({
   redirectTo: string;
 }) {
   const service = createServiceRoleClient();
-  const {
-    context,
-    branchScope,
-    appointment,
-    appointmentBranchId,
-  } = await requireAgendaAppointmentAccess(service, appointmentId, "read");
+  const { context, branchScope, appointment, appointmentBranchId } =
+    await requireAgendaAppointmentAccess(service, appointmentId, "read");
   if (!appointment) notFound();
 
   const { user, organization: tenant, roles } = context;
@@ -377,7 +391,9 @@ export async function InstructorAppointmentDetailManager({
     : [];
   const branches =
     branchScope.scope_type === "branches"
-      ? allBranches.filter((branch) => branchScope.branch_ids.includes(branch.id))
+      ? allBranches.filter((branch) =>
+          branchScope.branch_ids.includes(branch.id),
+        )
       : allBranches;
   const students = canEditAppointment
     ? await loadActiveStudents({
@@ -425,7 +441,10 @@ export async function InstructorAppointmentDetailManager({
                   ownInstructor={
                     canSelectInstructor
                       ? undefined
-                      : { id: user.id, full_name: user.profile?.full_name ?? "Jij" }
+                      : {
+                          id: user.id,
+                          full_name: user.profile?.full_name ?? "Jij",
+                        }
                   }
                   students={students}
                   vehicles={vehicles}
@@ -477,7 +496,9 @@ export async function InstructorAppointmentDetailManager({
               <CardTitle>Samenvatting</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <Badge variant="primary">{APPOINTMENT_TYPE_LABEL[appointment.type]}</Badge>
+              <Badge variant="primary">
+                {APPOINTMENT_TYPE_LABEL[appointment.type]}
+              </Badge>
               <div className="grid gap-2 text-muted-foreground">
                 <span>{formatDateTime(appointment.starts_at)}</span>
                 <span>{formatDateTime(appointment.ends_at)}</span>
@@ -500,11 +521,17 @@ export async function InstructorAppointmentDetailManager({
                     </span>
                   </p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nog geen uitslag vastgelegd.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Nog geen uitslag vastgelegd.
+                  </p>
                 )}
                 {canEditAppointment ? (
                   <form action={setAppointmentResult} className="space-y-3">
-                    <input type="hidden" name="appointment_id" value={appointment.id} />
+                    <input
+                      type="hidden"
+                      name="appointment_id"
+                      value={appointment.id}
+                    />
                     <input type="hidden" name="redirect_to" value={formPath} />
                     <input type="hidden" name="error_to" value={formPath} />
                     <select
@@ -541,7 +568,11 @@ export async function InstructorAppointmentDetailManager({
                   Verwijder deze afspraak definitief uit de agenda.
                 </p>
                 <form action={deleteAppointment}>
-                  <input type="hidden" name="appointment_id" value={appointment.id} />
+                  <input
+                    type="hidden"
+                    name="appointment_id"
+                    value={appointment.id}
+                  />
                   <input type="hidden" name="redirect_to" value={redirectTo} />
                   <Button type="submit" variant="danger">
                     <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />

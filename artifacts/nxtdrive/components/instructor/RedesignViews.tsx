@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
+import { InstructorCreditManager } from "@/components/instructor/InstructorCreditManager";
 import { InstructorTaskManager } from "@/components/instructor/InstructorTaskManager";
 import {
   type InstructorAppointment,
@@ -1047,7 +1048,14 @@ export function InstructorStudentDetailView({
         subtitle="Overzicht, voortgang, lessen, planning en dossierinformatie in een tablet-first detailview."
       />
       <StudentDetailPanel student={student} />
-      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <InstructorCard title="Lestegoed" icon={WalletCards}>
+          <InstructorCreditManager
+            studentId={student.id}
+            studentName={student.name}
+            balanceMinutes={student.creditMinutes}
+          />
+        </InstructorCard>
         <InstructorCard title="Modulevoortgang" icon={Route}>
           <div className="space-y-4">
             {studentEvaluation?.modules.length ? (

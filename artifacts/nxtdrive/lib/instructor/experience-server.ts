@@ -290,6 +290,7 @@ function mapStudent(
         ? "Lespakket bijna op of vervolgplanning nodig."
         : "Geen urgente aandachtspunten.",
     readiness: `${progress}% voortgang`,
+    creditMinutes: balance,
   };
 }
 

@@ -18,6 +18,16 @@ export const AGENDA_APPOINTMENT_TYPES = [
 ] as const;
 export type AgendaAppointmentType = (typeof AGENDA_APPOINTMENT_TYPES)[number];
 
+// The combined instructor planning form can create a canonical lesson as well
+// as an agenda appointment. "lesson" is intentionally not added to the
+// agenda_appointment_type database enum: lessons keep their own table, credit
+// mutation and lifecycle.
+export const INSTRUCTOR_PLANNING_TYPES = [
+  "lesson",
+  ...AGENDA_APPOINTMENT_TYPES,
+] as const;
+export type InstructorPlanningType = (typeof INSTRUCTOR_PLANNING_TYPES)[number];
+
 export const AGENDA_APPOINTMENT_STATUSES = [
   "planned",
   "completed",
@@ -40,14 +50,14 @@ export const AGENDA_VISIBILITY_SCOPES = [
   "shared_staff",
   "team",
 ] as const;
-export type AgendaVisibilityScope =
-  (typeof AGENDA_VISIBILITY_SCOPES)[number];
+export type AgendaVisibilityScope = (typeof AGENDA_VISIBILITY_SCOPES)[number];
 
-export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> = {
-  passed: "Geslaagd",
-  failed: "Gezakt",
-  no_show: "Niet verschenen",
-};
+export const APPOINTMENT_RESULT_LABEL: Record<AgendaAppointmentResult, string> =
+  {
+    passed: "Geslaagd",
+    failed: "Gezakt",
+    no_show: "Niet verschenen",
+  };
 
 // Types waarvoor een uitslag (geslaagd/gezakt) vastgelegd kan worden.
 export function isResultableType(type: AgendaAppointmentType): boolean {
@@ -66,6 +76,20 @@ export const APPOINTMENT_TYPE_LABEL: Record<AgendaAppointmentType, string> = {
   vacation: "Vakantie",
 };
 
+export const INSTRUCTOR_PLANNING_TYPE_LABEL: Record<
+  InstructorPlanningType,
+  string
+> = {
+  lesson: "Rijles",
+  ...APPOINTMENT_TYPE_LABEL,
+};
+
+export function isInstructorPlanningType(
+  value: string,
+): value is InstructorPlanningType {
+  return (INSTRUCTOR_PLANNING_TYPES as readonly string[]).includes(value);
+}
+
 // Short label used in compact menus/badges.
 export const APPOINTMENT_TYPE_SHORT: Record<AgendaAppointmentType, string> = {
   exam: "Examen",
@@ -79,7 +103,10 @@ export const APPOINTMENT_TYPE_SHORT: Record<AgendaAppointmentType, string> = {
   vacation: "Vakantie",
 };
 
-export const APPOINTMENT_VISIBILITY_LABEL: Record<AgendaVisibilityScope, string> = {
+export const APPOINTMENT_VISIBILITY_LABEL: Record<
+  AgendaVisibilityScope,
+  string
+> = {
   personal: "Persoonlijk",
   shared_staff: "Met collega's",
   team: "Teamblok",
@@ -87,14 +114,18 @@ export const APPOINTMENT_VISIBILITY_LABEL: Record<AgendaVisibilityScope, string>
 
 // Types that may be linked to a student (examen/TTT/theoriebegeleiding). The
 // block types never carry a student - the DB enforces this too.
-export const STUDENT_LINKED_TYPES: ReadonlySet<AgendaAppointmentType> = new Set([
-  "exam",
-  "interim_test",
-  "theory_guidance",
-]);
+export const STUDENT_LINKED_TYPES: ReadonlySet<AgendaAppointmentType> = new Set(
+  ["exam", "interim_test", "theory_guidance"],
+);
 
 export function isStudentLinkedType(type: AgendaAppointmentType): boolean {
   return STUDENT_LINKED_TYPES.has(type);
+}
+
+export function isStudentLinkedPlanningType(
+  type: InstructorPlanningType,
+): boolean {
+  return type === "lesson" || isStudentLinkedType(type);
 }
 
 // Block types occupy time but never carry a student.
@@ -159,11 +190,18 @@ export function durationMinutes(startsAt: string, endsAt: string): number {
 }
 
 export function appointmentDurationMinutes(
-  appointment: Pick<AgendaAppointment, "starts_at" | "ends_at" | "duration_min" | "buffer_min">,
+  appointment: Pick<
+    AgendaAppointment,
+    "starts_at" | "ends_at" | "duration_min" | "buffer_min"
+  >,
 ): number {
   return (
     appointment.duration_min ??
-    Math.max(1, durationMinutes(appointment.starts_at, appointment.ends_at) - (appointment.buffer_min ?? 0))
+    Math.max(
+      1,
+      durationMinutes(appointment.starts_at, appointment.ends_at) -
+        (appointment.buffer_min ?? 0),
+    )
   );
 }
 

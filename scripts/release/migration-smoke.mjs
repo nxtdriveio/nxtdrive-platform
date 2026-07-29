@@ -205,6 +205,7 @@ function verifyDatabase(database) {
       declare
         migration_count integer;
         rls_count integer;
+        unsafe_credit_grant_blocked boolean := false;
       begin
         select count(*) into migration_count from public._migrations;
         if migration_count <> ${files.length} then
@@ -248,6 +249,37 @@ function verifyDatabase(database) {
              and is_qualified = true
         ) then
           raise exception 'default RIS 2.0 instructor qualification missing';
+        end if;
+
+        perform public.add_instructor_student_credits(
+          '30000000-0000-4000-8000-000000000001',
+          '20000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          60,
+          'Migration smoke instructor grant'
+        );
+        if (
+          select balance
+            from public.student_credit_balance
+           where student_id = '30000000-0000-4000-8000-000000000001'
+             and tenant_id = '20000000-0000-4000-8000-000000000001'
+        ) <> 60 then
+          raise exception 'instructor credit grant did not update the balance';
+        end if;
+
+        begin
+          perform public.add_instructor_student_credits(
+            '30000000-0000-4000-8000-000000000002',
+            '20000000-0000-4000-8000-000000000002',
+            '10000000-0000-4000-8000-000000000001',
+            60,
+            'Must be rejected'
+          );
+        exception when others then
+          unsafe_credit_grant_blocked := true;
+        end;
+        if not unsafe_credit_grant_blocked then
+          raise exception 'cross-tenant instructor credit grant was not blocked';
         end if;
       end
       $verification$;
@@ -408,6 +440,7 @@ try {
           "invoice uniqueness",
           "authorized tenant visibility",
           "cross-tenant isolation",
+          "instructor credit grant authorization and balance",
         ],
         entries,
       },

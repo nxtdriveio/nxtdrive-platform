@@ -3,7 +3,7 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 160,
+  "migrationCount": 161,
   "fixture": {
     "tenants": 2,
     "users": 2,
@@ -18,7 +18,8 @@
     "tenant-consistent foreign keys",
     "invoice uniqueness",
     "authorized tenant visibility",
-    "cross-tenant isolation"
+    "cross-tenant isolation",
+    "instructor credit grant authorization and balance"
   ],
   "entries": [
     {
@@ -820,6 +821,11 @@
       "file": "20260729150100_student_profile_contact_fields.sql",
       "sha256": "e569b1bf8cf347e1792b8c5b43063f8f1d85d2167a6e58417397e5a50346c134",
       "bytes": 4236
+    },
+    {
+      "file": "20260729151000_instructor_credit_grants.sql",
+      "sha256": "755a7fe54ce7c3b70aec93a4d5e15f2a276f28d132ab986fc5c04b20b6891c3a",
+      "bytes": 3460
     }
   ]
 }

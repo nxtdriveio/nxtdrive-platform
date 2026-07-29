@@ -48,6 +48,7 @@ export type InstructorStudent = {
   email: string | null;
   attention: string;
   readiness: string;
+  creditMinutes: number;
 };
 
 export type InstructorTask = {

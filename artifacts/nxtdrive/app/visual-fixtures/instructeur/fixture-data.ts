@@ -120,6 +120,7 @@ export const instructorVisualFixture: InstructorExperience = {
       email: "noah@example.test",
       attention: "Extra aandacht voor kijktechniek bij kruispunten.",
       readiness: "6 tot 8 lessen",
+      creditMinutes: 720,
     },
     {
       id: "student-2",
@@ -133,6 +134,7 @@ export const instructorVisualFixture: InstructorExperience = {
       email: "mila@example.test",
       attention: "Proefexamen voorbereiden en zelfstandige route oefenen.",
       readiness: "Examenklaar",
+      creditMinutes: 360,
     },
     {
       id: "student-3",
@@ -146,6 +148,7 @@ export const instructorVisualFixture: InstructorExperience = {
       email: null,
       attention: "Doseren en afstand houden op hogere snelheid.",
       readiness: "10 tot 12 lessen",
+      creditMinutes: 540,
     },
   ],
   tasks: [

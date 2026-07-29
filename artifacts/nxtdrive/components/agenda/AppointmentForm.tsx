@@ -7,12 +7,12 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  AGENDA_APPOINTMENT_TYPES,
   APPOINTMENT_BUFFER_OPTIONS,
   APPOINTMENT_DURATIONS,
-  APPOINTMENT_TYPE_LABEL,
-  isStudentLinkedType,
-  type AgendaAppointmentType,
+  INSTRUCTOR_PLANNING_TYPES,
+  INSTRUCTOR_PLANNING_TYPE_LABEL,
+  isStudentLinkedPlanningType,
+  type InstructorPlanningType,
 } from "@/lib/agenda/types";
 
 type BranchOption = { id: string; name: string };
@@ -26,10 +26,14 @@ type VehicleOption = {
   status?: string | null;
   default_instructor_id?: string | null;
 };
-type ServiceAreaOption = { id: string; name: string; branch_id?: string | null };
+type ServiceAreaOption = {
+  id: string;
+  name: string;
+  branch_id?: string | null;
+};
 
 export type AppointmentFormDefaults = {
-  type?: AgendaAppointmentType;
+  type?: InstructorPlanningType;
   branchId?: string | null;
   instructorId?: string;
   vehicleId?: string | null;
@@ -61,6 +65,7 @@ export function AppointmentForm({
   students,
   defaults,
   submitLabel,
+  allowLesson = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
@@ -77,9 +82,10 @@ export function AppointmentForm({
   students: StudentOption[];
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
+  allowLesson?: boolean;
 }) {
-  const [type, setType] = useState<AgendaAppointmentType>(
-    defaults?.type ?? "exam",
+  const [type, setType] = useState<InstructorPlanningType>(
+    defaults?.type ?? (allowLesson ? "lesson" : "exam"),
   );
   // In edit mode the type is immutable (the DB RPC does not change it).
   const typeLocked = mode === "edit";
@@ -92,7 +98,12 @@ export function AppointmentForm({
       ownInstructor?.full_name) ||
     "Instructeur";
   const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
-  const showStudent = isStudentLinkedType(type);
+  const showStudent = isStudentLinkedPlanningType(type);
+  const planningTypes = allowLesson
+    ? INSTRUCTOR_PLANNING_TYPES
+    : INSTRUCTOR_PLANNING_TYPES.filter(
+        (planningType) => planningType !== "lesson",
+      );
   const defaultBranchId = defaults?.branchId ?? branches?.[0]?.id ?? "";
 
   return (
@@ -115,13 +126,13 @@ export function AppointmentForm({
             id="type"
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as AgendaAppointmentType)}
+            onChange={(e) => setType(e.target.value as InstructorPlanningType)}
             disabled={typeLocked}
             required
           >
-            {AGENDA_APPOINTMENT_TYPES.map((t) => (
+            {planningTypes.map((t) => (
               <option key={t} value={t}>
-                {APPOINTMENT_TYPE_LABEL[t]}
+                {INSTRUCTOR_PLANNING_TYPE_LABEL[t]}
               </option>
             ))}
           </Select>
@@ -180,13 +191,18 @@ export function AppointmentForm({
 
         {showStudent ? (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="student_id">Leerling (optioneel)</Label>
+            <Label htmlFor="student_id">
+              Leerling{type === "lesson" ? "" : " (optioneel)"}
+            </Label>
             <Select
               id="student_id"
               name="student_id"
               defaultValue={defaults?.studentId ?? ""}
+              required={type === "lesson"}
             >
-              <option value="">Geen leerling</option>
+              <option value="">
+                {type === "lesson" ? "Kies een leerling" : "Geen leerling"}
+              </option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name}

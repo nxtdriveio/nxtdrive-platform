@@ -75,19 +75,32 @@ function scopeForTenantBranch(
     : { type: "tenant", tenantId };
 }
 
-function planningMessage(blockingReasons: readonly { message: string }[]): string {
-  return blockingReasons[0]?.message ?? "Deze planning past niet binnen de regels.";
+function planningMessage(
+  blockingReasons: readonly { message: string }[],
+): string {
+  return (
+    blockingReasons[0]?.message ?? "Deze planning past niet binnen de regels."
+  );
 }
 
 export async function scheduleLesson(formData: FormData) {
-  const requestedInstructorId = String(formData.get("instructor_id") ?? "").trim();
+  const requestedInstructorId = String(
+    formData.get("instructor_id") ?? "",
+  ).trim();
   const studentId = String(formData.get("student_id") ?? "").trim();
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = parseInt(String(formData.get("duration_min") ?? "60"), 10);
   const buffer = parseInt(String(formData.get("buffer_min") ?? "0"), 10);
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const notes = String(formData.get("notes") ?? "")
+    .trim()
+    .slice(0, 1000);
+  const vehicleId = String(formData.get("vehicle_id") ?? "").trim() || null;
+  const pickupServiceAreaId =
+    String(formData.get("pickup_service_area_id") ?? "").trim() || null;
 
   // Fase 3 - optional precise location coordinates (graceful: null without Places).
   const parseCoord = (raw: FormDataEntryValue | null, max: number) => {
@@ -99,11 +112,19 @@ export async function scheduleLesson(formData: FormData) {
   const locationLng = parseCoord(formData.get("location_lng"), 180);
   const hasCoords = locationLat !== null && locationLng !== null;
   const locationPlaceId = hasCoords
-    ? String(formData.get("location_place_id") ?? "").trim().slice(0, 300) || null
+    ? String(formData.get("location_place_id") ?? "")
+        .trim()
+        .slice(0, 300) || null
     : null;
-  const redirectTo = String(formData.get("redirect_to") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
-  const errorTo = String(formData.get("error_to") ?? "/backoffice/agenda/nieuw").trim() || "/backoffice/agenda/nieuw";
-  const detailBase = String(formData.get("detail_base") ?? "/backoffice/agenda").trim() || "/backoffice/agenda";
+  const redirectTo =
+    String(formData.get("redirect_to") ?? "/backoffice/agenda").trim() ||
+    "/backoffice/agenda";
+  const errorTo =
+    String(formData.get("error_to") ?? "/backoffice/agenda/nieuw").trim() ||
+    "/backoffice/agenda/nieuw";
+  const detailBase =
+    String(formData.get("detail_base") ?? "/backoffice/agenda").trim() ||
+    "/backoffice/agenda";
 
   if (!studentId || !date || !time) {
     redirect(`${errorTo}?error=missing`);
@@ -137,18 +158,21 @@ export async function scheduleLesson(formData: FormData) {
   const canAssignInstructor =
     context.user.profile?.is_platform_admin ||
     rolesGrantPermission(context.roles, "planning:manage");
-  const instructorId = canAssignInstructor ? requestedInstructorId : context.user.id;
+  const instructorId = canAssignInstructor
+    ? requestedInstructorId
+    : context.user.id;
   if (!instructorId) redirect(`${errorTo}?error=missing`);
   if (!canManageAgendaForInstructor(context, instructorId)) {
     redirect(`${errorTo}?error=forbidden`);
   }
   if (!canAssignInstructor) {
-    const taughtStudentIds = await import("@/lib/students/access").then((module) =>
-      module.loadInstructorAccessibleStudentIds(
-        service,
-        context.organization.id,
-        context.user.id,
-      ),
+    const taughtStudentIds = await import("@/lib/students/access").then(
+      (module) =>
+        module.loadInstructorAccessibleStudentIds(
+          service,
+          context.organization.id,
+          context.user.id,
+        ),
     );
     if (!taughtStudentIds.includes(studentId)) {
       redirect(`${errorTo}?error=forbidden`);
@@ -177,10 +201,10 @@ export async function scheduleLesson(formData: FormData) {
     tenantId: context.organization.id,
     branchId: studentAccess.student.branch_id,
     instructorId,
-    vehicleId: null,
+    vehicleId,
     startAt: startsAt,
     endAt: endsAt,
-    pickupServiceAreaId: null,
+    pickupServiceAreaId,
   };
   const kernelData = await loadPlanningKernelData(service, planningInput);
   const validation = await getPlanningPreview(planningInput, kernelData);
@@ -215,6 +239,9 @@ export async function scheduleLesson(formData: FormData) {
       ends_at: endsAt.toISOString(),
       duration_min: duration,
       buffer_min: buffer,
+      branch_id: studentAccess.student.branch_id,
+      vehicle_id: vehicleId,
+      pickup_service_area_id: pickupServiceAreaId,
     })
     .eq("id", lessonId as string)
     .eq("tenant_id", context.organization.id);
@@ -285,8 +312,12 @@ export async function inviteStudentToSlot(
   const duration = parseInt(String(formData.get("duration_min") ?? "0"), 10);
   const sourceLessonId =
     String(formData.get("source_lesson_id") ?? "").trim() || null;
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const location = String(formData.get("location") ?? "")
+    .trim()
+    .slice(0, 200);
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 500);
   const scoreRaw = parseInt(String(formData.get("score") ?? "0"), 10);
   const score = Number.isFinite(scoreRaw) ? scoreRaw : 0;
 
@@ -391,9 +422,14 @@ export async function cancelRefillInvitation(
 
   const service = createServiceRoleClient();
   const context = sourceLessonId
-    ? (await requireAgendaLessonAccess(service, sourceLessonId, "manage")).context
-    : (await requireAgendaAccessContext(service, AGENDA_BACKOFFICE_MANAGE_ROLES))
-        .context;
+    ? (await requireAgendaLessonAccess(service, sourceLessonId, "manage"))
+        .context
+    : (
+        await requireAgendaAccessContext(
+          service,
+          AGENDA_BACKOFFICE_MANAGE_ROLES,
+        )
+      ).context;
 
   if (sourceLessonId) {
     const sourceAccess = await requireAgendaLessonAccess(
@@ -436,7 +472,9 @@ export async function inviteExamCandidate(
 ): Promise<RefillActionResult> {
   const appointmentId = String(formData.get("appointment_id") ?? "").trim();
   const studentId = String(formData.get("student_id") ?? "").trim();
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 500);
   const scoreRaw = parseInt(String(formData.get("score") ?? "0"), 10);
   const score = Number.isFinite(scoreRaw) ? scoreRaw : 0;
 
@@ -465,7 +503,10 @@ export async function inviteExamCandidate(
   }
 
   const { context } = appointmentAccess;
-  const policy = await loadExamInvitationPolicy(service, context.organization.id);
+  const policy = await loadExamInvitationPolicy(
+    service,
+    context.organization.id,
+  );
   if (!policy.enabled) {
     return {
       ok: false,
@@ -491,7 +532,11 @@ export async function inviteExamCandidate(
     return { ok: false, error: error?.message ?? "Uitnodigen mislukt." };
   }
 
-  await notifyExamInvitation(service, context.organization.id, invitationId as string);
+  await notifyExamInvitation(
+    service,
+    context.organization.id,
+    invitationId as string,
+  );
 
   revalidatePath("/backoffice/agenda");
   revalidatePath(`/backoffice/agenda/afspraak/${appointmentId}`);
@@ -511,9 +556,14 @@ export async function cancelExamInvitation(
 
   const service = createServiceRoleClient();
   const context = appointmentId
-    ? (await requireAgendaAppointmentAccess(service, appointmentId, "manage")).context
-    : (await requireAgendaAccessContext(service, AGENDA_BACKOFFICE_MANAGE_ROLES))
-        .context;
+    ? (await requireAgendaAppointmentAccess(service, appointmentId, "manage"))
+        .context
+    : (
+        await requireAgendaAccessContext(
+          service,
+          AGENDA_BACKOFFICE_MANAGE_ROLES,
+        )
+      ).context;
 
   if (appointmentId) {
     const appointmentAccess = await requireAgendaAppointmentAccess(
@@ -547,7 +597,9 @@ export async function cancelExamInvitation(
 
 export async function cancelLesson(formData: FormData) {
   const lessonId = String(formData.get("lesson_id") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 500);
   if (!lessonId) redirect("/backoffice/agenda");
 
   const service = createServiceRoleClient();
