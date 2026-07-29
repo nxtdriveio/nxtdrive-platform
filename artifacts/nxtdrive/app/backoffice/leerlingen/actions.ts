@@ -36,6 +36,8 @@ import {
   portalStatusForStudent,
   type StudentPortalStatus,
 } from "@/lib/students/create-profile";
+import { isInstructorRis20Qualified } from "@/lib/instructor/qualifications";
+import { parseStudentContactProfileInput } from "@/lib/students/profile-edit";
 
 export type CreateStudentDirectResult =
   | {
@@ -68,24 +70,44 @@ export async function createStudentDirect(
     "tenant_admin",
   ]);
 
-  const naam = String(formData.get("naam") ?? "").trim().slice(0, 200);
+  const naam = String(formData.get("naam") ?? "")
+    .trim()
+    .slice(0, 200);
   const emailRaw = String(formData.get("email") ?? "");
-  const telefoon = String(formData.get("telefoon") ?? "").trim().slice(0, 30) || null;
-  const educationType = String(
-    formData.get("opleidingstype") ?? "STANDARD",
-  ) as "STANDARD" | "RIS_2_0" | "RIS_1_0_LEGACY";
+  const telefoon =
+    String(formData.get("telefoon") ?? "")
+      .trim()
+      .slice(0, 30) || null;
+  const educationType = String(formData.get("opleidingstype") ?? "STANDARD") as
+    | "STANDARD"
+    | "RIS_2_0"
+    | "RIS_1_0_LEGACY";
   const startDate =
-    String(formData.get("startdatum") ?? "").trim().slice(0, 10) || null;
+    String(formData.get("startdatum") ?? "")
+      .trim()
+      .slice(0, 10) || null;
   const privacyConfirmed =
     String(formData.get("privacy_confirmed") ?? "") === "true";
-  const postcode = String(formData.get("postcode") ?? "").trim().slice(0, 10) || null;
+  const postcode =
+    String(formData.get("postcode") ?? "")
+      .trim()
+      .slice(0, 10) || null;
   const geboortedatum =
-    String(formData.get("geboortedatum") ?? "").trim().slice(0, 10) || null;
-  const adres = String(formData.get("adres") ?? "").trim().slice(0, 240) || null;
+    String(formData.get("geboortedatum") ?? "")
+      .trim()
+      .slice(0, 10) || null;
+  const adres =
+    String(formData.get("adres") ?? "")
+      .trim()
+      .slice(0, 240) || null;
   const woonplaats =
-    String(formData.get("woonplaats") ?? "").trim().slice(0, 160) || null;
+    String(formData.get("woonplaats") ?? "")
+      .trim()
+      .slice(0, 160) || null;
   const ophaaladres =
-    String(formData.get("ophaaladres") ?? "").trim().slice(0, 240) || null;
+    String(formData.get("ophaaladres") ?? "")
+      .trim()
+      .slice(0, 240) || null;
 
   const parsed = parseStudentProfileInput({
     displayName: naam,
@@ -101,6 +123,19 @@ export async function createStudentDirect(
   }
   const { displayName, email } = parsed.value;
 
+  const service = createServiceRoleClient();
+  if (
+    parsed.value.educationType === "RIS_2_0" &&
+    roles.includes("instructor") &&
+    !(await isInstructorRis20Qualified(service, tenant.id, user.id))
+  ) {
+    return {
+      ok: false,
+      error:
+        "RIS 2.0 kan alleen worden gekozen door een gekwalificeerde instructeur.",
+    };
+  }
+
   const nawNotes = buildDirectStudentNawNotes({
     geboortedatum,
     adres,
@@ -108,9 +143,7 @@ export async function createStudentDirect(
     woonplaats,
     ophaaladres,
   });
-  const profileNotes = nawNotes;
 
-  const service = createServiceRoleClient();
   const duplicateChecks = await Promise.all([
     email
       ? service
@@ -168,19 +201,23 @@ export async function createStudentDirect(
   }
 
   if (newUserId) {
-    const { error: profileErr } = await service.from("profiles").upsert(
-      { id: newUserId, email, full_name: displayName },
-      { onConflict: "id" },
-    );
+    const { error: profileErr } = await service
+      .from("profiles")
+      .upsert(
+        { id: newUserId, email, full_name: displayName },
+        { onConflict: "id" },
+      );
     if (profileErr) {
       await service.auth.admin.deleteUser(newUserId).catch(() => {});
       return { ok: false, error: profileErr.message };
     }
 
-    const { error: membershipErr } = await service.from("memberships").upsert(
-      { user_id: newUserId, tenant_id: tenant.id, role: "student" },
-      { onConflict: "user_id,tenant_id,role" },
-    );
+    const { error: membershipErr } = await service
+      .from("memberships")
+      .upsert(
+        { user_id: newUserId, tenant_id: tenant.id, role: "student" },
+        { onConflict: "user_id,tenant_id,role" },
+      );
     if (membershipErr) {
       await service.auth.admin.deleteUser(newUserId).catch(() => {});
       return { ok: false, error: membershipErr.message };
@@ -197,7 +234,11 @@ export async function createStudentDirect(
       email,
       phone: telefoon,
       postcode,
-      notes: profileNotes,
+      birth_date: geboortedatum,
+      address_line: adres,
+      city: woonplaats,
+      pickup_address: ophaaladres || adres,
+      notes: null,
     })
     .select("id")
     .single();
@@ -206,7 +247,10 @@ export async function createStudentDirect(
     if (newUserId) {
       await service.auth.admin.deleteUser(newUserId).catch(() => {});
     }
-    return { ok: false, error: studentErr?.message ?? "Leerlingrij aanmaken mislukt." };
+    return {
+      ok: false,
+      error: studentErr?.message ?? "Leerlingrij aanmaken mislukt.",
+    };
   }
 
   const studentId: string = studentRow.id as string;
@@ -300,44 +344,177 @@ export async function createStudentDirect(
   // Send welcome email — best-effort: creation always succeeds; email failure
   // surfaces as a warning so the admin knows to resend manually.
   let emailWarning: string | undefined;
-  if (email && tijdelijkWachtwoord) try {
-    const [branding, platformConfig] = await Promise.all([
-      loadEmailBranding(service, tenant.id),
-      getPlatformEmailConfig(service).catch(() => null),
-    ]);
-    const appUrl =
-      process.env["NEXT_PUBLIC_APP_URL"] ??
-      process.env["NEXTAUTH_URL"] ??
-      "https://nxtdrive.io";
-    const loginUrl = `${appUrl}/login`;
-    const emailContent = renderStudentWelcome(branding, {
-      studentName: displayName,
-      email,
-      temporaryPassword: tijdelijkWachtwoord,
-      loginUrl,
-    });
-    const emailResult = await sendEmail({
-      to: email,
-      fromName: branding.tenantName,
-      email: emailContent,
-      platformConfig: platformConfig ?? undefined,
-    });
-    if (!emailResult.ok) {
-      if (emailResult.skipped) {
-        emailWarning = "E-mail is niet geconfigureerd voor deze omgeving. Verstuur de inloggegevens handmatig via 'Inloggegevens opnieuw versturen'.";
-      } else {
-        console.error("[createStudentDirect] sendEmail failed:", emailResult.error);
-        emailWarning = `Welkomstmail kon niet worden verstuurd (${emailResult.error}). Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.`;
+  if (email && tijdelijkWachtwoord)
+    try {
+      const [branding, platformConfig] = await Promise.all([
+        loadEmailBranding(service, tenant.id),
+        getPlatformEmailConfig(service).catch(() => null),
+      ]);
+      const appUrl =
+        process.env["NEXT_PUBLIC_APP_URL"] ??
+        process.env["NEXTAUTH_URL"] ??
+        "https://nxtdrive.io";
+      const loginUrl = `${appUrl}/login`;
+      const emailContent = renderStudentWelcome(branding, {
+        studentName: displayName,
+        email,
+        temporaryPassword: tijdelijkWachtwoord,
+        loginUrl,
+      });
+      const emailResult = await sendEmail({
+        to: email,
+        fromName: branding.tenantName,
+        email: emailContent,
+        platformConfig: platformConfig ?? undefined,
+      });
+      if (!emailResult.ok) {
+        if (emailResult.skipped) {
+          emailWarning =
+            "E-mail is niet geconfigureerd voor deze omgeving. Verstuur de inloggegevens handmatig via 'Inloggegevens opnieuw versturen'.";
+        } else {
+          console.error(
+            "[createStudentDirect] sendEmail failed:",
+            emailResult.error,
+          );
+          emailWarning = `Welkomstmail kon niet worden verstuurd (${emailResult.error}). Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.`;
+        }
       }
+    } catch (err) {
+      console.error("[createStudentDirect] email pipeline threw:", err);
+      emailWarning =
+        "Welkomstmail kon niet worden verstuurd. Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.";
     }
-  } catch (err) {
-    console.error("[createStudentDirect] email pipeline threw:", err);
-    emailWarning = "Welkomstmail kon niet worden verstuurd. Gebruik 'Inloggegevens opnieuw versturen' op de leerlingpagina.";
-  }
 
   revalidatePath("/backoffice/leerlingen");
   revalidatePath("/instructeur/leerlingen");
   return { ok: true, studentId, portalStatus, emailWarning };
+}
+
+export type UpdateStudentContactProfileResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function updateStudentContactProfile(
+  formData: FormData,
+): Promise<UpdateStudentContactProfileResult> {
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  if (!studentId) return { ok: false, error: "Leerling ontbreekt." };
+
+  const parsed = parseStudentContactProfileInput({
+    fullName: formData.get("full_name"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    postcode: formData.get("postcode"),
+    birthDate: formData.get("birth_date"),
+    addressLine: formData.get("address_line"),
+    city: formData.get("city"),
+    pickupAddress: formData.get("pickup_address"),
+  });
+  if (!parsed.ok) return parsed;
+
+  const service = createServiceRoleClient();
+  const { context, student } = await requireStudentBackofficeAccess(
+    service,
+    studentId,
+    "admin",
+  );
+  if (!student) return { ok: false, error: "Leerling niet gevonden." };
+  if (student.user_id && !parsed.value.email) {
+    return {
+      ok: false,
+      error: "Een leerling met een portaalaccount moet een e-mailadres houden.",
+    };
+  }
+
+  const duplicate = parsed.value.email
+    ? await service
+        .from("students")
+        .select("id")
+        .eq("tenant_id", context.organization.id)
+        .neq("id", studentId)
+        .ilike("email", parsed.value.email)
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (duplicate.error) {
+    return { ok: false, error: "E-mailadres kon niet worden gecontroleerd." };
+  }
+  if (duplicate.data) {
+    return {
+      ok: false,
+      error: "Dit e-mailadres hoort al bij een andere leerling.",
+    };
+  }
+
+  const emailChanged = parsed.value.email !== student.email;
+  let previousAuthEmail: string | null = null;
+
+  if (student.user_id && emailChanged && parsed.value.email) {
+    const { data: authUser, error: authLoadError } =
+      await service.auth.admin.getUserById(student.user_id);
+    if (authLoadError || !authUser.user) {
+      return {
+        ok: false,
+        error:
+          authLoadError?.message ??
+          "Het gekoppelde portalaccount kon niet worden geladen.",
+      };
+    }
+
+    previousAuthEmail = authUser.user.email ?? null;
+
+    const { error: authError } = await service.auth.admin.updateUserById(
+      student.user_id,
+      {
+        email: parsed.value.email,
+        email_confirm: true,
+      },
+    );
+    if (authError) {
+      return {
+        ok: false,
+        error: authError.message.toLowerCase().includes("already")
+          ? "Dit e-mailadres is al gekoppeld aan een ander account."
+          : "Het e-mailadres van het portaalaccount kon niet worden gewijzigd.",
+      };
+    }
+  }
+
+  const { error } = await service.rpc("update_student_contact_profile", {
+    p_student_id: studentId,
+    p_tenant_id: context.organization.id,
+    p_actor: context.user.id,
+    p_full_name: parsed.value.fullName,
+    p_email: parsed.value.email,
+    p_phone: parsed.value.phone,
+    p_postcode: parsed.value.postcode,
+    p_birth_date: parsed.value.birthDate,
+    p_address_line: parsed.value.addressLine,
+    p_city: parsed.value.city,
+    p_pickup_address: parsed.value.pickupAddress,
+  });
+  if (error) {
+    if (student.user_id && emailChanged && previousAuthEmail) {
+      await service.auth.admin
+        .updateUserById(student.user_id, {
+          email: previousAuthEmail,
+          email_confirm: true,
+        })
+        .catch(() => {});
+    }
+    return {
+      ok: false,
+      error: error.message.includes("already belongs")
+        ? "Dit e-mailadres hoort al bij een andere leerling."
+        : "Leerlinggegevens konden niet worden opgeslagen.",
+    };
+  }
+
+  revalidatePath(`/backoffice/leerlingen/${studentId}`);
+  revalidatePath("/backoffice/leerlingen");
+  revalidatePath(`/instructeur/leerlingen/${studentId}`);
+  revalidatePath("/instructeur/leerlingen");
+  return { ok: true };
 }
 
 export type ResendWelcomeEmailResult =
@@ -365,7 +542,9 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
   const { user, organization: tenant } = context;
 
   if (!student) {
-    redirect(`${base}?welcome_error=${encodeURIComponent("Leerling niet gevonden.")}`);
+    redirect(
+      `${base}?welcome_error=${encodeURIComponent("Leerling niet gevonden.")}`,
+    );
   }
 
   if (!student.user_id) {
@@ -421,11 +600,15 @@ export async function resendWelcomeEmail(formData: FormData): Promise<never> {
       const msg = emailResult.skipped
         ? "E-mailprovider is niet geconfigureerd voor deze omgeving."
         : `E-mail versturen mislukt: ${emailResult.error}`;
-      console.error("[resendWelcomeEmail] sendEmail failed:", emailResult.error);
+      console.error(
+        "[resendWelcomeEmail] sendEmail failed:",
+        emailResult.error,
+      );
       redirect(`${base}?welcome_error=${encodeURIComponent(msg)}`);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "E-mail versturen mislukt.";
+    const msg =
+      err instanceof Error ? err.message : "E-mail versturen mislukt.";
     redirect(`${base}?welcome_error=${encodeURIComponent(msg)}`);
   }
 
@@ -547,9 +730,8 @@ export async function finishStudentTraject(formData: FormData) {
   // Task #113 — reviewverzoek na afronding van het traject. Best-effort en
   // idempotent per (leerling, moment); blokkeert het afronden nooit.
   try {
-    const { notifyStudentReviewRequest } = await import(
-      "@/lib/notifications/dispatch"
-    );
+    const { notifyStudentReviewRequest } =
+      await import("@/lib/notifications/dispatch");
     await notifyStudentReviewRequest(
       service,
       tenant.id,
@@ -570,7 +752,9 @@ export async function adjustCredits(formData: FormData) {
   // Admin enters a number of hours (may be decimal); tegoed is stored in minutes.
   const deltaHours = parseFloat(String(formData.get("delta") ?? "0"));
   const delta = hoursToMinutes(deltaHours);
-  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  const note = String(formData.get("note") ?? "")
+    .trim()
+    .slice(0, 200);
   if (!studentId || !Number.isFinite(delta) || delta === 0 || !note) {
     redirect(`/backoffice/leerlingen/${studentId || ""}`);
   }
@@ -782,8 +966,12 @@ export async function addGuardian(
   formData: FormData,
 ): Promise<GuardianActionResult> {
   const studentId = String(formData.get("student_id") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const relation = String(formData.get("relation") ?? "").trim().slice(0, 80);
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const relation = String(formData.get("relation") ?? "")
+    .trim()
+    .slice(0, 80);
   if (!studentId) return { ok: false, error: "Leerling ontbreekt." };
   if (!email || !EMAIL_RE.test(email)) {
     return { ok: false, error: "Vul een geldig e-mailadres in." };
@@ -823,22 +1011,24 @@ export async function addGuardian(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Ouderaccount aanmaken mislukt.",
+      error:
+        err instanceof Error ? err.message : "Ouderaccount aanmaken mislukt.",
     };
   }
 
   // Ensure a profile row (RLS reads resolve the guardian's name/email from it).
-  const { error: profileErr } = await service.from("profiles").upsert(
-    { id: guardianUserId, email },
-    { onConflict: "id" },
-  );
+  const { error: profileErr } = await service
+    .from("profiles")
+    .upsert({ id: guardianUserId, email }, { onConflict: "id" });
   if (profileErr) return { ok: false, error: profileErr.message };
 
   // Ensure a parent membership in this tenant (idempotent).
-  const { error: membershipErr } = await service.from("memberships").upsert(
-    { user_id: guardianUserId, tenant_id: tenant.id, role: "parent" },
-    { onConflict: "user_id,tenant_id,role" },
-  );
+  const { error: membershipErr } = await service
+    .from("memberships")
+    .upsert(
+      { user_id: guardianUserId, tenant_id: tenant.id, role: "parent" },
+      { onConflict: "user_id,tenant_id,role" },
+    );
   if (membershipErr) return { ok: false, error: membershipErr.message };
 
   // Write the (audited) guardian link.
@@ -872,7 +1062,8 @@ export async function removeGuardian(
         }),
         student: null,
       };
-  if (studentId && !student) return { ok: false, error: "Leerling niet gevonden." };
+  if (studentId && !student)
+    return { ok: false, error: "Leerling niet gevonden." };
 
   const { error } = await service.rpc("unlink_student_guardian", {
     p_tenant_id: context.organization.id,

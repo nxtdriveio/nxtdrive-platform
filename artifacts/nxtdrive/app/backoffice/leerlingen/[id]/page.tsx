@@ -15,6 +15,7 @@ import { Input, Label } from "@/components/ui/input";
 import { StudentCentralCockpit } from "@/components/students/StudentCentralCockpit";
 import { StudentNotesCard } from "@/components/students/StudentNotesCard";
 import { StudentConsentCard } from "@/components/students/StudentConsentCard";
+import { StudentProfileEditor } from "@/components/students/StudentProfileEditor";
 import { BackofficeExamCloseoutCard } from "@/components/students/BackofficeExamCloseoutCard";
 import { BackofficeRetakeCard } from "@/components/students/BackofficeRetakeCard";
 import { loadStudentCbrSummary } from "@/lib/cbr/data";
@@ -43,7 +44,11 @@ import {
 import { CreditBreakdownCard } from "@/components/student/CreditBreakdownCard";
 import { formatEuros, type Package } from "@/lib/packages/types";
 import { type Lesson } from "@/lib/lessons/types";
-import { adjustCredits, grantPackageToStudent, resendWelcomeEmail } from "../actions";
+import {
+  adjustCredits,
+  grantPackageToStudent,
+  resendWelcomeEmail,
+} from "../actions";
 import { saveStudentDaypartPreference } from "@/lib/availability/actions";
 import {
   STUDENT_DAYPARTS,
@@ -90,7 +95,8 @@ export default async function StudentDetailPage({
   if (!student) notFound();
 
   const { organization: tenant, roles } = context;
-  const isAdmin = context.user.profile?.is_platform_admin || roles.includes("tenant_admin");
+  const isAdmin =
+    context.user.profile?.is_platform_admin || roles.includes("tenant_admin");
 
   const [taskLaunch, dossier, risProgress] = await Promise.all([
     loadTaskLaunchData(service, tenant.id),
@@ -119,7 +125,8 @@ export default async function StudentDetailPage({
     .select("student_id, tenant_id, balance")
     .eq("student_id", id)
     .maybeSingle();
-  const balance = ((balanceRaw as StudentBalance | null)?.balance ?? 0) as number;
+  const balance = ((balanceRaw as StudentBalance | null)?.balance ??
+    0) as number;
 
   const { data: breakdownRaw } = await supabase
     .from("student_credit_breakdown")
@@ -217,14 +224,19 @@ export default async function StudentDetailPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between gap-3">
               <CardTitle>Contactgegevens</CardTitle>
+              {isAdmin ? <StudentProfileEditor student={student} /> : null}
             </CardHeader>
             <CardContent className="space-y-4">
               <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 <Field label="E-mail" value={student.email} />
                 <Field label="Telefoon" value={student.phone} />
                 <Field label="Postcode" value={student.postcode} />
+                <Field label="Geboortedatum" value={student.birth_date} />
+                <Field label="Adres" value={student.address_line} />
+                <Field label="Woonplaats" value={student.city} />
+                <Field label="Ophaaladres" value={student.pickup_address} />
                 <Field
                   label="Login gekoppeld"
                   value={student.user_id ? "Ja" : "Nee"}
@@ -321,7 +333,10 @@ export default async function StudentDetailPage({
         </div>
 
         <div className="space-y-6">
-          <CbrStatusCard status={dossier.cbrStatus} checklist={dossier.cbrChecklist} />
+          <CbrStatusCard
+            status={dossier.cbrStatus}
+            checklist={dossier.cbrChecklist}
+          />
 
           {examResult === "passed" && isAdmin ? (
             <BackofficeExamCloseoutCard
@@ -380,7 +395,10 @@ export default async function StudentDetailPage({
                 ) : (
                   <form action={grantPackageToStudent} className="space-y-3">
                     <input type="hidden" name="student_id" value={student.id} />
-                    <Select name="package_id" defaultValue={activePackages[0]!.id}>
+                    <Select
+                      name="package_id"
+                      defaultValue={activePackages[0]!.id}
+                    >
                       {activePackages.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} — {formatTegoed(p.credits_total)} ·{" "}

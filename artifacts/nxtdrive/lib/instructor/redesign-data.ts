@@ -12,16 +12,9 @@ export type InstructorAppointmentStatus =
   | "completed"
   | "draft";
 
-export type InstructorStudentStatus =
-  | "active"
-  | "attention"
-  | "exam"
-  | "new";
+export type InstructorStudentStatus = "active" | "attention" | "exam" | "new";
 
-export type InstructorEvaluationStatus =
-  | "todo"
-  | "draft"
-  | "published";
+export type InstructorEvaluationStatus = "todo" | "draft" | "published";
 
 export type InstructorTaskPriority = "high" | "medium" | "low";
 
@@ -147,6 +140,7 @@ export type InstructorExperience = {
     tenantName: string;
     email?: string | null;
     phone?: string | null;
+    ris20Qualified: boolean;
   };
   stats: Array<{
     label: string;

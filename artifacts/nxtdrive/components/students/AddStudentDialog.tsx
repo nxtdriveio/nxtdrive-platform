@@ -16,8 +16,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createStudentDirect } from "@/app/backoffice/leerlingen/actions";
+import { defaultEducationTypeForInstructor } from "@/lib/students/create-profile";
 
-export function AddStudentDialog() {
+export function AddStudentDialog({
+  ris20Qualified = false,
+}: {
+  ris20Qualified?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -35,7 +40,7 @@ export function AddStudentDialog() {
   const [ophaaladres, setOphaaladres] = React.useState("");
   const [opleidingstype, setOpleidingstype] = React.useState<
     "STANDARD" | "RIS_2_0"
-  >("STANDARD");
+  >(defaultEducationTypeForInstructor(ris20Qualified));
   const [startdatum, setStartdatum] = React.useState("");
   const [privacyConfirmed, setPrivacyConfirmed] = React.useState(false);
 
@@ -48,7 +53,7 @@ export function AddStudentDialog() {
     setAdres("");
     setWoonplaats("");
     setOphaaladres("");
-    setOpleidingstype("STANDARD");
+    setOpleidingstype(defaultEducationTypeForInstructor(ris20Qualified));
     setStartdatum("");
     setPrivacyConfirmed(false);
     setError(null);
@@ -128,8 +133,7 @@ export function AddStudentDialog() {
               </div>
             ) : email ? (
               <p className="text-sm text-muted-foreground">
-                Er is een welkomstmail verstuurd naar{" "}
-                <strong>{email}</strong>.
+                Er is een welkomstmail verstuurd naar <strong>{email}</strong>.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -163,7 +167,10 @@ export function AddStudentDialog() {
 
             <div className="space-y-1.5">
               <Label htmlFor="add-student-email">
-                E-mailadres <span className="font-normal text-muted-foreground">(optioneel)</span>
+                E-mailadres{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optioneel)
+                </span>
               </Label>
               <Input
                 id="add-student-email"
@@ -174,7 +181,10 @@ export function AddStudentDialog() {
                 autoComplete="email"
                 aria-describedby="add-student-email-help"
               />
-              <p id="add-student-email-help" className="text-xs leading-5 text-muted-foreground">
+              <p
+                id="add-student-email-help"
+                className="text-xs leading-5 text-muted-foreground"
+              >
                 Alleen invullen als dit het echte adres van de leerling is.
                 Zonder e-mail maken we geen tijdelijk of fictief account aan.
               </p>
@@ -196,8 +206,15 @@ export function AddStudentDialog() {
                   required
                 >
                   <option value="STANDARD">Reguliere rijopleiding</option>
-                  <option value="RIS_2_0">RIS 2.0</option>
+                  <option value="RIS_2_0" disabled={!ris20Qualified}>
+                    RIS 2.0
+                  </option>
                 </Select>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {ris20Qualified
+                    ? "RIS 2.0 is standaard geselecteerd omdat je hiervoor gekwalificeerd bent."
+                    : "RIS 2.0 wordt beschikbaar zodra je kwalificatie actief is."}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="add-student-startdatum">
@@ -334,9 +351,7 @@ export function AddStudentDialog() {
                 className="min-h-11"
                 disabled={pending || !naam.trim() || !privacyConfirmed}
               >
-                {pending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Leerling aanmaken
               </Button>
             </DialogFooter>

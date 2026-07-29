@@ -239,6 +239,16 @@ function verifyDatabase(database) {
         if (select count(*) from public.invoices) <> 1 then
           raise exception 'representative invoice fixture missing';
         end if;
+        if not exists (
+          select 1
+            from public.instructor_training_qualifications
+           where tenant_id = '20000000-0000-4000-8000-000000000001'
+             and instructor_id = '10000000-0000-4000-8000-000000000001'
+             and training_method = 'RIS_2_0'
+             and is_qualified = true
+        ) then
+          raise exception 'default RIS 2.0 instructor qualification missing';
+        end if;
       end
       $verification$;
 

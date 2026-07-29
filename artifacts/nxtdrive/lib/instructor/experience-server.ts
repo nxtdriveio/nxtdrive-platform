@@ -2,9 +2,19 @@ import "server-only";
 
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { loadAgendaAppointments, type AgendaAppointmentView } from "@/lib/agenda/appointments";
-import { APPOINTMENT_TYPE_LABEL, APPOINTMENT_TYPE_SHORT, durationMinutes } from "@/lib/agenda/types";
-import { loadAgendaTrialLessons, type AgendaTrialLesson } from "@/lib/trial-lessons/agenda";
+import {
+  loadAgendaAppointments,
+  type AgendaAppointmentView,
+} from "@/lib/agenda/appointments";
+import {
+  APPOINTMENT_TYPE_LABEL,
+  APPOINTMENT_TYPE_SHORT,
+  durationMinutes,
+} from "@/lib/agenda/types";
+import {
+  loadAgendaTrialLessons,
+  type AgendaTrialLesson,
+} from "@/lib/trial-lessons/agenda";
 import {
   loadExceptions,
   loadWeeklyAvailability,
@@ -12,9 +22,16 @@ import {
   type ResolvedAvailabilityDay,
 } from "@/lib/availability/service";
 import { minutesToHHMM } from "@/lib/availability/types";
-import { loadInstructorConversations, loadThreadMessages } from "@/lib/chat/service";
+import {
+  loadInstructorConversations,
+  loadThreadMessages,
+} from "@/lib/chat/service";
 import { loadVehicles } from "@/lib/lessons/context-data";
-import { VEHICLE_TRANSMISSION_LABEL, type Lesson, type Vehicle } from "@/lib/lessons/types";
+import {
+  VEHICLE_TRANSMISSION_LABEL,
+  type Lesson,
+  type Vehicle,
+} from "@/lib/lessons/types";
 import type { Student, StudentBalance } from "@/lib/students/types";
 import type { Task, TaskPriority } from "@/lib/tasks/types";
 import {
@@ -41,8 +58,14 @@ import {
 } from "@/lib/instructor/redesign-data";
 import { deriveNextInstructorAction } from "@/lib/instructor/next-action";
 
-type StudentSummary = Pick<Student, "id" | "full_name" | "phone" | "postcode" | "email">;
-type DashboardTask = Pick<Task, "id" | "title" | "priority" | "due_date" | "created_at" | "updated_at">;
+type StudentSummary = Pick<
+  Student,
+  "id" | "full_name" | "phone" | "postcode" | "email"
+>;
+type DashboardTask = Pick<
+  Task,
+  "id" | "title" | "priority" | "due_date" | "created_at" | "updated_at"
+>;
 
 type InstructorFormatters = {
   timeZone: string;
@@ -100,19 +123,32 @@ function taskPriority(priority: TaskPriority): InstructorTaskPriority {
   return "medium";
 }
 
-function appointmentType(type: AgendaAppointmentView["type"]): InstructorAppointmentType {
+function appointmentType(
+  type: AgendaAppointmentView["type"],
+): InstructorAppointmentType {
   if (type === "exam" || type === "interim_test") return "exam";
   if (type === "theory_guidance") return "theory";
   if (type === "private_block" || type === "vacation") return "private";
-  if (type === "free_block" || type === "break" || type === "maintenance" || type === "admin") {
+  if (
+    type === "free_block" ||
+    type === "break" ||
+    type === "maintenance" ||
+    type === "admin"
+  ) {
     return "admin";
   }
   return "lesson";
 }
 
 function mapVehicleStatus(vehicle: Vehicle): InstructorVehicle["status"] {
-  if (!vehicle.active || vehicle.status === "inactive" || vehicle.status === "sold") return "unavailable";
-  if (vehicle.status === "maintenance" || vehicle.status === "damaged") return "maintenance";
+  if (
+    !vehicle.active ||
+    vehicle.status === "inactive" ||
+    vehicle.status === "sold"
+  )
+    return "unavailable";
+  if (vehicle.status === "maintenance" || vehicle.status === "damaged")
+    return "maintenance";
   return "active";
 }
 
@@ -128,7 +164,9 @@ function mapLesson(
   formatters: InstructorFormatters,
 ): InstructorAppointment {
   const student = studentMap.get(lesson.student_id);
-  const vehicle = lesson.vehicle_id ? vehiclesById.get(lesson.vehicle_id) : null;
+  const vehicle = lesson.vehicle_id
+    ? vehiclesById.get(lesson.vehicle_id)
+    : null;
   return {
     id: lesson.id,
     type: "lesson",
@@ -139,7 +177,12 @@ function mapLesson(
     duration: durationLabel(lesson.starts_at, lesson.ends_at),
     location: lesson.location ?? student?.postcode ?? "Locatie volgt",
     vehicle: vehicleLabel(vehicle),
-    status: lesson.status === "completed" ? "completed" : lesson.status === "in_progress" ? "confirmed" : "planned",
+    status:
+      lesson.status === "completed"
+        ? "completed"
+        : lesson.status === "in_progress"
+          ? "confirmed"
+          : "planned",
     href: `/instructeur/lessen/${lesson.id}`,
   };
 }
@@ -167,7 +210,9 @@ function mapAppointment(
   vehiclesById: Map<string, Vehicle>,
   formatters: InstructorFormatters,
 ): InstructorAppointment {
-  const vehicle = appointment.vehicle_id ? vehiclesById.get(appointment.vehicle_id) : null;
+  const vehicle = appointment.vehicle_id
+    ? vehiclesById.get(appointment.vehicle_id)
+    : null;
   return {
     id: appointment.id,
     type: appointmentType(appointment.type),
@@ -176,7 +221,10 @@ function mapAppointment(
     startsAt: formatters.timeFmt.format(new Date(appointment.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(appointment.ends_at)),
     duration: durationLabel(appointment.starts_at, appointment.ends_at),
-    location: appointment.location ?? appointment.team_name ?? APPOINTMENT_TYPE_LABEL[appointment.type],
+    location:
+      appointment.location ??
+      appointment.team_name ??
+      APPOINTMENT_TYPE_LABEL[appointment.type],
     vehicle: vehicleLabel(vehicle),
     status: appointment.status === "completed" ? "completed" : "planned",
     href: `/instructeur/agenda/${appointment.id}`,
@@ -191,41 +239,84 @@ function mapStudent(
 ): InstructorStudent {
   const studentLessons = lessons
     .filter((lesson) => lesson.student_id === student.id)
-    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+    );
   const now = Date.now();
-  const completed = studentLessons.filter((lesson) => lesson.status === "completed");
-  const next = studentLessons.find((lesson) => new Date(lesson.starts_at).getTime() >= now);
-  const latest = [...completed].sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
+  const completed = studentLessons.filter(
+    (lesson) => lesson.status === "completed",
+  );
+  const next = studentLessons.find(
+    (lesson) => new Date(lesson.starts_at).getTime() >= now,
+  );
+  const latest = [...completed].sort(
+    (a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime(),
+  )[0];
   const balance = balanceMap.get(student.id) ?? 0;
-  const progress = Math.max(0, Math.min(100, Math.round((completed.length / Math.max(40, completed.length || 1)) * 100)));
+  const progress = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        (completed.length / Math.max(40, completed.length || 1)) * 100,
+      ),
+    ),
+  );
 
   return {
     id: student.id,
     name: student.full_name ?? "Leerling",
     license: `${completed.length} lessen afgerond`,
     progress,
-    status: balance <= 300 ? "attention" : progress >= 75 ? "exam" : completed.length === 0 ? "new" : "active",
-    nextLesson: next ? `${dateLabel(next.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(next.starts_at))}` : "Niet gepland",
-    latestLesson: latest ? `${dateLabel(latest.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(latest.starts_at))}` : "Nog geen les afgerond",
+    status:
+      balance <= 300
+        ? "attention"
+        : progress >= 75
+          ? "exam"
+          : completed.length === 0
+            ? "new"
+            : "active",
+    nextLesson: next
+      ? `${dateLabel(next.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(next.starts_at))}`
+      : "Niet gepland",
+    latestLesson: latest
+      ? `${dateLabel(latest.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(latest.starts_at))}`
+      : "Nog geen les afgerond",
     phone: student.phone ?? "Niet ingevuld",
     email: student.email,
-    attention: balance <= 300 ? "Lespakket bijna op of vervolgplanning nodig." : "Geen urgente aandachtspunten.",
+    attention:
+      balance <= 300
+        ? "Lespakket bijna op of vervolgplanning nodig."
+        : "Geen urgente aandachtspunten.",
     readiness: `${progress}% voortgang`,
   };
 }
 
-function mapTask(task: DashboardTask, formatters: InstructorFormatters): InstructorTask {
+function mapTask(
+  task: DashboardTask,
+  formatters: InstructorFormatters,
+): InstructorTask {
   return {
     id: task.id,
     title: task.title,
-    subject: task.due_date ? `Deadline ${dateLabel(task.due_date, formatters)}` : "Geen deadline",
-    due: task.due_date ? formatters.timeFmt.format(new Date(task.due_date)) : "Later",
+    subject: task.due_date
+      ? `Deadline ${dateLabel(task.due_date, formatters)}`
+      : "Geen deadline",
+    due: task.due_date
+      ? formatters.timeFmt.format(new Date(task.due_date))
+      : "Later",
     priority: taskPriority(task.priority),
-    status: task.due_date && new Date(task.due_date).getTime() < Date.now() ? "late" : "open",
+    status:
+      task.due_date && new Date(task.due_date).getTime() < Date.now()
+        ? "late"
+        : "open",
   };
 }
 
-function mapAvailabilityDays(days: readonly ResolvedAvailabilityDay[]): InstructorAvailabilityDay[] {
+function mapAvailabilityDays(
+  days: readonly ResolvedAvailabilityDay[],
+): InstructorAvailabilityDay[] {
   return days.map((day) => {
     const first = day.intervals[0];
     const last = day.intervals[day.intervals.length - 1];
@@ -239,15 +330,22 @@ function mapAvailabilityDays(days: readonly ResolvedAvailabilityDay[]): Instruct
       date: day.date,
       sourceLabel: day.sourceLabel,
       availableMinutes: day.availableMinutes,
-      intervals: day.intervals.map((interval) => `${minutesToHHMM(interval.start_min)}-${minutesToHHMM(interval.end_min)}`),
+      intervals: day.intervals.map(
+        (interval) =>
+          `${minutesToHHMM(interval.start_min)}-${minutesToHHMM(interval.end_min)}`,
+      ),
     };
   });
 }
 
 export async function loadInstructorExperience(): Promise<InstructorExperience> {
-  const { user, tenant, roles } = await requireActiveTenant(["instructor", "tenant_admin"]);
+  const { user, tenant, roles } = await requireActiveTenant([
+    "instructor",
+    "tenant_admin",
+  ]);
   const supabase = await createServerSupabaseClient();
-  const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
   const now = new Date();
   const timeZone = resolveTenantTimeZone(tenant);
   const formatters = createInstructorFormatters(timeZone);
@@ -268,6 +366,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     vehicles,
     weeklyAvailability,
     availabilityExceptions,
+    ris20QualificationResult,
   ] = await Promise.all([
     supabase
       .from("lessons")
@@ -316,10 +415,20 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       to: availabilityTo,
       timeZone,
     }),
+    roles.includes("instructor")
+      ? supabase
+          .from("instructor_training_qualifications")
+          .select("is_qualified")
+          .eq("tenant_id", tenant.id)
+          .eq("instructor_id", user.id)
+          .eq("training_method", "RIS_2_0")
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   if (lessonWindowResult.error) throw lessonWindowResult.error;
   if (openTasksResult.error) throw openTasksResult.error;
   if (openTaskCountResult.error) throw openTaskCountResult.error;
+  if (ris20QualificationResult.error) throw ris20QualificationResult.error;
 
   const lessonWindow = (lessonWindowResult.data ?? []) as Lesson[];
   const todayLessons = lessonWindow.filter((lesson) =>
@@ -363,29 +472,40 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const students = (studentsRaw ?? []) as StudentSummary[];
   const studentMap = new Map(students.map((student) => [student.id, student]));
   const balanceMap = new Map(
-    ((balancesRaw ?? []) as StudentBalance[]).map((balance) => [balance.student_id, balance.balance]),
+    ((balancesRaw ?? []) as StudentBalance[]).map((balance) => [
+      balance.student_id,
+      balance.balance,
+    ]),
   );
-  const vehiclesById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const vehiclesById = new Map(
+    vehicles.map((vehicle) => [vehicle.id, vehicle]),
+  );
   const mappedAppointments = [
-    ...todayLessons.map((lesson) => mapLesson(lesson, studentMap, vehiclesById, formatters)),
+    ...todayLessons.map((lesson) =>
+      mapLesson(lesson, studentMap, vehiclesById, formatters),
+    ),
     ...todayTrials.map((trial) => mapTrial(trial, formatters)),
-    ...todayAppointments.map((appointment) => mapAppointment(appointment, vehiclesById, formatters)),
+    ...todayAppointments.map((appointment) =>
+      mapAppointment(appointment, vehiclesById, formatters),
+    ),
   ].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   const activeVehicles = vehicles.filter((vehicle) => vehicle.active);
-  const evaluations: InstructorEvaluation[] = lessonWindow.slice(0, 8).map((lesson) => {
-    const student = studentMap.get(lesson.student_id);
-    return {
-      id: lesson.id,
-      studentId: lesson.student_id,
-      studentName: student?.full_name ?? "Leerling",
-      lessonLabel: "Rijles",
-      lessonDate: `${dateLabel(lesson.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(lesson.starts_at))}`,
-      status: lesson.status === "completed" ? "published" : "todo",
-      mode: "ris",
-      modules: [],
-    };
-  });
+  const evaluations: InstructorEvaluation[] = lessonWindow
+    .slice(0, 8)
+    .map((lesson) => {
+      const student = studentMap.get(lesson.student_id);
+      return {
+        id: lesson.id,
+        studentId: lesson.student_id,
+        studentName: student?.full_name ?? "Leerling",
+        lessonLabel: "Rijles",
+        lessonDate: `${dateLabel(lesson.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(lesson.starts_at))}`,
+        status: lesson.status === "completed" ? "published" : "todo",
+        mode: "ris",
+        modules: [],
+      };
+    });
   const conversationMessages = await Promise.all(
     conversations.slice(0, 8).map(async (conversation) => ({
       conversationId: conversation.id,
@@ -393,35 +513,61 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     })),
   );
   const messagesByConversation = new Map(
-    conversationMessages.map((thread) => [thread.conversationId, thread.messages]),
+    conversationMessages.map((thread) => [
+      thread.conversationId,
+      thread.messages,
+    ]),
   );
-  const messages: InstructorMessageThread[] = conversations.slice(0, 8).map((conversation) => ({
-    id: conversation.id,
-    name: conversation.studentName,
-    role: "Leerling",
-    preview: conversation.lastMessagePreview ?? "Nog geen berichtinhoud.",
-    time: conversation.lastMessageAt ? formatters.timeFmt.format(new Date(conversation.lastMessageAt)) : "Nieuw",
-    unread: conversation.unreadCount,
-    messages: (messagesByConversation.get(conversation.id) ?? []).map((message) => ({
-      id: message.id,
-      sender: message.senderSide,
-      body: message.body,
-      time: formatters.timeFmt.format(new Date(message.createdAt)),
-    })),
-  }));
+  const messages: InstructorMessageThread[] = conversations
+    .slice(0, 8)
+    .map((conversation) => ({
+      id: conversation.id,
+      name: conversation.studentName,
+      role: "Leerling",
+      preview: conversation.lastMessagePreview ?? "Nog geen berichtinhoud.",
+      time: conversation.lastMessageAt
+        ? formatters.timeFmt.format(new Date(conversation.lastMessageAt))
+        : "Nieuw",
+      unread: conversation.unreadCount,
+      messages: (messagesByConversation.get(conversation.id) ?? []).map(
+        (message) => ({
+          id: message.id,
+          sender: message.senderSide,
+          body: message.body,
+          time: formatters.timeFmt.format(new Date(message.createdAt)),
+        }),
+      ),
+    }));
   const radar = mapStudentsForRadar(students, lessonWindow, balanceMap);
   const profileName = user.profile?.full_name ?? user.email ?? "Instructeur";
-  const examTodayCount = todayAppointments.filter((appointment) => appointment.type === "exam" || appointment.type === "interim_test").length;
-  const resolvedAvailability = resolveAvailabilityDays(weeklyAvailability, availabilityExceptions, {
-    from: availabilityFrom,
-    days: 7,
-    timeZone,
-  });
+  const examTodayCount = todayAppointments.filter(
+    (appointment) =>
+      appointment.type === "exam" || appointment.type === "interim_test",
+  ).length;
+  const resolvedAvailability = resolveAvailabilityDays(
+    weeklyAvailability,
+    availabilityExceptions,
+    {
+      from: availabilityFrom,
+      days: 7,
+      timeZone,
+    },
+  );
   const todayAvailability = resolvedAvailability[0];
   const bookedTodayMinutes =
-    todayLessons.reduce((sum, lesson) => sum + durationMinutes(lesson.starts_at, lesson.ends_at), 0) +
-    todayTrials.reduce((sum, trial) => sum + Math.max(0, trial.duration_min), 0) +
-    todayAppointments.reduce((sum, appointment) => sum + durationMinutes(appointment.starts_at, appointment.ends_at), 0);
+    todayLessons.reduce(
+      (sum, lesson) => sum + durationMinutes(lesson.starts_at, lesson.ends_at),
+      0,
+    ) +
+    todayTrials.reduce(
+      (sum, trial) => sum + Math.max(0, trial.duration_min),
+      0,
+    ) +
+    todayAppointments.reduce(
+      (sum, appointment) =>
+        sum + durationMinutes(appointment.starts_at, appointment.ends_at),
+      0,
+    );
   const availableTodayMinutes = todayAvailability?.availableMinutes ?? 0;
 
   const mappedTasks = ((openTasksResult.data ?? []) as DashboardTask[]).map(
@@ -444,12 +590,41 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       tenantName: tenant.name,
       email: user.email,
       phone: null,
+      ris20Qualified: Boolean(
+        (
+          ris20QualificationResult.data as {
+            is_qualified: boolean;
+          } | null
+        )?.is_qualified,
+      ),
     },
     stats: [
-      { label: "Rijlessen", value: String(todayLessons.length), hint: "Vandaag", tone: "blue" },
-      { label: "Proeflessen", value: String(todayTrials.length), hint: "Vandaag", tone: "purple" },
-      { label: "Examens / TTT", value: String(examTodayCount), hint: "Vandaag", tone: "rose" },
-      { label: "Open taken", value: String(openTaskCountResult.count ?? openTasksResult.data?.length ?? 0), hint: "Totaal", tone: "green" },
+      {
+        label: "Rijlessen",
+        value: String(todayLessons.length),
+        hint: "Vandaag",
+        tone: "blue",
+      },
+      {
+        label: "Proeflessen",
+        value: String(todayTrials.length),
+        hint: "Vandaag",
+        tone: "purple",
+      },
+      {
+        label: "Examens / TTT",
+        value: String(examTodayCount),
+        hint: "Vandaag",
+        tone: "rose",
+      },
+      {
+        label: "Open taken",
+        value: String(
+          openTaskCountResult.count ?? openTasksResult.data?.length ?? 0,
+        ),
+        hint: "Totaal",
+        tone: "green",
+      },
     ],
     appointments: mappedAppointments,
     students: mappedStudents,
@@ -459,11 +634,18 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       id: vehicle.id,
       name: vehicle.label,
       plate: vehicle.license_plate ?? "Kenteken niet ingevuld",
-      transmission: vehicle.transmission ? VEHICLE_TRANSMISSION_LABEL[vehicle.transmission] : "Transmissie onbekend",
+      transmission: vehicle.transmission
+        ? VEHICLE_TRANSMISSION_LABEL[vehicle.transmission]
+        : "Transmissie onbekend",
       status: mapVehicleStatus(vehicle),
-      apk: vehicle.apk_expires_at ? dateLabel(vehicle.apk_expires_at, formatters) : "Niet ingevuld",
-      mileage: vehicle.current_odometer_km ? `${vehicle.current_odometer_km.toLocaleString("nl-NL")} km` : "Niet ingevuld",
-      maintenance: vehicle.status === "maintenance" ? "In onderhoud" : "Geen melding",
+      apk: vehicle.apk_expires_at
+        ? dateLabel(vehicle.apk_expires_at, formatters)
+        : "Niet ingevuld",
+      mileage: vehicle.current_odometer_km
+        ? `${vehicle.current_odometer_km.toLocaleString("nl-NL")} km`
+        : "Niet ingevuld",
+      maintenance:
+        vehicle.status === "maintenance" ? "In onderhoud" : "Geen melding",
     })),
     evaluations,
     availability: mapAvailabilityDays(resolvedAvailability),
@@ -472,7 +654,10 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       bookedMinutes: bookedTodayMinutes,
       utilizationPct:
         availableTodayMinutes > 0
-          ? Math.min(100, Math.round((bookedTodayMinutes / availableTodayMinutes) * 100))
+          ? Math.min(
+              100,
+              Math.round((bookedTodayMinutes / availableTodayMinutes) * 100),
+            )
           : 0,
       intervalLabel: todayAvailability?.intervalLabel ?? "Geen beschikbaarheid",
       sourceLabel: todayAvailability?.sourceLabel ?? "Geen schema",
@@ -490,8 +675,12 @@ function mapStudentsForRadar(
   const items: InstructorExperience["radar"] = [];
   for (const student of students) {
     const balance = balanceMap.get(student.id) ?? 0;
-    const studentLessons = lessons.filter((lesson) => lesson.student_id === student.id);
-    const futureCount = studentLessons.filter((lesson) => new Date(lesson.starts_at).getTime() >= Date.now()).length;
+    const studentLessons = lessons.filter(
+      (lesson) => lesson.student_id === student.id,
+    );
+    const futureCount = studentLessons.filter(
+      (lesson) => new Date(lesson.starts_at).getTime() >= Date.now(),
+    ).length;
     if (balance <= 300) {
       items.push({
         id: `balance-${student.id}`,
@@ -511,6 +700,9 @@ function mapStudentsForRadar(
   return items.slice(0, 4);
 }
 
-export function instructorGreeting(data: InstructorExperience, now = new Date()) {
+export function instructorGreeting(
+  data: InstructorExperience,
+  now = new Date(),
+) {
   return `${greetingFor(now)} ${firstName(data.profile.name)}!`;
 }

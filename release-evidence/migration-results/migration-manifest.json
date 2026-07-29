@@ -3,7 +3,7 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 158,
+  "migrationCount": 160,
   "fixture": {
     "tenants": 2,
     "users": 2,
@@ -810,6 +810,16 @@
       "file": "20260729143100_ris_observations_and_publication_guards.sql",
       "sha256": "82097cb0ea2a4f45adc068a99f5c43080aa8e14e61d0b4bdc5fcc140e390151f",
       "bytes": 25809
+    },
+    {
+      "file": "20260729150000_instructor_ris20_default_qualification.sql",
+      "sha256": "aea64634a41ec890646963736b8dd376b324552253160887cae44b57f05d623d",
+      "bytes": 5889
+    },
+    {
+      "file": "20260729150100_student_profile_contact_fields.sql",
+      "sha256": "e569b1bf8cf347e1792b8c5b43063f8f1d85d2167a6e58417397e5a50346c134",
+      "bytes": 4236
     }
   ]
 }

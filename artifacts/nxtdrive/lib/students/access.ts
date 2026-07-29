@@ -46,7 +46,7 @@ export type InstructorStudentAccess = {
 };
 
 const STUDENT_SELECT =
-  "id, tenant_id, branch_id, user_id, lead_id, full_name, email, phone, postcode, notes, preferred_dayparts, refill_opt_in, refill_preferred_dayparts, review_consent, review_consent_at, review_consent_by, active, created_at, updated_at";
+  "id, tenant_id, branch_id, user_id, lead_id, full_name, email, phone, postcode, birth_date, address_line, city, pickup_address, notes, preferred_dayparts, refill_opt_in, refill_preferred_dayparts, review_consent, review_consent_at, review_consent_by, active, created_at, updated_at";
 
 function rolesForStudentAccessMode(
   mode: StudentBackofficeAccessMode,
@@ -69,9 +69,13 @@ export async function requireStudentBackofficeAccess(
   mode: StudentBackofficeAccessMode,
   options: { allowedRoles?: readonly MemberRole[] } = {},
 ): Promise<StudentBackofficeAccess> {
-  const allowedRoles = [...(options.allowedRoles ?? rolesForStudentAccessMode(mode))];
+  const allowedRoles = [
+    ...(options.allowedRoles ?? rolesForStudentAccessMode(mode)),
+  ];
   const permission = mode === "admin" ? "student:manage" : "student:read";
-  const context = await requireOrganizationPermission(permission, { allowedRoles });
+  const context = await requireOrganizationPermission(permission, {
+    allowedRoles,
+  });
   const branchScope = await loadOrganizationBranchScope(client, context);
 
   const { data, error } = await client
@@ -141,7 +145,8 @@ export async function requireInstructorStudentAccess(
     "instructor",
     "tenant_admin",
   ]);
-  const isAdmin = roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
+  const isAdmin =
+    roles.includes("tenant_admin") || !!user.profile?.is_platform_admin;
 
   const { data, error } = await client
     .from("students")
@@ -246,16 +251,24 @@ export async function getActiveStudent(
   }
 
   if (children.length === 1) {
-    return { student: children[0]!, accessible: children, needsChildPicker: false };
+    return {
+      student: children[0]!,
+      accessible: children,
+      needsChildPicker: false,
+    };
   }
 
   // Multi-child: honour the cookie if it points at one of the children.
   const cookieId = await getActiveChildId();
   const cookieMatch = cookieId
-    ? children.find((s) => s.id === cookieId) ?? null
+    ? (children.find((s) => s.id === cookieId) ?? null)
     : null;
   if (cookieMatch) {
-    return { student: cookieMatch, accessible: children, needsChildPicker: false };
+    return {
+      student: cookieMatch,
+      accessible: children,
+      needsChildPicker: false,
+    };
   }
 
   // Silence unused-var lint for the `roles` parameter — kept in the

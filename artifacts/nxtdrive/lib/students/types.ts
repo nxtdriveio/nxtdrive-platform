@@ -45,6 +45,10 @@ export type Student = {
   email: string | null;
   phone: string | null;
   postcode: string | null;
+  birth_date: string | null;
+  address_line: string | null;
+  city: string | null;
+  pickup_address: string | null;
   notes: string | null;
   preferred_dayparts: string[] | null;
   refill_opt_in: boolean;

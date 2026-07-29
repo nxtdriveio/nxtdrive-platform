@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
+import { InstructorTaskManager } from "@/components/instructor/InstructorTaskManager";
 import {
   type InstructorAppointment,
   type InstructorAppointmentType,
@@ -48,6 +49,7 @@ import {
   type InstructorTaskPriority,
   type InstructorVehicleStatus,
 } from "@/lib/instructor/redesign-data";
+import type { InstructorTaskWorkspace } from "@/lib/instructor/tasks";
 
 type IconComponent = typeof CalendarDays;
 
@@ -173,7 +175,9 @@ function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -203,16 +207,25 @@ function InstructorCard({
       )}
     >
       {title ? (
-        <div className={cn("flex min-w-0 items-center justify-between gap-3 border-b border-brand-border/70 px-4 py-3.5", headerClassName)}>
+        <div
+          className={cn(
+            "flex min-w-0 items-center justify-between gap-3 border-b border-brand-border/70 px-4 py-3.5",
+            headerClassName,
+          )}
+        >
           <div className="flex min-w-0 items-center gap-2.5">
             {Icon ? (
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
                 <Icon className="h-4 w-4" aria-hidden />
               </span>
             ) : null}
-            <h2 className="truncate text-sm font-black text-foreground">{title}</h2>
+            <h2 className="truncate text-sm font-black text-foreground">
+              {title}
+            </h2>
           </div>
-          {right ? <div className="flex shrink-0 items-center gap-2">{right}</div> : null}
+          {right ? (
+            <div className="flex shrink-0 items-center gap-2">{right}</div>
+          ) : null}
         </div>
       ) : null}
       <div className={cn("min-w-0 p-4", contentClassName)}>{children}</div>
@@ -232,7 +245,8 @@ function DataUnavailableState({
       <PageHeader eyebrow="Instructeur" title={title} subtitle={subtitle} />
       <InstructorCard icon={InfoIcon} title="Lege status">
         <p className="text-sm leading-6 text-muted-foreground">
-          Zodra er gegevens beschikbaar zijn, verschijnt deze pagina automatisch gevuld.
+          Zodra er gegevens beschikbaar zijn, verschijnt deze pagina automatisch
+          gevuld.
         </p>
       </InstructorCard>
     </InstructorPage>
@@ -251,20 +265,24 @@ function ProgressRing({
   const dimension = size === "sm" ? "h-16 w-16" : "h-24 w-24";
   return (
     <div
-      className={cn(
-        "grid shrink-0 place-items-center rounded-full",
-        dimension,
-      )}
+      className={cn("grid shrink-0 place-items-center rounded-full", dimension)}
       style={{
         background: `conic-gradient(var(--brand-primary) ${value * 3.6}deg, var(--brand-muted) 0deg)`,
       }}
     >
       <div className="grid h-[78%] w-[78%] place-items-center rounded-full bg-white text-center shadow-inner">
         <div>
-          <p className={cn("font-black text-foreground", size === "sm" ? "text-sm" : "text-2xl")}>
+          <p
+            className={cn(
+              "font-black text-foreground",
+              size === "sm" ? "text-sm" : "text-2xl",
+            )}
+          >
             {value}%
           </p>
-          <p className="text-[10px] font-semibold text-muted-foreground">{label}</p>
+          <p className="text-[10px] font-semibold text-muted-foreground">
+            {label}
+          </p>
         </div>
       </div>
     </div>
@@ -296,12 +314,21 @@ function StatCard({
   return (
     <div className="rounded-[1.15rem] border border-brand-border/80 bg-white p-3 shadow-brand-card xl:p-4">
       <div className="flex items-center gap-3">
-        <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl", tone)}>
+        <span
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-xl",
+            tone,
+          )}
+        >
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <p className="text-2xl font-black leading-none text-foreground">{value}</p>
-          <p className="mt-1 text-xs font-semibold text-muted-foreground">{label}</p>
+          <p className="text-2xl font-black leading-none text-foreground">
+            {value}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            {label}
+          </p>
           <p className="text-[11px] text-muted-foreground">{hint}</p>
         </div>
       </div>
@@ -320,7 +347,12 @@ function AppointmentTypeBadge({ type }: { type: InstructorAppointmentType }) {
   };
 
   return (
-    <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-bold", appointmentTone[type])}>
+    <span
+      className={cn(
+        "rounded-full border px-2.5 py-1 text-[11px] font-bold",
+        appointmentTone[type],
+      )}
+    >
       {label[type]}
     </span>
   );
@@ -341,11 +373,18 @@ function AppointmentCard({
         compact && "p-3",
       )}
     >
-      <span className={cn("absolute inset-y-3 left-0 w-1 rounded-full", appointmentRail[appointment.type])} />
+      <span
+        className={cn(
+          "absolute inset-y-3 left-0 w-1 rounded-full",
+          appointmentRail[appointment.type],
+        )}
+      />
       <div className="pl-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-black text-foreground">{appointment.title}</p>
+            <p className="text-sm font-black text-foreground">
+              {appointment.title}
+            </p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {appointment.studentName ?? appointment.location}
             </p>
@@ -353,16 +392,27 @@ function AppointmentCard({
           <AppointmentTypeBadge type={appointment.type} />
         </div>
         <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
-          <span>{appointment.startsAt} - {appointment.endsAt}</span>
-          <span>{appointment.duration} - {appointment.location}</span>
+          <span>
+            {appointment.startsAt} - {appointment.endsAt}
+          </span>
+          <span>
+            {appointment.duration} - {appointment.location}
+          </span>
         </div>
       </div>
     </Link>
   );
 }
 
-function NextLessonCard({ appointments }: { appointments: InstructorAppointment[] }) {
-  const lesson = appointments.find((appointment) => appointment.type === "lesson") ?? appointments[0] ?? null;
+function NextLessonCard({
+  appointments,
+}: {
+  appointments: InstructorAppointment[];
+}) {
+  const lesson =
+    appointments.find((appointment) => appointment.type === "lesson") ??
+    appointments[0] ??
+    null;
 
   if (!lesson) {
     return (
@@ -375,7 +425,10 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
         <p className="text-sm leading-6 text-muted-foreground">
           Er staat vandaag nog geen les in je agenda.
         </p>
-        <Link href="/instructeur/agenda/nieuw" className={buttonVariants({ size: "sm" })}>
+        <Link
+          href="/instructeur/agenda/nieuw"
+          className={buttonVariants({ size: "sm" })}
+        >
           Les plannen
         </Link>
       </InstructorCard>
@@ -391,10 +444,17 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
       contentClassName={cn(cockpitCardContentClassName, "space-y-3")}
     >
       <div className="flex items-start gap-3">
-        <Avatar name={lesson.studentName ?? lesson.title} className="h-12 w-12 text-sm" />
+        <Avatar
+          name={lesson.studentName ?? lesson.title}
+          className="h-12 w-12 text-sm"
+        />
         <div className="min-w-0">
-          <h3 className="truncate text-base font-black text-foreground">{lesson.studentName ?? lesson.title}</h3>
-          <p className="text-sm text-muted-foreground">{lesson.title} - {lesson.duration}</p>
+          <h3 className="truncate text-base font-black text-foreground">
+            {lesson.studentName ?? lesson.title}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {lesson.title} - {lesson.duration}
+          </p>
         </div>
       </div>
       <div className="grid gap-2 text-sm text-muted-foreground">
@@ -426,7 +486,11 @@ function NextLessonCard({ appointments }: { appointments: InstructorAppointment[
   );
 }
 
-export function InstructorCockpitView({ data }: { data?: InstructorExperience }) {
+export function InstructorCockpitView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
   if (!data) return <DataUnavailableState title="Cockpit niet beschikbaar" />;
   const firstName = data.profile.name.split(" ")[0] ?? data.profile.name;
 
@@ -462,7 +526,9 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
               {data.nextAction.subject ? (
                 <span>Leerling / onderwerp: {data.nextAction.subject}</span>
               ) : null}
-              {data.nextAction.time ? <span>Tijd: {data.nextAction.time}</span> : null}
+              {data.nextAction.time ? (
+                <span>Tijd: {data.nextAction.time}</span>
+              ) : null}
               <span>Reden: {data.nextAction.reasonCode}</span>
             </div>
           </div>
@@ -483,7 +549,15 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
             label={stat.label}
             value={stat.value}
             hint={stat.hint}
-            icon={stat.label.includes("Proef") ? Users : stat.label.includes("Examen") ? Flag : stat.label.includes("Taken") ? CheckCircle2 : CalendarDays}
+            icon={
+              stat.label.includes("Proef")
+                ? Users
+                : stat.label.includes("Examen")
+                  ? Flag
+                  : stat.label.includes("Taken")
+                    ? CheckCircle2
+                    : CalendarDays
+            }
             tone={
               stat.tone === "purple"
                 ? "bg-violet-50 text-violet-700"
@@ -506,24 +580,35 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
           title="Taken"
           icon={ListTodo}
           right={<Badge variant="primary">{data.tasks.length}</Badge>}
-          className={cn(
-            cockpitCardClassName,
-            "lg:col-start-2 lg:row-start-1",
-          )}
+          className={cn(cockpitCardClassName, "lg:col-start-2 lg:row-start-1")}
           contentClassName={cockpitCardContentClassName}
         >
           <div className="space-y-2">
-            {data.tasks.length > 0 ? data.tasks.slice(0, 5).map((task) => (
-              <Link key={task.id} href="/instructeur/taken" className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
-                <span className="h-4 w-4 rounded border border-muted-foreground/40" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{task.subject}</p>
-                </div>
-                <Badge variant={priorityLabel[task.priority].variant}>{priorityLabel[task.priority].label}</Badge>
-              </Link>
-            )) : (
-              <p className="text-sm leading-6 text-muted-foreground">Geen openstaande taken.</p>
+            {data.tasks.length > 0 ? (
+              data.tasks.slice(0, 5).map((task) => (
+                <Link
+                  key={task.id}
+                  href="/instructeur/taken"
+                  className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60"
+                >
+                  <span className="h-4 w-4 rounded border border-muted-foreground/40" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-foreground">
+                      {task.title}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {task.subject}
+                    </p>
+                  </div>
+                  <Badge variant={priorityLabel[task.priority].variant}>
+                    {priorityLabel[task.priority].label}
+                  </Badge>
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm leading-6 text-muted-foreground">
+                Geen openstaande taken.
+              </p>
             )}
           </div>
         </InstructorCard>
@@ -531,24 +616,35 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         <InstructorCard
           title="Berichten"
           icon={MessageCircle}
-          className={cn(
-            cockpitCardClassName,
-            "lg:col-start-1 lg:row-start-2",
-          )}
+          className={cn(cockpitCardClassName, "lg:col-start-1 lg:row-start-2")}
           contentClassName={cockpitCardContentClassName}
         >
           <div className="space-y-2">
-            {data.messages.length > 0 ? data.messages.slice(0, 4).map((thread) => (
-              <Link key={thread.id} href={`/instructeur/berichten/${thread.id}`} className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60">
-                <Avatar name={thread.name} className="h-10 w-10 text-xs" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{thread.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{thread.preview}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">{thread.time}</span>
-              </Link>
-            )) : (
-              <p className="text-sm leading-6 text-muted-foreground">Nog geen gesprekken.</p>
+            {data.messages.length > 0 ? (
+              data.messages.slice(0, 4).map((thread) => (
+                <Link
+                  key={thread.id}
+                  href={`/instructeur/berichten/${thread.id}`}
+                  className="flex items-center gap-3 rounded-2xl p-2.5 hover:bg-brand-muted/60"
+                >
+                  <Avatar name={thread.name} className="h-10 w-10 text-xs" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-foreground">
+                      {thread.name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {thread.preview}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {thread.time}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm leading-6 text-muted-foreground">
+                Nog geen gesprekken.
+              </p>
             )}
           </div>
         </InstructorCard>
@@ -556,24 +652,41 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
         <InstructorCard
           title="Dagoverzicht"
           icon={BarChart3}
-          className={cn(
-            cockpitCardClassName,
-            "lg:col-start-2 lg:row-start-2",
-          )}
+          className={cn(cockpitCardClassName, "lg:col-start-2 lg:row-start-2")}
           contentClassName={cockpitCardContentClassName}
         >
           <div className="flex items-center gap-5">
-            <ProgressRing value={data.availabilityToday.utilizationPct} label="Bezet" />
+            <ProgressRing
+              value={data.availabilityToday.utilizationPct}
+              label="Bezet"
+            />
             <div className="min-w-0 flex-1 space-y-2">
               {[
-                ["Beschikbaar", minutesLabel(data.availabilityToday.availableMinutes), "bg-emerald-500"],
-                ["Gepland", minutesLabel(data.availabilityToday.bookedMinutes), "bg-violet-500"],
+                [
+                  "Beschikbaar",
+                  minutesLabel(data.availabilityToday.availableMinutes),
+                  "bg-emerald-500",
+                ],
+                [
+                  "Gepland",
+                  minutesLabel(data.availabilityToday.bookedMinutes),
+                  "bg-violet-500",
+                ],
                 ["Schema", data.availabilityToday.sourceLabel, "bg-blue-500"],
-                ["Tijden", data.availabilityToday.intervalLabel, "bg-amber-500"],
+                [
+                  "Tijden",
+                  data.availabilityToday.intervalLabel,
+                  "bg-amber-500",
+                ],
               ].map(([label, value, tone]) => (
-                <div key={label} className="flex items-center justify-between gap-3 text-sm">
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
                   <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                    <span className={cn("h-2 w-2 shrink-0 rounded-full", tone)} />
+                    <span
+                      className={cn("h-2 w-2 shrink-0 rounded-full", tone)}
+                    />
                     <span className="truncate">{label}</span>
                   </span>
                   <span className="max-w-[11rem] truncate text-right font-black text-foreground">
@@ -583,7 +696,10 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
               ))}
             </div>
           </div>
-          <Link href="/instructeur/agenda" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-primary">
+          <Link
+            href="/instructeur/agenda"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-primary"
+          >
             Naar volledige agenda
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -609,11 +725,17 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
             ].map(([label, href, Icon]) => {
               const LinkIcon = Icon as IconComponent;
               return (
-                <Link key={String(href)} href={String(href)} className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm hover:border-brand-primary/40">
+                <Link
+                  key={String(href)}
+                  href={String(href)}
+                  className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm hover:border-brand-primary/40"
+                >
                   <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
                     <LinkIcon className="h-4 w-4" aria-hidden />
                   </span>
-                  <span className="mt-2 block text-xs font-bold text-foreground">{String(label)}</span>
+                  <span className="mt-2 block text-xs font-bold text-foreground">
+                    {String(label)}
+                  </span>
                 </Link>
               );
             })}
@@ -624,7 +746,11 @@ export function InstructorCockpitView({ data }: { data?: InstructorExperience })
   );
 }
 
-export function InstructorAgendaView({ data }: { data?: InstructorExperience }) {
+export function InstructorAgendaView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const calendar = currentMonthCalendar();
 
@@ -640,7 +766,10 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
               <Plus className="h-4 w-4" aria-hidden />
               Nieuwe afspraak
             </Link>
-            <Link href="/instructeur/beschikbaarheid" className={buttonVariants({ variant: "outline" })}>
+            <Link
+              href="/instructeur/beschikbaarheid"
+              className={buttonVariants({ variant: "outline" })}
+            >
               Beschikbaarheid
             </Link>
           </>
@@ -653,7 +782,15 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
           right={
             <div className="flex rounded-full bg-brand-muted p-1 text-xs font-bold">
               {["Dag", "Week", "Maand"].map((tab, index) => (
-                <span key={tab} className={cn("rounded-full px-3 py-1.5", index === 0 ? "bg-white text-brand-primary shadow-sm" : "text-muted-foreground")}>
+                <span
+                  key={tab}
+                  className={cn(
+                    "rounded-full px-3 py-1.5",
+                    index === 0
+                      ? "bg-white text-brand-primary shadow-sm"
+                      : "text-muted-foreground",
+                  )}
+                >
                   {tab}
                 </span>
               ))}
@@ -663,7 +800,10 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
           <div className="grid gap-3">
             {data.appointments.length > 0 ? (
               data.appointments.map((appointment) => (
-                <div key={appointment.id} className="grid gap-3 md:grid-cols-[4.5rem_1fr]">
+                <div
+                  key={appointment.id}
+                  className="grid gap-3 md:grid-cols-[4.5rem_1fr]"
+                >
                   <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
                     {appointment.startsAt}
                   </div>
@@ -682,7 +822,12 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
           <InstructorCard title={calendar.label} icon={CalendarDays}>
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
               {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => (
-                <span key={day} className="py-1 font-bold text-muted-foreground">{day}</span>
+                <span
+                  key={day}
+                  className="py-1 font-bold text-muted-foreground"
+                >
+                  {day}
+                </span>
               ))}
               {calendar.days.map((day, index) =>
                 day === null ? (
@@ -707,9 +852,14 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
           <InstructorCard title="Afspraken" icon={ListTodo}>
             <div className="space-y-2">
               {data.stats.map((stat) => (
-                <div key={stat.label} className="flex items-center justify-between rounded-2xl bg-brand-muted/55 px-3 py-2 text-sm">
+                <div
+                  key={stat.label}
+                  className="flex items-center justify-between rounded-2xl bg-brand-muted/55 px-3 py-2 text-sm"
+                >
                   <span className="text-muted-foreground">{stat.label}</span>
-                  <span className="font-black text-foreground">{stat.value}</span>
+                  <span className="font-black text-foreground">
+                    {stat.value}
+                  </span>
                 </div>
               ))}
             </div>
@@ -720,27 +870,46 @@ export function InstructorAgendaView({ data }: { data?: InstructorExperience }) 
   );
 }
 
-function StudentListItem({ student, active }: { student: InstructorStudent; active?: boolean }) {
+function StudentListItem({
+  student,
+  active,
+}: {
+  student: InstructorStudent;
+  active?: boolean;
+}) {
   return (
     <Link
       href={`/instructeur/leerlingen/${student.id}`}
       className={cn(
         "flex items-center gap-3 rounded-2xl border p-3 transition",
-        active ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white hover:border-brand-primary/35",
+        active
+          ? "border-brand-primary bg-brand-accent"
+          : "border-brand-border bg-white hover:border-brand-primary/35",
       )}
     >
       <Avatar name={student.name} className="h-11 w-11 text-xs" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-foreground">{student.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{student.license} - {student.progress}% voortgang</p>
+        <p className="truncate text-sm font-black text-foreground">
+          {student.name}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {student.license} - {student.progress}% voortgang
+        </p>
       </div>
-      <Badge variant={studentStatus[student.status].variant}>{studentStatus[student.status].label}</Badge>
+      <Badge variant={studentStatus[student.status].variant}>
+        {studentStatus[student.status].label}
+      </Badge>
     </Link>
   );
 }
 
-export function InstructorStudentsView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Leerlingen niet beschikbaar" />;
+export function InstructorStudentsView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
+  if (!data)
+    return <DataUnavailableState title="Leerlingen niet beschikbaar" />;
   const active = data.students[0] ?? null;
 
   return (
@@ -749,18 +918,26 @@ export function InstructorStudentsView({ data }: { data?: InstructorExperience }
         eyebrow="Leerlingen"
         title="Mijn leerlingen"
         subtitle="Zoek, filter en open direct het dossier of de voortgang van je gekoppelde leerlingen."
-        actions={<AddStudentDialog />}
+        actions={
+          <AddStudentDialog ris20Qualified={data.profile.ris20Qualified} />
+        }
       />
       <div className="grid gap-4 xl:grid-cols-[24rem_1fr]">
         <InstructorCard title="Leerlingenlijst" icon={Users}>
           <div className="mb-3 flex items-center gap-2 rounded-2xl border border-brand-border bg-white px-3 py-2">
             <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <span className="text-sm text-muted-foreground">Zoek leerling...</span>
+            <span className="text-sm text-muted-foreground">
+              Zoek leerling...
+            </span>
           </div>
           <div className="space-y-2">
             {data.students.length > 0 ? (
               data.students.map((student, index) => (
-                <StudentListItem key={student.id} student={student} active={index === 0} />
+                <StudentListItem
+                  key={student.id}
+                  student={student}
+                  active={index === 0}
+                />
               ))
             ) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
@@ -782,17 +959,30 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
         <div className="flex items-start gap-4">
           <Avatar name={student.name} className="h-16 w-16 text-base" />
           <div>
-            <h2 className="text-2xl font-black text-foreground">{student.name}</h2>
-            <p className="text-sm text-muted-foreground">{student.license} - {studentStatus[student.status].label}</p>
+            <h2 className="text-2xl font-black text-foreground">
+              {student.name}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {student.license} - {studentStatus[student.status].label}
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/instructeur/berichten" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link
+                href="/instructeur/berichten"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
                 <MessageCircle className="h-4 w-4" aria-hidden /> Bericht
               </Link>
-              <a href={`tel:${student.phone}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <a
+                href={`tel:${student.phone}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
                 <Phone className="h-4 w-4" aria-hidden /> Bel
               </a>
               {student.email ? (
-                <a href={`mailto:${student.email}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <a
+                  href={`mailto:${student.email}`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
                   <Mail className="h-4 w-4" aria-hidden /> Mail
                 </a>
               ) : (
@@ -810,7 +1000,9 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
       </div>
       <div className="mt-4 rounded-2xl border border-brand-border bg-brand-muted/45 p-4">
         <p className="text-sm font-black text-foreground">Aandachtspunt</p>
-        <p className="mt-1 text-sm text-muted-foreground">{student.attention}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {student.attention}
+        </p>
       </div>
     </InstructorCard>
   );
@@ -819,7 +1011,9 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-brand-border bg-white p-4">
-      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
+      <p className="text-xs font-bold uppercase text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-2 text-sm font-black text-foreground">{value}</p>
     </div>
   );
@@ -842,10 +1036,16 @@ export function InstructorStudentDetailView({
       />
     );
   }
-  const studentEvaluation = data.evaluations.find((item) => item.studentId === student.id);
+  const studentEvaluation = data.evaluations.find(
+    (item) => item.studentId === student.id,
+  );
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Leerlingdossier" title={student.name} subtitle="Overzicht, voortgang, lessen, planning en dossierinformatie in een tablet-first detailview." />
+      <PageHeader
+        eyebrow="Leerlingdossier"
+        title={student.name}
+        subtitle="Overzicht, voortgang, lessen, planning en dossierinformatie in een tablet-first detailview."
+      />
       <StudentDetailPanel student={student} />
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <InstructorCard title="Modulevoortgang" icon={Route}>
@@ -853,11 +1053,15 @@ export function InstructorStudentDetailView({
             {studentEvaluation?.modules.length ? (
               studentEvaluation.modules.map((module) => {
                 const progress =
-                  module.total > 0 ? Math.round((module.completed / module.total) * 100) : 0;
+                  module.total > 0
+                    ? Math.round((module.completed / module.total) * 100)
+                    : 0;
                 return (
                   <div key={module.id}>
                     <div className="flex justify-between text-sm">
-                      <span className="font-bold text-foreground">{module.name}</span>
+                      <span className="font-bold text-foreground">
+                        {module.name}
+                      </span>
                       <span className="text-muted-foreground">{progress}%</span>
                     </div>
                     <Progress value={progress} className="mt-2" />
@@ -878,10 +1082,29 @@ export function InstructorStudentDetailView({
               : student.attention}
           </p>
           <dl className="mt-3 grid gap-1 text-xs text-muted-foreground">
-            <div><dt className="inline font-bold text-foreground">Reden: </dt><dd className="inline">planning, leshistorie en actueel tegoed</dd></div>
-            <div><dt className="inline font-bold text-foreground">Ontbrekend bewijs: </dt><dd className="inline">nieuwe lesobservaties worden pas na beoordeling meegenomen</dd></div>
+            <div>
+              <dt className="inline font-bold text-foreground">Reden: </dt>
+              <dd className="inline">
+                planning, leshistorie en actueel tegoed
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-bold text-foreground">
+                Ontbrekend bewijs:{" "}
+              </dt>
+              <dd className="inline">
+                nieuwe lesobservaties worden pas na beoordeling meegenomen
+              </dd>
+            </div>
           </dl>
-          <Link href={studentEvaluation ? `/instructeur/lessen/${studentEvaluation.id}` : "/instructeur/agenda"} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <Link
+            href={
+              studentEvaluation
+                ? `/instructeur/lessen/${studentEvaluation.id}`
+                : "/instructeur/agenda"
+            }
+            className={cn(buttonVariants({ size: "sm" }), "mt-4")}
+          >
             Open lesevaluatie
           </Link>
         </InstructorCard>
@@ -890,26 +1113,50 @@ export function InstructorStudentDetailView({
   );
 }
 
-export function InstructorEvaluationsView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Lesevaluaties niet beschikbaar" />;
+export function InstructorEvaluationsView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
+  if (!data)
+    return <DataUnavailableState title="Lesevaluaties niet beschikbaar" />;
   return (
     <InstructorPage>
-      <PageHeader eyebrow="RIS" title="Lesevaluaties" subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft." />
+      <PageHeader
+        eyebrow="RIS"
+        title="Lesevaluaties"
+        subtitle="Beoordeel lessen, open concepten en publiceer pas wanneer jij akkoord geeft."
+      />
       <InstructorCard title="Open leskaarten" icon={FileText}>
         <div className="space-y-3">
           {data.evaluations.length > 0 ? (
             data.evaluations.map((evaluation) => (
-              <Link key={evaluation.id} href={`/instructeur/lessen/${evaluation.id}`} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between">
+              <Link
+                key={evaluation.id}
+                href={`/instructeur/lessen/${evaluation.id}`}
+                className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 transition hover:border-brand-primary/35 md:flex-row md:items-center md:justify-between"
+              >
                 <div className="flex min-w-0 gap-3">
-                  <Avatar name={evaluation.studentName} className="h-11 w-11 text-xs" />
+                  <Avatar
+                    name={evaluation.studentName}
+                    className="h-11 w-11 text-xs"
+                  />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-foreground">{evaluation.studentName}</p>
-                    <p className="text-sm text-muted-foreground">{evaluation.lessonLabel} - {evaluation.lessonDate}</p>
+                    <p className="truncate text-sm font-black text-foreground">
+                      {evaluation.studentName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {evaluation.lessonLabel} - {evaluation.lessonDate}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={evaluationStatus[evaluation.status].variant}>{evaluationStatus[evaluation.status].label}</Badge>
-                  <span className="text-sm font-bold text-brand-primary">Open</span>
+                  <Badge variant={evaluationStatus[evaluation.status].variant}>
+                    {evaluationStatus[evaluation.status].label}
+                  </Badge>
+                  <span className="text-sm font-bold text-brand-primary">
+                    Open
+                  </span>
                 </div>
               </Link>
             ))
@@ -931,7 +1178,8 @@ export function InstructorEvaluationDetailView({
   lessonId?: string;
   data?: InstructorExperience;
 }) {
-  if (!data) return <DataUnavailableState title="Lesevaluatie niet beschikbaar" />;
+  if (!data)
+    return <DataUnavailableState title="Lesevaluatie niet beschikbaar" />;
   const evaluation = data.evaluations.find((item) => item.id === lessonId);
   if (!evaluation) {
     return (
@@ -947,43 +1195,85 @@ export function InstructorEvaluationDetailView({
         eyebrow="Les evaluatie"
         title={evaluation.studentName}
         subtitle={`${evaluation.lessonLabel} - ${evaluation.lessonDate}`}
-        actions={<Badge variant={evaluationStatus[evaluation.status].variant}>{evaluationStatus[evaluation.status].label}</Badge>}
+        actions={
+          <Badge variant={evaluationStatus[evaluation.status].variant}>
+            {evaluationStatus[evaluation.status].label}
+          </Badge>
+        }
       />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <InstructorCard title="RIS beoordeling" icon={FileText}>
           <div className="mb-4 flex flex-wrap gap-2">
-            {["Lesinfo", "RIS beoordeling", "Reflectie", "Samenvatting"].map((tab, index) => (
-              <span key={tab} className={cn("rounded-full px-3 py-2 text-xs font-bold", index === 1 ? "bg-brand-primary text-white" : "bg-brand-muted text-muted-foreground")}>
-                {tab}
-              </span>
-            ))}
+            {["Lesinfo", "RIS beoordeling", "Reflectie", "Samenvatting"].map(
+              (tab, index) => (
+                <span
+                  key={tab}
+                  className={cn(
+                    "rounded-full px-3 py-2 text-xs font-bold",
+                    index === 1
+                      ? "bg-brand-primary text-white"
+                      : "bg-brand-muted text-muted-foreground",
+                  )}
+                >
+                  {tab}
+                </span>
+              ),
+            )}
           </div>
           <div className="space-y-4">
-            {evaluation.modules.length > 0 ? evaluation.modules.map((module) => (
-              <div key={module.id} className="rounded-[1.25rem] border border-brand-border bg-white">
-                <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
-                  <p className="font-black text-foreground">{module.name}</p>
-                  <span className="text-xs font-bold text-muted-foreground">{module.completed} / {module.total} scripts beoordeeld</span>
-                </div>
-                <div className="divide-y divide-brand-border">
-                  {module.scripts.map((script) => (
-                    <div key={script.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[2rem_1fr_auto] sm:items-center">
-                      <span className="text-sm font-bold text-muted-foreground">{script.index}.</span>
-                      <p className="text-sm font-bold text-foreground">{script.name}</p>
-                      <div className="flex items-center gap-2">
-                        <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-muted-foreground">-</button>
-                        <span className={cn("grid h-8 min-w-12 place-items-center rounded-lg px-3 text-sm font-black", script.status === "ready" ? "bg-emerald-50 text-emerald-700" : script.status === "attention" ? "bg-amber-50 text-amber-700" : "bg-brand-muted text-muted-foreground")}>
-                          {script.score}
+            {evaluation.modules.length > 0 ? (
+              evaluation.modules.map((module) => (
+                <div
+                  key={module.id}
+                  className="rounded-[1.25rem] border border-brand-border bg-white"
+                >
+                  <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+                    <p className="font-black text-foreground">{module.name}</p>
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {module.completed} / {module.total} scripts beoordeeld
+                    </span>
+                  </div>
+                  <div className="divide-y divide-brand-border">
+                    {module.scripts.map((script) => (
+                      <div
+                        key={script.id}
+                        className="grid gap-3 px-4 py-3 sm:grid-cols-[2rem_1fr_auto] sm:items-center"
+                      >
+                        <span className="text-sm font-bold text-muted-foreground">
+                          {script.index}.
                         </span>
-                        <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-brand-primary">+</button>
+                        <p className="text-sm font-bold text-foreground">
+                          {script.name}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-muted-foreground">
+                            -
+                          </button>
+                          <span
+                            className={cn(
+                              "grid h-8 min-w-12 place-items-center rounded-lg px-3 text-sm font-black",
+                              script.status === "ready"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : script.status === "attention"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-brand-muted text-muted-foreground",
+                            )}
+                          >
+                            {script.score}
+                          </span>
+                          <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-brand-primary">
+                            +
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )) : (
+              ))
+            ) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm leading-6 text-muted-foreground">
-                Deze leskaart bevat nog geen RIS-modules. Open de volledige lesevaluatie om met actuele RIS-data te werken.
+                Deze leskaart bevat nog geen RIS-modules. Open de volledige
+                lesevaluatie om met actuele RIS-data te werken.
               </p>
             )}
           </div>
@@ -997,12 +1287,16 @@ export function InstructorEvaluationDetailView({
           <InstructorCard title="Publiceren" icon={Send}>
             <p className="text-sm leading-6 text-muted-foreground">
               Controleer de samenvatting voordat je publiceert. Pas na jouw
-              bevestiging ziet de leerling de reflectie; interne notities blijven
-              verborgen.
+              bevestiging ziet de leerling de reflectie; interne notities
+              blijven verborgen.
             </p>
             <div className="mt-4 grid gap-2">
-              <button className={buttonVariants({ variant: "outline" })}>Opslaan als concept</button>
-              <button className={buttonVariants()}>Afronden & publiceren</button>
+              <button className={buttonVariants({ variant: "outline" })}>
+                Opslaan als concept
+              </button>
+              <button className={buttonVariants()}>
+                Afronden & publiceren
+              </button>
             </div>
           </InstructorCard>
         </div>
@@ -1041,25 +1335,33 @@ export function InstructorMessagesView({
           contentClassName="p-3 md:h-[calc(100%-4.25rem)] md:overflow-y-auto"
         >
           <div className="space-y-2">
-            {data.messages.length > 0 ? data.messages.map((thread) => (
-              <Link
-                key={thread.id}
-                href={`/instructeur/berichten/${thread.id}`}
-                className={cn(
-                  "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
-                  thread.id === active?.id
-                    ? "border-brand-primary bg-brand-accent"
-                    : "border-brand-border bg-white",
-                )}
-              >
-                <Avatar name={thread.name} className="h-11 w-11 text-xs" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-foreground">{thread.name}</p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{thread.preview}</p>
-                </div>
-                {thread.unread ? <Badge variant="primary">{thread.unread}</Badge> : null}
-              </Link>
-            )) : (
+            {data.messages.length > 0 ? (
+              data.messages.map((thread) => (
+                <Link
+                  key={thread.id}
+                  href={`/instructeur/berichten/${thread.id}`}
+                  className={cn(
+                    "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
+                    thread.id === active?.id
+                      ? "border-brand-primary bg-brand-accent"
+                      : "border-brand-border bg-white",
+                  )}
+                >
+                  <Avatar name={thread.name} className="h-11 w-11 text-xs" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-foreground">
+                      {thread.name}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {thread.preview}
+                    </p>
+                  </div>
+                  {thread.unread ? (
+                    <Badge variant="primary">{thread.unread}</Badge>
+                  ) : null}
+                </Link>
+              ))
+            ) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
                 Nog geen gesprekken.
               </p>
@@ -1067,48 +1369,80 @@ export function InstructorMessagesView({
           </div>
         </InstructorCard>
         {active ? (
-        <InstructorCard
-          title={active.name}
-          icon={User}
-          right={<Badge variant="success">Online</Badge>}
-          className={cn(!hasSelectedThread && "hidden md:block", "md:h-full")}
-          headerClassName="hidden md:flex"
-          contentClassName="flex min-h-[calc(100dvh-8.5rem)] flex-col p-0 md:h-[calc(100%-4.25rem)] md:min-h-0"
-        >
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
-              <Link
-                href="/instructeur/berichten"
-                aria-label="Terug naar gesprekken"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" aria-hidden />
-              </Link>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-foreground">{active.name}</p>
-                <p className="text-xs text-success">Online</p>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              {active.messages.map((message) => (
-                <div key={message.id} className={cn("flex", message.sender === "instructor" ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm md:max-w-[68%]", message.sender === "instructor" ? "bg-brand-primary text-white" : "bg-brand-muted text-foreground")}>
-                    <p>{message.body}</p>
-                    <p className={cn("mt-1 text-[10px]", message.sender === "instructor" ? "text-white/70" : "text-muted-foreground")}>{message.time}</p>
-                  </div>
+          <InstructorCard
+            title={active.name}
+            icon={User}
+            right={<Badge variant="success">Online</Badge>}
+            className={cn(!hasSelectedThread && "hidden md:block", "md:h-full")}
+            headerClassName="hidden md:flex"
+            contentClassName="flex min-h-[calc(100dvh-8.5rem)] flex-col p-0 md:h-[calc(100%-4.25rem)] md:min-h-0"
+          >
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
+                <Link
+                  href="/instructeur/berichten"
+                  aria-label="Terug naar gesprekken"
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden />
+                </Link>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-foreground">
+                    {active.name}
+                  </p>
+                  <p className="text-xs text-success">Online</p>
                 </div>
-              ))}
-            </div>
-            <div className="border-t border-brand-border/70 bg-white/95 p-3">
-              <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-white p-2">
-                <Input placeholder="Typ een bericht..." className="border-0 shadow-none focus-visible:ring-0" />
-                <button className={buttonVariants({ size: "icon" })} aria-label="Versturen">
-                  <Send className="h-4 w-4" aria-hidden />
-                </button>
+              </div>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                {active.messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "flex",
+                      message.sender === "instructor"
+                        ? "justify-end"
+                        : "justify-start",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm md:max-w-[68%]",
+                        message.sender === "instructor"
+                          ? "bg-brand-primary text-white"
+                          : "bg-brand-muted text-foreground",
+                      )}
+                    >
+                      <p>{message.body}</p>
+                      <p
+                        className={cn(
+                          "mt-1 text-[10px]",
+                          message.sender === "instructor"
+                            ? "text-white/70"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {message.time}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-brand-border/70 bg-white/95 p-3">
+                <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-white p-2">
+                  <Input
+                    placeholder="Typ een bericht..."
+                    className="border-0 shadow-none focus-visible:ring-0"
+                  />
+                  <button
+                    className={buttonVariants({ size: "icon" })}
+                    aria-label="Versturen"
+                  >
+                    <Send className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </InstructorCard>
+          </InstructorCard>
         ) : (
           <InstructorCard
             title="Geen gesprek geselecteerd"
@@ -1126,49 +1460,60 @@ export function InstructorMessagesView({
   );
 }
 
-export function InstructorTasksView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Taken niet beschikbaar" />;
+export function InstructorTasksView({
+  workspace,
+}: {
+  workspace: InstructorTaskWorkspace;
+}) {
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Taken" title="Openstaande taken" subtitle="Werk acties af rond lessen, leerlingen, voertuigen en planning." />
+      <PageHeader
+        eyebrow="Taken"
+        title="Openstaande taken"
+        subtitle="Werk acties af rond lessen, leerlingen, voertuigen en planning."
+      />
       <InstructorCard title="Takenlijst" icon={ListTodo}>
-        <div className="space-y-2">
-          {data.tasks.length > 0 ? data.tasks.map((task) => (
-            <div key={task.id} className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-white p-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-4 w-4 rounded border border-muted-foreground/40" />
-                <div>
-                  <p className="font-black text-foreground">{task.title}</p>
-                  <p className="text-sm text-muted-foreground">{task.subject} - {task.due}</p>
-                </div>
-              </div>
-              <Badge variant={priorityLabel[task.priority].variant}>{priorityLabel[task.priority].label}</Badge>
-            </div>
-          )) : (
-            <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
-              Geen openstaande taken.
-            </p>
-          )}
-        </div>
+        <InstructorTaskManager workspace={workspace} />
       </InstructorCard>
     </InstructorPage>
   );
 }
 
-export function InstructorVehiclesView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Voertuigen niet beschikbaar" />;
+export function InstructorVehiclesView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
+  if (!data)
+    return <DataUnavailableState title="Voertuigen niet beschikbaar" />;
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Voertuigen" title="Voertuigen" subtitle="Bekijk je gekoppelde lesauto's, status, APK en onderhoudscontext." />
+      <PageHeader
+        eyebrow="Voertuigen"
+        title="Voertuigen"
+        subtitle="Bekijk je gekoppelde lesauto's, status, APK en onderhoudscontext."
+      />
       <div className="grid gap-4 xl:grid-cols-[20rem_1fr]">
         <InstructorCard title="Voertuigen" icon={CarFront}>
           <div className="space-y-2">
-            {data.vehicles.length > 0 ? data.vehicles.map((vehicle, index) => (
-              <div key={vehicle.id} className={cn("rounded-2xl border p-3", index === 0 ? "border-brand-primary bg-brand-accent" : "border-brand-border bg-white")}>
-                <p className="font-black text-foreground">{vehicle.name}</p>
-                <p className="text-sm text-muted-foreground">{vehicle.plate}</p>
-              </div>
-            )) : (
+            {data.vehicles.length > 0 ? (
+              data.vehicles.map((vehicle, index) => (
+                <div
+                  key={vehicle.id}
+                  className={cn(
+                    "rounded-2xl border p-3",
+                    index === 0
+                      ? "border-brand-primary bg-brand-accent"
+                      : "border-brand-border bg-white",
+                  )}
+                >
+                  <p className="font-black text-foreground">{vehicle.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {vehicle.plate}
+                  </p>
+                </div>
+              ))
+            ) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
                 Geen actieve voertuigen gevonden.
               </p>
@@ -1178,13 +1523,20 @@ export function InstructorVehiclesView({ data }: { data?: InstructorExperience }
         <InstructorCard title="Voertuigdetails" icon={CarFront}>
           <div className="grid gap-4 md:grid-cols-3">
             {data.vehicles.map((vehicle) => (
-              <div key={vehicle.id} className="rounded-2xl border border-brand-border bg-white p-4">
+              <div
+                key={vehicle.id}
+                className="rounded-2xl border border-brand-border bg-white p-4"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-black text-foreground">{vehicle.name}</p>
-                    <p className="text-sm text-muted-foreground">{vehicle.plate}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {vehicle.plate}
+                    </p>
                   </div>
-                  <Badge variant={vehicleStatus[vehicle.status].variant}>{vehicleStatus[vehicle.status].label}</Badge>
+                  <Badge variant={vehicleStatus[vehicle.status].variant}>
+                    {vehicleStatus[vehicle.status].label}
+                  </Badge>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
                   <span>{vehicle.transmission}</span>
@@ -1201,29 +1553,75 @@ export function InstructorVehiclesView({ data }: { data?: InstructorExperience }
   );
 }
 
-export function InstructorReportsView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Rapportages niet beschikbaar" />;
-  const lessonsToday = data.stats.find((stat) => stat.label === "Rijlessen")?.value ?? "0";
+export function InstructorReportsView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
+  if (!data)
+    return <DataUnavailableState title="Rapportages niet beschikbaar" />;
+  const lessonsToday =
+    data.stats.find((stat) => stat.label === "Rijlessen")?.value ?? "0";
   const openTasks = data.tasks.length;
   const attentionCount = data.radar.length;
-  const activeVehicles = data.vehicles.filter((vehicle) => vehicle.status === "active").length;
-  const trendValues = data.stats.map((stat) => Math.max(0, Math.min(100, Number(stat.value) * 16 || 0)));
+  const activeVehicles = data.vehicles.filter(
+    (vehicle) => vehicle.status === "active",
+  ).length;
+  const trendValues = data.stats.map((stat) =>
+    Math.max(0, Math.min(100, Number(stat.value) * 16 || 0)),
+  );
 
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Rapportages" title="Rapportages" subtitle="Lichte operationele inzichten voor jouw week en leerlingen met aandachtspunten." />
+      <PageHeader
+        eyebrow="Rapportages"
+        title="Rapportages"
+        subtitle="Lichte operationele inzichten voor jouw week en leerlingen met aandachtspunten."
+      />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Rijlessen vandaag" value={lessonsToday} hint="Agenda" icon={CalendarDays} tone="bg-blue-50 text-blue-700" />
-        <StatCard label="Open taken" value={String(openTasks)} hint="Acties" icon={FileText} tone="bg-emerald-50 text-emerald-700" />
-        <StatCard label="Aandacht" value={String(attentionCount)} hint="Leerlingen" icon={Target} tone="bg-amber-50 text-amber-700" />
-        <StatCard label="Actieve voertuigen" value={String(activeVehicles)} hint="Beschikbaar" icon={Flag} tone="bg-violet-50 text-violet-700" />
+        <StatCard
+          label="Rijlessen vandaag"
+          value={lessonsToday}
+          hint="Agenda"
+          icon={CalendarDays}
+          tone="bg-blue-50 text-blue-700"
+        />
+        <StatCard
+          label="Open taken"
+          value={String(openTasks)}
+          hint="Acties"
+          icon={FileText}
+          tone="bg-emerald-50 text-emerald-700"
+        />
+        <StatCard
+          label="Aandacht"
+          value={String(attentionCount)}
+          hint="Leerlingen"
+          icon={Target}
+          tone="bg-amber-50 text-amber-700"
+        />
+        <StatCard
+          label="Actieve voertuigen"
+          value={String(activeVehicles)}
+          hint="Beschikbaar"
+          icon={Flag}
+          tone="bg-violet-50 text-violet-700"
+        />
       </div>
       <InstructorCard title="Dagmix" icon={BarChart3}>
         <div className="grid gap-3 md:grid-cols-4">
           {data.stats.map((stat, index) => (
-            <div key={stat.label} className="flex h-44 flex-col justify-end rounded-2xl bg-brand-muted p-3">
-              <div className="w-full rounded-xl bg-brand-primary" style={{ height: `${trendValues[index] ?? 8}%` }} />
-              <p className="mt-2 truncate text-xs font-bold text-foreground">{stat.label}</p>
+            <div
+              key={stat.label}
+              className="flex h-44 flex-col justify-end rounded-2xl bg-brand-muted p-3"
+            >
+              <div
+                className="w-full rounded-xl bg-brand-primary"
+                style={{ height: `${trendValues[index] ?? 8}%` }}
+              />
+              <p className="mt-2 truncate text-xs font-bold text-foreground">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
@@ -1232,45 +1630,93 @@ export function InstructorReportsView({ data }: { data?: InstructorExperience })
   );
 }
 
-export function InstructorSettingsView({ data }: { data?: InstructorExperience }) {
-  if (!data) return <DataUnavailableState title="Instellingen niet beschikbaar" />;
+export function InstructorSettingsView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
+  if (!data)
+    return <DataUnavailableState title="Instellingen niet beschikbaar" />;
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Instellingen" title="Instellingen" subtitle="Profiel, agenda-uren, notificaties, app instellingen en thema." />
+      <PageHeader
+        eyebrow="Instellingen"
+        title="Instellingen"
+        subtitle="Profiel, agenda-uren, notificaties, app instellingen en thema."
+      />
       <div className="grid gap-4 xl:grid-cols-[18rem_1fr]">
         <InstructorCard title="Menu" icon={Settings}>
           <div className="grid gap-2">
-            {["Profiel", "Agenda uren", "Notificaties", "Thema", "Account"].map((item, index) => (
-              <span key={item} className={cn("rounded-2xl px-3 py-2 text-sm font-bold", index === 0 ? "bg-brand-accent text-brand-primary" : "text-muted-foreground")}>
-                {item}
-              </span>
-            ))}
+            {["Profiel", "Agenda uren", "Notificaties", "Thema", "Account"].map(
+              (item, index) => (
+                <span
+                  key={item}
+                  className={cn(
+                    "rounded-2xl px-3 py-2 text-sm font-bold",
+                    index === 0
+                      ? "bg-brand-accent text-brand-primary"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {item}
+                </span>
+              ),
+            )}
           </div>
         </InstructorCard>
         <InstructorCard title="Profiel" icon={User}>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-bold text-foreground">Naam<Input defaultValue={data.profile.name} /></label>
-            <label className="grid gap-2 text-sm font-bold text-foreground">Telefoon<Input defaultValue={data.profile.phone ?? ""} placeholder="Niet ingevuld" /></label>
-            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">E-mail<Input defaultValue={data.profile.email ?? ""} placeholder="Niet ingevuld" /></label>
+            <label className="grid gap-2 text-sm font-bold text-foreground">
+              Naam
+              <Input defaultValue={data.profile.name} />
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-foreground">
+              Telefoon
+              <Input
+                defaultValue={data.profile.phone ?? ""}
+                placeholder="Niet ingevuld"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">
+              E-mail
+              <Input
+                defaultValue={data.profile.email ?? ""}
+                placeholder="Niet ingevuld"
+              />
+            </label>
           </div>
-          <button className={cn(buttonVariants(), "mt-5")}>Instellingen opslaan</button>
+          <button className={cn(buttonVariants(), "mt-5")}>
+            Instellingen opslaan
+          </button>
         </InstructorCard>
       </div>
     </InstructorPage>
   );
 }
 
-export function InstructorProfileView({ data }: { data?: InstructorExperience }) {
+export function InstructorProfileView({
+  data,
+}: {
+  data?: InstructorExperience;
+}) {
   if (!data) return <DataUnavailableState title="Profiel niet beschikbaar" />;
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Profiel" title={data.profile.name} subtitle={`${data.profile.role} - ${data.profile.tenantName}`} />
+      <PageHeader
+        eyebrow="Profiel"
+        title={data.profile.name}
+        subtitle={`${data.profile.role} - ${data.profile.tenantName}`}
+      />
       <InstructorCard>
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <Avatar name={data.profile.name} className="h-20 w-20 text-xl" />
           <div>
-            <h2 className="text-2xl font-black text-foreground">{data.profile.name}</h2>
-            <p className="text-muted-foreground">{data.profile.role} - {data.profile.status}</p>
+            <h2 className="text-2xl font-black text-foreground">
+              {data.profile.name}
+            </h2>
+            <p className="text-muted-foreground">
+              {data.profile.role} - {data.profile.status}
+            </p>
           </div>
         </div>
       </InstructorCard>
@@ -1291,16 +1737,27 @@ export function InstructorMoreView() {
 
   return (
     <InstructorPage>
-      <PageHeader eyebrow="Meer" title="Meer" subtitle="Alle aanvullende instructeurfuncties op een plek." />
+      <PageHeader
+        eyebrow="Meer"
+        title="Meer"
+        subtitle="Alle aanvullende instructeurfuncties op een plek."
+      />
       <InstructorCard>
         <div className="grid gap-2">
           {links.map(([label, href, Icon]) => (
-            <Link key={href} href={href} className="flex items-center justify-between rounded-2xl border border-brand-border bg-white px-4 py-3">
+            <Link
+              key={href}
+              href={href}
+              className="flex items-center justify-between rounded-2xl border border-brand-border bg-white px-4 py-3"
+            >
               <span className="flex items-center gap-3 font-bold text-foreground">
                 <Icon className="h-4 w-4 text-brand-primary" aria-hidden />
                 {label}
               </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <ArrowRight
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden
+              />
             </Link>
           ))}
         </div>
@@ -1325,7 +1782,8 @@ export function InstructorSimpleView({
       <PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />
       <InstructorCard title={title} icon={Icon}>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Zodra er gegevens voor dit onderdeel beschikbaar zijn, verschijnt hier de bijbehorende instructeursweergave.
+          Zodra er gegevens voor dit onderdeel beschikbaar zijn, verschijnt hier
+          de bijbehorende instructeursweergave.
         </p>
       </InstructorCard>
     </InstructorPage>

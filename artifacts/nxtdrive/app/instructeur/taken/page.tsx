@@ -1,9 +1,9 @@
 import { InstructorTasksView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorTaskWorkspace } from "@/lib/instructor/tasks-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function InstructorTasksPage() {
-  const data = await loadInstructorExperience();
-  return <InstructorTasksView data={data} />;
+  const workspace = await loadInstructorTaskWorkspace();
+  return <InstructorTasksView workspace={workspace} />;
 }

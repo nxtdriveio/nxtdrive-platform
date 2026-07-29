@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  defaultEducationTypeForInstructor,
   parseStudentProfileInput,
   portalStatusForStudent,
 } from "./create-profile";
+
+test("RIS 2.0 is the default only for a qualified instructor", () => {
+  assert.equal(defaultEducationTypeForInstructor(true), "RIS_2_0");
+  assert.equal(defaultEducationTypeForInstructor(false), "STANDARD");
+});
 
 test("a student profile can be created without an email or auth account", () => {
   const result = parseStudentProfileInput({
@@ -25,7 +31,10 @@ test("a student profile can be created without an email or auth account", () => 
       privacyConfirmed: true,
     },
   });
-  assert.equal(portalStatusForStudent({ email: null, authUserId: null }), "NO_ACCOUNT");
+  assert.equal(
+    portalStatusForStudent({ email: null, authUserId: null }),
+    "NO_ACCOUNT",
+  );
 });
 
 test("student input validates an optional email only when supplied", () => {
@@ -36,7 +45,10 @@ test("student input validates an optional email only when supplied", () => {
       educationType: "RIS_2_0",
       privacyConfirmed: true,
     }),
-    { ok: false, error: "Vul een geldig e-mailadres in of laat het veld leeg." },
+    {
+      ok: false,
+      error: "Vul een geldig e-mailadres in of laat het veld leeg.",
+    },
   );
 });
 
@@ -55,7 +67,11 @@ test("student input requires a name and privacy confirmation", () => {
       educationType: "STANDARD",
       privacyConfirmed: false,
     }),
-    { ok: false, error: "Bevestig dat de leerlinggegevens volgens het privacyproces zijn ontvangen." },
+    {
+      ok: false,
+      error:
+        "Bevestig dat de leerlinggegevens volgens het privacyproces zijn ontvangen.",
+    },
   );
 });
 

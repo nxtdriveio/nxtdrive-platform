@@ -14,6 +14,7 @@ export const instructorVisualFixture: InstructorExperience = {
     tenantName: "Rijschool Horizon",
     email: "sanne@example.test",
     phone: "+31 6 12345678",
+    ris20Qualified: true,
   },
   stats: [
     {

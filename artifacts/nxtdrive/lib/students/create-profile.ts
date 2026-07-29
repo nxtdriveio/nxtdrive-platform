@@ -37,6 +37,12 @@ export type StudentProfileParseResult =
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export function defaultEducationTypeForInstructor(
+  ris20Qualified: boolean,
+): Exclude<EducationType, "RIS_1_0_LEGACY"> {
+  return ris20Qualified ? "RIS_2_0" : "STANDARD";
+}
+
 export function parseStudentProfileInput(
   input: StudentProfileInput,
 ): StudentProfileParseResult {
