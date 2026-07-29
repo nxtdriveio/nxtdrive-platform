@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { LessonScoreSlider } from "@/components/instructor/LessonScoreSlider";
 import { cn } from "@/lib/utils";
 import {
   setSkillScoreAction,
@@ -40,13 +41,14 @@ const STEPS = [
   { key: "note", label: "Notitie", icon: StickyNote },
   { key: "confirm", label: "Afronden", icon: Flag },
 ] as const;
-const SCORE_VALUES = Array.from({ length: 8 }, (_, i) => i + 1);
+const SCORE_MARKS = Array.from({ length: 8 }, (_, i) => String(i + 1));
+const OVERALL_SCORE_MARKS = ["N", ...SCORE_MARKS];
 
 /**
  * Tablet-landscape, step-by-step "les afronden" flow (PWA canon §"Les Afronden
- * Flow"): pick the skills practiced -> tap a 1-8 score per skill -> add an
+ * Flow"): pick the skills practiced -> slide to a 1-8 score per skill -> add an
  * overall note/score → confirm. Reuses the existing locked server actions only
- * (setSkillScoreAction per tap, setLessonProgressAction for the note step,
+ * (setSkillScoreAction per confirmed slider value, setLessonProgressAction for the note step,
  * completeLessonAction to finish) — no new financial/ledger paths. Skill scores
  * and the progress note persist as you go, so an interrupted flow loses nothing.
  */
@@ -135,7 +137,7 @@ export function FinishLessonFlow({
     });
   }
 
-  function tapScore(id: string, value: number) {
+  function setScore(id: string, value: number) {
     setError(null);
     setScores((cur) => ({ ...cur, [id]: value }));
     setSavingId(id);
@@ -166,7 +168,8 @@ export function FinishLessonFlow({
     });
   }
 
-  const canNext = step === 0 ? true : step === 1 ? allScored : step === 2 ? true : false;
+  const canNext =
+    step === 0 ? true : step === 1 ? allScored : step === 2 ? true : false;
 
   return (
     <>
@@ -241,7 +244,11 @@ export function FinishLessonFlow({
                               : "border-border bg-card text-muted-foreground",
                         )}
                       >
-                        {done ? <Check className="h-4 w-4" aria-hidden /> : i + 1}
+                        {done ? (
+                          <Check className="h-4 w-4" aria-hidden />
+                        ) : (
+                          i + 1
+                        )}
                       </span>
                       <Icon className="h-4 w-4 shrink-0" aria-hidden />
                       {s.label}
@@ -273,7 +280,7 @@ export function FinishLessonFlow({
                       leaves={selectedLeaves}
                       scores={scores}
                       savingId={savingId}
-                      onTap={tapScore}
+                      onScore={setScore}
                     />
                   ) : null}
 
@@ -379,15 +386,15 @@ function SkillsStep({
           Welke onderdelen heb je geoefend?
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Tik de vaardigheden aan die je deze les wilt beoordelen. ({selected.size}{" "}
-          geselecteerd)
+          Tik de vaardigheden aan die je deze les wilt beoordelen. (
+          {selected.size} geselecteerd)
         </p>
       </div>
 
       {leskaart.totalLeaves === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Deze rijschool heeft nog geen vaardigheden in de leskaart. Je kunt deze
-          les nog steeds afronden met een notitie.
+          Deze rijschool heeft nog geen vaardigheden in de leskaart. Je kunt
+          deze les nog steeds afronden met een notitie.
         </p>
       ) : (
         <div className="space-y-5">
@@ -444,20 +451,20 @@ function ScoresStep({
   leaves,
   scores,
   savingId,
-  onTap,
+  onScore,
 }: {
   leaves: FlatLeaf[];
   scores: Record<string, number | null>;
   savingId: string | null;
-  onTap: (id: string, value: number) => void;
+  onScore: (id: string, value: number) => void;
 }) {
   if (leaves.length === 0) {
     return (
       <div className="space-y-2">
         <h2 className="text-base font-semibold text-foreground">Scores</h2>
         <p className="text-sm text-muted-foreground">
-          Je hebt geen onderdelen geselecteerd. Ga terug om onderdelen te kiezen,
-          of ga verder naar de notitie.
+          Je hebt geen onderdelen geselecteerd. Ga terug om onderdelen te
+          kiezen, of ga verder naar de notitie.
         </p>
       </div>
     );
@@ -469,7 +476,7 @@ function ScoresStep({
           Geef een score (1-8)
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Tik per onderdeel het niveau van vandaag.
+          Schuif per onderdeel naar het niveau van vandaag.
         </p>
       </div>
 
@@ -503,28 +510,19 @@ function ScoresStep({
                   <Check className="ml-auto h-4 w-4 text-primary" aria-hidden />
                 ) : null}
               </div>
-              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
-                {SCORE_VALUES.map((n) => {
-                  const active = value === n;
-                  return (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => onTap(leaf.id, n)}
-                      aria-pressed={active}
-                      aria-label={`${leaf.label}: ${n}`}
-                      className={cn(
-                        "h-12 rounded-lg border text-base font-semibold tabular-nums transition-colors",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted",
-                      )}
-                    >
-                      {n}
-                    </button>
-                  );
-                })}
-              </div>
+              <LessonScoreSlider
+                value={value ?? 1}
+                min={1}
+                max={8}
+                marks={SCORE_MARKS}
+                ariaLabel={`Score voor ${leaf.label}`}
+                formatValue={(score) => `${score}/8`}
+                unset={value == null}
+                disabled={isSaving}
+                pending={isSaving}
+                onCommit={(score) => onScore(leaf.id, score)}
+                className="w-full"
+              />
             </li>
           );
         })}
@@ -559,42 +557,16 @@ function NoteStep({
         <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
           Lesscore (N/1-8)
         </div>
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-9">
-          <button
-            type="button"
-            onClick={() => onOverall(null)}
-            aria-pressed={overall === null}
-            aria-label="Lesscore: N"
-            className={cn(
-              "h-12 rounded-lg border text-base font-semibold tabular-nums transition-colors",
-              overall === null
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted",
-            )}
-          >
-            N
-          </button>
-          {SCORE_VALUES.map((n) => {
-            const active = overall === n;
-            return (
-              <button
-                key={n}
-                type="button"
-                onClick={() => onOverall(n)}
-                aria-pressed={active}
-                aria-label={`Lesscore: ${n}`}
-                className={cn(
-                  "h-12 rounded-lg border text-base font-semibold tabular-nums transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted",
-                )}
-              >
-                {n}
-              </button>
-            );
-          })}
-        </div>
+        <LessonScoreSlider
+          value={overall ?? 0}
+          min={0}
+          max={8}
+          marks={OVERALL_SCORE_MARKS}
+          ariaLabel="Algemene lesscore"
+          formatValue={(score) => (score === 0 ? "N" : `${score}/8`)}
+          onCommit={(score) => onOverall(score === 0 ? null : score)}
+          className="w-full"
+        />
       </div>
 
       <div>
@@ -648,7 +620,9 @@ function ConfirmStep({
         <div className="text-2xl font-semibold tabular-nums text-foreground">
           {overall == null ? "N" : overall}
           {overall == null ? null : (
-            <span className="text-base font-normal text-muted-foreground">/8</span>
+            <span className="text-base font-normal text-muted-foreground">
+              /8
+            </span>
           )}
         </div>
         {summary.trim() ? (
@@ -656,7 +630,9 @@ function ConfirmStep({
             {summary.trim()}
           </p>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Geen toelichting.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Geen toelichting.
+          </p>
         )}
       </div>
 

@@ -11,12 +11,13 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LessonScoreSlider } from "@/components/instructor/LessonScoreSlider";
 import { cn } from "@/lib/utils";
 import { setSkillScoreAction } from "@/app/instructor/actions";
 import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 
 type LiveScore = { current: number | null; today: number | null };
-const SCORE_VALUES = Array.from({ length: 8 }, (_, i) => i + 1);
+const SCORE_MARKS = Array.from({ length: 8 }, (_, i) => String(i + 1));
 
 /** Tablet-first instructor scoring grid: grouped, collapsible, 1-8 per skill. */
 export function SkillScoring({
@@ -33,7 +34,10 @@ export function SkillScoring({
     for (const cat of leskaart.categories) {
       for (const sub of cat.subcategories) {
         for (const leaf of sub.leaves) {
-          init[leaf.id] = { current: leaf.currentScore, today: leaf.todayScore };
+          init[leaf.id] = {
+            current: leaf.currentScore,
+            today: leaf.todayScore,
+          };
         }
       }
     }
@@ -81,7 +85,10 @@ export function SkillScoring({
     const prev = scores[skillId] ?? { current: null, today: null };
     setError(null);
     setPendingId(skillId);
-    setScores((cur) => ({ ...cur, [skillId]: { current: value, today: value } }));
+    setScores((cur) => ({
+      ...cur,
+      [skillId]: { current: value, today: value },
+    }));
     startTransition(async () => {
       const fd = new FormData();
       fd.set("lesson_id", lessonId);
@@ -110,7 +117,8 @@ export function SkillScoring({
               Leskaart — beoordeling
             </div>
             <p className="mt-0.5 text-sm text-foreground">
-              {studentName} · {scoredLeaves}/{totalLeaves} vaardigheden beoordeeld
+              {studentName} · {scoredLeaves}/{totalLeaves} vaardigheden
+              beoordeeld
             </p>
           </div>
           <button
@@ -269,39 +277,19 @@ export function SkillScoring({
                                       </span>
                                     )}
                                   </div>
-                                  <div
-                                    className={cn(
-                                      "flex flex-wrap gap-1",
-                                      isPending && "opacity-60",
-                                    )}
-                                  >
-                                    {SCORE_VALUES.map(
-                                      (n) => {
-                                        const active = selected === n;
-                                        const isToday = s.today === n;
-                                        return (
-                                          <button
-                                            key={n}
-                                            type="button"
-                                            disabled={isPending}
-                                            onClick={() => score(leaf.id, n)}
-                                            aria-pressed={active}
-                                            aria-label={`${leaf.label}: ${n}`}
-                                            className={cn(
-                                              "h-9 w-9 rounded-md border text-sm font-medium tabular-nums transition-colors",
-                                              active
-                                                ? isToday
-                                                  ? "border-primary bg-primary text-primary-foreground"
-                                                  : "border-primary bg-primary-soft text-primary"
-                                                : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted",
-                                            )}
-                                          >
-                                            {n}
-                                          </button>
-                                        );
-                                      },
-                                    )}
-                                  </div>
+                                  <LessonScoreSlider
+                                    value={selected ?? 1}
+                                    min={1}
+                                    max={8}
+                                    marks={SCORE_MARKS}
+                                    ariaLabel={`Score voor ${leaf.label}`}
+                                    formatValue={(value) => `${value}/8`}
+                                    unset={selected == null}
+                                    disabled={isPending}
+                                    pending={isPending}
+                                    onCommit={(value) => score(leaf.id, value)}
+                                    className="w-full sm:w-72"
+                                  />
                                 </li>
                               );
                             })}

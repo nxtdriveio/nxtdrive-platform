@@ -1,18 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import {
-  BookOpenCheck,
-  ChevronDown,
-  Info,
-  Loader2,
-  Minus,
-  Pin,
-  Plus,
-  Tags,
-} from "lucide-react";
+import { BookOpenCheck, ChevronDown, Info, Pin, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { LessonScoreSlider } from "@/components/instructor/LessonScoreSlider";
 import { cn } from "@/lib/utils";
 import { setRisConceptScoreAction } from "@/lib/ris/actions";
 import {
@@ -33,7 +25,17 @@ type ScriptView = {
   assessment: RisScriptAssessment | null;
 };
 
-const STEP_VALUES: RISStepValue[] = ["N", "1", "2", "3", "4", "5", "6", "7", "8"];
+const STEP_VALUES: RISStepValue[] = [
+  "N",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+];
 const MIN_SCORE_INDEX = 0;
 const MAX_SCORE_INDEX = STEP_VALUES.length - 1;
 
@@ -56,20 +58,21 @@ function stepIndex(step: RISStepValue | null): number {
 }
 
 function stepFromIndex(index: number): RISStepValue {
-  return STEP_VALUES[Math.min(MAX_SCORE_INDEX, Math.max(MIN_SCORE_INDEX, index))] ?? "N";
-}
-
-function shiftStep(step: RISStepValue | null, delta: -1 | 1): RISStepValue {
-  return stepFromIndex(stepIndex(step) + delta);
+  return (
+    STEP_VALUES[Math.min(MAX_SCORE_INDEX, Math.max(MIN_SCORE_INDEX, index))] ??
+    "N"
+  );
 }
 
 function visibleStep(assessment: RisScriptAssessment | null): RISStepValue {
-  return normalizeRisStep(
-    assessment?.conceptRisStep ??
-    assessment?.finalRisStep ??
-    assessment?.previousRisStep ??
-    null
-  ) ?? "N";
+  return (
+    normalizeRisStep(
+      assessment?.conceptRisStep ??
+        assessment?.finalRisStep ??
+        assessment?.previousRisStep ??
+        null,
+    ) ?? "N"
+  );
 }
 
 function summaryTagCount(assessment: RisScriptAssessment | null): number {
@@ -179,9 +182,15 @@ export function RisScriptScoring({
         }))
         .filter(({ scripts }) => scripts.length > 0)
     : modules;
-  const scoredCount = allScripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
-  const focusCount = allScripts.filter((item) => item.assessment?.isFeaturedForLesson).length;
-  const attentionCount = allScripts.filter((item) => item.assessment?.isAttentionPoint).length;
+  const scoredCount = allScripts.filter(
+    (item) => risStepNumber(visibleStep(item.assessment)) !== null,
+  ).length;
+  const focusCount = allScripts.filter(
+    (item) => item.assessment?.isFeaturedForLesson,
+  ).length;
+  const attentionCount = allScripts.filter(
+    (item) => item.assessment?.isAttentionPoint,
+  ).length;
   const locked = ris.card
     ? !["draft", "completion_in_progress", "ready_to_publish"].includes(
         ris.card.publicationStatus,
@@ -198,8 +207,10 @@ export function RisScriptScoring({
   }) {
     const current = assessmentByScript.get(input.script.id) ?? null;
     const step = input.step ?? visibleStep(current);
-    const isAttentionPoint = input.attention ?? current?.isAttentionPoint ?? false;
-    const isFeaturedForLesson = input.focus ?? current?.isFeaturedForLesson ?? false;
+    const isAttentionPoint =
+      input.attention ?? current?.isAttentionPoint ?? false;
+    const isFeaturedForLesson =
+      input.focus ?? current?.isFeaturedForLesson ?? false;
     const shouldRepeat = input.repeat ?? current?.shouldRepeat ?? false;
     const readyForTest = input.ready ?? current?.readyForTest ?? false;
     const previousAssessments = assessments;
@@ -215,12 +226,14 @@ export function RisScriptScoring({
     });
 
     setAssessments((currentAssessments) => {
-      const exists = currentAssessments.some((item) => item.scriptId === input.script.id);
+      const exists = currentAssessments.some(
+        (item) => item.scriptId === input.script.id,
+      );
       const next = !exists
         ? [...currentAssessments, nextAssessment]
         : currentAssessments.map((item) =>
-        item.scriptId === input.script.id ? nextAssessment : item,
-      );
+            item.scriptId === input.script.id ? nextAssessment : item,
+          );
       onAssessmentsChange?.(next);
       return next;
     });
@@ -244,22 +257,21 @@ export function RisScriptScoring({
         setAssessments(previousAssessments);
         onAssessmentsChange?.(previousAssessments);
       } else {
-        const assessmentId = "assessmentId" in result ? result.assessmentId : undefined;
+        const assessmentId =
+          "assessmentId" in result ? result.assessmentId : undefined;
         if (!assessmentId) {
           setPendingScriptId(null);
           return;
         }
-        setAssessments((currentAssessments) =>
-          {
-            const next = currentAssessments.map((item) =>
+        setAssessments((currentAssessments) => {
+          const next = currentAssessments.map((item) =>
             item.scriptId === input.script.id
               ? { ...item, id: assessmentId }
               : item,
-            );
-            onAssessmentsChange?.(next);
-            return next;
-          },
-        );
+          );
+          onAssessmentsChange?.(next);
+          return next;
+        });
       }
       setPendingScriptId(null);
     });
@@ -316,8 +328,12 @@ export function RisScriptScoring({
         ) : (
           <div className="space-y-3">
             {compactModules.map(({ module, scripts }) => {
-              const moduleScored = scripts.filter((item) => risStepNumber(visibleStep(item.assessment)) !== null).length;
-              const moduleAttention = scripts.filter((item) => item.assessment?.isAttentionPoint).length;
+              const moduleScored = scripts.filter(
+                (item) => risStepNumber(visibleStep(item.assessment)) !== null,
+              ).length;
+              const moduleAttention = scripts.filter(
+                (item) => item.assessment?.isAttentionPoint,
+              ).length;
               return (
                 <details
                   key={module.id}
@@ -327,9 +343,13 @@ export function RisScriptScoring({
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="primary">Module {module.moduleNumber}</Badge>
+                        <Badge variant="primary">
+                          Module {module.moduleNumber}
+                        </Badge>
                         {moduleAttention > 0 ? (
-                          <Badge variant="warning">{moduleAttention} aandacht</Badge>
+                          <Badge variant="warning">
+                            {moduleAttention} aandacht
+                          </Badge>
                         ) : null}
                       </div>
                       <div className="mt-1 truncate text-sm font-black text-foreground">
@@ -340,7 +360,10 @@ export function RisScriptScoring({
                       <span className="text-xs font-bold text-muted-foreground">
                         {moduleScored} / {scripts.length}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" aria-hidden />
+                      <ChevronDown
+                        className="h-4 w-4 text-muted-foreground transition group-open:rotate-180"
+                        aria-hidden
+                      />
                     </div>
                   </summary>
                   <div className="divide-y divide-border border-t border-border">
@@ -349,14 +372,17 @@ export function RisScriptScoring({
                       const pending = pendingScriptId === script.id;
                       const tagCount = summaryTagCount(assessment);
                       const currentIndex = stepIndex(step);
-                      const tooltip = script.descriptionShort ?? "Geen extra scriptinformatie.";
+                      const tooltip =
+                        script.descriptionShort ??
+                        "Geen extra scriptinformatie.";
                       return (
                         <div
                           key={script.id}
                           className={cn(
                             "grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center",
                             assessment?.isAttentionPoint && "bg-warning/5",
-                            assessment?.isFeaturedForLesson && "bg-primary-soft/25",
+                            assessment?.isFeaturedForLesson &&
+                              "bg-primary-soft/25",
                           )}
                         >
                           <div className="min-w-0">
@@ -366,9 +392,14 @@ export function RisScriptScoring({
                                 title={tooltip}
                                 className="inline-flex min-h-11 min-w-0 items-center gap-2 text-left text-sm font-black text-foreground"
                               >
-                                <span className="shrink-0 text-primary">{script.code}:</span>
+                                <span className="shrink-0 text-primary">
+                                  {script.code}:
+                                </span>
                                 <span className="truncate">{script.title}</span>
-                                <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                                <Info
+                                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                  aria-hidden
+                                />
                               </button>
                               {assessment?.isFeaturedForLesson ? (
                                 <Badge variant="info" className="gap-1">
@@ -389,43 +420,26 @@ export function RisScriptScoring({
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                            <div className="flex items-center gap-1 rounded-xl border border-border bg-background/70 p-1">
-                              <button
-                                type="button"
-                                disabled={locked || pending || currentIndex <= MIN_SCORE_INDEX}
-                                onClick={() => saveScript({ script, step: shiftStep(step, -1) })}
-                                aria-label={`Verlaag score voor ${script.title}`}
-                                className={cn(
-                                  "grid h-11 w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || currentIndex <= MIN_SCORE_INDEX) &&
-                                    "cursor-not-allowed opacity-45",
-                                )}
-                              >
-                                <Minus className="h-4 w-4" aria-hidden />
-                              </button>
-                              <span className="grid h-11 min-w-16 place-items-center rounded-lg bg-card px-3 text-sm font-black text-foreground">
-                                {pending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
-                                ) : step === "N" ? (
-                                  "N"
-                                ) : (
-                                  `${step}/8`
-                                )}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={locked || pending || currentIndex >= MAX_SCORE_INDEX}
-                                onClick={() => saveScript({ script, step: shiftStep(step, 1) })}
-                                aria-label={`Verhoog score voor ${script.title}`}
-                                className={cn(
-                                  "grid h-11 w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-primary",
-                                  (locked || pending || currentIndex >= MAX_SCORE_INDEX) &&
-                                    "cursor-not-allowed opacity-45",
-                                )}
-                              >
-                                <Plus className="h-4 w-4" aria-hidden />
-                              </button>
-                            </div>
+                            <LessonScoreSlider
+                              value={currentIndex}
+                              min={MIN_SCORE_INDEX}
+                              max={MAX_SCORE_INDEX}
+                              marks={STEP_VALUES}
+                              ariaLabel={`RIS-stap voor ${script.title}`}
+                              formatValue={(value) => {
+                                const visible = stepFromIndex(value);
+                                return visible === "N" ? "N" : `${visible}/8`;
+                              }}
+                              disabled={locked || pending}
+                              pending={pending}
+                              onCommit={(value) =>
+                                saveScript({
+                                  script,
+                                  step: stepFromIndex(value),
+                                })
+                              }
+                              className="w-full sm:w-72"
+                            />
                             <SummaryTagDropdown
                               count={tagCount}
                               assessment={assessment}
@@ -517,7 +531,10 @@ function SummaryTagDropdown({
         <span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[0.65rem] text-primary">
           {count}
         </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" aria-hidden />
+        <ChevronDown
+          className="h-4 w-4 text-muted-foreground transition group-open:rotate-180"
+          aria-hidden
+        />
       </summary>
       <div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-2xl border border-border bg-popover p-2 shadow-brand-card">
         {options.map((option) => (
@@ -538,7 +555,9 @@ function SummaryTagDropdown({
             <span
               className={cn(
                 "h-2.5 w-2.5 rounded-full border",
-                option.active ? "border-primary bg-primary" : "border-muted-foreground/40",
+                option.active
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/40",
               )}
             />
           </button>
