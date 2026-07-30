@@ -3,7 +3,7 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 161,
+  "migrationCount": 164,
   "fixture": {
     "tenants": 2,
     "users": 2,
@@ -826,6 +826,21 @@
       "file": "20260729151000_instructor_credit_grants.sql",
       "sha256": "755a7fe54ce7c3b70aec93a4d5e15f2a276f28d132ab986fc5c04b20b6891c3a",
       "bytes": 3460
+    },
+    {
+      "file": "20260730103000_ris_reflection_authorship.sql",
+      "sha256": "fed469291cb73803144c97417a030d2af0b76fe0445812e642644ad99ca10701",
+      "bytes": 6893
+    },
+    {
+      "file": "20260730113000_disable_ai_assist.sql",
+      "sha256": "0f58cfc8b22476ef52de98e802e5f02f98eb8674a5e190ea6a851ccd374fbb57",
+      "bytes": 906
+    },
+    {
+      "file": "20260730120000_ris_completion_timing.sql",
+      "sha256": "30d41764ab051f7a3317150b4bc0be25c5e8a92c8c3b600027d4da5ece2c8a53",
+      "bytes": 2705
     }
   ]
 }
