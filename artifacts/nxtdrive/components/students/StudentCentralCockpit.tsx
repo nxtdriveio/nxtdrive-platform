@@ -29,6 +29,10 @@ import type { TheoryHomeworkWithModule } from "@/lib/theory/types";
 import type { StudentRisProgress } from "@/lib/ris/data";
 import type { ReadinessResult } from "@workspace/leskaart";
 import {
+  resolveStudentLocationDisplay,
+  type CanonicalStudentLocation,
+} from "@/lib/students/location-display";
+import {
   buildStudentDossierQualitySummary,
   nextBestActionFromSignals,
   type DossierQualityTone,
@@ -70,6 +74,8 @@ type Props = {
   risProgress: StudentRisProgress;
   tasks: StudentLinkedTask[];
   documents: StudentDocument[];
+  canonicalHome: CanonicalStudentLocation | null;
+  canonicalPickup: CanonicalStudentLocation | null;
 };
 
 export function StudentCentralCockpit({
@@ -85,8 +91,10 @@ export function StudentCentralCockpit({
   risProgress,
   tasks,
   documents,
+  canonicalHome,
+  canonicalPickup,
 }: Props) {
-  const naw = buildNaw(student, intake);
+  const naw = buildNaw(student, intake, canonicalHome, canonicalPickup);
   const openInvoices = invoices.filter((invoice) => invoice.status === "open");
   const openTheory = theory.filter((item) => item.status === "open");
   const latestDocument = documents[0] ?? null;
@@ -155,9 +163,20 @@ export function StudentCentralCockpit({
               <Field label="Telefoon" value={student.phone} />
               <Field label="Geboortedatum" value={formatDate(naw.dateOfBirth)} />
               <Field label="Adres" value={naw.address} />
-              <Field label="Postcode" value={student.postcode} />
+              <Field label="Postcode" value={naw.postalCode} />
               <Field label="Woonplaats" value={naw.city} />
               <Field label="Ophaaladres" value={naw.pickupLocation} />
+              <Field
+                label="Locatiebron"
+                value={
+                  {
+                    CANONICAL: "Canonical location",
+                    STRUCTURED: "Gestructureerd profiel",
+                    LEGACY_NOTES: "Tijdelijke legacy-fallback",
+                    MISSING: null,
+                  }[naw.locationSource]
+                }
+              />
             </dl>
           </CockpitTile>
 
@@ -561,16 +580,34 @@ function formatDate(value: string | null): string | null {
   return dateFmt.format(date);
 }
 
-function buildNaw(student: Student, intake: LeadIntakeDetail | null) {
+function buildNaw(
+  student: Student,
+  intake: LeadIntakeDetail | null,
+  canonicalHome: CanonicalStudentLocation | null,
+  canonicalPickup: CanonicalStudentLocation | null,
+) {
   const notes = student.notes ?? "";
+  const location = resolveStudentLocationDisplay({
+    canonicalHome,
+    canonicalPickup,
+    student: {
+      addressLine: student.address_line,
+      pickupAddress: student.pickup_address,
+      city: student.city,
+      postalCode: student.postcode,
+    },
+    intake: intake
+      ? { pickupLocation: intake.pickup_location, city: intake.city }
+      : null,
+    legacyNotes: notes,
+  });
   return {
     dateOfBirth: intake?.date_of_birth ?? readNawNote(notes, "Geboortedatum"),
-    city: intake?.city ?? readNawNote(notes, "Woonplaats"),
-    address: readNawNote(notes, "Adres"),
-    pickupLocation:
-      intake?.pickup_location ??
-      readNawNote(notes, "Ophaaladres") ??
-      readNawNote(notes, "Adres"),
+    city: location.city,
+    postalCode: location.postalCode,
+    address: location.address,
+    pickupLocation: location.pickupLocation,
+    locationSource: location.source,
   };
 }
 
@@ -617,7 +654,7 @@ function getNextBestAction(input: {
   const missingNaw = [
     !input.student.email ? "e-mailadres" : null,
     !input.student.phone ? "telefoon" : null,
-    !input.student.postcode ? "postcode" : null,
+    !input.naw.postalCode ? "postcode" : null,
     !input.naw.city ? "woonplaats" : null,
     !input.naw.dateOfBirth ? "geboortedatum" : null,
     !input.naw.pickupLocation ? "ophaaladres" : null,

@@ -15,6 +15,7 @@ import type { TheoryHomeworkWithModule } from "@/lib/theory/types";
 export type StudentNawSummary = {
   dateOfBirth: string | null;
   city: string | null;
+  postalCode: string | null;
   address: string | null;
   pickupLocation: string | null;
 };
@@ -223,7 +224,7 @@ function missingProfileFields(student: Student, naw: StudentNawSummary): string[
   return [
     !student.email ? "e-mailadres" : null,
     !student.phone ? "telefoon" : null,
-    !student.postcode ? "postcode" : null,
+    !naw.postalCode ? "postcode" : null,
     !naw.address ? "adres" : null,
     !naw.city ? "woonplaats" : null,
     !naw.dateOfBirth ? "geboortedatum" : null,

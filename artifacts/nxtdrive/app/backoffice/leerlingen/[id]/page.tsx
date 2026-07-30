@@ -56,6 +56,7 @@ import {
 } from "@/lib/availability/types";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { studentWhatsAppMessage } from "@/lib/notifications/whatsapp";
+import type { CanonicalStudentLocation } from "@/lib/students/location-display";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,8 @@ export default async function StudentDetailPage({
     }),
     loadStudentRisProgress(supabase, tenant.id, student.id),
   ]);
+  const { home: canonicalHome, pickup: canonicalPickup } =
+    await loadCanonicalStudentLocations(service, tenant.id, student.id);
 
   const { data: ledgerRaw } = await supabase
     .from("credit_ledger")
@@ -226,6 +229,8 @@ export default async function StudentDetailPage({
         risProgress={risProgress}
         tasks={dossier.tasks}
         documents={dossier.documents}
+        canonicalHome={canonicalHome}
+        canonicalPickup={canonicalPickup}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -499,6 +504,77 @@ export default async function StudentDetailPage({
       </div>
     </div>
   );
+}
+
+async function loadCanonicalStudentLocations(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  studentId: string,
+): Promise<{
+  home: CanonicalStudentLocation | null;
+  pickup: CanonicalStudentLocation | null;
+}> {
+  const { data: links, error: linksError } = await service
+    .from("entity_location_links")
+    .select("location_record_id, role, created_at")
+    .eq("tenant_id", tenantId)
+    .eq("student_id", studentId)
+    .is("valid_until", null)
+    .in("role", [
+      "STUDENT_HOME",
+      "STUDENT_PICKUP_DEFAULT",
+      "STUDENT_DROPOFF_DEFAULT",
+    ])
+    .order("created_at", { ascending: false });
+  if (linksError) throw new Error(`Locatierelaties laden mislukt: ${linksError.message}`);
+  const recordIds = [...new Set((links ?? []).map((link) => link.location_record_id))];
+  if (recordIds.length === 0) return { home: null, pickup: null };
+
+  const { data: records, error: recordsError } = await service
+    .from("location_records")
+    .select("id, canonical_version_id")
+    .eq("tenant_id", tenantId)
+    .in("id", recordIds);
+  if (recordsError) throw new Error(`Locatierecords laden mislukt: ${recordsError.message}`);
+  const versionIds = (records ?? [])
+    .map((record) => record.canonical_version_id)
+    .filter((id): id is string => Boolean(id));
+  if (versionIds.length === 0) return { home: null, pickup: null };
+
+  const { data: versions, error: versionsError } = await service
+    .from("location_versions")
+    .select("id, formatted_address, city, postal_code")
+    .eq("tenant_id", tenantId)
+    .in("id", versionIds);
+  if (versionsError) throw new Error(`Locatieversies laden mislukt: ${versionsError.message}`);
+  const versionById = new Map(
+    (versions ?? []).map((version) => [
+      version.id,
+      {
+        formattedAddress: version.formatted_address,
+        city: version.city,
+        postalCode: version.postal_code,
+      } satisfies CanonicalStudentLocation,
+    ]),
+  );
+  const versionIdByRecord = new Map(
+    (records ?? []).map((record) => [record.id, record.canonical_version_id]),
+  );
+  const find = (...roles: string[]) => {
+    const link = (links ?? []).find((item) => roles.includes(item.role));
+    const versionId = link
+      ? versionIdByRecord.get(link.location_record_id)
+      : null;
+    return versionId ? (versionById.get(versionId) ?? null) : null;
+  };
+  return {
+    home: find("STUDENT_HOME"),
+    pickup: find(
+      "STUDENT_PICKUP_DEFAULT",
+      "STUDENT_HOME",
+      "STUDENT_DROPOFF_DEFAULT",
+    ),
+  };
 }
 
 function Field({
