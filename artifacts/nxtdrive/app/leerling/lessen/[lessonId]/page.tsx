@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { LessonHeaderCard } from "@/components/student/LessonHeaderCard";
 import { LessonPracticedChips } from "@/components/student/LessonPracticedChips";
 import { LessonNotesCard } from "@/components/student/LessonNotesCard";
@@ -38,6 +39,11 @@ import {
   VEHICLE_TRANSMISSION_LABEL,
   type Lesson,
 } from "@/lib/lessons/types";
+import { Button } from "@/components/ui/button";
+import {
+  confirmLessonLocation,
+  proposeLessonLocation,
+} from "./location-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +66,7 @@ export default async function StudentLessonDetailPage({
   if (!student) notFound();
 
   const supabase = await createServerSupabaseClient();
+  const service = createServiceRoleClient();
   const { data: lessonRaw } = await supabase
     .from("lessons")
     .select("*")
@@ -69,12 +76,13 @@ export default async function StudentLessonDetailPage({
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
 
-  const [names, skillGroups, leskaart, homework, risDetail] = await Promise.all([
+  const [names, skillGroups, leskaart, homework, risDetail, lessonLocation] = await Promise.all([
     getInstructorNames([lesson.instructor_id]),
     loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
     loadStudentLeskaart(supabase, tenant.id, student.id),
     loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
     loadStudentRisLessonCardDetail(supabase, tenant.id, student.id, lesson.id),
+    loadStudentLessonLocation(service, tenant.id, student.id, lesson.id),
   ]);
   const instructorName = names.get(lesson.instructor_id);
   const hasRisLessonCard = Boolean(risDetail.card);
@@ -204,6 +212,94 @@ export default async function StudentLessonDetailPage({
       />
 
       <LessonHeaderCard lesson={lesson} instructorName={instructorName} />
+
+      {lessonLocation.stop ? (
+        <StudentShowcaseCard title="Ophaallocatie" eyebrow="Voor deze les">
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-white/75 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-black text-brand-foreground">
+                  {lessonLocation.stop.label}
+                </p>
+                <p className="mt-1 text-sm text-brand-muted-foreground">
+                  {lessonLocation.stop.formattedAddress}
+                </p>
+              </div>
+              <span className="w-fit rounded-full bg-brand-accent px-3 py-1 text-xs font-black text-brand-primary">
+                {lessonLocation.confirmed
+                  ? "Door jou bevestigd"
+                  : lessonLocation.proposalPending
+                    ? "Correctie in review"
+                    : "Bevestiging gevraagd"}
+              </span>
+            </div>
+
+            {!lessonLocation.confirmed && !lessonLocation.proposalPending ? (
+              <form action={confirmLessonLocation}>
+                <input type="hidden" name="lesson_id" value={lesson.id} />
+                <input
+                  type="hidden"
+                  name="appointment_stop_id"
+                  value={lessonLocation.stop.id}
+                />
+                <Button type="submit" size="sm">
+                  Deze ophaallocatie klopt
+                </Button>
+              </form>
+            ) : null}
+
+            {!lessonLocation.confirmed &&
+            lessonLocation.locations.length > 0 ? (
+              <form
+                action={proposeLessonLocation}
+                className="grid gap-2 rounded-2xl border border-brand-border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+              >
+                <input type="hidden" name="lesson_id" value={lesson.id} />
+                <input
+                  type="hidden"
+                  name="appointment_stop_id"
+                  value={lessonLocation.stop.id}
+                />
+                <label className="grid gap-1 text-xs font-bold text-brand-muted-foreground">
+                  Andere opgeslagen locatie
+                  <select
+                    name="location"
+                    required
+                    className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm text-brand-foreground"
+                  >
+                    {lessonLocation.locations.map((location) => (
+                      <option
+                        key={location.recordId}
+                        value={`${location.recordId}:${location.versionId}`}
+                      >
+                        {location.label} · {location.formattedAddress}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs font-bold text-brand-muted-foreground">
+                  Waarom wijzigen?
+                  <input
+                    name="explanation"
+                    required
+                    minLength={5}
+                    maxLength={500}
+                    className="h-10 rounded-xl border border-brand-border bg-white px-3 text-sm text-brand-foreground"
+                    placeholder="Bijvoorbeeld: ik ben die dag op school"
+                  />
+                </label>
+                <Button type="submit" variant="outline" size="sm">
+                  Correctie voorstellen
+                </Button>
+              </form>
+            ) : null}
+            <p className="text-xs text-brand-muted-foreground">
+              Een voorstel wijzigt de gepubliceerde les niet automatisch. De
+              planning controleert eerst de route-impact.
+            </p>
+          </div>
+        </StudentShowcaseCard>
+      ) : null}
 
       {risDetail.planningCard ? (
         <StudentShowcaseCard title="Jouw plankaart" eyebrow="Voor deze les">
@@ -419,4 +515,103 @@ export default async function StudentLessonDetailPage({
       />
     </PWAPage>
   );
+}
+
+async function loadStudentLessonLocation(
+  service: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  studentId: string,
+  lessonId: string,
+) {
+  const { data: stop } = await service
+    .from("appointment_stops")
+    .select("id, label_snapshot, formatted_address_snapshot")
+    .eq("tenant_id", tenantId)
+    .eq("lesson_id", lessonId)
+    .eq("stop_type", "PICKUP")
+    .eq("publication_status", "PUBLISHED")
+    .maybeSingle();
+  if (!stop) {
+    return {
+      stop: null,
+      confirmed: false,
+      proposalPending: false,
+      locations: [],
+    };
+  }
+  const [{ data: confirmation }, { data: proposal }, { data: links }] =
+    await Promise.all([
+      service
+        .from("appointment_stop_confirmations")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("appointment_stop_id", stop.id)
+        .eq("student_id", studentId)
+        .eq("status", "CONFIRMED")
+        .maybeSingle(),
+      service
+        .from("location_change_proposals")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("appointment_stop_id", stop.id)
+        .eq("student_id", studentId)
+        .in("status", ["PROPOSED", "UNDER_REVIEW"])
+        .maybeSingle(),
+      service
+        .from("entity_location_links")
+        .select("location_record_id, label")
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId)
+        .is("valid_until", null)
+        .order("created_at"),
+    ]);
+  const recordIds = [
+    ...new Set((links ?? []).map((link) => link.location_record_id)),
+  ];
+  const { data: records } = recordIds.length
+    ? await service
+        .from("location_records")
+        .select("id, canonical_version_id")
+        .eq("tenant_id", tenantId)
+        .in("id", recordIds)
+    : { data: [] };
+  const versionIds = (records ?? [])
+    .map((record) => record.canonical_version_id)
+    .filter((id): id is string => Boolean(id));
+  const { data: versions } = versionIds.length
+    ? await service
+        .from("location_versions")
+        .select("id, location_record_id, formatted_address")
+        .eq("tenant_id", tenantId)
+        .in("id", versionIds)
+    : { data: [] };
+  const canonicalVersionByRecord = new Map(
+    (records ?? []).map((record) => [record.id, record.canonical_version_id]),
+  );
+  const versionById = new Map(
+    (versions ?? []).map((version) => [version.id, version]),
+  );
+  return {
+    stop: {
+      id: stop.id,
+      label: stop.label_snapshot,
+      formattedAddress: stop.formatted_address_snapshot,
+    },
+    confirmed: Boolean(confirmation),
+    proposalPending: Boolean(proposal),
+    locations: (links ?? []).flatMap((link) => {
+      const versionId = canonicalVersionByRecord.get(link.location_record_id);
+      const version = versionId ? versionById.get(versionId) : null;
+      return version
+        ? [
+            {
+              recordId: link.location_record_id,
+              versionId: version.id,
+              label: link.label || "Opgeslagen locatie",
+              formattedAddress: version.formatted_address,
+            },
+          ]
+        : [];
+    }),
+  };
 }
