@@ -28,6 +28,7 @@ import type {
   PlanningCard,
   RisScriptAssessment,
 } from "@/lib/ris/data";
+import type { NextFocusRecommendation } from "@/lib/ris/next-focus";
 
 type TabKey =
   | "quick"
@@ -82,6 +83,8 @@ export function RisEvaluationTabs({
   ris,
   planningCard,
   goalOptions,
+  recommendedGoals,
+  recommendationExplanation,
   lessonInfo,
   studentLearningWish,
   endOfLessonScheduling,
@@ -92,6 +95,8 @@ export function RisEvaluationTabs({
   ris: InstructorRisLessonCard;
   planningCard: PlanningCard | null;
   goalOptions: string[];
+  recommendedGoals: readonly NextFocusRecommendation[];
+  recommendationExplanation: string;
   lessonInfo: EvaluationLessonInfo;
   studentLearningWish: string | null;
   endOfLessonScheduling: EndOfLessonSchedulingState;
@@ -231,6 +236,8 @@ export function RisEvaluationTabs({
             studentName={studentName}
             planningCard={planningCard}
             goalOptions={goalOptions}
+            recommendedGoals={recommendedGoals}
+            recommendationExplanation={recommendationExplanation}
             studentLearningWish={studentLearningWish}
             lessonCardLocked={lessonCardLocked}
           />

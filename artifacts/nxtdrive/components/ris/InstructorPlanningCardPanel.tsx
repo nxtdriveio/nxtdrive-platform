@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { upsertPlanningCardAction } from "@/lib/ris/actions";
 import type { PlanningCard } from "@/lib/ris/data";
+import type { NextFocusRecommendation } from "@/lib/ris/next-focus";
 
 type GoalState = {
   title: string;
@@ -22,12 +23,19 @@ const LOCKED_PLANNING_CARD_STATUSES = new Set<PlanningCard["status"]>([
   "evaluated",
 ]);
 
-function initialGoals(planningCard: PlanningCard | null): GoalState[] {
+function initialGoals(
+  planningCard: PlanningCard | null,
+  recommendations: readonly NextFocusRecommendation[],
+): GoalState[] {
   const goals =
     planningCard?.goals.map((goal) => ({
       title: goal.title,
       description: goal.description ?? "",
-    })) ?? [];
+    })) ??
+    recommendations.slice(0, GOAL_SLOT_COUNT).map((recommendation) => ({
+      title: recommendation.title,
+      description: recommendation.reason,
+    }));
 
   while (goals.length < GOAL_SLOT_COUNT) {
     goals.push({ title: "", description: "" });
@@ -42,6 +50,8 @@ export function InstructorPlanningCardPanel({
   studentName,
   planningCard,
   goalOptions,
+  recommendedGoals,
+  recommendationExplanation,
   studentLearningWish,
   lessonCardLocked = false,
 }: {
@@ -50,6 +60,8 @@ export function InstructorPlanningCardPanel({
   studentName: string;
   planningCard: PlanningCard | null;
   goalOptions: string[];
+  recommendedGoals: readonly NextFocusRecommendation[];
+  recommendationExplanation: string;
   studentLearningWish?: string | null;
   lessonCardLocked?: boolean;
 }) {
@@ -60,7 +72,9 @@ export function InstructorPlanningCardPanel({
   );
   const [planningCardId, setPlanningCardId] = useState(planningCard?.id ?? null);
   const [summary, setSummary] = useState(planningCard?.studentVisibleSummary ?? "");
-  const [goals, setGoals] = useState<GoalState[]>(() => initialGoals(planningCard));
+  const [goals, setGoals] = useState<GoalState[]>(() =>
+    initialGoals(planningCard, recommendedGoals),
+  );
   const [isEditing, setIsEditing] = useState(
     !lessonCardLocked && !isSubmittedPlanningCard,
   );
@@ -205,6 +219,33 @@ export function InstructorPlanningCardPanel({
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {studentLearningWish}
             </p>
+          </div>
+        ) : null}
+
+        {recommendedGoals.length > 0 ? (
+          <div className="rounded-2xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-foreground">
+              <Target className="h-4 w-4 text-primary" aria-hidden />
+              Regelgebaseerd lesvoorstel
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {recommendationExplanation} De instructeur controleert en bevestigt.
+            </p>
+            <ol className="mt-3 grid gap-2 md:grid-cols-2">
+              {recommendedGoals.map((recommendation) => (
+                <li
+                  key={recommendation.scriptId}
+                  className="rounded-xl border border-border bg-background px-3 py-2"
+                >
+                  <div className="text-sm font-bold text-foreground">
+                    {recommendation.title}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {recommendation.reason}
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         ) : null}
 

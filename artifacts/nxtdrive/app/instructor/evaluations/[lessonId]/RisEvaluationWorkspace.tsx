@@ -14,12 +14,14 @@ import {
   loadStudentPlanningCardForLesson,
   loadStudentRisProgress,
 } from "@/lib/ris/data";
+import { buildNextFocusProposal } from "@/lib/ris/next-focus";
 import {
   RisEvaluationTabs,
   type EvaluationLessonInfo,
 } from "@/components/ris/RisEvaluationTabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { risStepNumber } from "@workspace/leskaart";
 
 const LESSON_SELECT =
   "id, branch_id, student_id, instructor_id, vehicle_id, status, starts_at, ends_at, duration_min, location, notes, progress_score, progress_summary, location_id, pickup_service_area_id, student_note, attention_points, advice";
@@ -207,6 +209,40 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
     submitted_at: string;
   } | null;
   const studentLearningWish = latestResponse?.next_lesson_wish?.trim() || null;
+  const assessmentByScript = new Map(
+    ris.assessments.map((assessment) => [assessment.scriptId, assessment]),
+  );
+  const progressByScript = new Map(
+    studentRisProgress.progress.map((item) => [item.scriptId, item]),
+  );
+  const nextFocusProposal = buildNextFocusProposal({
+    learnerWish: studentLearningWish,
+    candidates: ris.catalog.tree.flatMap((module) =>
+      module.categories.flatMap((category) =>
+        category.scripts.map((script) => {
+          const assessment = assessmentByScript.get(script.id);
+          const progress = progressByScript.get(script.id);
+          return {
+            scriptId: script.id,
+            code: script.code,
+            title: script.title,
+            moduleNumber: module.moduleNumber,
+            instructionStage: risStepNumber(
+              assessment?.conceptRisStep ??
+                assessment?.finalRisStep ??
+                progress?.currentFinalStep,
+            ),
+            performanceOutcome: assessment?.performanceOutcome,
+            safetyStatus: assessment?.safetyStatus,
+            isAttentionPoint:
+              assessment?.isAttentionPoint ?? progress?.isAttentionPoint ?? false,
+            shouldRepeat: assessment?.shouldRepeat ?? false,
+            wasFocus: assessment?.isFeaturedForLesson ?? false,
+          };
+        }),
+      ),
+    ),
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-4 px-3 pb-8 sm:px-4 lg:px-6">
@@ -261,6 +297,8 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
         ris={ris}
         planningCard={planningCard}
         goalOptions={goalOptions}
+        recommendedGoals={nextFocusProposal.recommendations}
+        recommendationExplanation={nextFocusProposal.explanation}
         lessonInfo={lessonInfo}
         studentLearningWish={studentLearningWish}
         endOfLessonScheduling={endOfLessonScheduling}
