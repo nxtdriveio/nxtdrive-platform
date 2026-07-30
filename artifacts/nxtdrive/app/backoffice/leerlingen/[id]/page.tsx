@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { loadTaskLaunchData } from "@/lib/tasks/launch-data";
@@ -9,7 +9,7 @@ import { loadStudentDossier } from "@/lib/students/dossier";
 import { CreateTaskFromEntityButton } from "@/app/backoffice/taken/create-task-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input, Label } from "@/components/ui/input";
 import { StudentCentralCockpit } from "@/components/students/StudentCentralCockpit";
@@ -185,6 +185,13 @@ export default async function StudentDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            className={buttonVariants({ variant: "outline" })}
+            href={`/backoffice/leerlingen/${student.id}/ris-portfolio`}
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            RIS-portfolio
+          </Link>
           <WhatsAppButton
             phone={student.phone}
             message={studentWhatsAppMessage(student.full_name, tenant.name)}
