@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service";
 import { GoogleLocationProvider } from "@/domains/maps/infrastructure/google/google-location-provider";
 import { MeteredLocationProvider } from "@/domains/maps/infrastructure/metering/metered-location-provider";
 import { SupabaseMapsMeter } from "@/domains/maps/infrastructure/metering/supabase-maps-meter";
+import { RpcMapsFeatureGate } from "@/domains/maps/infrastructure/metering/rpc-feature-gate";
 import type { ResolvedPlace } from "@/domains/maps/application/contracts";
 import type { MapsUsageEventInput } from "@/domains/maps/domain/types";
 
@@ -76,33 +77,18 @@ export async function POST(request: Request) {
       : body.action === "resolve"
         ? "PLACE_DETAILS"
         : "ADDRESS_VALIDATION";
-  const [{ data: entitlement }, { data: breaker }] = await Promise.all([
-    service
-      .from("maps_tenant_entitlements")
-      .select("status")
-      .eq("tenant_id", tenant.id)
-      .eq("feature_code", featureCode)
-      .maybeSingle(),
-    service
-      .from("maps_circuit_breakers")
-      .select("state, retry_after")
-      .eq("provider", "GOOGLE")
-      .eq("feature_code", featureCode)
-      .in("state", ["OPEN", "HALF_OPEN"])
-      .or(`tenant_id.is.null,tenant_id.eq.${tenant.id}`)
-      .order("state", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  if (
-    !["ENABLED", "PILOT"].includes(entitlement?.status ?? "") ||
-    breaker?.state === "OPEN"
-  ) {
+  const availability = await new RpcMapsFeatureGate(service).evaluate({
+    tenantId: tenant.id,
+    featureCode,
+    requestedUnits: 1,
+    environment: environment(),
+  });
+  if (availability.mode !== "PROVIDER") {
     return NextResponse.json(
       {
         error: "Adresprovider is niet beschikbaar.",
         degradedMode: "MANUAL",
-        reason: breaker?.state === "OPEN" ? "CIRCUIT_OPEN" : "FEATURE_DISABLED",
+        reason: availability.reason,
       },
       { status: 503, headers },
     );

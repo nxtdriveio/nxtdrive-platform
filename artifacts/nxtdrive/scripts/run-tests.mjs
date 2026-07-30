@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
-const testRoot = join(root, "lib");
+const testRoots = [join(root, "lib"), join(root, "domains")];
 
 function collectTests(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -20,12 +20,16 @@ function collectTests(dir) {
   return files;
 }
 
-if (!statSync(testRoot, { throwIfNoEntry: false })?.isDirectory()) {
-  console.error(`Test directory not found: ${testRoot}`);
+const availableRoots = testRoots.filter((directory) =>
+  statSync(directory, { throwIfNoEntry: false })?.isDirectory(),
+);
+if (availableRoots.length === 0) {
+  console.error(`Test directories not found: ${testRoots.join(", ")}`);
   process.exit(1);
 }
 
-const files = collectTests(testRoot)
+const files = availableRoots
+  .flatMap((directory) => collectTests(directory))
   .map((file) => relative(root, file))
   .sort();
 

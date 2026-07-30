@@ -350,8 +350,7 @@ export function applyRouteToCandidate(
     : anyEstimated
       ? "estimated"
       : "computed";
-  const needsManualConfirm =
-    anyAssessed && (status === "estimated" || !allFit);
+  const needsManualConfirm = anyAssessed && (status === "estimated" || !allFit);
 
   return {
     scoreDelta: delta,
@@ -500,6 +499,7 @@ async function resolveMatrix(
   poolCoords: (LatLng | null)[],
   prevCoord: LatLng | null,
   nextCoord: LatLng | null,
+  tenantId: string,
 ): Promise<{ toMins: Map<number, number>; fromMins: Map<number, number> }> {
   const toMins = new Map<number, number>();
   const fromMins = new Map<number, number>();
@@ -514,7 +514,10 @@ async function resolveMatrix(
     const coords = idxWithCoord.map((x) => x.c);
     const origins = [prevCoord ?? nextCoord!, ...coords];
     const destinations = [nextCoord ?? prevCoord!, ...coords];
-    const matrix = await computeRouteMatrix(origins, destinations);
+    const matrix = await computeRouteMatrix(origins, destinations, {
+      tenantId,
+      surface: "LESSON_PLANNER",
+    });
     idxWithCoord.forEach((x, j) => {
       if (prevCoord) {
         const m = matrix[0]?.[1 + j];
@@ -650,7 +653,9 @@ export async function suggestStudentsForSlot(
   for (const e of examRows ?? []) {
     const sid = e.student_id as string | null;
     if (!sid) continue;
-    const days = Math.ceil((Date.parse(e.starts_at as string) - now) / 86400000);
+    const days = Math.ceil(
+      (Date.parse(e.starts_at as string) - now) / 86400000,
+    );
     const prev = examInDays.get(sid);
     if (prev === undefined || days < prev) examInDays.set(sid, days);
   }
@@ -798,6 +803,7 @@ export async function suggestStudentsForSlot(
     poolCoords,
     prevCoord,
     nextCoord,
+    tenantId,
   );
 
   const ranked: StudentCandidate[] = [];
@@ -1141,6 +1147,7 @@ export async function suggestLeadsForSlot(
     poolCoords,
     prevCoord,
     nextCoord,
+    tenantId,
   );
 
   const ranked: LeadCandidate[] = [];
