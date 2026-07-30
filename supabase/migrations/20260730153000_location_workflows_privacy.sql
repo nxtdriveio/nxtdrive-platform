@@ -125,7 +125,10 @@ begin
   if p_location_record_id is null then
     if p_role <> 'STUDENT_FAVORITE' then
       update public.entity_location_links
-         set valid_until = now()
+         set valid_until = greatest(
+           clock_timestamp(),
+           valid_from + interval '1 microsecond'
+         )
        where tenant_id = p_tenant_id
          and student_id = p_student_id
          and role = p_role
@@ -142,7 +145,10 @@ begin
     );
   elsif v_existing_link.role <> p_role or v_existing_link.label <> btrim(p_label) then
     update public.entity_location_links
-       set valid_until = now()
+       set valid_until = greatest(
+         clock_timestamp(),
+         valid_from + interval '1 microsecond'
+       )
      where id = v_existing_link.id;
     insert into public.entity_location_links (
       tenant_id, location_record_id, role, student_id, label, is_default,
