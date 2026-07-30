@@ -224,6 +224,11 @@ function verifyDatabase(database) {
         v_ris_version_id uuid;
         v_curriculum_id uuid;
         v_validation_id uuid;
+        v_policy_id uuid;
+        v_definition_ids uuid[];
+        v_definition_id uuid;
+        v_critical_code text;
+        v_assessment_type text;
         catalog_snapshot jsonb;
         catalog_hash text;
       begin
@@ -405,6 +410,108 @@ function verifyDatabase(database) {
         if not unvalidated_activation_blocked then
           raise exception 'RIS activation bypassed unpublished curriculum/policy gates';
         end if;
+
+        v_policy_id := public.configure_ris_readiness_policy(
+          v_curriculum_id,
+          '10000000-0000-4000-8000-000000000003',
+          array['M1-S1'],
+          2,
+          2,
+          3,
+          2,
+          90,
+          'Behavioral readiness policy smoke'
+        );
+        perform public.review_ris_readiness_policy(
+          v_policy_id,
+          '10000000-0000-4000-8000-000000000003',
+          (select content_hash from public.readiness_policies where id = v_policy_id),
+          'APPROVED',
+          'Migration smoke readiness expert',
+          jsonb_build_array(
+            jsonb_build_object('key', 'separate_dimensions', 'passed', true),
+            jsonb_build_object('key', 'critical_safety', 'passed', true),
+            jsonb_build_object('key', 'prerequisites', 'passed', true),
+            jsonb_build_object('key', 'stability', 'passed', true),
+            jsonb_build_object('key', 'explainability', 'passed', true)
+          ),
+          null
+        );
+        perform public.publish_readiness_policy(
+          v_policy_id,
+          '10000000-0000-4000-8000-000000000003'
+        );
+
+        v_definition_ids := public.initialize_ris_assessment_definitions(
+          v_curriculum_id,
+          '10000000-0000-4000-8000-000000000003'
+        );
+        foreach v_definition_id in array v_definition_ids loop
+          select assessment_type
+            into v_assessment_type
+            from public.assessment_definitions
+           where id = v_definition_id;
+          select script.code
+            into v_critical_code
+            from public.ris_scripts script
+            join public.ris_modules module on module.id = script.module_id
+           where script.ris_version_id = v_ris_version_id
+             and module.module_number = right(v_assessment_type, 1)::integer
+             and script.is_active
+           order by script.sort_order, script.script_number
+           limit 1;
+          perform public.configure_ris_assessment_definition(
+            v_definition_id,
+            '10000000-0000-4000-8000-000000000003',
+            array[v_critical_code],
+            'Behavioral module assessment smoke'
+          );
+          perform public.review_ris_assessment_definition(
+            v_definition_id,
+            '10000000-0000-4000-8000-000000000003',
+            (
+              select content_hash
+                from public.assessment_definitions
+               where id = v_definition_id
+            ),
+            'APPROVED',
+            'Migration smoke assessment expert',
+            jsonb_build_array(
+              jsonb_build_object('key', 'criteria_coverage', 'passed', true),
+              jsonb_build_object('key', 'safety_criteria', 'passed', true),
+              jsonb_build_object('key', 'decision_rules', 'passed', true),
+              jsonb_build_object('key', 'student_feedback', 'passed', true),
+              jsonb_build_object('key', 'source_alignment', 'passed', true)
+            ),
+            null
+          );
+          perform public.publish_assessment_definition(
+            v_definition_id,
+            '10000000-0000-4000-8000-000000000003'
+          );
+        end loop;
+
+        perform public.publish_curriculum_version(
+          v_curriculum_id,
+          '10000000-0000-4000-8000-000000000003'
+        );
+        perform public.set_tenant_ris_settings(
+          '20000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000003',
+          'ris',
+          v_ris_version_id,
+          false
+        );
+        if not exists (
+          select 1
+            from public.tenant_ris_settings settings
+           where settings.tenant_id = '20000000-0000-4000-8000-000000000001'
+             and settings.lesson_card_mode = 'ris'
+             and settings.active_ris_version_id = v_ris_version_id
+             and settings.ai_assist_enabled = false
+        ) then
+          raise exception 'fully validated RIS release was not activated';
+        end if;
       end
       $verification$;
 
@@ -568,6 +675,9 @@ try {
           "RIS catalog canonical snapshot and hash",
           "RIS expert review authorization and immutable approval",
           "RIS activation publication gates",
+          "RIS readiness policy review and publication",
+          "RIS module assessment review and publication",
+          "RIS curriculum publication and tenant activation",
         ],
         entries,
       },
