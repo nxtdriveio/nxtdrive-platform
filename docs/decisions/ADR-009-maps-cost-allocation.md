@@ -14,4 +14,3 @@ Het usage-ledger bewaart providerproduct, eenheden, prijsversie en gewogen koste
 ## Consequences
 
 Bedragen blijven verklaarbaar bij prijswijzigingen. Reconciliatieverschillen worden zichtbaar in plaats van stil over tenants verdeeld.
-

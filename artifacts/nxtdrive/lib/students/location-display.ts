@@ -75,9 +75,7 @@ export function readLegacyNawNote(
   const prefix = `${label.toLocaleLowerCase("nl-NL")}:`;
   const line = (notes ?? "")
     .split(/\r?\n/)
-    .find((item) =>
-      item.trim().toLocaleLowerCase("nl-NL").startsWith(prefix),
-    );
+    .find((item) => item.trim().toLocaleLowerCase("nl-NL").startsWith(prefix));
   if (!line) return null;
   return clean(line.slice(line.indexOf(":") + 1));
 }
@@ -86,4 +84,3 @@ function clean(value: string | null | undefined): string | null {
   const normalized = value?.trim();
   return normalized ? normalized : null;
 }
-

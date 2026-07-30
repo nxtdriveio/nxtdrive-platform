@@ -14,4 +14,3 @@ Adressen stonden verspreid over leads, leerlingprofielen, afspraken en de bestaa
 ## Consequences
 
 Adreswijzigingen maken een versie. Lezingen moeten expliciet kiezen tussen huidig record en historisch snapshot. Migratie is additief en terugschakelbaar.
-

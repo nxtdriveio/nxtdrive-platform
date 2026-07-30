@@ -14,4 +14,3 @@ Operationele rollen zien exacte locaties uitsluitend binnen hun taak. Analytics 
 ## Consequences
 
 Sommige kleine segmenten tonen bewust geen resultaat. Onderliggende operationele audit blijft alleen voor bevoegde incident- en privacyprocessen beschikbaar.
-

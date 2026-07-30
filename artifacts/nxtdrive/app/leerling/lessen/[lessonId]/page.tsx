@@ -35,10 +35,7 @@ import {
   RIS_REFLECTION_RATING_LABELS,
 } from "@/lib/ris/data";
 import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
-import {
-  VEHICLE_TRANSMISSION_LABEL,
-  type Lesson,
-} from "@/lib/lessons/types";
+import { VEHICLE_TRANSMISSION_LABEL, type Lesson } from "@/lib/lessons/types";
 import { Button } from "@/components/ui/button";
 import {
   confirmLessonLocation,
@@ -76,14 +73,20 @@ export default async function StudentLessonDetailPage({
   if (!lessonRaw) notFound();
   const lesson = lessonRaw as Lesson;
 
-  const [names, skillGroups, leskaart, homework, risDetail, lessonLocation] = await Promise.all([
-    getInstructorNames([lesson.instructor_id]),
-    loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
-    loadStudentLeskaart(supabase, tenant.id, student.id),
-    loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
-    loadStudentRisLessonCardDetail(supabase, tenant.id, student.id, lesson.id),
-    loadStudentLessonLocation(service, tenant.id, student.id, lesson.id),
-  ]);
+  const [names, skillGroups, leskaart, homework, risDetail, lessonLocation] =
+    await Promise.all([
+      getInstructorNames([lesson.instructor_id]),
+      loadStudentLessonSkills(supabase, tenant.id, student.id, lesson.id),
+      loadStudentLeskaart(supabase, tenant.id, student.id),
+      loadLessonTheoryHomework(supabase, tenant.id, lesson.id),
+      loadStudentRisLessonCardDetail(
+        supabase,
+        tenant.id,
+        student.id,
+        lesson.id,
+      ),
+      loadStudentLessonLocation(service, tenant.id, student.id, lesson.id),
+    ]);
   const instructorName = names.get(lesson.instructor_id);
   const hasRisLessonCard = Boolean(risDetail.card);
   const reflectionRatingRows = risDetail.card?.reflection
@@ -160,23 +163,29 @@ export default async function StudentLessonDetailPage({
     );
   }
 
-  const veh = vehicleRes.data as
-    | { label: string; license_plate: string | null; transmission: keyof typeof VEHICLE_TRANSMISSION_LABEL | null }
-    | null;
+  const veh = vehicleRes.data as {
+    label: string;
+    license_plate: string | null;
+    transmission: keyof typeof VEHICLE_TRANSMISSION_LABEL | null;
+  } | null;
   const vehicleLabel = veh
     ? [
         veh.label,
         veh.license_plate ? `(${veh.license_plate})` : null,
-        veh.transmission ? `- ${VEHICLE_TRANSMISSION_LABEL[veh.transmission]}` : null,
+        veh.transmission
+          ? `- ${VEHICLE_TRANSMISSION_LABEL[veh.transmission]}`
+          : null,
       ]
         .filter(Boolean)
         .join(" ")
     : null;
   const locationName =
     (locationRes.data as { name: string } | null)?.name ?? null;
-  const topics = ((topicsRes.data ?? []) as {
-    skill_taxonomy: { label: string } | { label: string }[] | null;
-  }[])
+  const topics = (
+    (topicsRes.data ?? []) as {
+      skill_taxonomy: { label: string } | { label: string }[] | null;
+    }[]
+  )
     .map((r) =>
       Array.isArray(r.skill_taxonomy)
         ? r.skill_taxonomy[0]?.label
@@ -316,7 +325,9 @@ export default async function StudentLessonDetailPage({
                     key={goal.id}
                     className="rounded-2xl border border-brand-border bg-white/75 p-3"
                   >
-                    <p className="text-sm font-black text-brand-foreground">{goal.title}</p>
+                    <p className="text-sm font-black text-brand-foreground">
+                      {goal.title}
+                    </p>
                     {goal.description ? (
                       <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
                         {goal.description}
@@ -346,7 +357,11 @@ export default async function StudentLessonDetailPage({
                     Zelfreflectie
                   </p>
                   <span className="rounded-full bg-brand-accent px-3 py-1 text-xs font-semibold text-brand-primary">
-                    {RIS_REFLECTION_ENTRY_MODE_LABELS[risDetail.card.reflection.entryMode]}
+                    {
+                      RIS_REFLECTION_ENTRY_MODE_LABELS[
+                        risDetail.card.reflection.entryMode
+                      ]
+                    }
                   </span>
                 </div>
                 {risDetail.card.reflection.oneSentenceReflection ? (
@@ -381,14 +396,18 @@ export default async function StudentLessonDetailPage({
                   >
                     <div>
                       <p className="text-sm font-black text-brand-foreground">
-                        Module {assessment.moduleNumber} · {assessment.scriptTitle}
+                        Module {assessment.moduleNumber} ·{" "}
+                        {assessment.scriptTitle}
                       </p>
                       <p className="mt-1 text-sm text-brand-muted-foreground">
-                        {assessment.studentVisibleNote || assessment.studentLabel}
+                        {assessment.studentVisibleNote ||
+                          assessment.studentLabel}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-brand-primary px-3 py-1 text-xs font-black text-white">
-                      {assessment.finalRisStep ? `Score ${assessment.finalRisStep}/8` : "Nog niet beoordeeld"}
+                      {assessment.finalRisStep
+                        ? `Score ${assessment.finalRisStep}/8`
+                        : "Nog niet beoordeeld"}
                     </span>
                   </div>
                 ))}
@@ -421,7 +440,9 @@ export default async function StudentLessonDetailPage({
                       <p>{risDetail.card.response.commentText}</p>
                     ) : null}
                     {risDetail.card.response.nextLessonWish ? (
-                      <p>Volgende les: {risDetail.card.response.nextLessonWish}</p>
+                      <p>
+                        Volgende les: {risDetail.card.response.nextLessonWish}
+                      </p>
                     ) : null}
                   </div>
                 )}
@@ -473,7 +494,10 @@ export default async function StudentLessonDetailPage({
           </p>
         </StudentShowcaseCard>
       ) : lesson.status === "completed" ? (
-        <StudentShowcaseCard title="Toelichting van je instructeur" eyebrow="Lesreflectie">
+        <StudentShowcaseCard
+          title="Toelichting van je instructeur"
+          eyebrow="Lesreflectie"
+        >
           <StudentShowcaseEmptyState
             title="Nog geen toelichting gedeeld"
             description="Je instructeur heeft voor deze les nog geen extra samenvatting toegevoegd."

@@ -14,4 +14,3 @@ Bij publicatie krijgt ieder relevant afspraakmoment een `appointment_stop` met g
 ## Consequences
 
 Historie en privacy-export zijn betrouwbaar. Een planner moet een gepubliceerde stop via een nieuwe, geaudite wijziging vervangen.
-

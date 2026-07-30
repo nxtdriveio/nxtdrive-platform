@@ -10,4 +10,3 @@ De migratie is additief en cohortgestuurd.
 6. Activeer de nieuwe leesroute alleen na parity.
 
 De bestaande tabel wordt niet hernoemd of semantisch hergebruikt. Gepubliceerde afspraken krijgen een stop-snapshot; latere profielwijzigingen herschrijven het verleden niet. Rollback schakelt de featureflag terug en verwijdert geen nieuw opgebouwde auditdata.
-

@@ -16,4 +16,3 @@
 - Rollupachterstand: herstel de job idempotent vanaf het laatste volledige tijdvak.
 
 Handmatige overrides vereisen reden, actor, tijdstip en afloopdatum. Sluit een incident pas wanneer backlog, circuitstatus en tenantcommunicatie zijn gecontroleerd.
-

@@ -14,4 +14,3 @@ De preview geeft `ok`, `warning`, `blocked` of `unknown` met reistijd, buffer, d
 ## Consequences
 
 Preview en commit moeten dezelfde beleidsversie gebruiken. Provideruitval levert `unknown`, geen verzonnen zekerheid.
-

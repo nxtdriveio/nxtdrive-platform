@@ -19,19 +19,33 @@ const scenarios = {
     eyebrow: "Leerling toevoegen",
     title: "Zoek een ophaallocatie",
     notice: "4 resultaten · sessie actief",
-    rows: ["Stationsplein 1, Utrecht", "Stationsplein 6, Gouda", "Stationsweg 1, Woerden"],
+    rows: [
+      "Stationsplein 1, Utrecht",
+      "Stationsplein 6, Gouda",
+      "Stationsweg 1, Woerden",
+    ],
   },
   manual: {
     eyebrow: "Adrescontrole",
     title: "Controleer het adres handmatig",
-    notice: "Provider tijdelijk niet beschikbaar · handmatige invoer blijft werken",
-    rows: ["Straat en huisnummer", "Postcode", "Plaats", "Reden van handmatige bevestiging"],
+    notice:
+      "Provider tijdelijk niet beschikbaar · handmatige invoer blijft werken",
+    rows: [
+      "Straat en huisnummer",
+      "Postcode",
+      "Plaats",
+      "Reden van handmatige bevestiging",
+    ],
   },
   "student-locations": {
     eyebrow: "Mijn profiel",
     title: "Mijn leslocaties",
     notice: "Thuis is je standaard ophaallocatie",
-    rows: ["Thuis · Vondellaan 18, Utrecht", "School · Daltonlaan 200, Utrecht", "Nieuwe locatie toevoegen"],
+    rows: [
+      "Thuis · Vondellaan 18, Utrecht",
+      "School · Daltonlaan 200, Utrecht",
+      "Nieuwe locatie toevoegen",
+    ],
   },
   "lesson-location": {
     eyebrow: "Les plannen",
@@ -43,91 +57,164 @@ const scenarios = {
     eyebrow: "Volgende les · 10:30",
     title: "Mila ophalen",
     notice: "12 min rijden · vertrek om 10:14 · verkeersinformatie 2 min oud",
-    rows: ["Vondellaan 18, Utrecht", "Open externe navigatie", "Markeer als onderweg"],
+    rows: [
+      "Vondellaan 18, Utrecht",
+      "Open externe navigatie",
+      "Markeer als onderweg",
+    ],
   },
   "instructor-day": {
     eyebrow: "Dagroute",
     title: "Donderdag 30 juli",
     notice: "4 lessen · 58 min geplande reistijd · offline beschikbaar",
-    rows: ["09:00 Noor · aangekomen", "10:30 Mila · volgende", "12:30 Finn · 14 min", "15:00 Yara · 11 min"],
+    rows: [
+      "09:00 Noor · aangekomen",
+      "10:30 Mila · volgende",
+      "12:30 Finn · 14 min",
+      "15:00 Yara · 11 min",
+    ],
   },
   planboard: {
     eyebrow: "Planning vandaag",
     title: "Lijst en kaart",
     notice: "3 aandachtspunten · kaart toont alleen de zichtbare dagselectie",
-    rows: ["09:00 Noor · Brandon", "10:30 Mila · Brandon", "12:00 Reisbuffer te klein", "13:30 Finn · Lizzy"],
+    rows: [
+      "09:00 Noor · Brandon",
+      "10:30 Mila · Brandon",
+      "12:00 Reisbuffer te klein",
+      "13:30 Finn · Lizzy",
+    ],
   },
   conflict: {
     eyebrow: "Commitcontrole",
     title: "Onvoldoende reistijdbuffer",
     notice: "Geblokkeerd · 18 min nodig, 10 min beschikbaar",
-    rows: ["Tijd aanpassen", "Andere instructeur bekijken", "Override met verplichte reden"],
+    rows: [
+      "Tijd aanpassen",
+      "Andere instructeur bekijken",
+      "Override met verplichte reden",
+    ],
   },
   optimization: {
     eyebrow: "Conceptscenario",
     title: "Routevolgorde vergelijken",
-    notice: "Voorstel bespaart naar schatting 21 min en 14 km · nog niet gepubliceerd",
-    rows: ["Mila 09:00 → 10:30", "Noor 10:30 → 09:00", "2 van 3 mutaties geselecteerd", "Review en publiceren"],
+    notice:
+      "Voorstel bespaart naar schatting 21 min en 14 km · nog niet gepubliceerd",
+    rows: [
+      "Mila 09:00 → 10:30",
+      "Noor 10:30 → 09:00",
+      "2 van 3 mutaties geselecteerd",
+      "Review en publiceren",
+    ],
   },
   cancellation: {
     eyebrow: "Vrijgekomen tijdslot",
     title: "Herstel na annulering",
     notice: "3 verklaarbare opties · geen wijziging zonder bevestiging",
-    rows: ["Mila eerder · +4 min route", "Finn verlengen · zelfde gebied", "Tijdslot vrij laten"],
+    rows: [
+      "Mila eerder · +4 min route",
+      "Finn verlengen · zelfde gebied",
+      "Tijdslot vrij laten",
+    ],
   },
   "work-areas": {
     eyebrow: "Locatiebeheer",
     title: "Werkgebieden",
     notice: "2 overlappingen · 1 gebied nadert capaciteit",
-    rows: ["Utrecht Centrum · 84%", "Leidsche Rijn · 62%", "Nieuwegein · 91%", "Versie publiceren"],
+    rows: [
+      "Utrecht Centrum · 84%",
+      "Leidsche Rijn · 62%",
+      "Nieuwegein · 91%",
+      "Versie publiceren",
+    ],
   },
   "empty-miles": {
     eyebrow: "Operationele analyse",
     title: "Lege kilometers",
     notice: "Deze week 312 km · 88% datadekking · planninginschatting",
-    rows: ["Maandag · 54 km", "Dinsdag · 71 km", "Woensdag · 62 km", "Kans: westcluster · 18 km"],
+    rows: [
+      "Maandag · 54 km",
+      "Dinsdag · 71 km",
+      "Woensdag · 62 km",
+      "Kans: westcluster · 18 km",
+    ],
   },
   postcode: {
     eyebrow: "Privacyveilige analyse",
     title: "Vraag per postcodegebied",
     notice: "Alleen groepen van minimaal 10 personen · 3 cellen onderdrukt",
-    rows: ["3521 · 38 leerlingen", "3541 · 29 leerlingen", "3431 · 17 leerlingen", "Kleine groepen verborgen"],
+    rows: [
+      "3521 · 38 leerlingen",
+      "3541 · 29 leerlingen",
+      "3431 · 17 leerlingen",
+      "Kleine groepen verborgen",
+    ],
   },
   cbr: {
     eyebrow: "Catalogus",
     title: "CBR-locaties",
     notice: "1 broncontrole nodig · publicatie vereist bevoegde review",
-    rows: ["Utrecht · gepubliceerd", "Leusden · review nodig", "Nieuwe locatie voorstellen"],
+    rows: [
+      "Utrecht · gepubliceerd",
+      "Leusden · review nodig",
+      "Nieuwe locatie voorstellen",
+    ],
   },
   control: {
     eyebrow: "Platformbeheer",
     title: "Maps & Routing Control Center",
     notice: "1 budgetwaarschuwing · 0 open circuitbreakers",
-    rows: ["Forecast € 1.284", "48.912 billable units", "Fallbackratio 1,8%", "Grootste tenants"],
+    rows: [
+      "Forecast € 1.284",
+      "48.912 billable units",
+      "Fallbackratio 1,8%",
+      "Grootste tenants",
+    ],
   },
   limits: {
     eyebrow: "Tenantconfiguratie",
     title: "Limieten en degradatie",
     notice: "Route Matrix op 72% van soft limit",
-    rows: ["Autocomplete · 18.400 / 30.000", "Route Matrix · 72.140 / 100.000", "Optimalisatie · uit", "Veilige modus: lijst + handmatig"],
+    rows: [
+      "Autocomplete · 18.400 / 30.000",
+      "Route Matrix · 72.140 / 100.000",
+      "Optimalisatie · uit",
+      "Veilige modus: lijst + handmatig",
+    ],
   },
   degraded: {
     eyebrow: "Veilige modus",
     title: "Kaart tijdelijk niet beschikbaar",
-    notice: "Planning blijft beschikbaar als lijst · routewaarden zijn gelabelde schattingen",
-    rows: ["Handmatige adresinvoer", "Lijstplanning", "Haversine-inschatting (laag vertrouwen)", "Probeer provider later opnieuw"],
+    notice:
+      "Planning blijft beschikbaar als lijst · routewaarden zijn gelabelde schattingen",
+    rows: [
+      "Handmatige adresinvoer",
+      "Lijstplanning",
+      "Haversine-inschatting (laag vertrouwen)",
+      "Probeer provider later opnieuw",
+    ],
   },
   validation: {
     eyebrow: "Adreskwaliteit",
     title: "Bevestig de voorgestelde correctie",
     notice: "Postcode en huisnummer zijn door de bron bevestigd",
-    rows: ["Ingevoerd: Vondel laan 18", "Voorstel: Vondellaan 18", "Waarom deze correctie?", "Bevestigen"],
+    rows: [
+      "Ingevoerd: Vondel laan 18",
+      "Voorstel: Vondellaan 18",
+      "Waarom deze correctie?",
+      "Bevestigen",
+    ],
   },
   "student-confirmation": {
     eyebrow: "Les op 3 augustus",
     title: "Bevestig je ophaallocatie",
     notice: "De instructeur ziet alleen de gepubliceerde stop voor deze les",
-    rows: ["Vondellaan 18, Utrecht", "Klopt deze locatie?", "Correctie voorstellen", "Bevestigen"],
+    rows: [
+      "Vondellaan 18, Utrecht",
+      "Klopt deze locatie?",
+      "Correctie voorstellen",
+      "Bevestigen",
+    ],
   },
 } as const;
 
@@ -183,7 +270,10 @@ export default async function MapsVisualFixturePage({
               }`}
             >
               {warning ? (
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-hidden
+                />
               ) : (
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               )}
@@ -203,7 +293,9 @@ export default async function MapsVisualFixturePage({
                       <MapPin className="h-4 w-4" aria-hidden />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 text-sm font-bold">{row}</span>
+                  <span className="min-w-0 flex-1 text-sm font-bold">
+                    {row}
+                  </span>
                 </button>
               ))}
             </div>

@@ -63,4 +63,3 @@ export async function proposeLessonLocation(formData: FormData) {
 function text(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
-

@@ -161,7 +161,10 @@ export function StudentCentralCockpit({
               <Field label="Naam" value={student.full_name} />
               <Field label="E-mail" value={student.email} />
               <Field label="Telefoon" value={student.phone} />
-              <Field label="Geboortedatum" value={formatDate(naw.dateOfBirth)} />
+              <Field
+                label="Geboortedatum"
+                value={formatDate(naw.dateOfBirth)}
+              />
               <Field label="Adres" value={naw.address} />
               <Field label="Postcode" value={naw.postalCode} />
               <Field label="Woonplaats" value={naw.city} />
@@ -255,12 +258,18 @@ export function StudentCentralCockpit({
               <Metric
                 label="Theorie"
                 value={cbrStatus?.theorie_behaald ? "Behaald" : "Nog niet"}
-                badgeVariant={cbrStatus?.theorie_behaald ? "success" : "warning"}
+                badgeVariant={
+                  cbrStatus?.theorie_behaald ? "success" : "warning"
+                }
               />
               <Metric
                 label="Machtiging"
-                value={cbrStatus?.machtiging_geregeld ? "Geregeld" : "Nog nodig"}
-                badgeVariant={cbrStatus?.machtiging_geregeld ? "success" : "warning"}
+                value={
+                  cbrStatus?.machtiging_geregeld ? "Geregeld" : "Nog nodig"
+                }
+                badgeVariant={
+                  cbrStatus?.machtiging_geregeld ? "success" : "warning"
+                }
               />
               <Metric
                 label="Gezondheidsverklaring"
@@ -289,21 +298,22 @@ export function StudentCentralCockpit({
               {openTheory.length}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {openTheory.length === 1
-                ? "open opdracht"
-                : "open opdrachten"}
+              {openTheory.length === 1 ? "open opdracht" : "open opdrachten"}
             </p>
           </CockpitTile>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <CockpitTile title="RIS" icon={<MapPin className="h-4 w-4" aria-hidden />}>
+          <CockpitTile
+            title="RIS"
+            icon={<MapPin className="h-4 w-4" aria-hidden />}
+          >
             <p className="text-2xl font-black text-foreground">
               {risProgress.progressPct}%
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {completedRisModules} van {risProgress.moduleProgress.length} modules
-              volledig.
+              {completedRisModules} van {risProgress.moduleProgress.length}{" "}
+              modules volledig.
             </p>
             {latestRisCard?.homeworkOrNextFocus ? (
               <p className="mt-3 rounded-xl bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
@@ -316,7 +326,9 @@ export function StudentCentralCockpit({
             title="Open taken"
             icon={<ListTodo className="h-4 w-4" aria-hidden />}
           >
-            <p className="text-2xl font-black text-foreground">{tasks.length}</p>
+            <p className="text-2xl font-black text-foreground">
+              {tasks.length}
+            </p>
             {tasks[0] ? (
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Eerstvolgend: {tasks[0].title}
@@ -367,7 +379,10 @@ function DossierQualityStrip({
   quality: ReturnType<typeof buildStudentDossierQualitySummary>;
 }) {
   const visibleSignals = quality.signals.slice(0, 5);
-  const hiddenCount = Math.max(0, quality.signals.length - visibleSignals.length);
+  const hiddenCount = Math.max(
+    0,
+    quality.signals.length - visibleSignals.length,
+  );
   return (
     <section className="rounded-2xl border border-brand-border bg-[var(--surface-2)] p-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -386,8 +401,8 @@ function DossierQualityStrip({
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Compacte samenvatting van dossierkwaliteit, planning,
-            administratie, CBR en voortgang.
+            Compacte samenvatting van dossierkwaliteit, planning, administratie,
+            CBR en voortgang.
           </p>
         </div>
 
@@ -413,7 +428,11 @@ function DossierQualityStrip({
   );
 }
 
-function DossierSignalPill({ signal }: { signal: StudentDossierQualitySignal }) {
+function DossierSignalPill({
+  signal,
+}: {
+  signal: StudentDossierQualitySignal;
+}) {
   const content = (
     <div className={signalPillClass(signal.tone)}>
       <div className="min-w-0">
@@ -443,9 +462,12 @@ function DossierSignalPill({ signal }: { signal: StudentDossierQualitySignal }) 
 function qualityIconClass(tone: DossierQualityTone): string {
   const base =
     "inline-flex h-8 w-8 items-center justify-center rounded-xl border";
-  if (tone === "success") return `${base} border-success/25 bg-success/10 text-success`;
-  if (tone === "danger") return `${base} border-danger/25 bg-danger/10 text-danger`;
-  if (tone === "warning") return `${base} border-warning/25 bg-warning/10 text-warning`;
+  if (tone === "success")
+    return `${base} border-success/25 bg-success/10 text-success`;
+  if (tone === "danger")
+    return `${base} border-danger/25 bg-danger/10 text-danger`;
+  if (tone === "warning")
+    return `${base} border-warning/25 bg-warning/10 text-warning`;
   return `${base} border-primary/20 bg-primary-soft text-primary`;
 }
 
@@ -726,7 +748,10 @@ function getNextBestAction(input: {
     };
   }
 
-  if (input.readiness.blockers.length > 0 || input.risProgress.progressPct < 100) {
+  if (
+    input.readiness.blockers.length > 0 ||
+    input.risProgress.progressPct < 100
+  ) {
     return {
       title: "Richt de volgende les op voortgang",
       description:

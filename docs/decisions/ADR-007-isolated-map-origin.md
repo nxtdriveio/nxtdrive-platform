@@ -14,4 +14,3 @@ Interactieve kaarten worden alleen geactiveerd op `https://maps.nxtdrive.io` en 
 ## Consequences
 
 Een aparte deployment- en DNS-actie is nodig. Kernplanning blijft zonder kaart bruikbaar.
-

@@ -11,4 +11,3 @@ De kandidaatreeks wordt eerst lokaal beperkt op tenant, beschikbaarheid, bevoegd
 - welke planner het voorstel accepteerde of verwierp.
 
 Notificaties worden pas na een gecommitteerde wijziging verzonden. Bij een providerstoring blijft de annulering geldig, maar verschijnt geen schijnzeker herplanningsadvies.
-

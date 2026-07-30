@@ -14,4 +14,3 @@ Provideruitvoer wordt een immutable conceptscenario. Een bevoegde planner vergel
 ## Consequences
 
 Optimalisatie kan veilig worden voorbereid en gemeten zonder het rooster zelfstandig te wijzigen.
-

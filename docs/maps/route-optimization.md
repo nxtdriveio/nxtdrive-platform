@@ -18,4 +18,3 @@ De servicegrens gebruikt OAuth/IAM en nooit een browser-key. Een providerresulta
 `route_optimization_scenarios` en `route_optimization_mutations` scheiden berekenen, reviewen en toepassen. Geen enkele providerresponse wijzigt zelfstandig lessen. Het scenario toont de reden per mutatie en bewaart de gebruikte catalogus-, verkeers- en beleidsversies.
 
 Bij uitval blijft het bestaande rooster leidend. Een Haversine-inschatting mag alleen als gelabelde indicatie worden getoond en nooit als optimalisatie worden gepubliceerd.
-

@@ -14,4 +14,3 @@ Alle Places-, validation-, geocoding-, matrix- en optimalisatiecalls lopen serve
 ## Consequences
 
 Surfaces gebruiken NXTDrive-contracten in plaats van Google-types. Nieuwe providers kunnen achter dezelfde contracten worden toegevoegd.
-

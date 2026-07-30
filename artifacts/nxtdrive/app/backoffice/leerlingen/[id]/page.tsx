@@ -526,8 +526,11 @@ async function loadCanonicalStudentLocations(
       "STUDENT_DROPOFF_DEFAULT",
     ])
     .order("created_at", { ascending: false });
-  if (linksError) throw new Error(`Locatierelaties laden mislukt: ${linksError.message}`);
-  const recordIds = [...new Set((links ?? []).map((link) => link.location_record_id))];
+  if (linksError)
+    throw new Error(`Locatierelaties laden mislukt: ${linksError.message}`);
+  const recordIds = [
+    ...new Set((links ?? []).map((link) => link.location_record_id)),
+  ];
   if (recordIds.length === 0) return { home: null, pickup: null };
 
   const { data: records, error: recordsError } = await service
@@ -535,7 +538,8 @@ async function loadCanonicalStudentLocations(
     .select("id, canonical_version_id")
     .eq("tenant_id", tenantId)
     .in("id", recordIds);
-  if (recordsError) throw new Error(`Locatierecords laden mislukt: ${recordsError.message}`);
+  if (recordsError)
+    throw new Error(`Locatierecords laden mislukt: ${recordsError.message}`);
   const versionIds = (records ?? [])
     .map((record) => record.canonical_version_id)
     .filter((id): id is string => Boolean(id));
@@ -546,7 +550,8 @@ async function loadCanonicalStudentLocations(
     .select("id, formatted_address, city, postal_code")
     .eq("tenant_id", tenantId)
     .in("id", versionIds);
-  if (versionsError) throw new Error(`Locatieversies laden mislukt: ${versionsError.message}`);
+  if (versionsError)
+    throw new Error(`Locatieversies laden mislukt: ${versionsError.message}`);
   const versionById = new Map(
     (versions ?? []).map((version) => [
       version.id,

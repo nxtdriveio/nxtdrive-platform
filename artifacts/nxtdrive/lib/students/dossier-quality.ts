@@ -137,7 +137,9 @@ export function buildStudentDossierSignals(input: {
     });
   }
 
-  const openInvoices = input.invoices.filter((invoice) => invoice.status === "open");
+  const openInvoices = input.invoices.filter(
+    (invoice) => invoice.status === "open",
+  );
   if (openInvoices.length > 0) {
     signals.push({
       id: "open-invoices",
@@ -152,7 +154,8 @@ export function buildStudentDossierSignals(input: {
       id: "no-credit",
       tone: "danger",
       title: "Geen lestegoed",
-      description: "De leerling kan niet betrouwbaar worden ingepland zonder tegoed.",
+      description:
+        "De leerling kan niet betrouwbaar worden ingepland zonder tegoed.",
     });
   } else if (input.balanceMinutes <= 120) {
     signals.push({
@@ -220,7 +223,10 @@ export function nextBestActionFromSignals(
   );
 }
 
-function missingProfileFields(student: Student, naw: StudentNawSummary): string[] {
+function missingProfileFields(
+  student: Student,
+  naw: StudentNawSummary,
+): string[] {
   return [
     !student.email ? "e-mailadres" : null,
     !student.phone ? "telefoon" : null,

@@ -99,4 +99,3 @@ test("legacy notes remain an explicit last-resort migration fallback", () => {
   assert.equal(result.city, "Utrecht");
   assert.equal(result.source, "LEGACY_NOTES");
 });
-
