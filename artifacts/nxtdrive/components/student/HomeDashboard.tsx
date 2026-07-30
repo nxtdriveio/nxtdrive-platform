@@ -4,17 +4,12 @@ import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
-  BookOpen,
   CalendarDays,
   Check,
-  CheckCircle2,
-  CreditCard as CreditCardIcon,
   MapPin,
-  Route,
   Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { QuickActions } from "@/components/student/QuickActions";
 import { cn } from "@/lib/utils";
 import type { StudentJourneyStep } from "@/lib/students/app-summary";
 
@@ -155,35 +150,6 @@ function ProgressRing({
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const width = 150;
-  const height = 44;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const span = max - min || 1;
-  const points = values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
-      const y = height - ((value - min) / span) * (height - 8) - 4;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-11 w-full text-brand-primary">
-      <polyline
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={points}
-      />
-    </svg>
-  );
-}
-
 function HeroRoad() {
   return (
     <svg
@@ -315,83 +281,6 @@ function NextLessonCard({ nextLesson }: { nextLesson: StudentNextLessonSummary |
   );
 }
 
-function ProgressCard({
-  journeyPct,
-  journeyStatus,
-  sparklineValues,
-}: {
-  journeyPct: number;
-  journeyStatus: string;
-  sparklineValues: number[];
-}) {
-  return (
-    <DashboardCard className="p-4">
-      <CardHeader icon={<Route className="h-[1.125rem] w-[1.125rem]" aria-hidden />} label="Voortgang" />
-      <div className="mt-4 flex items-center gap-4">
-        <ProgressRing pct={journeyPct} />
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base font-black text-brand-foreground">
-            {journeyStatus}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
-            Je voortgang in begrijpelijke stappen.
-          </p>
-          <Link
-            href="/leerling/reflectie"
-            className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-primary"
-          >
-            Bekijk voortgang
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-      </div>
-      <div className="mt-4 hidden rounded-[1rem] bg-brand-muted/55 px-3 py-2 md:block">
-        <Sparkline values={sparklineValues} />
-      </div>
-    </DashboardCard>
-  );
-}
-
-function CreditBalanceCard({ availableMinutes }: { availableMinutes: number }) {
-  const low = availableMinutes < 600;
-
-  return (
-    <DashboardCard className="p-4">
-      <CardHeader
-        icon={<Wallet className="h-[1.125rem] w-[1.125rem]" aria-hidden />}
-        label="Tegoed"
-        badge={
-          low ? (
-            <Badge variant="warning" className="shadow-none">
-              Let op
-            </Badge>
-          ) : null
-        }
-      />
-      <div className="mt-4">
-        <div className="text-2xl font-black text-brand-foreground">
-          {formatHours(availableMinutes)}
-        </div>
-        <p className="mt-1 text-sm text-brand-muted-foreground">
-          Beschikbaar voor je volgende lessen.
-        </p>
-        {low ? (
-          <div className="mt-3 rounded-[0.95rem] border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-            Je tegoed is bijna op. Vul op tijd aan om je lessen door te plannen.
-          </div>
-        ) : null}
-        <Link
-          href="/leerling/betalingen"
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-[0.9rem] bg-brand-accent px-3.5 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary hover:text-brand-primary-foreground"
-        >
-          Tegoed opwaarderen
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
-    </DashboardCard>
-  );
-}
-
 function ExamCard({ examStatus }: { examStatus: StudentExamReadinessSummary }) {
   return (
     <DashboardCard className="p-4">
@@ -487,70 +376,13 @@ function JourneyPanel({ steps }: { steps: StudentJourneyStep[] }) {
   );
 }
 
-function ActivityPanel() {
-  const items = [
-    {
-      label: "Les afgerond",
-      detail: "Je laatste les is verwerkt",
-      icon: CheckCircle2,
-    },
-    {
-      label: "Theorie oefenen",
-      detail: "Nieuwe opdrachten beschikbaar",
-      icon: BookOpen,
-    },
-    {
-      label: "Betaling ontvangen",
-      detail: "Je tegoed is bijgewerkt",
-      icon: CreditCardIcon,
-    },
-  ];
-
-  return (
-    <DashboardCard className="p-4 sm:p-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase text-brand-muted-foreground">
-          Activiteit
-        </p>
-        <h2 className="mt-1 text-lg font-black text-brand-foreground">
-          Laatste activiteit
-        </h2>
-      </div>
-      <div className="mt-4 space-y-3">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-accent text-brand-primary">
-                <Icon className="h-4 w-4" aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-brand-foreground">
-                  {item.label}
-                </div>
-                <div className="text-xs leading-5 text-brand-muted-foreground">
-                  {item.detail}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </DashboardCard>
-  );
-}
-
 export function StudentHomeDashboard({
   greeting,
   firstName,
-  journeyPct,
-  journeyStatus,
   journeySteps,
-  sparklineValues,
   nextLesson,
   examStatus,
   coach,
-  messageUnreadCount,
   creditAvailableMinutes,
 }: {
   greeting: string;
@@ -578,30 +410,28 @@ export function StudentHomeDashboard({
           Klaar voor je volgende stap? Alles wat belangrijk is staat direct
           voor je klaar.
         </p>
+        <Link
+          href="/leerling/betalingen"
+          className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border border-brand-border bg-white px-3.5 text-sm font-semibold text-brand-foreground shadow-sm transition hover:border-brand-primary/40 hover:text-brand-primary"
+        >
+          <Wallet className="h-4 w-4 text-brand-primary" aria-hidden />
+          {formatHours(creditAvailableMinutes)} beschikbaar
+          {creditAvailableMinutes < 600 ? (
+            <Badge variant="warning" className="shadow-none">
+              Bijna op
+            </Badge>
+          ) : null}
+        </Link>
       </section>
 
       <NextStepHero coach={coach} />
 
-      <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
         <NextLessonCard nextLesson={nextLesson} />
-        <ProgressCard
-          journeyPct={journeyPct}
-          journeyStatus={journeyStatus}
-          sparklineValues={sparklineValues}
-        />
-        <CreditBalanceCard availableMinutes={creditAvailableMinutes} />
         <ExamCard examStatus={examStatus} />
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(21rem,0.65fr)]">
-        <div className="min-w-0 space-y-4 sm:space-y-5">
-          <QuickActions messageUnreadCount={messageUnreadCount} />
-          <JourneyPanel steps={journeySteps} />
-        </div>
-        <aside className="min-w-0 space-y-4 sm:space-y-5">
-          <ActivityPanel />
-        </aside>
-      </div>
+      <JourneyPanel steps={journeySteps} />
     </div>
   );
 }
