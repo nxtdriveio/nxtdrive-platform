@@ -34,7 +34,7 @@ check(
 
 check(
   "runner covers the critical browser-driven business flows",
-  runner.includes('login + session persistence') &&
+  runner.includes("login + session persistence") &&
     runner.includes("session retention") &&
     runner.includes("verifyLeadToTrialToStudent") &&
     runner.includes("verifyLessonPlanningAndCompletion") &&
@@ -48,8 +48,8 @@ check(
   "runner wires business-critical routes and RPC-backed setup paths",
   runner.includes("/backoffice/leads") &&
     runner.includes("createPlannedLessonForFlow") &&
-    runner.includes("/instructor/") &&
-    runner.includes("/student/berichten") &&
+    runner.includes("/instructeur/lessen/") &&
+    runner.includes("/leerling/berichten") &&
     runner.includes("/backoffice/leerlingen") &&
     runner.includes("book_trial_lesson") &&
     runner.includes("create_invoice") &&

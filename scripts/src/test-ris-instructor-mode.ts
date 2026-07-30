@@ -16,20 +16,34 @@ function check(name: string, ok: boolean): void {
 const migration = source(
   "supabase/migrations/20260616104647_ris_lesson_card_foundation.sql",
 );
-const lessonPage = source("artifacts/nxtdrive/app/instructor/[lessonId]/page.tsx");
+const lessonPage = source(
+  "artifacts/nxtdrive/app/instructeur/lessen/[lessonId]/page.tsx",
+);
 const evaluationWorkspace = source(
   "artifacts/nxtdrive/app/instructor/evaluations/[lessonId]/RisEvaluationWorkspace.tsx",
 );
-const evaluationTabs = source("artifacts/nxtdrive/components/ris/RisEvaluationTabs.tsx");
-const actionsPanel = source("artifacts/nxtdrive/components/instructor/ActionsPanel.tsx");
-const risScoring = source("artifacts/nxtdrive/components/ris/RisScriptScoring.tsx");
+const evaluationTabs = source(
+  "artifacts/nxtdrive/components/ris/RisEvaluationTabs.tsx",
+);
+const actionsPanel = source(
+  "artifacts/nxtdrive/components/instructor/ActionsPanel.tsx",
+);
+const risScoring = source(
+  "artifacts/nxtdrive/components/ris/RisScriptScoring.tsx",
+);
 const packageJson = source("scripts/package.json");
 
 check(
   "RIS tables are granted to authenticated readers behind RLS",
-  migration.includes("grant select on public.ris_lesson_cards to authenticated") &&
-    migration.includes("grant select on public.ris_script_assessments to authenticated") &&
-    migration.includes("grant select on public.tenant_ris_settings to authenticated"),
+  migration.includes(
+    "grant select on public.ris_lesson_cards to authenticated",
+  ) &&
+    migration.includes(
+      "grant select on public.ris_script_assessments to authenticated",
+    ) &&
+    migration.includes(
+      "grant select on public.tenant_ris_settings to authenticated",
+    ),
 );
 
 check(
@@ -69,7 +83,10 @@ check(
 
 check(
   "RIS scoring uses N and 1..8 steps, not the legacy ten-step scale",
-  risScoring.includes('const STEP_VALUES: RISStepValue[] = ["N", "1", "2", "3", "4", "5", "6", "7", "8"]') &&
+  risScoring.includes("const STEP_VALUES: RISStepValue[]") &&
+    ["N", "1", "2", "3", "4", "5", "6", "7", "8"].every((step) =>
+      risScoring.includes(`"${step}",`),
+    ) &&
     !risScoring.includes("Array.from({ length: 10 }"),
 );
 

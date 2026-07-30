@@ -57,9 +57,14 @@ const requiredTables = [
 for (const table of requiredTables) {
   check(
     `migration creates ${table}`,
-    new RegExp(`create table if not exists public\\.${table}\\b`).test(migration),
+    new RegExp(`create table if not exists public\\.${table}\\b`).test(
+      migration,
+    ),
   );
-  check(`migration enables RLS for ${table}`, migration.includes(`alter table public.${table} enable row level security`));
+  check(
+    `migration enables RLS for ${table}`,
+    migration.includes(`alter table public.${table} enable row level security`),
+  );
 }
 
 for (const rpc of [
@@ -71,16 +76,26 @@ for (const rpc of [
   "set_ris_module_test",
   "recompute_student_ris_progress",
 ]) {
-  check(`migration defines RPC ${rpc}`, migration.includes(`function public.${rpc}`));
-  check(`RPC ${rpc} is service-role only`, migration.includes(`grant execute on function public.${rpc}`));
+  check(
+    `migration defines RPC ${rpc}`,
+    migration.includes(`function public.${rpc}`),
+  );
+  check(
+    `RPC ${rpc} is service-role only`,
+    migration.includes(`grant execute on function public.${rpc}`),
+  );
 }
 
 check(
   "RIS mode starts as default while legacy remains fallback",
   /lesson_card_mode\s+text\s+not null default 'legacy'/.test(migration) &&
-    cleanStartMigration.includes("alter column lesson_card_mode set default 'ris'") &&
+    cleanStartMigration.includes(
+      "alter column lesson_card_mode set default 'ris'",
+    ) &&
     cleanStartMigration.includes("values (new.id, 'ris', v_version_id)") &&
-    cleanStartMigration.includes("coalesce(v_settings.lesson_card_mode, 'ris') <> 'ris'") &&
+    cleanStartMigration.includes(
+      "coalesce(v_settings.lesson_card_mode, 'ris') <> 'ris'",
+    ) &&
     migration.includes("RIS lesson card mode is not enabled"),
 );
 check(
@@ -110,14 +125,21 @@ check(
 check(
   "legacy lesson score path is constrained to N/1-8",
   scoreModelMigration.includes("lessons_progress_score_range") &&
-    scoreModelMigration.includes("progress_score is null or progress_score between 1 and 8") &&
+    scoreModelMigration.includes(
+      "progress_score is null or progress_score between 1 and 8",
+    ) &&
     scoreModelMigration.includes("lesson_skill_scores_score_range") &&
     scoreModelMigration.includes("check (score between 1 and 8)") &&
     scoreModelMigration.includes("skill score must be between 1 and 8") &&
-    scoreModelMigration.includes("progress score must be N/null or between 1 and 8"),
+    scoreModelMigration.includes(
+      "progress score must be N/null or between 1 and 8",
+    ),
 );
 
-check("leskaart package exports RIS helpers", leskaartIndex.includes('export * from "./ris"'));
+check(
+  "leskaart package exports RIS helpers",
+  leskaartIndex.includes('export * from "./ris"'),
+);
 check(
   "RIS engine exposes core pure helpers",
   risEngine.includes("computeRisProgress") &&
@@ -126,13 +148,17 @@ check(
     risEngine.includes("buildRisTree"),
 );
 check(
-  "N is normalized as unassessed and progress uses N/1-8",
+  "N lowers coverage and instruction stages are never averaged",
   normalizeRisStep("N") === "N" &&
     risStepNumber("N") === null &&
     computeRisProgress([
       { scriptId: "a", moduleNumber: 1, step: "N" },
       { scriptId: "b", moduleNumber: 1, step: "8" },
-    ]).averageStep === 8,
+    ]).averageStep === null &&
+    computeRisProgress([
+      { scriptId: "a", moduleNumber: 1, step: "N" },
+      { scriptId: "b", moduleNumber: 1, step: "8" },
+    ]).progressPct === 50,
 );
 check(
   "RIS readiness blocks unassessed scripts",
@@ -143,25 +169,46 @@ check(
 );
 check(
   "student translation is friendly and deterministic",
-  translateRisStepForStudent("5").studentLabel.includes("redelijk zelfstandig"),
+  translateRisStepForStudent("5").studentLabel.includes("minder aanwijzingen"),
 );
 check(
   "RIS tree groups modules/categories/scripts/variants",
   buildRisTree({
-    modules: [{ id: "m1", module_number: 1, title: "Module 1", description: null, sort_order: 1 }],
-    categories: [{ id: "c1", ris_module_id: "m1", title: "Categorie", sort_order: 1 }],
-    scripts: [{
-      id: "s1",
-      module_id: "m1",
-      category_id: "c1",
-      script_number: 1,
-      code: "M1-S1",
-      title: "Script",
-      description_short: null,
-      sort_order: 1,
-      is_active: true,
-    }],
-    variants: [{ id: "v1", script_id: "s1", code: "M1-S1a", title: "Variant", sort_order: 1, is_active: true }],
+    modules: [
+      {
+        id: "m1",
+        module_number: 1,
+        title: "Module 1",
+        description: null,
+        sort_order: 1,
+      },
+    ],
+    categories: [
+      { id: "c1", ris_module_id: "m1", title: "Categorie", sort_order: 1 },
+    ],
+    scripts: [
+      {
+        id: "s1",
+        module_id: "m1",
+        category_id: "c1",
+        script_number: 1,
+        code: "M1-S1",
+        title: "Script",
+        description_short: null,
+        sort_order: 1,
+        is_active: true,
+      },
+    ],
+    variants: [
+      {
+        id: "v1",
+        script_id: "s1",
+        code: "M1-S1a",
+        title: "Variant",
+        sort_order: 1,
+        is_active: true,
+      },
+    ],
   })[0]?.categories[0]?.scripts[0]?.variants.length === 1,
 );
 check(

@@ -18,8 +18,12 @@ const migration = source(
 );
 const risData = source("artifacts/nxtdrive/lib/ris/data.ts");
 const risActions = source("artifacts/nxtdrive/lib/ris/actions.ts");
-const lessonPage = source("artifacts/nxtdrive/app/instructor/[lessonId]/page.tsx");
-const actionsPanel = source("artifacts/nxtdrive/components/instructor/ActionsPanel.tsx");
+const evaluationTabs = source(
+  "artifacts/nxtdrive/components/ris/RisEvaluationTabs.tsx",
+);
+const actionsPanel = source(
+  "artifacts/nxtdrive/components/instructor/ActionsPanel.tsx",
+);
 const publicationPanel = source(
   "artifacts/nxtdrive/components/ris/RisLessonPublicationPanel.tsx",
 );
@@ -35,8 +39,9 @@ check(
 
 check(
   "guided reflection RPC is draft-only",
-  migration.includes("create or replace function public.set_guided_reflection") &&
-    migration.includes("RIS lesson card % is already published or archived"),
+  migration.includes(
+    "create or replace function public.set_guided_reflection",
+  ) && migration.includes("RIS lesson card % is already published or archived"),
 );
 
 check(
@@ -61,10 +66,10 @@ check(
 
 check(
   "instructor lesson page renders RIS publication panel after scoring",
-  lessonPage.includes("RisLessonPublicationPanel") &&
-    lessonPage.includes("const risPublished") &&
-    lessonPage.includes("risPublished={risPublished}") &&
-    lessonPage.includes("studentId={lesson.student_id}"),
+  evaluationTabs.includes("<RisScriptScoring") &&
+    evaluationTabs.includes("<RisLessonPublicationPanel") &&
+    evaluationTabs.includes("studentId={studentId}") &&
+    evaluationTabs.includes('mode="quick"'),
 );
 
 check(
@@ -85,11 +90,11 @@ check(
 
 check(
   "publication panel covers RIS-4 UX requirements",
-  publicationPanel.includes("Behandelde scripts") &&
-    publicationPanel.includes("Begeleide reflectie") &&
+  publicationPanel.includes("Gewijzigde scripts") &&
+    publicationPanel.includes("Reflectie leerling") &&
     publicationPanel.includes("Leerlingvriendelijke samenvatting") &&
-    publicationPanel.includes("AI-voorstel") &&
-    publicationPanel.includes("Publiceer leskaart"),
+    publicationPanel.includes("Het voorstel gebruikt alleen") &&
+    publicationPanel.includes("Afronden & publiceren"),
 );
 
 check(

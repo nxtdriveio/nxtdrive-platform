@@ -14,15 +14,21 @@ function check(name: string, ok: boolean): void {
 }
 
 const risData = source("artifacts/nxtdrive/lib/ris/data.ts");
-const studentProgressPage = source("artifacts/nxtdrive/app/student/voortgang/page.tsx");
-const studentRisView = source("artifacts/nxtdrive/components/ris/StudentRisProgressView.tsx");
+const studentProgressPage = source(
+  "artifacts/nxtdrive/app/student/voortgang/page.tsx",
+);
+const studentRisView = source(
+  "artifacts/nxtdrive/components/ris/StudentRisProgressView.tsx",
+);
 const docs = source("docs/RIS_LESKAART_IMPLEMENTATION.md");
 const packageJson = source("scripts/package.json");
 
 check(
   "student RIS loader only exposes published lesson cards",
   risData.includes('from("ris_lesson_cards")') &&
-    risData.includes('.eq("publication_status", "published")') &&
+    risData.includes(
+      '.in("publication_status", Array.from(STUDENT_VISIBLE_RIS_CARD_STATUSES))',
+    ) &&
     risData.includes("StudentRisPublishedCard"),
 );
 
@@ -30,7 +36,7 @@ check(
   "student RIS loader includes guided reflections for published cards",
   risData.includes('from("ris_guided_reflections")') &&
     risData.includes("reflectionByCardId") &&
-    risData.includes("reflection: reflectionByCardId.get(card.id) ?? null"),
+    risData.includes("reflectionByCardId.get(card.id) ?? null"),
 );
 
 check(
@@ -43,8 +49,9 @@ check(
 
 check(
   "RIS student view covers learner-friendly progress requirements",
-    studentRisView.includes("Mijn RIS-rijbewijsreis") &&
-    studentRisView.includes("Stap ${item.currentFinalStep} van 8") &&
+  studentRisView.includes("Mijn RIS-rijbewijsreis") &&
+    studentRisView.includes("Dekkingskaart") &&
+    studentRisView.includes("geen examenadvies") &&
     studentRisView.includes("Moduleprogressie") &&
     studentRisView.includes("Laatst geoefend") &&
     studentRisView.includes("Gepubliceerde leskaarten") &&
@@ -67,7 +74,10 @@ check(
     docs.includes("student PWA toont RIS-voortgang"),
 );
 
-check("package script exposes RIS student-view guard", packageJson.includes('"test-ris-student-view"'));
+check(
+  "package script exposes RIS student-view guard",
+  packageJson.includes('"test-ris-student-view"'),
+);
 
 let failed = 0;
 for (const result of results) {

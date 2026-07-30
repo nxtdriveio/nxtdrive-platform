@@ -23,13 +23,14 @@ const reflectionRlsMigration = read(
   "migrations",
   "20260616170639_ris_release_hardening_reflection_rls.sql",
 );
-const instructorLessonPage = read(
+const instructorLessonWorkspace = read(
   "artifacts",
   "nxtdrive",
   "app",
   "instructor",
+  "evaluations",
   "[lessonId]",
-  "page.tsx",
+  "RisEvaluationWorkspace.tsx",
 );
 const actionsPanel = read(
   "artifacts",
@@ -39,6 +40,14 @@ const actionsPanel = read(
   "ActionsPanel.tsx",
 );
 const studentProgressPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "leerling",
+  "voortgang",
+  "page.tsx",
+);
+const studentProgressImplementation = read(
   "artifacts",
   "nxtdrive",
   "app",
@@ -62,7 +71,20 @@ const backofficeRisPage = read(
   "page.tsx",
 );
 const risActions = read("artifacts", "nxtdrive", "lib", "ris", "actions.ts");
-const risMigration = read("artifacts", "nxtdrive", "lib", "ris", "migration.ts");
+const featureFlags = read(
+  "artifacts",
+  "nxtdrive",
+  "lib",
+  "features",
+  "flags.ts",
+);
+const risMigration = read(
+  "artifacts",
+  "nxtdrive",
+  "lib",
+  "ris",
+  "migration.ts",
+);
 const e2eRunner = read("scripts", "src", "e2e-business-flows.ts");
 const routePerformance = read("scripts", "src", "check-route-performance.ts");
 const packageJson = read("scripts", "package.json");
@@ -70,7 +92,9 @@ const risDocs = read("docs", "RIS_LESKAART_IMPLEMENTATION.md");
 const runbook = read("docs", "PRODUCTION_RUNBOOK.md");
 
 ok(
-  foundationMigration.includes("alter table public.ris_lesson_cards enable row level security") &&
+  foundationMigration.includes(
+    "alter table public.ris_lesson_cards enable row level security",
+  ) &&
     foundationMigration.includes("publication_status = 'published'") &&
     foundationMigration.includes("public.student_guardians"),
   "RIS lesson card RLS exposes only published cards to students/guardians",
@@ -98,10 +122,11 @@ ok(
 );
 
 ok(
-  instructorLessonPage.includes("loadInstructorRisLessonCard") &&
-    instructorLessonPage.includes("isRisLessonMode") &&
-    instructorLessonPage.includes("RisScriptScoring") &&
-    instructorLessonPage.includes("SkillScoring"),
+  instructorLessonWorkspace.includes("loadInstructorRisLessonCard") &&
+    instructorLessonWorkspace.includes("loadInstructorLeskaart") &&
+    instructorLessonWorkspace.includes("isRisLessonMode") &&
+    instructorLessonWorkspace.includes("RisEvaluationTabs") &&
+    instructorLessonWorkspace.includes("SkillScoring"),
   "Instructor lesson route keeps RIS and legacy scoring paths side by side",
 );
 
@@ -113,9 +138,10 @@ ok(
 );
 
 ok(
-  studentProgressPage.includes("loadStudentRisProgress") &&
-    studentProgressPage.includes('lessonCardMode === "ris"') &&
-    studentProgressPage.includes("loadStudentLeskaart"),
+  studentProgressPage.includes('from "@/app/student/voortgang/page"') &&
+    studentProgressImplementation.includes("loadStudentRisProgress") &&
+    studentProgressImplementation.includes('lessonCardMode === "ris"') &&
+    studentProgressImplementation.includes("loadStudentLeskaart"),
   "Student progress route switches between RIS and legacy views per tenant setting",
 );
 
@@ -127,17 +153,18 @@ ok(
 );
 
 ok(
-  backofficeRisPage.includes("RIS-9 migratie & rollout") &&
-    backofficeRisPage.includes("RIS-rapportage & AI-signalen") &&
+  backofficeRisPage.includes("Inhoudelijke releasegate") &&
+    backofficeRisPage.includes("toetsvoorstellen") &&
     backofficeRisPage.includes("Moduletoets of CBR-moment registreren"),
-  "Backoffice RIS cockpit exposes rollout, reporting and module-test surfaces",
+  "Backoffice RIS cockpit exposes the expert gate, decision support and module tests",
 );
 
 ok(
-  risActions.includes("loadTenantEntitlementSnapshot") &&
-    risActions.includes("featureAccess.ai_features.allowed") &&
-    risActions.includes("activateRisAfterMigrationCheckAction"),
-  "RIS AI and activation writes are server-side gated",
+  featureFlags.includes("AI_TEMPORARILY_DISABLED = true") &&
+    featureFlags.includes('flag.startsWith("ai.")') &&
+    risActions.includes("AI-assistentie is tijdelijk uitgeschakeld.") &&
+    !risActions.includes("activateRisAfterMigrationCheckAction"),
+  "RIS AI is hard-paused and no activation write is exposed",
 );
 
 ok(
@@ -149,8 +176,8 @@ ok(
 
 ok(
   e2eRunner.includes('expectedPath: "/backoffice"') &&
-    e2eRunner.includes('expectedPath: "/instructor"') &&
-    e2eRunner.includes('expectedPath: "/student"') &&
+    e2eRunner.includes('expectedPath: "/instructeur"') &&
+    e2eRunner.includes('expectedPath: "/leerling"') &&
     e2eRunner.includes("login + session persistence") &&
     e2eRunner.includes("lead -> trial -> student conversion") &&
     e2eRunner.includes("lesson scheduling -> start -> completion") &&
@@ -162,8 +189,8 @@ ok(
 );
 
 ok(
-  routePerformance.includes("/student") &&
-    routePerformance.includes("/instructor") &&
+  routePerformance.includes("/leerling") &&
+    routePerformance.includes("/instructeur") &&
     routePerformance.includes("/backoffice") &&
     routePerformance.includes("sharedBudgetKb") &&
     routePerformance.includes("middlewareBudgetKb"),
@@ -180,12 +207,15 @@ ok(
 
 ok(
   risDocs.includes("RIS-10: Hardening en release") &&
-    risDocs.includes("Geimplementeerd") &&
+    risDocs.includes("Open release gates") &&
     risDocs.includes("RLS-releaseguard") &&
     risDocs.includes("legacy-regressie"),
-  "RIS docs mark hardening/release sprint as implemented",
+  "RIS docs distinguish technical hardening from open external gates",
 );
 
-ok(packageJson.includes('"test-ris-release-hardening"'), "package script exposes RIS-10 guard");
+ok(
+  packageJson.includes('"test-ris-release-hardening"'),
+  "package script exposes RIS-10 guard",
+);
 
 console.log("test-ris-release-hardening: ok");

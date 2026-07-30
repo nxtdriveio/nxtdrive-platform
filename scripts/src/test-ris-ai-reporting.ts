@@ -13,7 +13,13 @@ function ok(condition: unknown, message: string): void {
   console.log(`OK ${message}`);
 }
 
-const advisor = read("artifacts", "nxtdrive", "lib", "ai", "leskaart-advisor.ts");
+const advisor = read(
+  "artifacts",
+  "nxtdrive",
+  "lib",
+  "ai",
+  "leskaart-advisor.ts",
+);
 ok(
   advisor.includes("generateRisLessonPublicationDraft") &&
     advisor.includes("RisLessonPublicationDraft") &&
@@ -23,19 +29,26 @@ ok(
   "RIS AI advisor returns student summary, next focus and internal attention",
 );
 ok(
-  advisor.includes("response_format: { type: \"json_object\" }") &&
+  advisor.includes('response_format: { type: "json_object" }') &&
     advisor.includes("De instructeur controleert") &&
     advisor.includes("publiceert handmatig"),
   "RIS AI advisor is structured JSON and explicitly advisory",
 );
 
 const actions = read("artifacts", "nxtdrive", "lib", "ris", "actions.ts");
+const flags = read("artifacts", "nxtdrive", "lib", "features", "flags.ts");
+const disableMigration = read(
+  "supabase",
+  "migrations",
+  "20260730113000_disable_ai_assist.sql",
+);
 ok(
   actions.includes("generateRisLessonAiDraftAction") &&
-    actions.includes("loadTenantEntitlementSnapshot") &&
-    actions.includes("featureAccess.ai_features.allowed") &&
-    actions.includes("primeAiClientIfNeeded"),
-  "RIS AI action is entitlement-gated and primes platform AI",
+    actions.includes('isFeatureEnabled("ai.instructor.enabled")') &&
+    actions.includes("AI-assistentie is tijdelijk uitgeschakeld") &&
+    flags.includes("AI_TEMPORARILY_DISABLED = true") &&
+    disableMigration.includes("new.ai_assist_enabled := false"),
+  "RIS AI is hard-paused in application and database gates",
 );
 ok(
   actions.includes("lesson.instructor_id !== user.id") &&
@@ -52,10 +65,10 @@ const publicationPanel = read(
   "RisLessonPublicationPanel.tsx",
 );
 ok(
-  publicationPanel.includes("Genereer AI-voorstel") &&
-    publicationPanel.includes("generateRisLessonAiDraftAction") &&
-    publicationPanel.includes("Controleer en pas aan voordat je publiceert"),
-  "RIS publication panel exposes AI as editable draft only",
+  publicationPanel.includes("regelgebaseerde voorstel") &&
+    publicationPanel.includes("Het voorstel gebruikt alleen") &&
+    !publicationPanel.includes("generateRisLessonAiDraftAction"),
+  "RIS publication panel uses an explainable local proposal without model calls",
 );
 
 const data = read("artifacts", "nxtdrive", "lib", "ris", "data.ts");
@@ -68,9 +81,16 @@ ok(
   "RIS backoffice loader exposes reporting signals",
 );
 
-const page = read("artifacts", "nxtdrive", "app", "backoffice", "ris", "page.tsx");
+const page = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "backoffice",
+  "ris",
+  "page.tsx",
+);
 ok(
-  page.includes("RIS-rapportage & AI-signalen") &&
+  page.includes("RIS-rapportage & signalen") &&
     page.includes("Moduleadvies") &&
     page.includes("Zwakke scripts") &&
     page.includes("Interne opvolging"),
@@ -79,15 +99,15 @@ ok(
 
 const docs = read("docs", "RIS_LESKAART_IMPLEMENTATION.md");
 ok(
-  docs.includes("RIS-8: AI en rapportage") &&
-    docs.includes("Geimplementeerd") &&
-    docs.includes("AI publiceert nooit zelfstandig"),
-  "RIS documentation marks AI/reporting sprint as implemented",
+  docs.includes("RIS-8: Verklaarbare signalen en rapportage") &&
+    docs.includes("tijdelijk op productniveau uitgeschakeld") &&
+    docs.includes("zonder AI-configuratie of externe modelcall"),
+  "RIS documentation records the temporary AI pause and deterministic reporting",
 );
 
 const pkg = read("scripts", "package.json");
 ok(
-  pkg.includes("\"test-ris-ai-reporting\""),
+  pkg.includes('"test-ris-ai-reporting"'),
   "package script exposes RIS AI/reporting guard",
 );
 

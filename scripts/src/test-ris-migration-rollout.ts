@@ -31,27 +31,17 @@ ok(
 ok(
   migration.includes("mapLegacySkillToRisScript") &&
     migration.includes("tokenOverlap") &&
-    migration.includes("? \"high\"") &&
-    migration.includes("? \"medium\"") &&
-    migration.includes("confidence === \"none\""),
+    migration.includes('? "high"') &&
+    migration.includes('? "medium"') &&
+    migration.includes('confidence === "none"'),
   "RIS migration report exposes deterministic mapping suggestions with confidence",
 );
 
 const actions = read("artifacts", "nxtdrive", "lib", "ris", "actions.ts");
 ok(
-  actions.includes("activateRisAfterMigrationCheckAction") &&
-    actions.includes("loadRisLegacyMigrationReport") &&
-    actions.includes("canActivateRisAfterMigration") &&
-    actions.includes("setTenantRisSettingsAction"),
-  "RIS activation action is guarded by the migration preflight",
-);
-ok(
-  actions.includes("activateRisCleanStartAction") &&
-    actions.includes('requireActiveTenant(["tenant_admin"])') &&
-    actions.includes('service.rpc("activate_ris_clean_start"') &&
-    actions.includes("p_tenant_id: tenant.id") &&
-    actions.includes("p_actor: user.id"),
-  "RIS clean-start action calls the transactional database clean-start RPC",
+  !actions.includes("activateRisAfterMigrationCheckAction") &&
+    !actions.includes("activateRisCleanStartAction"),
+  "RIS activation is not exposed before real expert validation",
 );
 
 const cleanStartMigration = read(
@@ -64,43 +54,53 @@ ok(
     cleanStartMigration.includes("delete from public.lesson_skill_scores") &&
     cleanStartMigration.includes("delete from public.student_skill_scores") &&
     cleanStartMigration.includes("'ris.clean_start_activated'") &&
-    cleanStartMigration.includes("grant execute on function public.activate_ris_clean_start"),
+    cleanStartMigration.includes(
+      "grant execute on function public.activate_ris_clean_start",
+    ),
   "RIS clean-start RPC clears only legacy score tables, activates RIS and audits",
 );
 
-const pageActions = read("artifacts", "nxtdrive", "app", "backoffice", "ris", "actions.ts");
-ok(
-  pageActions.includes("activateRisAfterMigrationCheckFromFormAction") &&
-    pageActions.includes("ris_saved=activated"),
-  "RIS backoffice form action redirects after guarded activation",
+const pageActions = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "backoffice",
+  "ris",
+  "actions.ts",
 );
 ok(
-  pageActions.includes("activateRisCleanStartFromFormAction") &&
-    pageActions.includes("SCHOON STARTEN") &&
-    pageActions.includes("ris_saved=clean-start"),
-  "RIS backoffice form action requires explicit clean-start confirmation",
+  !pageActions.includes("activateRisAfterMigrationCheckFromFormAction") &&
+    !pageActions.includes("activateRisCleanStartFromFormAction"),
+  "RIS backoffice has no activation or destructive clean-start form action",
 );
 
-const page = read("artifacts", "nxtdrive", "app", "backoffice", "ris", "page.tsx");
+const page = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "backoffice",
+  "ris",
+  "page.tsx",
+);
 ok(
-  page.includes("RIS-9 migratie & rollout") &&
-    page.includes("Legacy-leskaart naar RIS preflight") &&
-    page.includes("Mappingrapport") &&
-    page.includes("RIS activeren") &&
-    page.includes("Schoon starten met RIS") &&
-    page.includes("Wis legacy scores en activeer RIS"),
-  "RIS backoffice page renders migration preflight, mapping report and activation CTA",
+  page.includes("Inhoudelijke releasegate") &&
+    page.includes("geen formeel CBR-") &&
+    !page.includes("Wis legacy scores en activeer RIS"),
+  "RIS backoffice exposes the expert gate without an activation CTA",
 );
 
 const docs = read("docs", "RIS_LESKAART_IMPLEMENTATION.md");
 ok(
   docs.includes("RIS-9: Migratie en rollout") &&
-    docs.includes("Geimplementeerd") &&
-    docs.includes("clean-start"),
-  "RIS documentation marks migration and rollout sprint as implemented",
+    docs.includes("activatie-UI is bewust niet") &&
+    docs.includes("service-role-only clean-startcontract"),
+  "RIS documentation distinguishes migration tooling from rollout approval",
 );
 
 const pkg = read("scripts", "package.json");
-ok(pkg.includes("\"test-ris-migration-rollout\""), "package script exposes RIS-9 guard");
+ok(
+  pkg.includes('"test-ris-migration-rollout"'),
+  "package script exposes RIS-9 guard",
+);
 
 console.log("test-ris-migration-rollout: ok");
