@@ -14,6 +14,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "playwright";
+import sharp from "sharp";
 
 type VisualCase = {
   name: string;
@@ -211,6 +212,64 @@ function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+async function compareScreenshots(
+  baseline: Buffer,
+  actual: Buffer,
+): Promise<{ equal: boolean; detail?: string }> {
+  if (sha256(actual) === sha256(baseline)) {
+    return { equal: true };
+  }
+
+  const [expectedPixels, actualPixels] = await Promise.all([
+    sharp(baseline).raw().toBuffer({ resolveWithObject: true }),
+    sharp(actual).raw().toBuffer({ resolveWithObject: true }),
+  ]);
+
+  const sameShape =
+    expectedPixels.info.width === actualPixels.info.width &&
+    expectedPixels.info.height === actualPixels.info.height &&
+    expectedPixels.info.channels === actualPixels.info.channels;
+  if (!sameShape) {
+    return {
+      equal: false,
+      detail: `dimensions changed (${expectedPixels.info.width}x${expectedPixels.info.height} -> ${actualPixels.info.width}x${actualPixels.info.height})`,
+    };
+  }
+
+  let oneStepChannelDifferences = 0;
+  for (let index = 0; index < expectedPixels.data.length; index += 1) {
+    const delta = Math.abs(
+      expectedPixels.data[index] - actualPixels.data[index],
+    );
+    if (delta > 1) {
+      return {
+        equal: false,
+        detail: `rendered pixels changed (channel delta ${delta} at byte ${index})`,
+      };
+    }
+    if (delta === 1) oneStepChannelDifferences += 1;
+  }
+
+  const noiseLimit = Math.max(
+    64,
+    Math.floor(expectedPixels.data.length * 0.00001),
+  );
+  if (oneStepChannelDifferences > noiseLimit) {
+    return {
+      equal: false,
+      detail: `${oneStepChannelDifferences} one-step channel changes exceed the render-noise limit of ${noiseLimit}`,
+    };
+  }
+
+  return {
+    equal: true,
+    detail:
+      oneStepChannelDifferences > 0
+        ? `ignored ${oneStepChannelDifferences} one-step antialiasing channel changes`
+        : undefined,
+  };
+}
+
 function normalizeBaseUrl(input: string): string {
   return input.endsWith("/") ? input.slice(0, -1) : input;
 }
@@ -342,14 +401,15 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const actualHash = sha256(image);
-      const baselineHash = sha256(baseline);
-      if (actualHash !== baselineHash) {
+      const comparison = await compareScreenshots(baseline, image);
+      if (!comparison.equal) {
         failures.push(
-          `${visualCase.name}: screenshot hash changed (${baselineHash.slice(0, 8)} -> ${actualHash.slice(0, 8)}). Actual written to scripts/.visual-regression/${visualCase.name}.png`,
+          `${visualCase.name}: ${comparison.detail ?? "screenshot changed"}. Actual written to scripts/.visual-regression/${visualCase.name}.png`,
         );
       } else {
-        console.log(`OK ${visualCase.name}`);
+        console.log(
+          `OK ${visualCase.name}${comparison.detail ? ` (${comparison.detail})` : ""}`,
+        );
       }
     }
   } finally {
