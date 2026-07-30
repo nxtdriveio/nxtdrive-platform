@@ -181,6 +181,12 @@ const NAV_SECTIONS: NavSection[] = [
         adminOnly: false,
       },
       {
+        href: "/backoffice/ris/release",
+        label: "RIS-release",
+        icon: Rocket,
+        adminOnly: true,
+      },
+      {
         href: "/backoffice/cbr",
         label: "CBR-status",
         icon: BadgeCheck,

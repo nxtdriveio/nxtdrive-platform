@@ -98,9 +98,10 @@ export default async function BackofficeLayout({
   const logoUrl = resolveLogoUrl(tenant, bundle.branding);
 
   const userLabel = user.profile?.full_name ?? user.email ?? "Onbekend";
-  const roleLabel = roles
-    .map((r) => ROLE_LABELS[r] ?? r)
-    .join(" + ");
+  const roleLabel =
+    user.profile?.is_platform_admin === true
+      ? "Platformbeheerder"
+      : roles.map((r) => ROLE_LABELS[r] ?? r).join(" + ");
   const { items, unreadCount } = await loadInAppNotifications(tenant.id);
 
   const service = createServiceRoleClient();
@@ -109,7 +110,10 @@ export default async function BackofficeLayout({
     tenant.id,
   );
   let hasFranchise = false;
-  if (tenant.parent_tenant_id === null || tenant.parent_tenant_id === undefined) {
+  if (
+    tenant.parent_tenant_id === null ||
+    tenant.parent_tenant_id === undefined
+  ) {
     const { count } = await service
       .from("tenants")
       .select("id", { count: "exact", head: true })
@@ -137,7 +141,10 @@ export default async function BackofficeLayout({
             <BackofficeSidebar
               tenantName={tenant.name}
               logoUrl={logoUrl}
-              isAdmin={roles.includes("tenant_admin")}
+              isAdmin={
+                roles.includes("tenant_admin") ||
+                user.profile?.is_platform_admin === true
+              }
               hasFranchise={hasFranchise}
               hasMultiBranch={hasMultiBranch}
               planLabel={PLAN_LABELS[tenant.plan] ?? tenant.plan}

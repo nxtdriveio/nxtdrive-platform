@@ -404,6 +404,27 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Volg CBR-gerelateerde voortgang en openstaande acties per leerling.",
     },
     {
+      href: "/backoffice/ris/toetsdefinities",
+      match: "prefix",
+      title: "RIS-toetsdefinities",
+      description:
+        "Beheer en valideer de versieerbare criteria voor de RIS-moduletoetsen.",
+    },
+    {
+      href: "/backoffice/ris/beleid",
+      match: "prefix",
+      title: "RIS-readinessbeleid",
+      description:
+        "Beheer de afzonderlijke regels voor dekking, beheersing, veiligheid, stabiliteit en randvoorwaarden.",
+    },
+    {
+      href: "/backoffice/ris/release",
+      match: "prefix",
+      title: "RIS-releasebeheer",
+      description:
+        "Controleer alle validatiegates, publiceer het curriculum en activeer RIS veilig per tenant.",
+    },
+    {
       href: "/backoffice/ris/catalogus",
       match: "prefix",
       title: "RIS-catalogus",

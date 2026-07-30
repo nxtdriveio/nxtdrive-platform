@@ -12,6 +12,7 @@ import {
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
+import { RisManagementNav } from "@/components/ris/RisManagementNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -235,6 +236,11 @@ export default async function RisCatalogusPage({
           </a>
         </div>
       </header>
+
+      <RisManagementNav
+        active="catalogus"
+        versionId={review.selectedVersion.id}
+      />
 
       {sp.saved && SAVED_MESSAGES[sp.saved] ? (
         <Card className="border-success/40 bg-success/5 p-4 text-sm text-success">
