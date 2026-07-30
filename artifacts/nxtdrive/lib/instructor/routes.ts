@@ -3,6 +3,7 @@ import type { MemberRole } from "@/lib/types";
 export type InstructorRouteId =
   | "home"
   | "agenda"
+  | "dayRoute"
   | "lesson"
   | "students"
   | "student"
@@ -68,6 +69,16 @@ export const instructorRoutes = [
     ],
     navLabel: "Agenda",
     analyticsKey: "instructor.agenda",
+    allowedRoles: INSTRUCTOR_ROLES,
+    requiredEntitlements: [],
+    visibility: "navigation",
+  },
+  {
+    id: "dayRoute",
+    canonicalPath: "/instructeur/dagroute",
+    aliases: ["/instructor/day-route"],
+    navLabel: "Dagroute",
+    analyticsKey: "instructor.day_route",
     allowedRoles: INSTRUCTOR_ROLES,
     requiredEntitlements: [],
     visibility: "navigation",
@@ -149,11 +160,7 @@ export const instructorRoutes = [
   {
     id: "tasks",
     canonicalPath: "/instructeur/taken",
-    aliases: [
-      "/instructeur/tasks",
-      "/instructor/taken",
-      "/instructor/tasks",
-    ],
+    aliases: ["/instructeur/tasks", "/instructor/taken", "/instructor/tasks"],
     navLabel: "Taken",
     analyticsKey: "instructor.tasks",
     allowedRoles: INSTRUCTOR_ROLES,
@@ -399,7 +406,10 @@ export function buildInstructorRoute(
   params: Record<string, string | undefined> = {},
   query: InstructorSearchParams = {},
 ): string {
-  return appendQuery(interpolatePath(routeById(id).canonicalPath, params), query);
+  return appendQuery(
+    interpolatePath(routeById(id).canonicalPath, params),
+    query,
+  );
 }
 
 function matchRoutePattern(

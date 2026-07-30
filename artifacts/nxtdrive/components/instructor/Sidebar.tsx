@@ -8,6 +8,7 @@ import {
   Clock3,
   Home,
   ListTodo,
+  MapPinned,
   MessageCircle,
   MoreHorizontal,
   Settings,
@@ -36,6 +37,7 @@ type NavItem = {
 const NAV_ICONS: Partial<Record<InstructorRouteId, IconComponent>> = {
   home: Home,
   agenda: CalendarDays,
+  dayRoute: MapPinned,
   students: Users,
   messages: MessageCircle,
   tasks: ListTodo,
@@ -116,16 +118,18 @@ function NavLink({
 }
 
 function navItems(liveCounts: InstructorLiveCounts): NavItem[] {
-  return visibleInstructorNavigation({ roles: ["instructor"] }).map((route) => ({
-    route,
-    icon: NAV_ICONS[route.id] ?? Home,
-    badge:
-      route.id === "messages"
-        ? liveCounts.unreadMessages
-        : route.id === "tasks"
-          ? liveCounts.openTasks
-          : undefined,
-  }));
+  return visibleInstructorNavigation({ roles: ["instructor"] }).map(
+    (route) => ({
+      route,
+      icon: NAV_ICONS[route.id] ?? Home,
+      badge:
+        route.id === "messages"
+          ? liveCounts.unreadMessages
+          : route.id === "tasks"
+            ? liveCounts.openTasks
+            : undefined,
+    }),
+  );
 }
 
 export function InstructorSidebar({
@@ -178,7 +182,9 @@ export function InstructorSidebar({
           <div className="relative mt-4 flex shrink-0 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3">
             <Avatar name={userLabel} className="h-12 w-12 text-sm" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white">{userLabel}</p>
+              <p className="truncate text-sm font-black text-white">
+                {userLabel}
+              </p>
               <p className="truncate text-xs text-white/60">Instructeur</p>
             </div>
           </div>
