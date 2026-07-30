@@ -31,11 +31,24 @@ import {
 } from "playwright";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  Ris20ReadinessEvidenceAdapter,
+  computeRisModuleReadiness,
+  evaluateReadiness,
+  type ReadinessPolicy,
+  type RisScriptObservation,
+} from "@workspace/leskaart";
+import { fileURLToPath } from "node:url";
+import {
   bannerFor,
   parseEnvFromArgv,
   resolveSupabaseAdminClient,
   type DbEnv,
 } from "./lib/db-env.js";
+import {
+  RisJourneyBot,
+  loadRisJourneyBaseline,
+  type RisJourneyEvidence,
+} from "./lib/ris-journey-bot.js";
 
 type SuiteStatus = "OK" | "SKIP" | "FAIL";
 type Result = { status: SuiteStatus; name: string; detail?: string };
@@ -76,7 +89,15 @@ const timeoutMs = Number(process.env["E2E_TIMEOUT_MS"] ?? "20000");
 const headless = process.env["E2E_HEADLESS"] !== "0";
 const requestedTenantId = process.env["E2E_TENANT_ID"]?.trim() || null;
 const allowPaymentRedirect = process.env["E2E_ENABLE_PAYMENT_REDIRECT"] === "1";
-const enableRisJourney = process.env["E2E_ENABLE_RIS_JOURNEY"] === "1";
+const risJourneyOnly = process.argv.includes("--ris-journey-only");
+const enableRisJourney =
+  process.env["E2E_ENABLE_RIS_JOURNEY"] === "1" || risJourneyOnly;
+const risBaselinePath = fileURLToPath(
+  new URL("../ris-journey-baseline.json", import.meta.url),
+);
+const risOutputDirectory = fileURLToPath(
+  new URL("../../test-results/ris-journey/", import.meta.url),
+);
 
 const accounts: Account[] = [
   {
@@ -103,6 +124,8 @@ const accounts: Account[] = [
 const service = resolveSupabaseAdminClient(env);
 const results: Result[] = [];
 let failures = 0;
+let risJourneyBot: RisJourneyBot | null = null;
+let risJourneyReportWritten = false;
 
 const createdLeadIds: string[] = [];
 const createdStudentIds: string[] = [];
@@ -168,6 +191,174 @@ function record(status: SuiteStatus, name: string, detail?: string): void {
 
 function appUrl(path: string): string {
   return `${baseUrl}${path}`;
+}
+
+function evidence(
+  kind: RisJourneyEvidence["kind"],
+  source: string,
+  summary: string,
+): RisJourneyEvidence {
+  return { kind, source, summary };
+}
+
+async function exactExpertApproval(
+  targetType: "CURRICULUM" | "READINESS_POLICY" | "ASSESSMENT_DEFINITION",
+  targetId: string,
+  contentHash: string,
+  validationRecordId: string | null,
+): Promise<{ matches: boolean; observed: string }> {
+  if (!validationRecordId) {
+    return {
+      matches: false,
+      observed: "Geen expertvalidatierecord gekoppeld.",
+    };
+  }
+  const validation = await service
+    .from("expert_validation_records")
+    .select(
+      "status, target_type, target_id, content_hash, reviewer_user_id, reviewer_credentials, signed_at, scenario_results",
+    )
+    .eq("id", validationRecordId)
+    .maybeSingle();
+  if (validation.error || !validation.data) {
+    return {
+      matches: false,
+      observed: validation.error
+        ? `Expertvalidatie kon niet worden gelezen: ${validation.error.message}`
+        : "Gekoppelde expertvalidatie ontbreekt.",
+    };
+  }
+  const scenarios = Array.isArray(validation.data.scenario_results)
+    ? validation.data.scenario_results
+    : [];
+  const matches =
+    validation.data.status === "APPROVED" &&
+    validation.data.target_type === targetType &&
+    validation.data.target_id === targetId &&
+    validation.data.content_hash === contentHash &&
+    Boolean(validation.data.reviewer_user_id) &&
+    Boolean(String(validation.data.reviewer_credentials ?? "").trim()) &&
+    Boolean(validation.data.signed_at) &&
+    scenarios.length > 0;
+  return {
+    matches,
+    observed: `Expertstatus=${String(validation.data.status)}; doel en content-hash exact=${validation.data.target_type === targetType && validation.data.target_id === targetId && validation.data.content_hash === contentHash ? "ja" : "nee"}; ondertekening en scenario's compleet=${Boolean(validation.data.signed_at) && scenarios.length > 0 ? "ja" : "nee"}.`,
+  };
+}
+
+function verifyReadinessInvariants(bot: RisJourneyBot): void {
+  const startedAt = Date.now();
+  const observedAt = "2026-01-01T10:00:00.000Z";
+  const observation = (
+    overrides: Partial<RisScriptObservation>,
+  ): RisScriptObservation => ({
+    id: "journey-evidence",
+    scriptId: "journey-script",
+    competencyId: "safety-critical",
+    observedAt,
+    instructionStage: 8,
+    performanceOutcome: "DEVELOPING",
+    supportLevel: "OBSERVATION_ONLY",
+    safetyStatus: "NO_BLOCKER",
+    contextTags: ["urban"],
+    instructorId: "journey-instructor",
+    lessonId: "journey-lesson",
+    ...overrides,
+  });
+  const adapter = new Ris20ReadinessEvidenceAdapter();
+  const notObserved = adapter.normalize([
+    observation({
+      id: "journey-not-observed",
+      instructionStage: null,
+      performanceOutcome: "NOT_OBSERVED",
+      safetyStatus: "NOT_ASSESSED",
+    }),
+  ]);
+  const stageEight = adapter.normalize([
+    observation({ id: "journey-stage-eight" }),
+  ]);
+  const policy: ReadinessPolicy = {
+    id: "journey-policy",
+    version: "1",
+    curriculumVersionId: "journey-curriculum",
+    engineVersion: "2",
+    status: "PUBLISHED",
+    competencyRules: [
+      {
+        competencyId: "safety-critical",
+        critical: true,
+        requiredCompetenceBand: "SUFFICIENT",
+        requiredIndependenceBand: "INDEPENDENT",
+        minimumEvidenceCount: 1,
+        minimumContextCount: 1,
+        stabilityWindow: 1,
+        minimumStableObservations: 1,
+        requireSafetyClear: true,
+        compensable: false,
+      },
+    ],
+    prerequisiteRules: [],
+    assessmentRules: [],
+    expertValidation: {
+      required: true,
+      status: "APPROVED",
+      validationRecordId: "journey-validation",
+      validatedContentHash: "journey-hash",
+      currentContentHash: "journey-hash",
+    },
+  };
+  const stageEvaluation = evaluateReadiness({
+    evaluationId: "journey-evaluation",
+    tenantId: "journey-tenant",
+    enrollmentId: "journey-enrollment",
+    trainingMethod: "RIS_2_0",
+    curriculumVersionId: "journey-curriculum",
+    evaluatedAt: observedAt,
+    requestedMode: "ACTIVE",
+    policy,
+    evidence: stageEight,
+    prerequisites: [],
+    assessments: [],
+  });
+  const safetyBlockedModule = computeRisModuleReadiness(1, [
+    {
+      scriptId: "journey-script",
+      moduleNumber: 1,
+      step: "8",
+      isCritical: true,
+      performanceOutcome: "STABLE",
+      supportLevel: "OBSERVATION_ONLY",
+      safetyStatus: "BLOCKER",
+      readyForModuleTest: true,
+    },
+  ]);
+  const nIsCoverageOnly =
+    notObserved[0]?.observed === false &&
+    notObserved[0]?.competenceBand === "UNKNOWN";
+  const stageIsNotMastery =
+    stageEight[0]?.competenceBand === "DEVELOPING" &&
+    stageEvaluation.status === "BLOCKED" &&
+    stageEvaluation.reasons.some(
+      (reason) => reason.code === "CRITICAL_COMPETENCE_BELOW_POLICY",
+    );
+  const safetyCannotBeOverridden =
+    safetyBlockedModule.ready === false &&
+    safetyBlockedModule.averageStep === null &&
+    safetyBlockedModule.blockers.some((blocker) =>
+      blocker.toLowerCase().includes("veiligheid"),
+    );
+  bot.verify("RIS.PREFLIGHT.READINESS_INVARIANTS", {
+    passed: nIsCoverageOnly && stageIsNotMastery && safetyCannotBeOverridden,
+    observed: `N is uitsluitend ontbrekende dekking=${nIsCoverageOnly ? "ja" : "nee"}; stap 8 met developing blijft blocked=${stageIsNotMastery ? "ja" : "nee"}; handmatige ready-status passeert veiligheidsblokkade niet=${safetyCannotBeOverridden ? "ja" : "nee"}.`,
+    evidence: [
+      evidence(
+        "calculation",
+        "@workspace/leskaart centrale readiness-engine",
+        "Drie contrafeitelijke scenario's zijn tegen dezelfde engine uitgevoerd die de applicatie gebruikt.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
 }
 
 function plusDaysIso(
@@ -637,22 +828,198 @@ async function verifyRisInstructorToStudentJourney(
   adminUserId: string,
   instructorId: string,
   studentId: string,
+  bot: RisJourneyBot,
 ): Promise<void> {
+  let startedAt = Date.now();
   const settings = await service
     .from("tenant_ris_settings")
-    .select("lesson_card_mode, active_ris_version_id")
+    .select("lesson_card_mode, active_ris_version_id, ai_assist_enabled")
     .eq("tenant_id", tenant.id)
     .maybeSingle();
-  if (
-    settings.error ||
-    settings.data?.lesson_card_mode !== "ris" ||
-    !settings.data.active_ris_version_id
-  ) {
-    throw new Error(
-      "E2E tenant must have RIS mode and an active validated catalog",
-    );
-  }
+  bot.verify("RIS.PREFLIGHT.TENANT_MODE", {
+    passed:
+      !settings.error &&
+      settings.data?.lesson_card_mode === "ris" &&
+      Boolean(settings.data.active_ris_version_id) &&
+      settings.data?.ai_assist_enabled === false,
+    observed: settings.error
+      ? `Tenantinstellingen konden niet worden gelezen: ${settings.error.message}`
+      : `lesson_card_mode=${settings.data?.lesson_card_mode ?? "ontbreekt"}, actieve catalogus=${settings.data?.active_ris_version_id ? "ja" : "nee"}, AI=${settings.data?.ai_assist_enabled === false ? "uit" : "aan of onbekend"}.`,
+    evidence: [
+      evidence(
+        "configuration",
+        "tenant_ris_settings",
+        "RIS-modus, actieve versie en AI-schakelaar zijn rechtstreeks uit de tenantconfiguratie gelezen.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+  const risVersionId = settings.data!.active_ris_version_id as string;
 
+  startedAt = Date.now();
+  const [modules, scripts, steps] = await Promise.all([
+    service
+      .from("ris_modules")
+      .select("module_number")
+      .eq("ris_version_id", risVersionId),
+    service
+      .from("ris_scripts")
+      .select("id", { count: "exact", head: true })
+      .eq("ris_version_id", risVersionId)
+      .eq("is_active", true),
+    service
+      .from("ris_step_definitions")
+      .select("step_value")
+      .eq("ris_version_id", risVersionId),
+  ]);
+  const moduleNumbers = (modules.data ?? [])
+    .map((row) => Number(row.module_number))
+    .sort((a, b) => a - b);
+  const stepValues = new Set(
+    (steps.data ?? []).map((row) => String(row.step_value)),
+  );
+  const expectedSteps = ["N", "1", "2", "3", "4", "5", "6", "7", "8"];
+  const catalogStructureValid =
+    !modules.error &&
+    !scripts.error &&
+    !steps.error &&
+    JSON.stringify(moduleNumbers) === JSON.stringify([1, 2, 3, 4]) &&
+    scripts.count === 46 &&
+    stepValues.size === expectedSteps.length &&
+    expectedSteps.every((value) => stepValues.has(value));
+  bot.verify("RIS.PREFLIGHT.CATALOG_STRUCTURE", {
+    passed: catalogStructureValid,
+    observed: `Modules=${moduleNumbers.join(",") || "geen"}; actieve scripts=${scripts.count ?? "onbekend"}; stapwaarden=${[...stepValues].sort().join(",") || "geen"}.`,
+    evidence: [
+      evidence(
+        "database",
+        "ris_modules + ris_scripts + ris_step_definitions",
+        "De bot vergelijkt aantallen én exacte canonieke waarden met de releasebaseline.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+  verifyReadinessInvariants(bot);
+
+  startedAt = Date.now();
+  const curriculum = await service
+    .from("curriculum_versions")
+    .select(
+      "id, status, content_hash, expert_validation_record_id, training_method",
+    )
+    .eq("source_ris_version_id", risVersionId)
+    .eq("training_method", "RIS_2_0")
+    .maybeSingle();
+  const curriculumApproval = curriculum.data
+    ? await exactExpertApproval(
+        "CURRICULUM",
+        curriculum.data.id as string,
+        curriculum.data.content_hash as string,
+        curriculum.data.expert_validation_record_id as string | null,
+      )
+    : { matches: false, observed: "Geen RIS 2.0-curriculum gevonden." };
+  bot.verify("RIS.PREFLIGHT.CURRICULUM_VALIDATION", {
+    passed:
+      !curriculum.error &&
+      curriculum.data?.status === "PUBLISHED" &&
+      curriculumApproval.matches,
+    observed: curriculum.error
+      ? `Curriculumcontrole faalde: ${curriculum.error.message}`
+      : `Curriculumstatus=${curriculum.data?.status ?? "ontbreekt"}; ${curriculumApproval.observed}`,
+    evidence: [
+      evidence(
+        "database",
+        "curriculum_versions + expert_validation_records",
+        "Status, doel-id en content-hash zijn als één onverbrekelijke publicatiegate vergeleken.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+  const curriculumId = curriculum.data!.id as string;
+
+  startedAt = Date.now();
+  const policies = await service
+    .from("readiness_policies")
+    .select(
+      "id, tenant_id, status, content_hash, expert_validation_record_id, engine_version",
+    )
+    .eq("curriculum_version_id", curriculumId)
+    .eq("status", "PUBLISHED");
+  const policy =
+    (policies.data ?? []).find((row) => row.tenant_id === tenant.id) ??
+    (policies.data ?? []).find((row) => row.tenant_id === null);
+  const policyApproval = policy
+    ? await exactExpertApproval(
+        "READINESS_POLICY",
+        policy.id as string,
+        policy.content_hash as string,
+        policy.expert_validation_record_id as string | null,
+      )
+    : {
+        matches: false,
+        observed: "Geen gepubliceerd readinessbeleid gevonden.",
+      };
+  bot.verify("RIS.PREFLIGHT.READINESS_POLICY", {
+    passed: !policies.error && Boolean(policy) && policyApproval.matches,
+    observed: policies.error
+      ? `Readinessbeleid kon niet worden gelezen: ${policies.error.message}`
+      : `${policy ? `Gepubliceerd beleid met engine ${String(policy.engine_version)}` : "Geen toepasselijk beleid"}; ${policyApproval.observed}`,
+    evidence: [
+      evidence(
+        "database",
+        "readiness_policies + expert_validation_records",
+        "Tenantbeleid heeft voorrang op globaal beleid; het actuele hash moet exact zijn goedgekeurd.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+
+  startedAt = Date.now();
+  const assessmentDefinitions = await service
+    .from("assessment_definitions")
+    .select(
+      "id, assessment_type, status, content_hash, expert_validation_record_id",
+    )
+    .eq("curriculum_version_id", curriculumId)
+    .eq("status", "PUBLISHED")
+    .in("assessment_type", ["RIS_MODULE_1", "RIS_MODULE_2"]);
+  const definitionApprovals = await Promise.all(
+    (assessmentDefinitions.data ?? []).map(async (definition) => ({
+      type: String(definition.assessment_type),
+      approval: await exactExpertApproval(
+        "ASSESSMENT_DEFINITION",
+        definition.id as string,
+        definition.content_hash as string,
+        definition.expert_validation_record_id as string | null,
+      ),
+    })),
+  );
+  const publishedTypes = new Set(
+    (assessmentDefinitions.data ?? []).map((row) =>
+      String(row.assessment_type),
+    ),
+  );
+  bot.verify("RIS.PREFLIGHT.MODULE_TEST_DEFINITIONS", {
+    passed:
+      !assessmentDefinitions.error &&
+      publishedTypes.has("RIS_MODULE_1") &&
+      publishedTypes.has("RIS_MODULE_2") &&
+      definitionApprovals.length === 2 &&
+      definitionApprovals.every((item) => item.approval.matches),
+    observed: assessmentDefinitions.error
+      ? `Moduletoetsdefinities konden niet worden gelezen: ${assessmentDefinitions.error.message}`
+      : `Gepubliceerd: ${[...publishedTypes].sort().join(",") || "geen"}; exacte expertgoedkeuringen=${definitionApprovals.filter((item) => item.approval.matches).length}/2.`,
+    evidence: [
+      evidence(
+        "database",
+        "assessment_definitions + expert_validation_records",
+        "Beide vereiste moduletoetsdefinities zijn afzonderlijk op status, doel en hash gecontroleerd.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+
+  startedAt = Date.now();
   const enrollment = await service
     .from("training_enrollments")
     .select("id")
@@ -661,30 +1028,53 @@ async function verifyRisInstructorToStudentJourney(
     .eq("training_method", "RIS_2_0")
     .eq("status", "ACTIVE")
     .maybeSingle();
-  if (enrollment.error || !enrollment.data?.id) {
-    throw new Error(
-      "E2E student needs an active RIS_2_0 enrollment; the suite never fabricates expert approval",
-    );
-  }
+  bot.verify("RIS.PREFLIGHT.ENROLLMENT", {
+    passed: !enrollment.error && Boolean(enrollment.data?.id),
+    observed: enrollment.error
+      ? `Inschrijving kon niet worden gelezen: ${enrollment.error.message}`
+      : `Actieve RIS 2.0-inschrijving=${enrollment.data?.id ? "ja" : "nee"}.`,
+    evidence: [
+      evidence(
+        "database",
+        "training_enrollments",
+        "Tenant, leerling, methode en actieve status zijn gezamenlijk gefilterd.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
 
+  startedAt = Date.now();
   const firstScript = await service
     .from("ris_scripts")
     .select("id, title")
-    .eq("ris_version_id", settings.data.active_ris_version_id)
+    .eq("ris_version_id", risVersionId)
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (firstScript.error || !firstScript.data?.id) {
-    throw new Error("active RIS catalog has no script to assess");
-  }
+  bot.verify("RIS.JOURNEY.FOCUS_SCRIPT", {
+    passed: !firstScript.error && Boolean(firstScript.data?.id),
+    observed: firstScript.error
+      ? `Focusscript kon niet worden gelezen: ${firstScript.error.message}`
+      : `Actief, catalogusgebonden focusscript=${firstScript.data?.id ? "gevonden" : "niet gevonden"}.`,
+    evidence: [
+      evidence(
+        "database",
+        "ris_scripts",
+        "Het eerste actieve script uit de actieve versie wordt als deterministische fixture gebruikt.",
+      ),
+    ],
+    durationMs: Date.now() - startedAt,
+  });
+  const firstScriptId = firstScript.data!.id as string;
+  const firstScriptTitle = firstScript.data!.title as string;
 
   const progressBefore = await service
     .from("student_ris_progress")
     .select("*")
     .eq("tenant_id", tenant.id)
     .eq("student_id", studentId)
-    .eq("script_id", firstScript.data.id)
+    .eq("script_id", firstScriptId)
     .maybeSingle();
   if (progressBefore.error) {
     throw new Error(
@@ -694,7 +1084,7 @@ async function verifyRisInstructorToStudentJourney(
   risProgressSnapshots.push({
     tenantId: tenant.id,
     studentId,
-    scriptId: firstScript.data.id as string,
+    scriptId: firstScriptId,
     row: (progressBefore.data as Record<string, unknown> | null) ?? null,
   });
 
@@ -707,7 +1097,7 @@ async function verifyRisInstructorToStudentJourney(
   const instructorContext = await browser.newContext();
   const instructorPage = await createPage(instructorContext);
   const reflectionText = `E2E zelfreflectie ${Date.now()}`;
-  const learnerWish = `Ik wil ${firstScript.data.title as string} verder oefenen`;
+  const learnerWish = `Ik wil ${firstScriptTitle} verder oefenen`;
 
   try {
     await loginViaUi(instructorPage, accounts[1]);
@@ -722,19 +1112,20 @@ async function verifyRisInstructorToStudentJourney(
     if (!(await firstModule.getAttribute("open"))) {
       await firstModule.locator("summary").click();
     }
+    startedAt = Date.now();
     const slider = instructorPage
       .getByRole("slider", { name: /RIS-stap voor/i })
       .first();
     await slider.press("End");
-    await poll(
+    const separatedObservation = await poll(
       async () =>
         service
           .from("ris_script_assessments")
           .select(
-            "id, lesson_card_id, concept_ris_step, concept_performance_outcome, concept_support_level, concept_safety_status",
+            "id, lesson_card_id, concept_ris_step, concept_performance_outcome, concept_support_level, concept_safety_status, ready_for_test",
           )
           .eq("tenant_id", tenant.id)
-          .eq("script_id", firstScript.data!.id)
+          .eq("script_id", firstScriptId)
           .eq("lesson_id", lessonId)
           .maybeSingle(),
       (value) =>
@@ -744,17 +1135,56 @@ async function verifyRisInstructorToStudentJourney(
         Boolean(value.data?.concept_safety_status),
       "separated RIS observation",
     );
+    bot.verify("RIS.JOURNEY.SEPARATED_OBSERVATION", {
+      passed:
+        separatedObservation.data?.concept_ris_step === "8" &&
+        Boolean(separatedObservation.data?.concept_performance_outcome) &&
+        Boolean(separatedObservation.data?.concept_support_level) &&
+        Boolean(separatedObservation.data?.concept_safety_status),
+      observed: `Stap=${String(separatedObservation.data?.concept_ris_step)}; prestatie=${String(separatedObservation.data?.concept_performance_outcome)}; ondersteuning=${String(separatedObservation.data?.concept_support_level)}; veiligheid=${String(separatedObservation.data?.concept_safety_status)}.`,
+      evidence: [
+        evidence(
+          "ui",
+          `/instructeur/lessen/{les}/beoordeling`,
+          "De bot bedient het echte beoordelingsformulier met Playwright.",
+        ),
+        evidence(
+          "database",
+          "ris_script_assessments",
+          "Alle vier onafhankelijke conceptvelden zijn na autosave teruggelezen.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
+    bot.verify("RIS.JOURNEY.STAGE_NOT_MASTERY", {
+      passed: separatedObservation.data?.ready_for_test === false,
+      observed: `RIS-stap=8 en legacy ready_for_test=${String(separatedObservation.data?.ready_for_test)}; prestatie en veiligheid blijven afzonderlijke velden.`,
+      evidence: [
+        evidence(
+          "database",
+          "ris_script_assessments",
+          "De pensioen-trigger houdt de handmatige ready-boolean uit, ook bij de hoogste instructiestap.",
+        ),
+        evidence(
+          "calculation",
+          "readiness release invariant",
+          "De controle accepteert geen directe gelijkstelling stap 8 = toets- of examenrijp.",
+        ),
+      ],
+      durationMs: 0,
+    });
 
     await instructorPage
       .getByRole("tab", { name: "Reflectie", exact: true })
       .click();
+    startedAt = Date.now();
     await instructorPage
       .getByRole("radio", { name: /Door leerling zelf/i })
       .check();
     await instructorPage
       .getByLabel("Reflectie in een zin")
       .fill(reflectionText);
-    await poll(
+    const savedReflection = await poll(
       async () =>
         service
           .from("ris_guided_reflections")
@@ -765,9 +1195,74 @@ async function verifyRisInstructorToStudentJourney(
       (value) => value.data?.entry_mode === "student_self",
       "student-authored reflection autosave",
     );
+    bot.verify("RIS.JOURNEY.REFLECTION_AUTHORSHIP", {
+      passed:
+        savedReflection.data?.entry_mode === "student_self" &&
+        savedReflection.data?.one_sentence_reflection === reflectionText,
+      observed: `entry_mode=${String(savedReflection.data?.entry_mode)}; unieke reflectiemarker is aan dezelfde reflectie gekoppeld.`,
+      evidence: [
+        evidence(
+          "ui",
+          `/instructeur/lessen/{les}/reflectie`,
+          "De optie 'Door leerling zelf' en het reflectieveld zijn via de gebruikersinterface ingevuld.",
+        ),
+        evidence(
+          "database",
+          "ris_guided_reflections",
+          "Entry mode en unieke tekstmarker zijn samen teruggelezen.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
+
+    const draftCard = await service
+      .from("ris_lesson_cards")
+      .select("id, publication_status")
+      .eq("tenant_id", tenant.id)
+      .eq("lesson_id", lessonId)
+      .maybeSingle();
+    startedAt = Date.now();
+    const draftStudentContext = await browser.newContext();
+    const draftStudentPage = await createPage(draftStudentContext);
+    let draftVisible = false;
+    try {
+      await loginViaUi(draftStudentPage, accounts[2]);
+      await draftStudentPage.goto(appUrl(`/leerling/lessen/${lessonId}`), {
+        waitUntil: "domcontentloaded",
+        timeout: timeoutMs,
+      });
+      draftVisible = await draftStudentPage
+        .getByText(reflectionText, { exact: true })
+        .isVisible()
+        .catch(() => false);
+    } finally {
+      await draftStudentContext.close();
+    }
+    bot.verify("RIS.JOURNEY.DRAFT_PRIVACY", {
+      passed:
+        !draftCard.error &&
+        draftCard.data?.publication_status !== "waiting_for_student_response" &&
+        draftCard.data?.publication_status !== "fully_completed" &&
+        !draftVisible,
+      observed: `Conceptstatus=${String(draftCard.data?.publication_status)}; unieke reflectiemarker zichtbaar voor leerling=${draftVisible ? "ja" : "nee"}.`,
+      evidence: [
+        evidence(
+          "database",
+          "ris_lesson_cards",
+          "De kaartstatus is vóór publicatie vastgelegd.",
+        ),
+        evidence(
+          "ui",
+          `/leerling/lessen/{les}`,
+          "Een afzonderlijke leerlingbrowser zocht vóór publicatie exact naar de unieke conceptmarker.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
 
     await instructorPage.getByRole("tab", { name: /Samenvatting/ }).click();
     instructorPage.once("dialog", (dialog) => void dialog.accept());
+    startedAt = Date.now();
     await instructorPage
       .getByRole("button", { name: "Afronden & publiceren" })
       .click();
@@ -786,10 +1281,30 @@ async function verifyRisInstructorToStudentJourney(
     );
     const cardId = publishedCard.data?.id as string | undefined;
     if (!cardId) throw new Error("published RIS card id missing");
+    bot.verify("RIS.JOURNEY.PUBLICATION", {
+      passed:
+        publishedCard.data?.publication_status ===
+        "waiting_for_student_response",
+      observed: `Publicatiestatus=${String(publishedCard.data?.publication_status)}.`,
+      evidence: [
+        evidence(
+          "ui",
+          `/instructeur/lessen/{les}/samenvatting`,
+          "De echte actie 'Afronden & publiceren' is bevestigd.",
+        ),
+        evidence(
+          "database",
+          "ris_lesson_cards",
+          "De verwachte expliciete publicatiestatus is teruggelezen.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
 
     const studentContext = await browser.newContext();
     const studentPage = await createPage(studentContext);
     try {
+      startedAt = Date.now();
       await loginViaUi(studentPage, accounts[2]);
       await studentPage.goto(appUrl(`/leerling/lessen/${lessonId}`), {
         waitUntil: "domcontentloaded",
@@ -799,6 +1314,20 @@ async function verifyRisInstructorToStudentJourney(
       await studentPage
         .getByText("Door leerling zelf", { exact: true })
         .waitFor();
+      bot.verify("RIS.JOURNEY.STUDENT_VISIBILITY", {
+        passed: true,
+        observed:
+          "De unieke gepubliceerde reflectiemarker en het label 'Door leerling zelf' zijn beide zichtbaar.",
+        evidence: [
+          evidence(
+            "ui",
+            `/leerling/lessen/{les}`,
+            "De leerlingbrowser wachtte op de exacte tekst en het exacte auteurschapslabel.",
+          ),
+        ],
+        durationMs: Date.now() - startedAt,
+      });
+      startedAt = Date.now();
       await studentPage
         .getByPlaceholder("Mijn korte reactie op deze les...")
         .fill("De gepubliceerde feedback klopt.");
@@ -809,11 +1338,47 @@ async function verifyRisInstructorToStudentJourney(
         .getByRole("button", { name: "Reactie opslaan" })
         .click();
       await studentPage.getByText("Je reactie is opgeslagen.").waitFor();
+      const response = await poll(
+        async () =>
+          service
+            .from("student_post_lesson_responses")
+            .select("student_id, comment_text, next_lesson_wish")
+            .eq("tenant_id", tenant.id)
+            .eq("lesson_card_id", cardId)
+            .maybeSingle(),
+        (value) =>
+          value.data?.student_id === studentId &&
+          value.data?.comment_text === "De gepubliceerde feedback klopt." &&
+          value.data?.next_lesson_wish === learnerWish,
+        "student response persistence",
+      );
+      bot.verify("RIS.JOURNEY.STUDENT_RESPONSE", {
+        passed:
+          response.data?.student_id === studentId &&
+          response.data?.comment_text === "De gepubliceerde feedback klopt." &&
+          response.data?.next_lesson_wish === learnerWish,
+        observed:
+          "Reactie en leerwens zijn exact teruggelezen op dezelfde tenant, leerling en leskaart.",
+        evidence: [
+          evidence(
+            "ui",
+            `/leerling/lessen/{les}`,
+            "De leerling heeft beide velden ingevuld en de bevestiging ontvangen.",
+          ),
+          evidence(
+            "database",
+            "student_post_lesson_responses",
+            "Tenant-, leerling- en leskaartrelatie plus beide waarden zijn gecontroleerd.",
+          ),
+        ],
+        durationMs: Date.now() - startedAt,
+      });
     } finally {
       await studentContext.close();
     }
 
-    await poll(
+    startedAt = Date.now();
+    const completedCard = await poll(
       async () =>
         service
           .from("ris_lesson_cards")
@@ -823,6 +1388,18 @@ async function verifyRisInstructorToStudentJourney(
       (value) => value.data?.publication_status === "fully_completed",
       "student response completion",
     );
+    bot.verify("RIS.JOURNEY.COMPLETION", {
+      passed: completedCard.data?.publication_status === "fully_completed",
+      observed: `Eindstatus=${String(completedCard.data?.publication_status)}.`,
+      evidence: [
+        evidence(
+          "database",
+          "ris_lesson_cards",
+          "De status is na de respons opnieuw gepolld tot de gesloten toestand.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
 
     const nextLessonId = await createPlannedLessonForFlow(
       tenant,
@@ -830,6 +1407,7 @@ async function verifyRisInstructorToStudentJourney(
       instructorId,
       studentId,
     );
+    startedAt = Date.now();
     await instructorPage.goto(appUrl(`/instructeur/lessen/${nextLessonId}`), {
       waitUntil: "domcontentloaded",
       timeout: timeoutMs,
@@ -841,6 +1419,60 @@ async function verifyRisInstructorToStudentJourney(
     await instructorPage
       .getByText("Regelgebaseerd lesvoorstel", { exact: true })
       .waitFor();
+    bot.verify("RIS.JOURNEY.NEXT_FOCUS", {
+      passed: true,
+      observed:
+        "De volgende plankaart toont zowel de exacte leerlingwens als het label 'Regelgebaseerd lesvoorstel'.",
+      evidence: [
+        evidence(
+          "ui",
+          `/instructeur/lessen/{volgende-les}/plankaart`,
+          "De bot verifieert de twee verklarende signalen via exacte UI-locators.",
+        ),
+        evidence(
+          "calculation",
+          "next-focus rule engine",
+          "De verwachte output is expliciet regelgebaseerd en doet geen AI-claim.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
+
+    startedAt = Date.now();
+    const audit = await service
+      .from("audit_log")
+      .select("action, actor_user_id")
+      .eq("tenant_id", tenant.id)
+      .eq("target_type", "ris_lesson_card")
+      .eq("target_id", cardId)
+      .in("action", [
+        "ris.lesson_card_published",
+        "ris.student_response_submitted",
+      ]);
+    const auditActions = new Set(
+      (audit.data ?? []).map((row) => String(row.action)),
+    );
+    const actorsPresent = (audit.data ?? []).every((row) =>
+      Boolean(row.actor_user_id),
+    );
+    bot.verify("RIS.JOURNEY.AUDIT_TRAIL", {
+      passed:
+        !audit.error &&
+        auditActions.has("ris.lesson_card_published") &&
+        auditActions.has("ris.student_response_submitted") &&
+        actorsPresent,
+      observed: audit.error
+        ? `Audittrail kon niet worden gelezen: ${audit.error.message}`
+        : `Auditacties=${[...auditActions].sort().join(",") || "geen"}; actor op ieder event=${actorsPresent ? "ja" : "nee"}.`,
+      evidence: [
+        evidence(
+          "audit",
+          "audit_log",
+          "Publicatie en leerlingreactie zijn op dezelfde leskaart en met actor gecontroleerd.",
+        ),
+      ],
+      durationMs: Date.now() - startedAt,
+    });
   } finally {
     await instructorContext.close();
   }
@@ -1485,9 +2117,50 @@ async function cleanupMessagesAndConversations(): Promise<void> {
   }
 }
 
+function finalizeRisJourneyReport(): void {
+  if (!risJourneyBot || risJourneyReportWritten) return;
+  risJourneyReportWritten = true;
+  risJourneyBot.blockRemaining(
+    "De journey is vóór deze controle gestopt; zie de eerst gefaalde of geblokkeerde controle.",
+  );
+  const { report, files } = risJourneyBot.writeReports({
+    outputDirectory: risOutputDirectory,
+    previousReportPath:
+      process.env["E2E_RIS_PREVIOUS_REPORT"]?.trim() || undefined,
+  });
+  console.log(
+    `${report.outcome} RIS journeybot report - ${report.summary.passed}/${report.summary.total} passed, ${report.summary.explainabilityScore}% explainable`,
+  );
+  for (const file of files) console.log(`REPORT ${file}`);
+  const journeyAlreadyFailed = results.some(
+    (result) =>
+      result.status === "FAIL" &&
+      result.name.startsWith("RIS instructor assessment"),
+  );
+  if (report.outcome !== "PASS" && !journeyAlreadyFailed) {
+    record(
+      "FAIL",
+      "RIS journeybot release baseline",
+      `${report.outcome}; failed=${report.summary.failed}, blocked=${report.summary.blocked}, timing regressions=${report.comparison.durationRegressions.length}`,
+    );
+  }
+}
+
+function startRisJourneyBot(): RisJourneyBot {
+  if (!risJourneyBot) {
+    risJourneyBot = new RisJourneyBot({
+      baseline: loadRisJourneyBaseline(risBaselinePath),
+      target: baseUrl,
+      commitSha: process.env["GITHUB_SHA"]?.trim() || null,
+    });
+  }
+  return risJourneyBot;
+}
+
 async function main(): Promise<void> {
   console.log(`${bannerFor(env)} - browser business-flow E2E`);
   console.log(`Target: ${baseUrl}`);
+  if (risJourneyOnly) console.log("Mode: uitgebreide RIS journeybot");
   console.log("");
 
   const tenant = await lookupTenant();
@@ -1497,30 +2170,33 @@ async function main(): Promise<void> {
 
   const browser = await createBrowser();
   try {
-    for (const account of accounts) {
-      await expect(
-        `login + session persistence (${account.label})`,
-        async () => {
-          await verifyRoleLogin(browser, account);
-        },
-      );
+    if (!risJourneyOnly) {
+      for (const account of accounts) {
+        await expect(
+          `login + session persistence (${account.label})`,
+          async () => {
+            await verifyRoleLogin(browser, account);
+          },
+        );
+      }
+
+      await expect("lead -> trial -> student conversion", async () => {
+        await verifyLeadToTrialToStudent(browser, tenant, instructorUserId);
+      });
+
+      await expect("lesson scheduling -> start -> completion", async () => {
+        await verifyLessonPlanningAndCompletion(
+          browser,
+          tenant,
+          adminUserId,
+          instructorUserId,
+          student.id,
+        );
+      });
     }
 
-    await expect("lead -> trial -> student conversion", async () => {
-      await verifyLeadToTrialToStudent(browser, tenant, instructorUserId);
-    });
-
-    await expect("lesson scheduling -> start -> completion", async () => {
-      await verifyLessonPlanningAndCompletion(
-        browser,
-        tenant,
-        adminUserId,
-        instructorUserId,
-        student.id,
-      );
-    });
-
     if (enableRisJourney) {
+      const bot = startRisJourneyBot();
       await expect(
         "RIS instructor assessment -> self-reflection -> publication -> student response -> next focus",
         async () => {
@@ -1530,9 +2206,11 @@ async function main(): Promise<void> {
             adminUserId,
             instructorUserId,
             student.id,
+            bot,
           );
         },
       );
+      finalizeRisJourneyReport();
     } else {
       record(
         "SKIP",
@@ -1541,21 +2219,23 @@ async function main(): Promise<void> {
       );
     }
 
-    await expect("student <-> instructor messaging", async () => {
-      await verifyMessaging(browser, tenant, instructorUserId);
-    });
+    if (!risJourneyOnly) {
+      await expect("student <-> instructor messaging", async () => {
+        await verifyMessaging(browser, tenant, instructorUserId);
+      });
 
-    await expect("branch-scoped student visibility", async () => {
-      await verifyBranchIsolation(browser, tenant, adminUserId);
-    });
+      await expect("branch-scoped student visibility", async () => {
+        await verifyBranchIsolation(browser, tenant, adminUserId);
+      });
 
-    await expect("white-label subdomain shell", async () => {
-      await verifyWhiteLabelHost(browser, tenant);
-    });
+      await expect("white-label subdomain shell", async () => {
+        await verifyWhiteLabelHost(browser, tenant);
+      });
 
-    await expect("student payments + checkout entrypoint", async () => {
-      await verifyPayments(browser, tenant, adminUserId);
-    });
+      await expect("student payments + checkout entrypoint", async () => {
+        await verifyPayments(browser, tenant, adminUserId);
+      });
+    }
   } finally {
     await browser.close();
     await cleanupMessagesAndConversations();
@@ -1565,6 +2245,7 @@ async function main(): Promise<void> {
     await cleanupLeadArtifacts();
     await cleanupMembershipsAndUsers();
     await cleanupBranches();
+    finalizeRisJourneyReport();
   }
 
   console.log("");
@@ -1576,6 +2257,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
+  if (enableRisJourney) startRisJourneyBot();
+  finalizeRisJourneyReport();
   record(
     "FAIL",
     "business-flow suite",
