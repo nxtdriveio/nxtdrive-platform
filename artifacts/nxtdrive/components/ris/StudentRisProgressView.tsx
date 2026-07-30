@@ -25,6 +25,7 @@ import type {
   StudentRisProgressItem,
   StudentRisPublishedCard,
 } from "@/lib/ris/data";
+import { RIS_REFLECTION_ENTRY_MODE_LABELS } from "@/lib/ris/data";
 import { risStepNumber } from "@workspace/leskaart";
 
 type RisStudentTab = "roadmap" | "modules" | "feedback";
@@ -336,7 +337,7 @@ function LatestFeedbackCard({ card }: { card: StudentRisPublishedCard | null }) 
       eyebrow="Laatste leskaart"
       info="Deze tekst is leerlingvriendelijk bevestigd door je instructeur."
       actionLabel="Open les"
-      actionHref={`/student/lessons/${card.lessonId}`}
+      actionHref={`/leerling/lessen/${card.lessonId}`}
     >
       <PublishedLessonCard card={card} featured />
     </StudentShowcaseCard>
@@ -394,11 +395,16 @@ function PublishedLessonCard({
       ) : null}
 
       {reflection ? (
-        <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
-          <ReflectionSnippet label="Dit ging goed" value={reflection.wentWellText} />
-          <ReflectionSnippet label="Dit was lastig" value={reflection.difficultText} />
-          <ReflectionSnippet label="Jouw leerwens" value={reflection.nextLessonWish} />
-        </div>
+        <>
+          <div className="mt-3 text-xs text-white/48">
+            Zelfreflectie: {RIS_REFLECTION_ENTRY_MODE_LABELS[reflection.entryMode]}
+          </div>
+          <div className="mt-2 grid gap-2.5 sm:grid-cols-3">
+            <ReflectionSnippet label="Dit ging goed" value={reflection.wentWellText} />
+            <ReflectionSnippet label="Dit was lastig" value={reflection.difficultText} />
+            <ReflectionSnippet label="Jouw leerwens" value={reflection.nextLessonWish} />
+          </div>
+        </>
       ) : null}
     </article>
   );

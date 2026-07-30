@@ -5,6 +5,8 @@ import {
   translateRisStepForStudent,
   type RISModuleProgress,
   type RISProgressInput,
+  type RisPerformanceOutcome,
+  type RisSafetyStatus,
   type RISStepDefinition,
   type RISStepValue,
   type RISTreeModule,
@@ -58,6 +60,18 @@ export const RIS_REFLECTION_RATING_LABELS: Record<RisReflectionRating, string> =
   very_sufficient: "Zeer voldoende",
 };
 
+export type RisReflectionEntryMode =
+  | "student_self"
+  | "instructor_assisted";
+
+export const RIS_REFLECTION_ENTRY_MODE_LABELS: Record<
+  RisReflectionEntryMode,
+  string
+> = {
+  student_self: "Door leerling zelf",
+  instructor_assisted: "Met hulp van instructeur",
+};
+
 export type RisCatalog = {
   version: {
     id: string;
@@ -82,6 +96,8 @@ export type RisScriptAssessment = {
   isFeaturedForLesson: boolean;
   shouldRepeat: boolean;
   readyForTest: boolean;
+  performanceOutcome: RisPerformanceOutcome | null;
+  safetyStatus: RisSafetyStatus | null;
   instructorNote: string | null;
   studentVisibleNote: string | null;
 };
@@ -119,6 +135,8 @@ export type StudentRisPublishedCard = Omit<RisLessonCard, "internalSummary"> & {
 export type RisGuidedReflection = {
   lessonCardId: string;
   studentPresent: boolean;
+  entryMode: RisReflectionEntryMode;
+  capturedSurface: string | null;
   overallRating: RisReflectionRating | null;
   independenceRating: RisReflectionRating | null;
   insightRating: RisReflectionRating | null;
@@ -527,7 +545,7 @@ export async function loadStudentRisProgress(
           client
             .from("ris_guided_reflections")
             .select(
-              "lesson_card_id, student_present, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
+              "lesson_card_id, student_present, entry_mode, captured_surface, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
             )
             .eq("tenant_id", tenantId)
             .in("lesson_card_id", cardIds),
@@ -655,7 +673,7 @@ export async function loadStudentRisLessonCardDetail(
     client
       .from("ris_script_assessments")
       .select(
-        "id, lesson_card_id, script_id, script_variant_id, previous_ris_step, final_ris_step, status, is_attention_point, is_featured_for_lesson, should_repeat, ready_for_test, student_visible_note",
+        "id, lesson_card_id, script_id, script_variant_id, previous_ris_step, final_ris_step, final_performance_outcome, final_safety_status, status, is_attention_point, is_featured_for_lesson, should_repeat, ready_for_test, student_visible_note",
       )
       .eq("tenant_id", tenantId)
       .eq("lesson_card_id", card.id)
@@ -663,7 +681,7 @@ export async function loadStudentRisLessonCardDetail(
     client
       .from("ris_guided_reflections")
       .select(
-        "lesson_card_id, student_present, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
+        "lesson_card_id, student_present, entry_mode, captured_surface, overall_rating, independence_rating, insight_rating, confidence_rating, one_sentence_reflection, rating_overall, rating_independence, went_well_text, difficult_text, next_lesson_wish, captured_at, published_at",
       )
       .eq("tenant_id", tenantId)
       .eq("lesson_card_id", card.id)
@@ -1341,6 +1359,12 @@ function mapAssessment(row: Record<string, unknown>): RisScriptAssessment {
     isFeaturedForLesson: Boolean(row.is_featured_for_lesson),
     shouldRepeat: Boolean(row.should_repeat),
     readyForTest: Boolean(row.ready_for_test),
+    performanceOutcome:
+      ((row.concept_performance_outcome ??
+        row.final_performance_outcome) as RisPerformanceOutcome | null) ?? null,
+    safetyStatus:
+      ((row.concept_safety_status ??
+        row.final_safety_status) as RisSafetyStatus | null) ?? null,
     instructorNote: (row.instructor_note as string | null) ?? null,
     studentVisibleNote: (row.student_visible_note as string | null) ?? null,
   };
@@ -1350,6 +1374,11 @@ function mapGuidedReflection(row: Record<string, unknown>): RisGuidedReflection 
   return {
     lessonCardId: row.lesson_card_id as string,
     studentPresent: row.student_present !== false,
+    entryMode:
+      row.entry_mode === "student_self"
+        ? "student_self"
+        : "instructor_assisted",
+    capturedSurface: (row.captured_surface as string | null) ?? null,
     overallRating: (row.overall_rating as RisReflectionRating | null) ?? null,
     independenceRating: (row.independence_rating as RisReflectionRating | null) ?? null,
     insightRating: (row.insight_rating as RisReflectionRating | null) ?? null,

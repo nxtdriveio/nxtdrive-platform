@@ -30,6 +30,7 @@ import {
 import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import {
   loadStudentRisLessonCardDetail,
+  RIS_REFLECTION_ENTRY_MODE_LABELS,
   RIS_REFLECTION_RATING_LABELS,
 } from "@/lib/ris/data";
 import { loadLessonSelfServicePreview } from "@/lib/lessons/student-self-service";
@@ -244,9 +245,14 @@ export default async function StudentLessonDetailPage({
 
             {risDetail.card.reflection ? (
               <div className="rounded-2xl border border-brand-border bg-white/75 p-3">
-                <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
-                  Samen gereflecteerd
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
+                    Zelfreflectie
+                  </p>
+                  <span className="rounded-full bg-brand-accent px-3 py-1 text-xs font-semibold text-brand-primary">
+                    {RIS_REFLECTION_ENTRY_MODE_LABELS[risDetail.card.reflection.entryMode]}
+                  </span>
+                </div>
                 {risDetail.card.reflection.oneSentenceReflection ? (
                   <p className="mt-2 text-sm font-semibold leading-6 text-brand-foreground">
                     {risDetail.card.reflection.oneSentenceReflection}

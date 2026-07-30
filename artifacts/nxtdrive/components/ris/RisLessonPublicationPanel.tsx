@@ -25,10 +25,14 @@ import {
 } from "@/lib/ris/actions";
 import type {
   InstructorRisLessonCard,
+  RisReflectionEntryMode,
   RisReflectionRating,
   RisScriptAssessment,
 } from "@/lib/ris/data";
-import { RIS_REFLECTION_RATING_LABELS } from "@/lib/ris/data";
+import {
+  RIS_REFLECTION_ENTRY_MODE_LABELS,
+  RIS_REFLECTION_RATING_LABELS,
+} from "@/lib/ris/data";
 import { risStepNumber, type RISStepValue } from "@workspace/leskaart";
 
 type PublicationMode = "reflection" | "summary" | "quick";
@@ -164,6 +168,9 @@ export function RisLessonPublicationPanel({
   const [studentPresent, setStudentPresent] = useState(
     reflection?.studentPresent ?? true,
   );
+  const [entryMode, setEntryMode] = useState<RisReflectionEntryMode>(
+    reflection?.entryMode ?? "student_self",
+  );
   const [overallRating, setOverallRating] = useState<RisReflectionRating | null>(
     reflection?.overallRating ?? null,
   );
@@ -199,6 +206,7 @@ export function RisLessonPublicationPanel({
   });
   const reflectionSignature = JSON.stringify({
     studentPresent,
+    entryMode,
     overallRating,
     independenceRating,
     insightRating,
@@ -273,6 +281,7 @@ export function RisLessonPublicationPanel({
         lessonCardId: nextCardId,
         lessonId,
         studentPresent,
+        entryMode,
         overallRating,
         independenceRating,
         insightRating,
@@ -294,6 +303,7 @@ export function RisLessonPublicationPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     confidenceRating,
+    entryMode,
     independenceRating,
     insightRating,
     instructorContextNote,
@@ -351,6 +361,7 @@ export function RisLessonPublicationPanel({
         lessonCardId: nextCardId,
         lessonId,
         studentPresent,
+        entryMode,
         overallRating,
         independenceRating,
         insightRating,
@@ -393,6 +404,55 @@ export function RisLessonPublicationPanel({
         />
         Leerling was aanwezig bij de reflectie
       </label>
+
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold uppercase text-muted-foreground">
+          Wie formuleerde de zelfreflectie?
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ["student_self", "De leerling koos en typte de eigen woorden."],
+              [
+                "instructor_assisted",
+                "De instructeur hielp bij het formuleren of invoeren.",
+              ],
+            ] as const
+          ).map(([value, description]) => (
+            <label
+              key={value}
+              className={cn(
+                "flex min-h-20 cursor-pointer gap-3 rounded-xl border p-3",
+                entryMode === value
+                  ? "border-primary bg-primary-soft/30"
+                  : "border-border bg-background",
+                locked && "cursor-not-allowed opacity-70",
+              )}
+            >
+              <input
+                type="radio"
+                name={`reflection-entry-mode-${lessonId}`}
+                value={value}
+                checked={entryMode === value}
+                disabled={locked}
+                onChange={() => {
+                  setEntryMode(value);
+                  if (value === "student_self") setStudentPresent(true);
+                }}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span>
+                <span className="block text-sm font-bold text-foreground">
+                  {RIS_REFLECTION_ENTRY_MODE_LABELS[value]}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  {description}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <RatingRow
         label="Algemene reflectie"
@@ -551,6 +611,9 @@ export function RisLessonPublicationPanel({
             <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
               <div className="space-y-3 rounded-2xl border border-border bg-card/70 p-4">
                 <h3 className="font-black text-foreground">Reflectie leerling</h3>
+                <Badge variant="outline">
+                  {RIS_REFLECTION_ENTRY_MODE_LABELS[entryMode]}
+                </Badge>
                 <p className="text-sm leading-6 text-muted-foreground">
                   {oneSentenceReflection.trim() || "Nog geen reflectie ingevuld."}
                 </p>

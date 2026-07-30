@@ -39,6 +39,7 @@ import {
   type InstructorRisLessonCard,
   type LessonCardMode,
   type PlanningCardGoalStatus,
+  type RisReflectionEntryMode,
   type RisReflectionRating,
 } from "./data";
 
@@ -130,7 +131,7 @@ export async function setTenantRisSettingsAction(input: {
       p_actor: user.id,
       p_lesson_card_mode: mode,
       p_active_ris_version_id: input.activeRisVersionId ?? null,
-      p_ai_assist_enabled: input.aiAssistEnabled ?? true,
+      p_ai_assist_enabled: input.aiAssistEnabled ?? false,
     });
     if (error) return { error: error.message };
     revalidatePath("/backoffice/instellingen");
@@ -235,6 +236,7 @@ function supportFromInstructionStage(stage: number | null): RisSupportLevel {
 export async function setGuidedReflectionAction(input: {
   lessonCardId: string;
   studentPresent?: boolean;
+  entryMode: RisReflectionEntryMode;
   overallRating?: RisReflectionRating | null;
   independenceRating?: RisReflectionRating | null;
   insightRating?: RisReflectionRating | null;
@@ -249,11 +251,12 @@ export async function setGuidedReflectionAction(input: {
       "tenant_admin",
     ]);
     const service = createServiceRoleClient();
-    const { error } = await service.rpc("set_ris_guided_reflection_v2", {
+    const { error } = await service.rpc("set_ris_guided_reflection_v3", {
       p_lesson_card_id: requiredId(input.lessonCardId, "RIS-leskaart"),
       p_tenant_id: tenant.id,
       p_actor: user.id,
       p_student_present: input.studentPresent ?? true,
+      p_entry_mode: input.entryMode,
       p_overall_rating: input.overallRating ?? null,
       p_independence_rating: input.independenceRating ?? null,
       p_insight_rating: input.insightRating ?? null,
