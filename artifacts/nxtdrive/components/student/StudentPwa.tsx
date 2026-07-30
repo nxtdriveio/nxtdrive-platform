@@ -409,10 +409,10 @@ export function StudentQuickActionGrid({
   );
 }
 
-export function StudentAICoachCard({
+export function StudentPersonalAdviceCard({
   title,
   body,
-  href = "/student/journey",
+  href = "/leerling/voortgang",
 }: {
   title: string;
   body: string;
@@ -427,7 +427,7 @@ export function StudentAICoachCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
-              AI Coach
+              Persoonlijk advies
             </p>
             <Badge variant="primary">Nieuw</Badge>
           </div>
@@ -441,7 +441,7 @@ export function StudentAICoachCard({
             href={href}
             className={buttonVariants({ size: "sm", className: "mt-3" })}
           >
-            Bekijk coachadvies
+            Bekijk uitleg
           </Link>
         </div>
       </div>

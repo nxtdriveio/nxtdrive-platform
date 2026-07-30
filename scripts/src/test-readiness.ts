@@ -78,7 +78,7 @@ function engineTests(): Outcome[] {
     );
   }
 
-  // 2. All unscored => average 1, 0%, niet.
+  // 2. All unscored => no invented score, 0% coverage, niet.
   {
     const res = run({
       skills: skills([
@@ -89,11 +89,12 @@ function engineTests(): Outcome[] {
       preconditions: PRECO_ALL,
     });
     assert(
-      "all unscored => avg 1, 0%, niet",
-      res.averageScore === 1 &&
+      "all unscored => avg 0, 0% coverage, niet",
+      res.averageScore === 0 &&
+        res.coveragePct === 0 &&
         res.readinessPct === 0 &&
         res.advice === "niet_examenrijp",
-      `avg=${res.averageScore} pct=${res.readinessPct} advice=${res.advice}`,
+      `avg=${res.averageScore} coverage=${res.coveragePct} pct=${res.readinessPct} advice=${res.advice}`,
     );
   }
 

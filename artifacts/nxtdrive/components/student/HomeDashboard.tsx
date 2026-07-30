@@ -11,7 +11,6 @@ import {
   CreditCard as CreditCardIcon,
   MapPin,
   Route,
-  Sparkles,
   Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -353,40 +352,6 @@ function ProgressCard({
   );
 }
 
-function CoachCard({ coach }: { coach: StudentCoachSummary }) {
-  return (
-    <DashboardCard className="p-4">
-      <CardHeader
-        icon={<Sparkles className="h-[1.125rem] w-[1.125rem]" aria-hidden />}
-        label="AI Coach"
-        badge={
-          <Badge variant="primary" className="bg-brand-accent text-brand-primary shadow-none">
-            Nieuw
-          </Badge>
-        }
-      />
-      <div className="mt-4">
-        <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
-          Volgende focus
-        </p>
-        <h3 className="mt-1 text-lg font-black text-brand-primary">
-          {cleanDisplayText(coach.title)}
-        </h3>
-        <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
-          {coach.body}
-        </p>
-        <Link
-          href={coach.ctaHref}
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-[0.9rem] bg-brand-primary px-3.5 text-sm font-semibold text-brand-primary-foreground transition hover:brightness-105"
-        >
-          Bekijk advies
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
-    </DashboardCard>
-  );
-}
-
 function CreditBalanceCard({ availableMinutes }: { availableMinutes: number }) {
   const low = availableMinutes < 600;
 
@@ -634,7 +599,6 @@ export function StudentHomeDashboard({
           <JourneyPanel steps={journeySteps} />
         </div>
         <aside className="min-w-0 space-y-4 sm:space-y-5">
-          <CoachCard coach={coach} />
           <ActivityPanel />
         </aside>
       </div>

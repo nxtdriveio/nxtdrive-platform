@@ -7,8 +7,8 @@
 //
 // Given a student's latest per-skill scores (1..8), the critical-skill flags,
 // the per-lesson score history and the three CBR preconditions, this computes:
-//   * the average score across the whole active curriculum (an unscored leaf
-//     counts as 1 = "nog nooit behandeld", per the canon 1..8 scale);
+//   * mastery across assessed skills only;
+//   * coverage as a separate percentage so "N" is never treated as a score;
 //   * the weakest critical-safety-skill score;
 //   * whether the last 3 lessons are stable;
 //   * an advice verdict (niet / bijna / examenwaardig);
@@ -33,9 +33,6 @@ const CRITICAL_MIN = 8; // kritieke vaardigheden minimaal 8 voor positief advies
 const NEAR_AVG = 7.5; // bijna examenrijp: gemiddelde minimaal 7,5
 const PASS_AVG = 8; // examenwaardig: gemiddelde minimaal 8
 const SCORE_MAX = 8;
-
-// Unscored leaf = niveau 1 ("nog nooit behandeld", canon Beoordelingsschaal).
-const UNSCORED_LEVEL = 1;
 
 // Stability of the "laatste 3 lessen". The canon requires it for examenwaardig
 // but does not define it numerically. Documented heuristic: at least 3 lessons
@@ -109,14 +106,20 @@ export type ReadinessStability = {
 };
 
 export type ReadinessResult = {
-  /** Average across all active leaves (unscored = 1), rounded to 1 decimal. */
+  /** Average across assessed active leaves only, rounded to 1 decimal. */
   averageScore: number;
   /** Raw average used for thresholds; exposed for tests/debugging. */
   averageScoreRaw: number;
   scoredLeaves: number;
   totalLeaves: number;
-  /** Weakest critical-skill score (unscored = 1), or null when none defined. */
+  /** Percentage of active leaves with actual assessment evidence. */
+  coveragePct: number;
+  /** Score-derived mastery for assessed leaves only. */
+  masteryPct: number;
+  /** Weakest assessed critical-skill score, or null when none is assessed. */
   criticalMinScore: number | null;
+  /** Critical skills for which no evidence exists yet. */
+  criticalUnassessed: number;
   /** How many critical skills are still below CRITICAL_MIN (8). */
   criticalBelowThreshold: number;
   stability: ReadinessStability;
@@ -175,16 +178,29 @@ function phaseForPct(pct: number): ReadinessPhase {
 export function computeReadiness(input: ReadinessInput): ReadinessResult {
   const { skills, lessons, preconditions } = input;
 
-  const eff = (s: ReadinessSkillInput) => s.score ?? UNSCORED_LEVEL;
   const totalLeaves = skills.length;
-  const scoredLeaves = skills.filter((s) => s.score !== null).length;
-  const averageScoreRaw = totalLeaves === 0 ? 0 : mean(skills.map(eff));
+  const assessed = skills.filter(
+    (skill): skill is ReadinessSkillInput & { score: number } =>
+      skill.score !== null,
+  );
+  const scoredLeaves = assessed.length;
+  const averageScoreRaw =
+    scoredLeaves === 0 ? 0 : mean(assessed.map((skill) => skill.score));
+  const coveragePct =
+    totalLeaves === 0 ? 0 : Math.round((scoredLeaves / totalLeaves) * 100);
 
   const critical = skills.filter((s) => s.isCritical);
+  const assessedCritical = critical.filter(
+    (skill): skill is ReadinessSkillInput & { score: number } =>
+      skill.score !== null,
+  );
+  const criticalUnassessed = critical.length - assessedCritical.length;
   const criticalMinScore =
-    critical.length === 0 ? null : Math.min(...critical.map(eff));
+    assessedCritical.length === 0
+      ? null
+      : Math.min(...assessedCritical.map((skill) => skill.score));
   const criticalBelowThreshold = critical.filter(
-    (s) => eff(s) < CRITICAL_MIN,
+    (skill) => skill.score === null || skill.score < CRITICAL_MIN,
   ).length;
 
   const stability = computeStability(lessons);
@@ -200,13 +216,16 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
   // must be >= EXAM_FLOOR to leave "niet", and >= CRITICAL_MIN (8) for any
   // positive advice. With no critical skills defined the gate is vacuous.
   const criticalAtLeastFloor =
-    criticalMinScore === null || criticalMinScore >= EXAM_FLOOR;
+    criticalUnassessed === 0 &&
+    (criticalMinScore === null || criticalMinScore >= EXAM_FLOOR);
   const criticalAtLeast8 =
-    criticalMinScore === null || criticalMinScore >= CRITICAL_MIN;
+    criticalUnassessed === 0 &&
+    (criticalMinScore === null || criticalMinScore >= CRITICAL_MIN);
 
   let advice: ReadinessAdvice;
   if (
     totalLeaves === 0 ||
+    coveragePct < 100 ||
     !criticalAtLeastFloor ||
     averageScoreRaw < EXAM_FLOOR
   ) {
@@ -228,10 +247,10 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
   }
 
   // --- Readiness Score 0..100 --------------------------------------------
-  // Map the curriculum average (1..8) onto 0..100 so "nog nooit behandeld"
-  // (all 1s) reads as 0% and examenwaardig (all 8s) as 100%.
-  const readinessPct =
-    totalLeaves === 0
+  // Map assessed mastery onto 0..100. Coverage remains an independent gate;
+  // an unassessed item never enters the average as an invented low score.
+  const masteryPct =
+    scoredLeaves === 0
       ? 0
       : Math.max(
           0,
@@ -240,6 +259,7 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
             Math.round(((averageScoreRaw - 1) / (SCORE_MAX - 1)) * 100),
           ),
         );
+  const readinessPct = Math.min(coveragePct, masteryPct);
   const phase = phaseForPct(readinessPct);
 
   // --- Blockers (what stands between here and examenwaardig) --------------
@@ -247,9 +267,17 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
   if (totalLeaves === 0) {
     blockers.push("Nog geen vaardigheden in de leskaart.");
   }
-  if (criticalMinScore !== null && criticalMinScore < CRITICAL_MIN) {
+  if (coveragePct < 100 && totalLeaves > 0) {
     blockers.push(
-      `Kritieke veiligheidsvaardigheid onder niveau ${CRITICAL_MIN} ` +
+      `Dekking is ${coveragePct}%: ${totalLeaves - scoredLeaves} ${totalLeaves - scoredLeaves === 1 ? "onderdeel is" : "onderdelen zijn"} nog niet beoordeeld.`,
+    );
+  }
+  if (
+    criticalUnassessed > 0 ||
+    (criticalMinScore !== null && criticalMinScore < CRITICAL_MIN)
+  ) {
+    blockers.push(
+      `Kritieke veiligheidsvaardigheid niet of onder niveau ${CRITICAL_MIN} ` +
         `(${criticalBelowThreshold} ${criticalBelowThreshold === 1 ? "onderdeel" : "onderdelen"}).`,
     );
   }
@@ -277,7 +305,10 @@ export function computeReadiness(input: ReadinessInput): ReadinessResult {
     averageScoreRaw,
     scoredLeaves,
     totalLeaves,
+    coveragePct,
+    masteryPct,
     criticalMinScore,
+    criticalUnassessed,
     criticalBelowThreshold,
     stability,
     preconditions: { ...preconditions, met: preconditionsMet },

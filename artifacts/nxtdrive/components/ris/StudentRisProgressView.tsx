@@ -51,6 +51,18 @@ export function StudentRisProgressView({
   activeTab: RisStudentTab;
 }) {
   const recentCards = ris.publishedCards.slice(0, 6);
+  const assessedScriptCount = ris.progress.filter(
+    (item) => risStepNumber(item.currentFinalStep) !== null,
+  ).length;
+  const totalScriptCount = ris.catalog.tree.reduce(
+    (total, module) =>
+      total +
+      module.categories.reduce(
+        (moduleTotal, category) => moduleTotal + category.scripts.length,
+        0,
+      ),
+    0,
+  );
   const latestCard = recentCards[0] ?? null;
   const focusItems = ris.progress
     .filter((item) => item.isAttentionPoint || !item.isCompleted)
@@ -64,19 +76,38 @@ export function StudentRisProgressView({
     .filter((item) => item.lastAssessedAt)
     .sort((left, right) => (right.lastAssessedAt ?? "").localeCompare(left.lastAssessedAt ?? ""))
     .slice(0, 6);
+  const progressByScriptId = new Map(
+    ris.progress.map((item) => [item.scriptId, item]),
+  );
+  const unassessedItems = ris.catalog.tree
+    .flatMap((module) =>
+      module.categories.flatMap((category) =>
+        category.scripts.map((script) => ({
+          scriptId: script.id,
+          title: script.title,
+          step: progressByScriptId.get(script.id)?.currentFinalStep ?? null,
+        })),
+      ),
+    )
+    .filter((item) => risStepNumber(item.step) === null)
+    .slice(0, 6);
+  const coveragePct =
+    totalScriptCount > 0
+      ? Math.round((assessedScriptCount / totalScriptCount) * 100)
+      : 0;
 
   const tabs = [
-    { key: "roadmap", label: "Roadmap", href: "/student/voortgang?tab=roadmap" },
+    { key: "roadmap", label: "Roadmap", href: "/leerling/voortgang?tab=roadmap" },
     {
       key: "modules",
       label: "Modules",
-      href: "/student/voortgang?tab=modules",
+      href: "/leerling/voortgang?tab=modules",
       count: ris.moduleProgress.length,
     },
     {
       key: "feedback",
       label: "Feedback",
-      href: "/student/voortgang?tab=feedback",
+      href: "/leerling/voortgang?tab=feedback",
       count: recentCards.length,
     },
   ] satisfies Array<{
@@ -101,14 +132,14 @@ export function StudentRisProgressView({
               <div className="flex items-center gap-3 sm:block">
                 <StudentRing
                   value={ris.progressPct}
-                  caption={`${ris.progress.filter((item) => item.currentFinalStep).length} scripts geoefend`}
+                  caption={`${assessedScriptCount}/${totalScriptCount} scripts beoordeeld`}
                 />
                 <div>
                   <div className="text-lg font-semibold text-white">
                     {journeyLabel(ris.progressPct)}
                   </div>
                   <p className="mt-1 text-sm leading-6 text-white/58">
-                    RIS 2.0 bouwt stap voor stap richting zelfstandig rijden.
+                    Didactische RIS-opbouw; dit percentage is geen examenadvies.
                   </p>
                 </div>
               </div>
@@ -118,6 +149,34 @@ export function StudentRisProgressView({
                 ))}
               </div>
             </div>
+          </StudentShowcaseCard>
+
+          <StudentShowcaseCard
+            title="Dekkingskaart"
+            eyebrow={`${coveragePct}% beoordeeld`}
+            info="Dekking laat alleen zien welke scripts minstens één keer gepubliceerd zijn beoordeeld. Het is geen beheersings- of examenpercentage."
+          >
+            <StudentProgressBar
+              label={`${assessedScriptCount} van ${totalScriptCount} scripts beoordeeld`}
+              value={coveragePct}
+              rightLabel={`${coveragePct}%`}
+            />
+            {unassessedItems.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {unassessedItems.map((item) => (
+                  <Badge
+                    key={item.scriptId}
+                    variant="outline"
+                  >
+                    Nog niet beoordeeld: {item.title}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/58">
+                Alle scripts hebben minimaal één gepubliceerde beoordeling.
+              </p>
+            )}
           </StudentShowcaseCard>
 
           <StudentShowcaseCard
@@ -170,7 +229,7 @@ export function StudentRisProgressView({
                     key={`${item.scriptId}:${item.scriptVariantId ?? "base"}:${item.lastAssessedAt}`}
                     href={
                       item.lastAssessedLessonId
-                        ? `/student/lessons/${item.lastAssessedLessonId}`
+                        ? `/leerling/lessen/${item.lastAssessedLessonId}`
                         : undefined
                     }
                     title={scriptTitle(ris, item)}
@@ -180,8 +239,8 @@ export function StudentRisProgressView({
                         ? dateTimeFmt.format(new Date(item.lastAssessedAt))
                         : undefined
                     }
-                    badge={item.readyForModuleTest ? "Toetsklaar" : "Gepubliceerd"}
-                    badgeVariant={item.readyForModuleTest ? "success" : "outline"}
+                    badge="Gepubliceerd"
+                    badgeVariant="outline"
                     leading={
                       <StudentInitialBadge label={stepBadgeLabel(item.currentFinalStep)} />
                     }
@@ -216,19 +275,16 @@ export function StudentRisProgressView({
                       {module.assessedScripts} van {module.totalScripts} scripts beoordeeld
                     </p>
                   </div>
-                  <Badge
-                    variant={module.readyForModuleTest ? "success" : "outline"}
-                    className="shrink-0"
-                  >
-                    {module.readyForModuleTest ? "Toetsklaar" : "In opbouw"}
+                  <Badge variant="outline" className="shrink-0">
+                    {module.assessedScripts}/{module.totalScripts} gedekt
                   </Badge>
                 </div>
                 <div className="mt-3">
                   <StudentProgressBar
                     label={
                       module.averageStep == null
-                        ? "Nog geen gepubliceerde score"
-                        : `Gemiddelde score ${module.averageStep.toFixed(1)} van 8`
+                        ? "Nog geen gepubliceerde RIS-stap"
+                        : "Didactische opbouw binnen deze module"
                     }
                     value={module.progressPct}
                     rightLabel={`${module.progressPct}%`}
@@ -452,8 +508,8 @@ function stepRank(step: StudentRisProgressItem["currentFinalStep"]): number {
 }
 
 function journeyLabel(progressPct: number): string {
-  if (progressPct >= 85) return "Bijna examenrijp";
-  if (progressPct >= 60) return "Je rijdt steeds zelfstandiger";
-  if (progressPct >= 30) return "Je bouwt stevig door";
+  if (progressPct >= 85) return "Brede RIS-opbouw";
+  if (progressPct >= 60) return "Steeds meer scripts ontwikkeld";
+  if (progressPct >= 30) return "Je bouwt de basis verder uit";
   return "Je RIS-reis is goed gestart";
 }

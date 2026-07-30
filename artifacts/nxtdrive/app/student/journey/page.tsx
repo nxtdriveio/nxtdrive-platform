@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BadgeCheck, Route } from "lucide-react";
 import { getStudentPwaContext } from "@/lib/student-pwa/context";
 import {
-  StudentAICoachCard,
+  StudentPersonalAdviceCard,
   StudentDevelopmentChart,
   StudentLessonCard,
   StudentModuleProgressList,
@@ -56,7 +56,7 @@ export default async function StudentJourneyPage() {
             readiness={experience.cbr.readiness}
             copy={experience.cbr.readinessCopy}
           />
-          <StudentAICoachCard
+          <StudentPersonalAdviceCard
             title={experience.nextStep.title}
             body={experience.nextStep.body}
             href={experience.nextStep.href}

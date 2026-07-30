@@ -276,9 +276,6 @@ export default async function StudentHomePage() {
       }
     : null;
 
-  const estimatedLessonsUntilReady =
-    readiness.readinessPct >= 90 ? 0 : Math.max(1, Math.ceil((90 - readiness.readinessPct) / 7));
-
   const examBadgeLabel =
     readiness.advice === "examenwaardig"
       ? "Examenklaar"
@@ -296,9 +293,9 @@ export default async function StudentHomePage() {
   const examEta =
     cbrSummary.derived.nextAppointmentAt && cbrSummary.derived.nextAppointmentType
       ? `${cbrSummary.derived.nextAppointmentType === "exam" ? "Examen" : "TTT"} ${capitalize(shortDateFmt.format(new Date(cbrSummary.derived.nextAppointmentAt)))}`
-      : estimatedLessonsUntilReady === 0
-        ? "Klaar voor je volgende examenstap"
-        : `Over ~${estimatedLessonsUntilReady} ${estimatedLessonsUntilReady === 1 ? "les" : "lessen"}`;
+      : readiness.advice === "examenwaardig"
+        ? "Bespreek de volgende examenstap met je instructeur"
+        : "Nog geen betrouwbare datum of lesinschatting";
 
   const weakestCategory =
     [...leskaart.categories].sort(
@@ -342,10 +339,10 @@ export default async function StudentHomePage() {
     fallbackCoachBody;
   const coachCtaHref =
     latestPlanningCard?.nextLessonId
-      ? `/student/lessons/${latestPlanningCard.nextLessonId}`
+      ? `/leerling/lessen/${latestPlanningCard.nextLessonId}`
       : latestRisCard
-        ? `/student/lessons/${latestRisCard.lessonId}`
-        : "/student/voortgang";
+        ? `/leerling/lessen/${latestRisCard.lessonId}`
+        : "/leerling/voortgang";
 
   const journeyStatus =
     passedExam
@@ -367,11 +364,11 @@ export default async function StudentHomePage() {
         sparklineValues={sparklineValues}
         nextLesson={nextLessonSummary}
         examStatus={{
-          href: "/student/cbr-exams",
+          href: "/leerling/examens",
           readinessPct: readiness.readinessPct,
           badgeLabel: examBadgeLabel,
           badgeVariant: examBadgeVariant,
-          title: "Examengereedheid",
+          title: "Voorwaarden richting examen",
           detail:
             readiness.blockers[0] ??
             `${ADVICE_LABELS[readiness.advice]} · ${PHASE_LABELS[readiness.phase]}`,
