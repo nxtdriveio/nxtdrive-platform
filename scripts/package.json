@@ -114,6 +114,7 @@
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "playwright": "^1.60.0",
+    "sharp": "catalog:",
     "tsx": "catalog:"
   }
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Filter } from "lucide-react";
+import { Filter, Map } from "lucide-react";
 
 import {
   AGENDA_BACKOFFICE_READ_ROLES,
@@ -16,7 +16,7 @@ import {
   type PlanningBoardView,
 } from "@/lib/planning-board";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
@@ -294,6 +294,15 @@ export default async function PlanningBoardPage({
       <AdminSectionHeader
         title="Planboard"
         description="Sleep afspraken naar een instructeur en tijdslot; controles blijven automatisch actief."
+        actions={
+          <Link
+            href={`/backoffice/planning-board/kaart?date=${encodeURIComponent(filters.date)}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <Map className="h-4 w-4" aria-hidden />
+            Dagkaart
+          </Link>
+        }
       />
 
       <PlanningBoardWorkspace

@@ -214,7 +214,8 @@ async function buildContext(
     const hasExplicit = list.some((v) => v.transmission != null);
     if (hasExplicit) {
       const compatible = list.some(
-        (v) => v.transmission == null || v.transmission === requestedTransmission,
+        (v) =>
+          v.transmission == null || v.transmission === requestedTransmission,
       );
       if (!compatible) return null;
     }
@@ -330,7 +331,11 @@ async function buildContext(
   };
 }
 
-function overlapsBusy(start: number, end: number, busy: BusyInterval[]): boolean {
+function overlapsBusy(
+  start: number,
+  end: number,
+  busy: BusyInterval[],
+): boolean {
   return busy.some((b) => start < b.end && b.start < end);
 }
 
@@ -580,7 +585,10 @@ export async function applyRouteScoring(
   const toMins = new Map<string, number>();
   const fromMins = new Map<string, number>();
   if (isRoutesApiConfigured() && (prevList.length > 0 || nextList.length > 0)) {
-    const matrix = await computeRouteMatrix(origins, destinations);
+    const matrix = await computeRouteMatrix(origins, destinations, {
+      tenantId: ctx.tenantId,
+      surface: "LESSON_PLANNER",
+    });
     for (const p of prevList) {
       const oi = prevOriginIdx.get(pointKey(p))!;
       const m = matrix[oi]?.[0];

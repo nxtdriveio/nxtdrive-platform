@@ -3,7 +3,7 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 166,
+  "migrationCount": 172,
   "fixture": {
     "tenants": 2,
     "users": 3,
@@ -857,6 +857,36 @@
       "file": "20260730133000_ris_definition_review_workspaces.sql",
       "sha256": "b8fbf852382ee73a180bc88a74819c60c3b2f8db77b68f85f57c395f2c19880e",
       "bytes": 33298
+    },
+    {
+      "file": "20260730150000_location_records_and_stops.sql",
+      "sha256": "92bc40d10e594a95633835ac431fba67f32226b25db25bc8d414534b4fdd661a",
+      "bytes": 30122
+    },
+    {
+      "file": "20260730151000_maps_metering_limits.sql",
+      "sha256": "f3082fd3c6883f459112df6f8be6833dc9a9ddd72fedf5e6815115424bec9707",
+      "bytes": 29190
+    },
+    {
+      "file": "20260730152000_route_planning_scenarios.sql",
+      "sha256": "c4fb6cbe8a917491f01d4cb5382532af26ba2cf913e34072f7b947b9409d9d88",
+      "bytes": 21009
+    },
+    {
+      "file": "20260730153000_location_workflows_privacy.sql",
+      "sha256": "65bd6f79b0374c94d4bcb985dff02016c00253ac167aef0d573f6de947c3315c",
+      "bytes": 26246
+    },
+    {
+      "file": "20260730154000_maps_feature_gate_rpc.sql",
+      "sha256": "a5d86cc753c2e64b52bada8c51861e64e587ed6851d61593c348c2fc25e11a4f",
+      "bytes": 5348
+    },
+    {
+      "file": "20260730155000_student_stop_confirmations.sql",
+      "sha256": "711492e1c10d99a6a69dba51be9879128f21994277e027253d5de93ea78bfb8d",
+      "bytes": 5198
     }
   ]
 }

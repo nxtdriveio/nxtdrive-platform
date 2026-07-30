@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { clearEncryptedLessonDrafts } from "@/lib/offline/encrypted-draft-store";
+import { clearEncryptedPublishedStops } from "@/lib/offline/encrypted-route-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +41,10 @@ export function InstructorTopbar({
     event.preventDefault();
     const form = event.currentTarget;
     try {
-      await clearEncryptedLessonDrafts();
+      await Promise.all([
+        clearEncryptedLessonDrafts(),
+        clearEncryptedPublishedStops(),
+      ]);
     } finally {
       form.submit();
     }
@@ -49,7 +53,10 @@ export function InstructorTopbar({
   return (
     <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl xl:flex xl:px-6">
       <div className="relative max-w-3xl flex-1">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
         <input
           className="h-10 w-full rounded-[1rem] border border-brand-border bg-white pl-10 pr-14 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15"
           placeholder="Zoek leerling, afspraak, voertuig, bericht..."
@@ -83,7 +90,10 @@ export function InstructorTopbar({
             </span>
           )}
         </div>
-        <ThemeToggle current={theme} className="h-10 w-10 rounded-full border-brand-border bg-white" />
+        <ThemeToggle
+          current={theme}
+          className="h-10 w-10 rounded-full border-brand-border bg-white"
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -92,33 +102,52 @@ export function InstructorTopbar({
             >
               <Avatar name={userLabel} className="h-9 w-9 text-xs" />
               <span className="hidden min-w-0 text-left xl:block">
-                <span className="block truncate text-sm font-black text-foreground">{userLabel}</span>
-                <span className="block truncate text-xs text-muted-foreground">Instructeur</span>
+                <span className="block truncate text-sm font-black text-foreground">
+                  {userLabel}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  Instructeur
+                </span>
               </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <ChevronDown
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden
+              />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuItem asChild>
-              <Link href="/instructeur/agenda/nieuw" className="flex items-center gap-2">
+              <Link
+                href="/instructeur/agenda/nieuw"
+                className="flex items-center gap-2"
+              >
                 <CalendarPlus aria-hidden />
                 Nieuwe afspraak
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructeur/beschikbaarheid" className="flex items-center gap-2">
+              <Link
+                href="/instructeur/beschikbaarheid"
+                className="flex items-center gap-2"
+              >
                 <Moon aria-hidden />
                 Beschikbaarheid aanpassen
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructeur/profiel" className="flex items-center gap-2">
+              <Link
+                href="/instructeur/profiel"
+                className="flex items-center gap-2"
+              >
                 <User aria-hidden />
                 Profiel
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/instructeur/instellingen" className="flex items-center gap-2">
+              <Link
+                href="/instructeur/instellingen"
+                className="flex items-center gap-2"
+              >
                 <Settings aria-hidden />
                 Instellingen
               </Link>
@@ -133,7 +162,9 @@ export function InstructorTopbar({
               >
                 <button
                   type="submit"
-                  className={cn("flex w-full items-center gap-2 text-left text-danger")}
+                  className={cn(
+                    "flex w-full items-center gap-2 text-left text-danger",
+                  )}
                 >
                   Uitloggen
                 </button>

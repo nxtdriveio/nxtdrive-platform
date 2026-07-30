@@ -14,7 +14,8 @@ export type RateLimitPurpose =
   | "offline_sync"
   | "assessment_publish"
   | "readiness_recalculate"
-  | "notification_action";
+  | "notification_action"
+  | "maps_provider";
 
 export type RateLimitDecision = {
   allowed: boolean;
@@ -40,6 +41,7 @@ export const RATE_LIMIT_POLICIES: Record<
   assessment_publish: { limit: 30, windowSeconds: 60 * 60 },
   readiness_recalculate: { limit: 120, windowSeconds: 60 * 60 },
   notification_action: { limit: 60, windowSeconds: 60 * 60 },
+  maps_provider: { limit: 180, windowSeconds: 60 * 60 },
 };
 
 async function sha256(value: string): Promise<string> {

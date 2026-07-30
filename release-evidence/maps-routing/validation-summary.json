@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-07-30T22:44:45+02:00",
+  "branch": "codex/maps-routing-mega-sprint",
+  "commitAtValidation": "02fad802848996588d9b76b0e118db4606bce706",
+  "results": {
+    "repositoryLint": {
+      "status": "passed",
+      "command": "pnpm run lint"
+    },
+    "typecheckAndBuild": {
+      "status": "passed",
+      "command": "NEXT_PUBLIC_APP_URL=http://127.0.0.1:22557 NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder-not-a-secret SUPABASE_SERVICE_ROLE_KEY=ci-placeholder-not-a-secret SESSION_SECRET=ci-only-placeholder-with-at-least-32-characters VISUAL_FIXTURES_ENABLED=true pnpm run build",
+      "staticPagesGenerated": 66
+    },
+    "unitTests": {
+      "status": "passed",
+      "command": "pnpm run test:unit",
+      "passed": 270,
+      "failed": 0
+    },
+    "integrationTests": {
+      "status": "passed",
+      "command": "pnpm run test:integration",
+      "passed": 3,
+      "failed": 0
+    },
+    "migrationSmoke": {
+      "status": "passed",
+      "command": "pnpm run migration:smoke",
+      "migrationCount": 172,
+      "targets": [
+        "empty disposable PostgreSQL database",
+        "existing populated disposable PostgreSQL database"
+      ]
+    },
+    "visualRegression": {
+      "status": "passed",
+      "command": "pnpm --filter @workspace/scripts run visual:regression",
+      "passed": 29,
+      "mapsCases": 20,
+      "failed": 0
+    },
+    "productionDependencyAudit": {
+      "status": "passed",
+      "command": "pnpm run security:audit",
+      "knownVulnerabilities": 0
+    },
+    "secretScan": {
+      "status": "passed",
+      "command": "pnpm run security:secrets",
+      "filesScanned": 1630
+    }
+  },
+  "nonClaims": [
+    "No live Google request was made because production credentials and billing activation are external release actions.",
+    "No interactive map origin was activated; the application remains in list-only safe mode.",
+    "No optimizer proposal was automatically published.",
+    "No live GPS, route recording or internal turn-by-turn navigation was added."
+  ]
+}

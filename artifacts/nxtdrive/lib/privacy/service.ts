@@ -80,7 +80,7 @@ async function loadExportPayload(
   const studentQuery = service
     .from("students")
     .select(
-      "id, full_name, email, phone, postcode, active, created_at, updated_at",
+      "id, lead_id, full_name, email, phone, postcode, address_line, city, pickup_address, active, created_at, updated_at",
     )
     .eq("tenant_id", request.tenant_id);
   const { data: students, error: studentError } = request.subject_student_id
@@ -89,6 +89,9 @@ async function loadExportPayload(
   if (studentError) throw new Error("Subject profile export failed.");
 
   const studentIds = (students ?? []).map((student) => student.id as string);
+  const leadIds = (students ?? [])
+    .map((student) => student.lead_id as string | null)
+    .filter((id): id is string => Boolean(id));
   const { data: lessons, error: lessonError } = studentIds.length
     ? await service
         .from("lessons")
@@ -99,6 +102,231 @@ async function loadExportPayload(
         .in("student_id", studentIds)
     : { data: [], error: null };
   if (lessonError) throw new Error("Lesson export failed.");
+  const lessonIds = (lessons ?? []).map((lesson) => lesson.id as string);
+  const [
+    { data: trialLessons, error: trialLessonError },
+    { data: agendaAppointments, error: agendaError },
+    { data: moduleTests, error: moduleTestError },
+    { data: bookingRequests, error: bookingRequestError },
+    { data: intakeDetails, error: intakeError },
+  ] = await Promise.all([
+    leadIds.length
+      ? service
+          .from("trial_lessons")
+          .select(
+            "id, lead_id, instructor_id, status, starts_at, ends_at, pickup_location, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("lead_id", leadIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("agenda_appointments")
+          .select(
+            "id, student_id, instructor_id, type, status, starts_at, ends_at, location, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("ris_module_tests")
+          .select(
+            "id, student_id, module_number, test_type, planned_at, completed_at, result, instructor_id, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length || leadIds.length
+      ? service
+          .from("booking_requests")
+          .select(
+            "id, source, requester_type, entity_type, status, lead_id, student_id, pickup_location, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .or(
+            [
+              studentIds.length
+                ? `student_id.in.(${studentIds.join(",")})`
+                : null,
+              leadIds.length ? `lead_id.in.(${leadIds.join(",")})` : null,
+            ]
+              .filter(Boolean)
+              .join(","),
+          )
+      : Promise.resolve({ data: [], error: null }),
+    leadIds.length
+      ? service
+          .from("lead_intake_details")
+          .select(
+            "id, lead_id, city, pickup_location, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("lead_id", leadIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (
+    trialLessonError ||
+    agendaError ||
+    moduleTestError ||
+    bookingRequestError ||
+    intakeError
+  ) {
+    throw new Error("Related subject location export failed.");
+  }
+  const trialLessonIds = (trialLessons ?? []).map(
+    (lesson) => lesson.id as string,
+  );
+  const agendaAppointmentIds = (agendaAppointments ?? []).map(
+    (appointment) => appointment.id as string,
+  );
+  const moduleTestIds = (moduleTests ?? []).map(
+    (moduleTest) => moduleTest.id as string,
+  );
+
+  const { data: locationLinks, error: locationLinkError } = studentIds.length
+    ? await service
+        .from("entity_location_links")
+        .select(
+          "id, student_id, location_record_id, role, label, is_default, valid_from, valid_until, created_at",
+        )
+        .eq("tenant_id", request.tenant_id)
+        .in("student_id", studentIds)
+        .order("created_at")
+    : { data: [], error: null };
+  if (locationLinkError) throw new Error("Location relation export failed.");
+
+  const linkedLocationRecordIds = [
+    ...new Set(
+      (locationLinks ?? []).map((link) => link.location_record_id as string),
+    ),
+  ];
+  const stopSelect =
+    "id, appointment_type, appointment_id, lesson_id, trial_lesson_id, agenda_appointment_id, module_test_id, stop_type, sequence_number, source_location_record_id, source_location_version_id, label_snapshot, formatted_address_snapshot, latitude_snapshot, longitude_snapshot, publication_status, published_at, superseded_at, created_at";
+  const stopResults = await Promise.all([
+    lessonIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [], error: null }),
+    trialLessonIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("trial_lesson_id", trialLessonIds)
+      : Promise.resolve({ data: [], error: null }),
+    agendaAppointmentIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("agenda_appointment_id", agendaAppointmentIds)
+      : Promise.resolve({ data: [], error: null }),
+    moduleTestIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("module_test_id", moduleTestIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (stopResults.some((result) => result.error)) {
+    throw new Error("Published appointment location export failed.");
+  }
+  const appointmentStops = [
+    ...new Map(
+      stopResults
+        .flatMap((result) => result.data ?? [])
+        .map((stop) => [stop.id as string, stop]),
+    ).values(),
+  ];
+  const stopLocationRecordIds = (appointmentStops ?? [])
+    .map((stop) => stop.source_location_record_id as string | null)
+    .filter((id): id is string => Boolean(id));
+  const locationRecordIds = [
+    ...new Set([...linkedLocationRecordIds, ...stopLocationRecordIds]),
+  ];
+  const [
+    { data: locationRecords, error: locationRecordError },
+    { data: locationVersions, error: locationVersionError },
+    { data: locationProposals, error: proposalError },
+    { data: travelStatuses, error: travelStatusError },
+    { data: stopConfirmations, error: stopConfirmationError },
+  ] = await Promise.all([
+    locationRecordIds.length
+      ? service
+          .from("location_records")
+          .select(
+            "id, status, canonical_version_id, merged_into_location_id, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("id", locationRecordIds)
+      : Promise.resolve({ data: [], error: null }),
+    locationRecordIds.length
+      ? service
+          .from("location_versions")
+          .select(
+            "id, location_record_id, version_number, label, formatted_address, street, house_number, house_number_addition, postal_code, city, region, country_code, latitude, longitude, source, provider, provider_place_id, validation_status, provider_obtained_at, provider_expires_at, user_confirmed_at, confirmed_by, change_reason, created_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("location_record_id", locationRecordIds)
+          .order("version_number")
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("location_change_proposals")
+          .select(
+            "id, student_id, appointment_stop_id, proposed_location_record_id, proposed_location_version_id, status, explanation, route_impact_status, route_impact_document, expires_at, created_at, reviewed_at, reviewed_by, review_reason",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+          .order("created_at")
+      : Promise.resolve({ data: [], error: null }),
+    lessonIds.length
+      ? service
+          .from("appointment_travel_status_events")
+          .select(
+            "id, appointment_type, appointment_id, instructor_user_id, status, occurred_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("appointment_id", lessonIds)
+          .order("occurred_at")
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("appointment_stop_confirmations")
+          .select(
+            "id, appointment_stop_id, student_id, status, entry_mode, confirmed_at, confirmed_by",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+          .order("confirmed_at")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (locationRecordError || locationVersionError) {
+    throw new Error("Versioned location export failed.");
+  }
+  if (proposalError) throw new Error("Location proposal export failed.");
+  if (travelStatusError) throw new Error("Travel status export failed.");
+  if (stopConfirmationError) {
+    throw new Error("Appointment stop confirmation export failed.");
+  }
+
+  const { data: validationEvents, error: validationError } =
+    locationRecordIds.length
+      ? await service
+          .from("location_validation_events")
+          .select(
+            "id, location_record_id, location_version_id, provider, validation_status, result_codes, manually_confirmed, manual_reason, occurred_at, actor_user_id",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("location_record_id", locationRecordIds)
+          .order("occurred_at")
+      : { data: [], error: null };
+  if (validationError) throw new Error("Location validation export failed.");
 
   const { data: profile, error: profileError } = request.subject_user_id
     ? await service
@@ -110,7 +338,7 @@ async function loadExportPayload(
   if (profileError) throw new Error("Account profile export failed.");
 
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
     generatedAt: new Date().toISOString(),
     scope: {
       tenantId: request.tenant_id,
@@ -121,10 +349,26 @@ async function loadExportPayload(
       account: profile,
       studentProfiles: students ?? [],
       lessons: lessons ?? [],
+      trialLessons: trialLessons ?? [],
+      agendaAppointments: agendaAppointments ?? [],
+      moduleTests: moduleTests ?? [],
+      bookingRequests: bookingRequests ?? [],
+      intakeDetails: intakeDetails ?? [],
+      locations: {
+        records: locationRecords ?? [],
+        versions: locationVersions ?? [],
+        relations: locationLinks ?? [],
+        validationEvents: validationEvents ?? [],
+        changeProposals: locationProposals ?? [],
+      },
+      appointmentLocationSnapshots: appointmentStops ?? [],
+      appointmentStopConfirmations: stopConfirmations ?? [],
+      manualTravelStatuses: travelStatuses ?? [],
     },
     limitations: [
-      "This machine-readable export contains the implemented core subject-data categories.",
-      "Financial and statutory records remain subject to tenant authorization and legal review.",
+      "Maps usage and cost events are deliberately PII-free and cannot be attributed to an individual subject.",
+      "Published historical appointment snapshots may remain during the configured lesson-record retention period so operational history is not silently rewritten.",
+      "Financial and statutory records remain subject to tenant authorization, legal retention and a separate legal review.",
     ],
   };
 }
@@ -144,7 +388,8 @@ export async function processDataExportRequest(
     throw new Error("Data export request was not found.");
   }
   const request = data as PrivacyRequestRecord;
-  if (!["requested", "validating", "processing"].includes(request.status)) return;
+  if (!["requested", "validating", "processing"].includes(request.status))
+    return;
   await service
     .from("privacy_requests")
     .update({ status: "processing", updated_at: new Date().toISOString() })
@@ -198,7 +443,11 @@ export async function createTemporaryDownloadUrl(
     input.actorUserId,
     input.tenantIds,
   );
-  if (!authorized || request.status !== "ready" || !request.export_storage_path) {
+  if (
+    !authorized ||
+    request.status !== "ready" ||
+    !request.export_storage_path
+  ) {
     throw new Error("Export is not available.");
   }
   if (
