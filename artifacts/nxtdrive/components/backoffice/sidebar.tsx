@@ -158,6 +158,12 @@ const NAV_SECTIONS: NavSection[] = [
         adminOnly: false,
       },
       {
+        href: "/backoffice/locaties",
+        label: "Locaties & routes",
+        icon: MapPin,
+        adminOnly: false,
+      },
+      {
         href: "/backoffice/packages",
         label: "Pakketten",
         icon: Package,
