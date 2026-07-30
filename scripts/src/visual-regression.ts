@@ -21,6 +21,7 @@ type VisualCase = {
   width: number;
   height: number;
   waitForSelector?: string;
+  publicScreenshot?: string;
 };
 
 const DEFAULT_CASES: VisualCase[] = [
@@ -42,6 +43,43 @@ const DEFAULT_CASES: VisualCase[] = [
     path: "/account-verwijderen",
     width: 390,
     height: 844,
+  },
+  {
+    name: "backoffice-cockpit-desktop",
+    path: "/visual-fixtures/dashboard",
+    width: 1440,
+    height: 1000,
+    waitForSelector: "[data-management-shell]",
+  },
+  {
+    name: "instructor-cockpit-mobile",
+    path: "/visual-fixtures/instructeur",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-shell]",
+    publicScreenshot: "instructor-1.png",
+  },
+  {
+    name: "instructor-agenda-desktop",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 1440,
+    height: 1000,
+    waitForSelector: "[data-instructor-shell]",
+    publicScreenshot: "instructor-2.png",
+  },
+  {
+    name: "learner-cockpit-mobile",
+    path: "/visual-fixtures/leerling",
+    width: 390,
+    height: 844,
+    publicScreenshot: "student-1.png",
+  },
+  {
+    name: "learner-cockpit-desktop",
+    path: "/visual-fixtures/leerling",
+    width: 1440,
+    height: 1000,
+    publicScreenshot: "student-2.png",
   },
 ];
 
@@ -81,6 +119,9 @@ async function preparePage(
   visualCase: VisualCase,
   baseUrl: string,
 ) {
+  await page.clock.install({
+    time: new Date("2026-07-30T12:00:00.000+02:00"),
+  });
   await page.setViewportSize({
     width: visualCase.width,
     height: visualCase.height,
@@ -137,11 +178,19 @@ async function main(): Promise<void> {
   const root = repoRoot();
   const baselineDir = path.join(root, "scripts", "visual-baselines");
   const actualDir = path.join(root, "scripts", ".visual-regression");
+  const publicScreenshotDir = path.join(
+    root,
+    "artifacts",
+    "nxtdrive",
+    "public",
+    "screenshots",
+  );
   const cases = visualCases();
   const failures: string[] = [];
 
   await mkdir(baselineDir, { recursive: true });
   await mkdir(actualDir, { recursive: true });
+  await mkdir(publicScreenshotDir, { recursive: true });
 
   const browser = await chromium.launch();
   try {
@@ -153,6 +202,12 @@ async function main(): Promise<void> {
 
       if (update) {
         await writeFile(baselinePath, image);
+        if (visualCase.publicScreenshot) {
+          await writeFile(
+            path.join(publicScreenshotDir, visualCase.publicScreenshot),
+            image,
+          );
+        }
         console.log(`UPDATED ${visualCase.name}`);
         continue;
       }

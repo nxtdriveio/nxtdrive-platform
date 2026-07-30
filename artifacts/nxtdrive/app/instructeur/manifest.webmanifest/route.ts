@@ -27,6 +27,22 @@ export async function GET() {
     background_color: "#0F172A",
     theme_color: brandingContext.themeColor,
     categories: ["education", "productivity"],
+    screenshots: [
+      {
+        src: "/screenshots/instructor-1.png",
+        sizes: "390x2455",
+        type: "image/png",
+        form_factor: "narrow",
+        label: "Instructeurcockpit op mobiel",
+      },
+      {
+        src: "/screenshots/instructor-2.png",
+        sizes: "1440x1000",
+        type: "image/png",
+        form_factor: "wide",
+        label: "Instructeuragenda op desktop",
+      },
+    ],
     icons: [
       {
         src: "/icons/instructor-192.png",

@@ -28,6 +28,22 @@ export async function GET() {
       background_color: "#0F172A",
       theme_color: brandingContext.themeColor,
       categories: ["education", "productivity"],
+      screenshots: [
+        {
+          src: "/screenshots/student-1.png",
+          sizes: "390x1308",
+          type: "image/png",
+          form_factor: "narrow",
+          label: "Persoonlijke leerlingcockpit op mobiel",
+        },
+        {
+          src: "/screenshots/student-2.png",
+          sizes: "1440x1030",
+          type: "image/png",
+          form_factor: "wide",
+          label: "Persoonlijke leerlingcockpit op desktop",
+        },
+      ],
       icons: [
         {
           src: "/icons/student-192.png",
