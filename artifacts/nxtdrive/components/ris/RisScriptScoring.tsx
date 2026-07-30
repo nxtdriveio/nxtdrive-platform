@@ -116,6 +116,11 @@ function optimisticAssessment({
     isFeaturedForLesson,
     shouldRepeat,
     readyForTest,
+    performanceOutcome:
+      current?.performanceOutcome ??
+      (step === "N" ? "NOT_OBSERVED" : "DEVELOPING"),
+    safetyStatus:
+      current?.safetyStatus ?? (step === "N" ? "NOT_ASSESSED" : "NO_BLOCKER"),
     instructorNote: current?.instructorNote ?? null,
     studentVisibleNote: current?.studentVisibleNote ?? null,
   };

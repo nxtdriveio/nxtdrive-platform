@@ -102,7 +102,11 @@ export async function RisEvaluationWorkspace({ lessonId }: { lessonId: string })
     isAdmin,
     fallback: clickedLesson,
   });
-  const lesson = openLesson ?? clickedLesson;
+  const lesson = OPEN_LESSON_STATUSES.includes(
+    clickedLesson.status as (typeof OPEN_LESSON_STATUSES)[number],
+  )
+    ? clickedLesson
+    : openLesson ?? clickedLesson;
 
   const [
     studentRes,

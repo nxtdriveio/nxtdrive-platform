@@ -720,6 +720,8 @@ export async function loadStudentRisLessonCardDetail(
       isFeaturedForLesson: mapped.isFeaturedForLesson,
       shouldRepeat: mapped.shouldRepeat,
       readyForTest: mapped.readyForTest,
+      performanceOutcome: mapped.performanceOutcome,
+      safetyStatus: mapped.safetyStatus,
       studentVisibleNote: mapped.studentVisibleNote,
       scriptTitle: scriptTitleForCatalog(catalog, mapped.scriptId),
       moduleNumber: scriptModuleForCatalog(catalog, mapped.scriptId),
