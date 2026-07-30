@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 type TabsContextValue = {
   value: string;
   setValue: (v: string) => void;
+  baseId: string;
 };
 const TabsContext = React.createContext<TabsContextValue | null>(null);
 
@@ -34,6 +35,8 @@ export function Tabs({
   children: React.ReactNode;
 }) {
   const [internal, setInternal] = React.useState(defaultValue);
+  const generatedId = React.useId();
+  const baseId = `tabs-${generatedId.replaceAll(":", "")}`;
   const value = controlled ?? internal;
   const setValue = React.useCallback(
     (v: string) => {
@@ -43,7 +46,7 @@ export function Tabs({
     [onValueChange],
   );
   return (
-    <TabsContext.Provider value={{ value, setValue }}>
+    <TabsContext.Provider value={{ value, setValue, baseId }}>
       <div className={className}>{children}</div>
     </TabsContext.Provider>
   );
@@ -78,14 +81,49 @@ export function TabsTrigger({
   className?: string;
   children: React.ReactNode;
 }) {
-  const { value: active, setValue } = useTabs();
+  const { value: active, setValue, baseId } = useTabs();
   const selected = active === value;
+  const triggerId = `${baseId}-tab-${value}`;
+  const panelId = `${baseId}-panel-${value}`;
   return (
     <button
+      id={triggerId}
       type="button"
       role="tab"
       aria-selected={selected}
+      aria-controls={panelId}
+      tabIndex={selected ? 0 : -1}
       onClick={() => setValue(value)}
+      onKeyDown={(event) => {
+        if (
+          event.key !== "ArrowLeft" &&
+          event.key !== "ArrowRight" &&
+          event.key !== "Home" &&
+          event.key !== "End"
+        ) {
+          return;
+        }
+        const tabs = Array.from(
+          event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+            '[role="tab"]',
+          ) ?? [],
+        );
+        const currentIndex = tabs.indexOf(event.currentTarget);
+        const nextIndex =
+          event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? tabs.length - 1
+              : (currentIndex +
+                  (event.key === "ArrowRight" ? 1 : -1) +
+                  tabs.length) %
+                tabs.length;
+        const next = tabs[nextIndex];
+        if (!next) return;
+        event.preventDefault();
+        next.focus();
+        next.click();
+      }}
       className={cn(
         "flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition",
         selected
@@ -108,10 +146,16 @@ export function TabsContent({
   className?: string;
   children: React.ReactNode;
 }) {
-  const { value: active } = useTabs();
+  const { value: active, baseId } = useTabs();
   if (active !== value) return null;
   return (
-    <div role="tabpanel" className={cn("mt-4", className)}>
+    <div
+      id={`${baseId}-panel-${value}`}
+      role="tabpanel"
+      aria-labelledby={`${baseId}-tab-${value}`}
+      tabIndex={0}
+      className={cn("mt-4", className)}
+    >
       {children}
     </div>
   );

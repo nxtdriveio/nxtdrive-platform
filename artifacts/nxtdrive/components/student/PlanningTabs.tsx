@@ -79,9 +79,34 @@ export function PlanningTabs({
       <div
         role="tablist"
         aria-label="Lessen"
+        onKeyDown={(event) => {
+          if (
+            event.key !== "ArrowLeft" &&
+            event.key !== "ArrowRight" &&
+            event.key !== "Home" &&
+            event.key !== "End"
+          ) {
+            return;
+          }
+          event.preventDefault();
+          const next =
+            event.key === "Home"
+              ? "upcoming"
+              : event.key === "End"
+                ? "history"
+                : tab === "upcoming"
+                  ? "history"
+                  : "upcoming";
+          setTab(next);
+          requestAnimationFrame(() => {
+            document.getElementById(`planning-tab-${next}`)?.focus();
+          });
+        }}
         className="grid grid-cols-2 rounded-[1.5rem] border border-border/60 bg-card/70 p-1 shadow-brand-card backdrop-blur-xl"
       >
         <TabButton
+          id="planning-tab-upcoming"
+          controls="planning-panel"
           active={tab === "upcoming"}
           onClick={() => setTab("upcoming")}
           count={upcoming.length}
@@ -89,6 +114,8 @@ export function PlanningTabs({
           Komende
         </TabButton>
         <TabButton
+          id="planning-tab-history"
+          controls="planning-panel"
           active={tab === "history"}
           onClick={() => setTab("history")}
           count={past.length}
@@ -97,42 +124,53 @@ export function PlanningTabs({
         </TabButton>
       </div>
 
-      {groups.length === 0 ? (
-        <div className="rounded-[1.45rem] border border-dashed border-border/70 bg-card/60 p-6 text-center text-sm leading-6 text-muted-foreground shadow-sm backdrop-blur-xl">
-          {emptyText}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {groups.map((g) => (
-            <section key={g.key} className="space-y-2">
-              <h2 className="inline-flex rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs font-semibold capitalize text-muted-foreground backdrop-blur-xl">
-                {g.label}
-              </h2>
-              <ol className="space-y-2">
-                {g.lessons.map((l) => (
-                  <li key={l.id}>
-                    <StudentLessonCard
-                      lesson={l}
-                      showDate
-                      instructorName={instructorNames[l.instructor_id] ?? null}
-                    />
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ))}
-        </div>
-      )}
+      <div
+        id="planning-panel"
+        role="tabpanel"
+        aria-labelledby={`planning-tab-${tab}`}
+        tabIndex={0}
+      >
+        {groups.length === 0 ? (
+          <div className="rounded-[1.45rem] border border-dashed border-border/70 bg-card/60 p-6 text-center text-sm leading-6 text-muted-foreground shadow-sm backdrop-blur-xl">
+            {emptyText}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {groups.map((g) => (
+              <section key={g.key} className="space-y-2">
+                <h2 className="inline-flex rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs font-semibold capitalize text-muted-foreground backdrop-blur-xl">
+                  {g.label}
+                </h2>
+                <ol className="space-y-2">
+                  {g.lessons.map((l) => (
+                    <li key={l.id}>
+                      <StudentLessonCard
+                        lesson={l}
+                        showDate
+                        instructorName={instructorNames[l.instructor_id] ?? null}
+                      />
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function TabButton({
+  id,
+  controls,
   active,
   onClick,
   count,
   children,
 }: {
+  id: string;
+  controls: string;
   active: boolean;
   onClick: () => void;
   count: number;
@@ -140,9 +178,12 @@ function TabButton({
 }) {
   return (
     <button
+      id={id}
       type="button"
       role="tab"
       aria-selected={active}
+      aria-controls={controls}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={cn(
         "rounded-[1.2rem] px-3 py-2 text-sm font-bold transition active:scale-[0.98]",
