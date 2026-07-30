@@ -65,8 +65,6 @@ type AuthCookieState = {
   }>;
 };
 
-const DEFAULT_TENANT_ID = "926d29c2-4d77-4ab9-824b-f566725f9ae9";
-
 const env = parseEnvFromArgv(process.argv);
 const baseUrl = normalizeBaseUrl(
   process.env["E2E_BASE_URL"] ??
@@ -76,32 +74,27 @@ const baseUrl = normalizeBaseUrl(
 );
 const timeoutMs = Number(process.env["E2E_TIMEOUT_MS"] ?? "20000");
 const headless = process.env["E2E_HEADLESS"] !== "0";
-const tenantId =
-  process.env["E2E_TENANT_ID"]?.trim() || DEFAULT_TENANT_ID;
+const requestedTenantId = process.env["E2E_TENANT_ID"]?.trim() || null;
 const allowPaymentRedirect = process.env["E2E_ENABLE_PAYMENT_REDIRECT"] === "1";
 const enableRisJourney = process.env["E2E_ENABLE_RIS_JOURNEY"] === "1";
 
 const accounts: Account[] = [
   {
     label: "tenant admin",
-    email:
-      process.env["E2E_ADMIN_EMAIL"]?.trim() || "tenantadmin1@nxtdrive.io",
+    email: process.env["E2E_ADMIN_EMAIL"]?.trim() || "tenantadmin1@nxtdrive.io",
     password: process.env["E2E_ADMIN_PASSWORD"]?.trim() || "tenantadmin1",
     expectedPath: "/backoffice",
   },
   {
     label: "instructor",
     email:
-      process.env["E2E_INSTRUCTOR_EMAIL"]?.trim() ||
-      "instructeur1@nxtdrive.io",
-    password:
-      process.env["E2E_INSTRUCTOR_PASSWORD"]?.trim() || "instructeur1",
+      process.env["E2E_INSTRUCTOR_EMAIL"]?.trim() || "instructeur1@nxtdrive.io",
+    password: process.env["E2E_INSTRUCTOR_PASSWORD"]?.trim() || "instructeur1",
     expectedPath: "/instructeur",
   },
   {
     label: "student",
-    email:
-      process.env["E2E_STUDENT_EMAIL"]?.trim() || "leerling1@nxtdrive.io",
+    email: process.env["E2E_STUDENT_EMAIL"]?.trim() || "leerling1@nxtdrive.io",
     password: process.env["E2E_STUDENT_PASSWORD"]?.trim() || "leerling1",
     expectedPath: "/leerling",
   },
@@ -216,6 +209,33 @@ async function expect<T>(
 }
 
 async function lookupTenant(): Promise<TenantRow> {
+  let tenantId = requestedTenantId;
+  if (!tenantId) {
+    const { data: profile, error: profileError } = await service
+      .from("profiles")
+      .select("id")
+      .eq("email", accounts[0].email.toLowerCase())
+      .maybeSingle();
+    if (profileError || !profile?.id) {
+      throw new Error(
+        "E2E_TENANT_ID is unset and the tenant-admin account could not be resolved",
+      );
+    }
+    const { data: membership, error: membershipError } = await service
+      .from("memberships")
+      .select("tenant_id")
+      .eq("user_id", profile.id)
+      .eq("role", "tenant_admin")
+      .limit(1)
+      .maybeSingle();
+    if (membershipError || !membership?.tenant_id) {
+      throw new Error(
+        "E2E_TENANT_ID is unset and the tenant-admin account has no tenant membership",
+      );
+    }
+    tenantId = membership.tenant_id as string;
+  }
+
   const { data, error } = await service
     .from("tenants")
     .select("id, slug, name")
@@ -663,7 +683,9 @@ async function verifyRisInstructorToStudentJourney(
     .eq("script_id", firstScript.data.id)
     .maybeSingle();
   if (progressBefore.error) {
-    throw new Error(`RIS progress snapshot failed: ${progressBefore.error.message}`);
+    throw new Error(
+      `RIS progress snapshot failed: ${progressBefore.error.message}`,
+    );
   }
   risProgressSnapshots.push({
     tenantId: tenant.id,
@@ -725,7 +747,9 @@ async function verifyRisInstructorToStudentJourney(
     await instructorPage
       .getByRole("radio", { name: /Door leerling zelf/i })
       .check();
-    await instructorPage.getByLabel("Reflectie in een zin").fill(reflectionText);
+    await instructorPage
+      .getByLabel("Reflectie in een zin")
+      .fill(reflectionText);
     await poll(
       async () =>
         service
@@ -738,9 +762,7 @@ async function verifyRisInstructorToStudentJourney(
       "student-authored reflection autosave",
     );
 
-    await instructorPage
-      .getByRole("tab", { name: /Samenvatting/ })
-      .click();
+    await instructorPage.getByRole("tab", { name: /Samenvatting/ }).click();
     instructorPage.once("dialog", (dialog) => void dialog.accept());
     await instructorPage
       .getByRole("button", { name: "Afronden & publiceren" })
@@ -754,7 +776,8 @@ async function verifyRisInstructorToStudentJourney(
           .eq("tenant_id", tenant.id)
           .eq("lesson_id", lessonId)
           .maybeSingle(),
-      (value) => value.data?.publication_status === "waiting_for_student_response",
+      (value) =>
+        value.data?.publication_status === "waiting_for_student_response",
       "RIS publication",
     );
     const cardId = publishedCard.data?.id as string | undefined;
