@@ -3,7 +3,7 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 171,
+  "migrationCount": 172,
   "fixture": {
     "tenants": 2,
     "users": 3,
@@ -875,13 +875,18 @@
     },
     {
       "file": "20260730153000_location_workflows_privacy.sql",
-      "sha256": "27d5fcefcb23fc3529852aa2be0a81934b498a58374d83b92985ddd0aa263f92",
-      "bytes": 26052
+      "sha256": "65bd6f79b0374c94d4bcb985dff02016c00253ac167aef0d573f6de947c3315c",
+      "bytes": 26246
     },
     {
       "file": "20260730154000_maps_feature_gate_rpc.sql",
       "sha256": "a5d86cc753c2e64b52bada8c51861e64e587ed6851d61593c348c2fc25e11a4f",
       "bytes": 5348
+    },
+    {
+      "file": "20260730155000_student_stop_confirmations.sql",
+      "sha256": "711492e1c10d99a6a69dba51be9879128f21994277e027253d5de93ea78bfb8d",
+      "bytes": 5198
     }
   ]
 }

@@ -145,6 +145,14 @@ const fixtureSql = `
       '{}'::jsonb,
       now(),
       now()
+    ),
+    (
+      '10000000-0000-4000-8000-000000000004',
+      'migration-student@example.test',
+      '{"full_name":"Migration Student"}'::jsonb,
+      '{}'::jsonb,
+      now(),
+      now()
     )
   on conflict (id) do nothing;
 
@@ -166,17 +174,19 @@ const fixtureSql = `
   )
   on conflict (user_id, tenant_id, role) do nothing;
 
-  insert into public.students (id, tenant_id, full_name, email)
+  insert into public.students (id, tenant_id, user_id, full_name, email)
   values
     (
       '30000000-0000-4000-8000-000000000001',
       '20000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000004',
       'Fixture Student A',
       null
     ),
     (
       '30000000-0000-4000-8000-000000000002',
       '20000000-0000-4000-8000-000000000002',
+      null,
       'Fixture Student B',
       null
     )
@@ -234,6 +244,7 @@ function verifyDatabase(database) {
         v_updated_location_version_id uuid;
         v_appointment_stop_id uuid;
         v_location_proposal_id uuid;
+        v_stop_confirmation_id uuid;
         v_maps_gate jsonb;
         immutable_location_blocked boolean := false;
         cross_tenant_location_blocked boolean := false;
@@ -376,6 +387,23 @@ function verifyDatabase(database) {
              and status = 'PROPOSED'
         ) then
           raise exception 'student appointment location proposal was not persisted';
+        end if;
+
+        v_stop_confirmation_id := public.confirm_student_appointment_stop(
+          '20000000-0000-4000-8000-000000000001',
+          '30000000-0000-4000-8000-000000000001',
+          v_appointment_stop_id,
+          '10000000-0000-4000-8000-000000000004',
+          'STUDENT'
+        );
+        if not exists (
+          select 1
+            from public.appointment_stop_confirmations
+           where id = v_stop_confirmation_id
+             and entry_mode = 'STUDENT'
+             and status = 'CONFIRMED'
+        ) then
+          raise exception 'student stop confirmation was not persisted';
         end if;
 
         begin
