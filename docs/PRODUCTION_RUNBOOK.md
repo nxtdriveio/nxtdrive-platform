@@ -12,10 +12,10 @@ voor `nxtdrive.io` en later exact hetzelfde voor staging.
 
 ## Endpoints
 
-| Endpoint | Doel | Verwachte status |
-|---|---|---|
-| `/api/health` | Proces-health: Next.js draait en serveert requests. | `200` |
-| `/api/health/ready` | Readiness: runtime secrets aanwezig en Supabase bereikbaar via service role. | `200` |
+| Endpoint            | Doel                                                                         | Verwachte status |
+| ------------------- | ---------------------------------------------------------------------------- | ---------------- |
+| `/api/health`       | Proces-health: Next.js draait en serveert requests.                          | `200`            |
+| `/api/health/ready` | Readiness: runtime secrets aanwezig en Supabase bereikbaar via service role. | `200`            |
 
 Gebruik `/api/health` voor de snelle GitHub deploy health gate.
 Gebruik `/api/health/ready` voor externe monitoring en handmatige release checks.
@@ -112,6 +112,11 @@ De geplande monitor-workflow gebruikt daarnaast ook de browser-login secrets:
 - `SMOKE_INSTRUCTOR_PASSWORD`
 
 ## E2E business flows
+
+Voor de uitgebreide, verklaarbare RIS-releaseproef zie
+[`docs/RIS_JOURNEY_BOT.md`](./RIS_JOURNEY_BOT.md). De journeybot controleert de
+volledige instructeur-tot-leerlingcyclus, vergelijkt met een vaste baseline en
+schrijft JSON-, Markdown- en JUnit-rapporten.
 
 De smoke-runner is bewust licht. Voor echte regressiedekking op de kritieke
 productflows is er daarnaast een browsergedreven suite:

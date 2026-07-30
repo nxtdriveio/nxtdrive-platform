@@ -24,6 +24,10 @@ function source(pathFromRepoRoot: string): string {
 const runner = source("scripts/src/e2e-business-flows.ts");
 const scriptsPackage = source("scripts/package.json");
 const authenticatedWorkflow = source(".github/workflows/e2e-authenticated.yml");
+const qualityWorkflow = source(".github/workflows/ci.yml");
+const journeyBot = source("scripts/src/lib/ris-journey-bot.ts");
+const journeyBaseline = source("scripts/ris-journey-baseline.json");
+const journeyDocumentation = source("docs/RIS_JOURNEY_BOT.md");
 const instructorMessageComposer = source(
   "artifacts/nxtdrive/components/instructor/InstructorMessageComposer.tsx",
 );
@@ -33,6 +37,8 @@ const readiness = source("docs/PRODUCTION_READINESS_CHECKLIST.md");
 check(
   "scripts package exposes E2E business-flow commands",
   scriptsPackage.includes('"e2e:business-flows"') &&
+    scriptsPackage.includes('"e2e:ris-journey-bot"') &&
+    scriptsPackage.includes('"test-ris-journey-bot"') &&
     scriptsPackage.includes('"test-e2e-business-flows-foundation"'),
 );
 
@@ -44,6 +50,38 @@ check(
     authenticatedWorkflow.includes(
       "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}",
     ),
+);
+
+check(
+  "RIS journeybot has explainable release checks and three report formats",
+  journeyBot.includes("RIS.PREFLIGHT.CATALOG_STRUCTURE") &&
+    journeyBot.includes("RIS.JOURNEY.DRAFT_PRIVACY") &&
+    journeyBot.includes("RIS.JOURNEY.STAGE_NOT_MASTERY") &&
+    journeyBot.includes("RIS.JOURNEY.AUDIT_TRAIL") &&
+    journeyBot.includes("renderMarkdown") &&
+    journeyBot.includes("renderJUnit") &&
+    journeyBaseline.includes('"minExplainabilityScore": 100'),
+);
+
+check(
+  "authenticated workflow retains RIS reports even when the journey fails",
+  authenticatedWorkflow.includes("Upload explainable RIS journey report") &&
+    authenticatedWorkflow.includes("if: always()") &&
+    authenticatedWorkflow.includes("test-results/ris-journey/"),
+);
+
+check(
+  "quality gate executes the journeybot contract tests",
+  qualityWorkflow.includes("RIS journeybot contract tests") &&
+    qualityWorkflow.includes("run test-ris-journey-bot"),
+);
+
+check(
+  "RIS journeybot runbook documents baseline, privacy and evidence semantics",
+  journeyDocumentation.includes("baselinevergelijking") &&
+    journeyDocumentation.includes("Geen persoonsgegevens") &&
+    journeyDocumentation.includes("JUnit XML") &&
+    journeyDocumentation.includes("E2E_RIS_PREVIOUS_REPORT"),
 );
 
 check(
