@@ -229,6 +229,14 @@ function verifyDatabase(database) {
         v_definition_id uuid;
         v_critical_code text;
         v_assessment_type text;
+        v_location_record_id uuid;
+        v_location_version_id uuid;
+        v_updated_location_version_id uuid;
+        v_appointment_stop_id uuid;
+        v_location_proposal_id uuid;
+        v_maps_gate jsonb;
+        immutable_location_blocked boolean := false;
+        cross_tenant_location_blocked boolean := false;
         catalog_snapshot jsonb;
         catalog_hash text;
       begin
@@ -274,6 +282,185 @@ function verifyDatabase(database) {
              and is_qualified = true
         ) then
           raise exception 'default RIS 2.0 instructor qualification missing';
+        end if;
+
+        v_location_record_id := public.upsert_student_location(
+          '20000000-0000-4000-8000-000000000001',
+          '30000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          'STUDENT_PICKUP_DEFAULT',
+          'Thuis',
+          'Oud adres 1, Utrecht'
+        );
+        select canonical_version_id
+          into v_location_version_id
+          from public.location_records
+         where id = v_location_record_id;
+        if v_location_version_id is null then
+          raise exception 'canonical student location version was not created';
+        end if;
+
+        v_appointment_stop_id := public.publish_appointment_stop(
+          '20000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          'LESSON',
+          '40000000-0000-4000-8000-000000000001',
+          'PICKUP',
+          1,
+          v_location_record_id,
+          v_location_version_id
+        );
+
+        v_location_record_id := public.upsert_student_location(
+          '20000000-0000-4000-8000-000000000001',
+          '30000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          'STUDENT_PICKUP_DEFAULT',
+          'Thuis gewijzigd',
+          'Nieuw adres 2, Utrecht',
+          null,
+          null,
+          null,
+          '3521 AB',
+          'Utrecht',
+          null,
+          'NL',
+          52.0907,
+          5.1214,
+          'USER_ENTERED',
+          null,
+          null,
+          'UNVALIDATED',
+          'Profielwijziging na publicatie',
+          v_location_record_id
+        );
+        select canonical_version_id
+          into v_updated_location_version_id
+          from public.location_records
+         where id = v_location_record_id;
+        if v_updated_location_version_id = v_location_version_id then
+          raise exception 'student location update did not create a new version';
+        end if;
+        if (
+          select formatted_address_snapshot
+            from public.appointment_stops
+           where id = v_appointment_stop_id
+        ) <> 'Oud adres 1, Utrecht' then
+          raise exception 'published appointment stop changed with profile location';
+        end if;
+
+        begin
+          update public.location_versions
+             set formatted_address = 'Silent overwrite'
+           where id = v_location_version_id;
+        exception when others then
+          immutable_location_blocked := true;
+        end;
+        if not immutable_location_blocked then
+          raise exception 'immutable location version accepted an update';
+        end if;
+
+        v_location_proposal_id := public.propose_appointment_location_change(
+          '20000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          '30000000-0000-4000-8000-000000000001',
+          v_appointment_stop_id,
+          v_location_record_id,
+          v_updated_location_version_id,
+          'Leerling wil voor deze les het nieuwe adres gebruiken'
+        );
+        if not exists (
+          select 1
+            from public.location_change_proposals
+           where id = v_location_proposal_id
+             and status = 'PROPOSED'
+        ) then
+          raise exception 'student appointment location proposal was not persisted';
+        end if;
+
+        begin
+          perform public.upsert_student_location(
+            '20000000-0000-4000-8000-000000000002',
+            '30000000-0000-4000-8000-000000000002',
+            '10000000-0000-4000-8000-000000000001',
+            'STUDENT_PICKUP_DEFAULT',
+            'Cross tenant',
+            'Must be rejected'
+          );
+        exception when others then
+          cross_tenant_location_blocked := true;
+        end;
+        if not cross_tenant_location_blocked then
+          raise exception 'cross-tenant student location write was not blocked';
+        end if;
+
+        v_maps_gate := public.evaluate_maps_feature_gate(
+          '20000000-0000-4000-8000-000000000001',
+          'ROUTE_MATRIX',
+          'LOCAL',
+          1
+        );
+        if v_maps_gate ->> 'mode' <> 'HAVERSINE'
+           or v_maps_gate ->> 'reason' <> 'FEATURE_DISABLED' then
+          raise exception 'disabled route matrix did not degrade safely: %', v_maps_gate;
+        end if;
+
+        insert into public.maps_tenant_entitlements (
+          tenant_id, feature_code, status, configured_by, configuration_reason
+        ) values (
+          '20000000-0000-4000-8000-000000000001',
+          'ROUTE_MATRIX',
+          'ENABLED',
+          '10000000-0000-4000-8000-000000000003',
+          'Migration smoke entitlement'
+        );
+        insert into public.maps_tenant_limits (
+          tenant_id, feature_code, scope_type, period_type,
+          soft_limit, hard_limit, degradation_action, created_by
+        ) values (
+          '20000000-0000-4000-8000-000000000001',
+          'ROUTE_MATRIX',
+          'FEATURE',
+          'MONTH',
+          8,
+          10,
+          'RAYON_OR_HAVERSINE',
+          '10000000-0000-4000-8000-000000000003'
+        );
+        perform public.record_maps_usage_event(
+          '20000000-0000-4000-8000-000000000001',
+          'LOCAL',
+          'ROUTE_MATRIX',
+          'PLANNING_BOARD',
+          'GOOGLE',
+          'routes.matrix',
+          'MATRIX_ELEMENT',
+          9,
+          'MISS',
+          'SUCCESS',
+          'migration.maps.0001',
+          120,
+          null
+        );
+        v_maps_gate := public.evaluate_maps_feature_gate(
+          '20000000-0000-4000-8000-000000000001',
+          'ROUTE_MATRIX',
+          'LOCAL',
+          1
+        );
+        if v_maps_gate ->> 'state' <> 'LIMIT_REACHED'
+           or v_maps_gate ->> 'mode' <> 'HAVERSINE' then
+          raise exception 'maps hard limit did not enforce safe degradation: %', v_maps_gate;
+        end if;
+        perform public.rollup_maps_usage_day(current_date);
+        if (
+          select coalesce(sum(units), 0)
+            from public.maps_usage_daily_rollups
+           where tenant_id = '20000000-0000-4000-8000-000000000001'
+             and usage_date = current_date
+             and feature_code = 'ROUTE_MATRIX'
+        ) <> 9 then
+          raise exception 'maps usage rollup did not preserve matrix elements';
         end if;
 
         perform public.add_instructor_student_credits(

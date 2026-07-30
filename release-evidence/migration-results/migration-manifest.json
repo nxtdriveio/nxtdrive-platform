@@ -875,8 +875,8 @@
     },
     {
       "file": "20260730153000_location_workflows_privacy.sql",
-      "sha256": "96a5d318079ba85db6f4b11f03db6b2783faa12199ffa76358b8ed53a9039ea0",
-      "bytes": 25870
+      "sha256": "27d5fcefcb23fc3529852aa2be0a81934b498a58374d83b92985ddd0aa263f92",
+      "bytes": 26052
     },
     {
       "file": "20260730154000_maps_feature_gate_rpc.sql",
