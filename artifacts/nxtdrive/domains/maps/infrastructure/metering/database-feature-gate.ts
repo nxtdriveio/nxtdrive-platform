@@ -24,7 +24,6 @@ type ReadClient = {
 
 type EntitlementRow = {
   status: FeatureAvailability["state"];
-  enabled: boolean;
 };
 type LimitRow = {
   hard_limit: number;
@@ -57,7 +56,7 @@ export class DatabaseMapsFeatureGate implements MapsFeatureGate {
       await Promise.all([
         this.#client
           .from<EntitlementRow>("maps_tenant_entitlements")
-          .select("status, enabled")
+          .select("status")
           .eq("tenant_id", input.tenantId)
           .eq("feature_code", input.featureCode)
           .maybeSingle(),
@@ -66,7 +65,7 @@ export class DatabaseMapsFeatureGate implements MapsFeatureGate {
     if (entitlementError) {
       return blocked(input.featureCode, "ENTITLEMENT_UNAVAILABLE");
     }
-    if (!entitlement?.enabled || entitlement.status === "DISABLED") {
+    if (!entitlement || !["ENABLED", "PILOT"].includes(entitlement.status)) {
       return blocked(input.featureCode, "FEATURE_DISABLED");
     }
     const { data: limit, error: limitError } = await this.#client

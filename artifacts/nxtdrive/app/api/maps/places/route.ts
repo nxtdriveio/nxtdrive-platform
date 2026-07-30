@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   const [{ data: entitlement }, { data: breaker }] = await Promise.all([
     service
       .from("maps_tenant_entitlements")
-      .select("status, enabled")
+      .select("status")
       .eq("tenant_id", tenant.id)
       .eq("feature_code", featureCode)
       .maybeSingle(),
@@ -95,10 +95,7 @@ export async function POST(request: Request) {
       .maybeSingle(),
   ]);
   if (
-    !entitlement?.enabled ||
-    ["DISABLED", "SUSPENDED", "LIMIT_REACHED"].includes(
-      entitlement.status ?? "",
-    ) ||
+    !["ENABLED", "PILOT"].includes(entitlement?.status ?? "") ||
     breaker?.state === "OPEN"
   ) {
     return NextResponse.json(

@@ -377,6 +377,12 @@ export default async function PlatformAdminPage({
           >
             Notificaties ↗
           </Link>
+          <Link
+            href="/platform/maps"
+            className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Maps & Routing ↗
+          </Link>
         </div>
 
         {activeTab === "overview" && (
