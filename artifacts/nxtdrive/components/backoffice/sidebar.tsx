@@ -492,7 +492,7 @@ export function BackofficeSidebar({
     <div className="relative flex h-full flex-col text-brand-sidebar-foreground">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.28),transparent_28%),radial-gradient(circle_at_100%_100%,rgba(47,183,255,0.16),transparent_26%)]" />
       <div className="relative flex h-[3.75rem] shrink-0 items-center gap-2 border-b border-white/10 px-4 group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-0">
-        <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden">
+        <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden [&_img]:rounded-md [&_img]:bg-white [&_img]:p-1">
           <NxtdriveLogo
             className="text-lg font-semibold text-white"
             logoUrl={logoUrl}

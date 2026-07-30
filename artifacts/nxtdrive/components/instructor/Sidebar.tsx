@@ -152,7 +152,7 @@ export function InstructorSidebar({
         <div className="relative flex min-h-0 flex-1 flex-col p-4">
           <Link
             href="/instructeur"
-            className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white [&_img]:rounded-md [&_img]:bg-white [&_img]:p-1"
           >
             <NxtdriveLogo
               className="text-xl font-semibold text-white"
