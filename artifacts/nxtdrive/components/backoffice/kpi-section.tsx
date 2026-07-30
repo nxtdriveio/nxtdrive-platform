@@ -129,13 +129,14 @@ export function KpiSection({
 
   return (
     <section aria-label="KPI-overzicht">
-      <div className="grid auto-rows-fr grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid auto-rows-[5.5rem] grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Rijlessen vandaag"
           value={data.lessonsToday.toLocaleString("nl-NL")}
           icon={Clock}
           trendHint="gepland vandaag"
           href="/backoffice/agenda"
+          className="h-full"
         />
         <StatCard
           label="Actieve leerlingen"
@@ -143,6 +144,7 @@ export function KpiSection({
           icon={Users}
           trendHint="actieve dossiers"
           href="/backoffice/leerlingen"
+          className="h-full"
         />
         <StatCard
           label="Open taken"
@@ -150,6 +152,7 @@ export function KpiSection({
           icon={ClipboardList}
           trendHint="openstaand"
           href="/backoffice/taken"
+          className="h-full"
         />
         <StatCard
           label="Open facturen"
@@ -157,6 +160,7 @@ export function KpiSection({
           icon={Receipt}
           trendHint={`${data.openInvoices.toLocaleString("nl-NL")} openstaand`}
           href="/backoffice/facturen"
+          className="h-full"
         />
         <StatCard
           label="Nieuwe leads"
@@ -164,6 +168,7 @@ export function KpiSection({
           icon={Inbox}
           trendHint="in opvolging"
           href="/backoffice/leads"
+          className="h-full"
         />
         <StatCard
           label="Examens deze week"
@@ -171,6 +176,7 @@ export function KpiSection({
           icon={CalendarCheck2}
           trendHint={`${data.upcomingTrials.toLocaleString("nl-NL")} proefles(sen)`}
           href="/backoffice/cbr"
+          className="h-full"
         />
       </div>
     </section>

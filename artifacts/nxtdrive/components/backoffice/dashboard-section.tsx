@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Gauge,
+  Layers3,
   Receipt,
   Users,
   Wallet,
@@ -25,6 +26,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { formatEuros } from "@/lib/invoices/types";
 import { createNlDateTimeFormatter } from "@/lib/datetime";
 import type {
+  LeadPipeline,
   TodayCapacity,
   TodayLesson,
   WeekPlanningPoint,
@@ -51,6 +53,7 @@ type Props = {
   initial: DashboardLiveData;
   monthlyRevenue: MonthlyRevenuePoint[];
   studentProgress: StudentProgressRow[];
+  leadPipeline: LeadPipeline;
   tenantId: string;
   timeZone: string;
 };
@@ -97,10 +100,30 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-muted-foreground",
 };
 
+const FUNNEL_STAGES = [
+  { key: "new" as const, label: "Nieuw", href: "/backoffice/leads?tab=today" },
+  {
+    key: "contacted" as const,
+    label: "Benaderd",
+    href: "/backoffice/leads?status=contacted",
+  },
+  {
+    key: "package_advised" as const,
+    label: "Pakket",
+    href: "/backoffice/leads?status=package_advised",
+  },
+  {
+    key: "converted" as const,
+    label: "Klant",
+    href: "/backoffice/leads?status=converted",
+  },
+] as const;
+
 export function DashboardSection({
   initial,
   monthlyRevenue,
   studentProgress,
+  leadPipeline,
   tenantId,
   timeZone,
 }: Props) {
@@ -225,11 +248,15 @@ export function DashboardSection({
     0,
     data.todayCapacity.availableMinutes - data.todayCapacity.scheduledMinutes,
   );
+  const funnelTotal = FUNNEL_STAGES.reduce(
+    (sum, stage) => sum + (leadPipeline[stage.key] ?? 0),
+    0,
+  );
 
   return (
-    <div className="grid min-w-0 gap-3 xl:auto-rows-[22rem] xl:grid-cols-12">
+    <div className="grid min-w-0 auto-rows-[14rem] gap-3 md:grid-cols-2 xl:grid-cols-6">
       <DashboardCard
-        className="order-2 xl:col-span-6"
+        className="order-1 xl:col-span-2"
         title={
           <>
             <CalendarDays className="h-4 w-4 text-primary" />
@@ -270,7 +297,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="order-1 xl:col-span-6"
+        className="order-3 xl:col-span-2"
         title={
           <>
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -345,7 +372,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="order-4 xl:col-span-6"
+        className="order-5 xl:col-span-4"
         title={
           <>
             <BarChart3 className="h-4 w-4 text-primary" />
@@ -419,7 +446,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="order-3 xl:col-span-6"
+        className="order-4 xl:col-span-2"
         title={
           <>
             <Gauge className="h-4 w-4 text-primary" />
@@ -429,7 +456,7 @@ export function DashboardSection({
         actionLabel="Planboard"
         actionHref="/backoffice/planning-board"
       >
-        <div className="grid items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[7rem_minmax(0,1fr)]">
+        <div className="grid items-center gap-3 sm:grid-cols-[6rem_minmax(0,1fr)]">
           <div
             className="relative mx-auto grid h-24 w-24 place-items-center rounded-full bg-[conic-gradient(var(--brand-primary)_var(--utilization),#edf1f7_0)]"
             style={
@@ -468,7 +495,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="order-5 xl:col-span-6"
+        className="order-7 xl:col-span-3"
         title={
           <>
             <Users className="h-4 w-4 text-primary" />
@@ -531,7 +558,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="order-6 xl:col-span-6"
+        className="order-2 xl:col-span-2"
         title={
           <>
             <Car className="h-4 w-4 text-primary" />
@@ -568,6 +595,49 @@ export function DashboardSection({
               </li>
             ))}
           </ul>
+        )}
+      </DashboardCard>
+
+      <DashboardCard
+        className="order-6 xl:col-span-3"
+        title={
+          <>
+            <Layers3 className="h-4 w-4 text-primary" />
+            Leadfunnel
+          </>
+        }
+        actionLabel="Alle leads"
+        actionHref="/backoffice/leads"
+      >
+        {funnelTotal === 0 ? (
+          <DashboardEmptyState
+            icon={<Layers3 className="h-5 w-5" />}
+            message="Nog geen leads in de funnel."
+          />
+        ) : (
+          <div className="grid h-full grid-cols-2 gap-2 sm:grid-cols-4">
+            {FUNNEL_STAGES.map((stage) => {
+              const count = leadPipeline[stage.key] ?? 0;
+              const percentage = Math.round((count / funnelTotal) * 100);
+              return (
+                <Link
+                  key={stage.key}
+                  href={stage.href}
+                  className="flex min-w-0 flex-col justify-center rounded-lg border border-border bg-[var(--surface-2)] p-2.5 transition-colors hover:border-primary/40 hover:bg-[var(--admin-row-hover)]"
+                >
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {stage.label}
+                  </p>
+                  <p className="mt-1 text-xl font-black text-foreground">
+                    {count}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {percentage}% van funnel
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
         )}
       </DashboardCard>
     </div>
