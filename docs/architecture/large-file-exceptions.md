@@ -10,7 +10,7 @@ claim dat de architectuurrefactor compleet is.
 
 | Bestand                                                      | Regels | Reden voor tijdelijke uitzondering                                                       | Volgende veilige grens                    |
 | ------------------------------------------------------------ | -----: | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `lib/notifications/dispatch.ts`                              |   2482 | Veel bestaande kanaal- en templatecontracten; risicovol zonder outbox-fixtures           | kanaaladapters en delivery-policy         |
+| `lib/notifications/dispatch.ts`                              |   2238 | De delivery-policy en providerafhandeling zijn naar `dispatch-core.ts` gesplitst; de resterende use-cases delen nog bestaande contracten | notificatie-use-cases per domein          |
 | `lib/franchise/actions.ts`                                   |   2084 | Bestaande franchisecommandset met breed publiek contract                                 | commands, policies en repositories        |
 | `app/backoffice/planning-board/planning-board-workspace.tsx` |   1673 | Interactieve boardstate en DnD-contract                                                  | selectors, commands en presentatiesecties |
 | `lib/notifications/templates.ts`                             |   1513 | Groot bestaand templatecataloguscontract                                                 | catalogusdata los van renderers           |

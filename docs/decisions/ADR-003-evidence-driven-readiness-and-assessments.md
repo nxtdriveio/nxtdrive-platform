@@ -23,6 +23,16 @@ NXTDRIVE uses exactly these training methods:
 - `RIS_2_0`;
 - `RIS_1_0_LEGACY`.
 
+The product language keeps five concepts separate:
+
+| Concept | Meaning | May be used as formal exam advice? |
+| --- | --- | --- |
+| RIS instructional stage | The didactic phase in which an exercise is taught | No |
+| Mastery | Demonstrated performance, support and safety evidence | No, not by itself |
+| Coverage | The share of required evidence that was actually assessed | No |
+| NXTDRIVE readiness recommendation | An explainable, policy-versioned staff signal with visible blockers | Only as internal decision support |
+| Formal CBR/exam recommendation | A professional decision outside this engine | Never generated or claimed by NXTDRIVE |
+
 `RIS_1_0_LEGACY` is import-only, historical and immutable. The database rejects
 new lessons and assessments for it. Historical comparison is allowed only in
 shadow mode.

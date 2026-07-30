@@ -12,7 +12,8 @@ De kernkeuze is bewust niet-destructief:
 - `lesson_card_mode = ris` is de default voor nieuwe tenants.
 - `lesson_card_mode = legacy` houdt de bestaande legacy-leskaart beschikbaar als
   fallback.
-- AI mag voorstellen doen, maar de instructeur bevestigt en publiceert.
+- AI is tijdelijk hard uitgeschakeld; verklaarbare, regelgestuurde voorstellen
+  blijven beschikbaar en de instructeur bevestigt en publiceert.
 - Conceptscores zijn staff-only.
 - Leerlingen zien alleen gepubliceerde, leerlingvriendelijke voortgang.
 
@@ -82,6 +83,7 @@ Belangrijke regels:
 - `buildRisTree`
 - `computeRisProgress`
 - `computeRisModuleReadiness`
+- `evaluateReadiness` voor de centrale, methode-onafhankelijke beslisgrens
 
 Deze laag is pure TypeScript en heeft geen Supabase- of Next-afhankelijkheid.
 
@@ -132,10 +134,13 @@ Geimplementeerd:
 - publicatie vereist minimaal een conceptscore;
 - publicatie is draft-only en kan niet opnieuw over gepubliceerde kaarten heen;
 - begeleide reflectie wordt opgeslagen via `setGuidedReflectionAction`;
+- de invoerwijze wordt auditbaar vastgelegd als `student_self` of
+  `instructor_assisted`, inclusief invoerende gebruiker en capture-surface;
 - leerlingvriendelijke samenvatting en huiswerk/volgende focus worden bevestigd
   door de instructeur;
-- AI-assisted voorstel wordt als bewerkbare tekst gepresenteerd, niet automatisch
-  gepubliceerd;
+- het volgende-lesvoorstel combineert de laatste beoordeling, open dekking,
+  veiligheidsaandacht, herhaalpunten en leerlingwens tot 2-4 verklaarde
+  focusscripts die de instructeur bevestigt;
 - `publishRisLessonCardAction` publiceert handmatig;
 - Publicatie kopieert conceptscores naar definitieve scores en recomputet
   `student_ris_progress`;
@@ -149,14 +154,14 @@ De student PWA toont RIS-voortgang leerlingvriendelijk zodra een tenant
 
 Geimplementeerd:
 
-- `/student/voortgang` schakelt per tenantmodus tussen legacy-leskaart en
+- `/leerling/voortgang` schakelt per tenantmodus tussen legacy-leskaart en
   RIS-weergave;
 - student PWA toont RIS-voortgang als roadmap, moduleprogressie en
   gepubliceerde feedback;
 - modulekaarten tonen voortgang, beoordeelde scripts, aandachtspunten en
   toetsklaar-status;
-- scriptvoortgang wordt vertaald naar leerlingtaal, bijvoorbeeld
-  `Score 5/8 - bijna zelfstandig`;
+- instructiestap, beheersing, dekking en kritieke blokkades worden afzonderlijk
+  gepresenteerd en niet samengevoegd tot een examenpercentage;
 - de leerling ziet laatst geoefende scripts met link naar het lesdetail;
 - gepubliceerde leskaarten tonen instructeurfeedback, huiswerk/volgende focus
   en begeleide reflectie;
@@ -195,24 +200,22 @@ Geimplementeerd:
 - RIS-toets/TTT-momenten linken naar `interim_test`;
 - RIS-examen CBR linkt naar `exam`.
 
-### RIS-8: AI en rapportage
+### RIS-8: Verklaarbare signalen en rapportage
 
-AI werkt bovenop gestructureerde RIS-data en blijft adviserend.
+Modelgestuurde AI is tijdelijk op productniveau uitgeschakeld, ook als een oude
+deployment nog een AI-environmentflag bevat. De rapportage blijft volledig
+bruikbaar met uitlegbare, deterministische regels.
 
 Geimplementeerd:
 
-- on-demand RIS AI-voorstel in het instructeur-publicatiepaneel;
-- leerlingvriendelijke samenvatting in tweede persoon;
-- huiswerk/volgende-les focus;
+- harde globale AI-pauze en databaseguard op `ai_assist_enabled`;
+- leerlingvriendelijke, door de instructeur bevestigde samenvatting;
+- verklaarde huiswerk/volgende-les focus;
 - interne staff-only samenvatting en aandachtspunten;
-- AI is entitlement-gated via `ai_features`;
-- AI gebruikt server-side RIS-data, niet client-input als bron van waarheid;
 - de instructeur controleert, past aan en publiceert handmatig;
 - backoffice RIS-rapportage met zwakke scripts, moduleadvies en interne
   opvolgpunten;
-- deterministische rapportage blijft beschikbaar zonder AI-configuratie.
-
-AI publiceert nooit zelfstandig.
+- deterministische rapportage zonder AI-configuratie of externe modelcall.
 
 ### RIS-9: Migratie en rollout
 
@@ -274,16 +277,27 @@ zichtbaar voor tenants met `lesson_card_mode = legacy`. Tenant admins kunnen
 mock-scoredata schoon verwijderen en daarna RIS activeren zonder mapping; echte
 historische klantdata hoort via de preflight/mapping route te gaan.
 
-## Nog niet geimplementeerd
+## Open release gates
 
-De RIS-basis is functioneel afgerond tot en met release-hardening. Resterende
-toekomstige uitbreidingen zijn bewust buiten deze release gehouden:
+De technische RIS-basis en releaseguards zijn geïmplementeerd. Dit is geen claim
+dat inhoudelijke RIS-goedkeuring of een gebruikerstest is afgerond. De volgende
+externe bewijzen blijven blokkeren voor een brede RIS-livegang:
+
+- ondertekende validatie door een bevoegde RIS-deskundige van de 46 scripts,
+  benamingen, stapteksten, moduletoetslogica en bron-/gebruiksrechten;
+- een gemeten instructeurstest die bevestigt dat het snelle afrondpad in een
+  normale les binnen 60 seconden kan worden voltooid; de applicatie registreert
+  daarvoor starttijd, duur en het 60-secondenresultaat in de audittrail;
+- een geslaagde authenticated stagingreis met een expliciet als
+  expert-gevalideerd gemarkeerde RIS-testtenant.
+
+Resterende toekomstige uitbreidingen:
 
 - automatische historische scoreconversie naar definitieve RIS-progress;
 - volledige RIS-boekcontent of commerciele lesstof;
 - CBR-export of externe CBR-koppeling;
 - tenant-specifieke handmatige mapping-editor voor unmapped legacy-items;
-- extra E2E scenario's met echte live RIS-publicatie op productieaccounts.
+- aanvullende productie-E2E met echte accounts na de staginggate.
 
 ## Test
 
