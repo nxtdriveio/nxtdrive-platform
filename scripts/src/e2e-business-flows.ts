@@ -603,7 +603,11 @@ async function verifyLessonPlanningAndCompletion(
     await page.getByRole("button", { name: "Les afronden" }).click();
     await page.getByRole("button", { name: "Volgende" }).click();
     await page.getByRole("button", { name: "Volgende" }).click();
-    await page.getByRole("button", { name: "Lesscore: 7" }).click();
+    const overallScore = page.getByRole("slider", {
+      name: "Algemene lesscore",
+    });
+    await overallScore.fill("7");
+    await overallScore.blur();
     await page
       .locator("#finish-summary")
       .fill(
@@ -877,11 +881,6 @@ async function verifyMessaging(
       .getByPlaceholder("Typ een bericht...")
       .fill(studentMessage);
     await studentPage.getByRole("button", { name: "Verzenden" }).click();
-    await studentPage
-      .locator("p.whitespace-pre-wrap")
-      .filter({ hasText: studentMessage })
-      .first()
-      .waitFor({ timeout: timeoutMs });
 
     const conversation = await poll(
       async () =>
@@ -912,6 +911,13 @@ async function verifyMessaging(
     );
     if (sentMessage.data?.id)
       createdMessageIds.push(sentMessage.data.id as string);
+    await studentPage.reload({
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    await studentPage
+      .getByText(studentMessage, { exact: true })
+      .waitFor({ timeout: timeoutMs });
 
     await loginViaUi(instructorPage, instructorAccount);
     await instructorPage.goto(
@@ -921,19 +927,12 @@ async function verifyMessaging(
       { waitUntil: "domcontentloaded", timeout: timeoutMs },
     );
     await instructorPage
-      .locator("p.whitespace-pre-wrap")
-      .filter({ hasText: studentMessage })
-      .first()
+      .getByText(studentMessage, { exact: true })
       .waitFor({ timeout: timeoutMs });
     await instructorPage
       .getByPlaceholder("Typ een bericht...")
       .fill(instructorReply);
     await instructorPage.getByRole("button", { name: "Verzenden" }).click();
-    await instructorPage
-      .locator("p.whitespace-pre-wrap")
-      .filter({ hasText: instructorReply })
-      .first()
-      .waitFor({ timeout: timeoutMs });
 
     const reply = await poll(
       async () =>
@@ -947,6 +946,13 @@ async function verifyMessaging(
       "instructor reply persistence",
     );
     if (reply.data?.id) createdMessageIds.push(reply.data.id as string);
+    await instructorPage.reload({
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    await instructorPage
+      .getByText(instructorReply, { exact: true })
+      .waitFor({ timeout: timeoutMs });
 
     await studentPage.reload({
       waitUntil: "domcontentloaded",
