@@ -373,6 +373,7 @@ export function DashboardSection({
 
       <DashboardCard
         className="order-5 xl:col-span-4"
+        contentClassName="overflow-x-auto overflow-y-hidden"
         title={
           <>
             <BarChart3 className="h-4 w-4 text-primary" />
@@ -400,7 +401,7 @@ export function DashboardSection({
                 )}
               </span>
             </div>
-            <div className="flex h-28 items-end gap-2 border-b border-border">
+            <div className="flex h-24 items-end gap-2 border-b border-border">
               {data.weekPlanning.map((point) => (
                 <div
                   key={point.day}
@@ -440,7 +441,7 @@ export function DashboardSection({
                 </p>
               </div>
             </div>
-            <MiniBarChart data={monthlyRevenue} height={112} showLabels />
+            <MiniBarChart data={monthlyRevenue} height={96} showLabels />
           </div>
         </div>
       </DashboardCard>

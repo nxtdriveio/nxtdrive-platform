@@ -65,7 +65,7 @@ export default function DashboardVisualFixturePage() {
 
             <section
               aria-label="KPI-overzicht"
-              className="grid auto-rows-[5.5rem] grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6"
+              className="grid auto-rows-[6.25rem] grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6"
             >
               {kpis.map(([label, value, Icon, hint]) => (
                 <StatCard
