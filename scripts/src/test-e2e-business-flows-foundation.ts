@@ -23,6 +23,7 @@ function source(pathFromRepoRoot: string): string {
 
 const runner = source("scripts/src/e2e-business-flows.ts");
 const scriptsPackage = source("scripts/package.json");
+const authenticatedWorkflow = source(".github/workflows/e2e-authenticated.yml");
 const runbook = source("docs/PRODUCTION_RUNBOOK.md");
 const readiness = source("docs/PRODUCTION_READINESS_CHECKLIST.md");
 
@@ -30,6 +31,16 @@ check(
   "scripts package exposes E2E business-flow commands",
   scriptsPackage.includes('"e2e:business-flows"') &&
     scriptsPackage.includes('"test-e2e-business-flows-foundation"'),
+);
+
+check(
+  "authenticated staging workflow maps database secrets to the runner contract",
+  authenticatedWorkflow.includes(
+    "SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}",
+  ) &&
+    authenticatedWorkflow.includes(
+      "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}",
+    ),
 );
 
 check(
