@@ -10,12 +10,16 @@ export const dynamic = "force-dynamic";
 
 const FEATURE_LABELS = [
   ["ADDRESS_AUTOCOMPLETE", "Adres zoeken"],
+  ["PLACE_DETAILS", "Adresdetail ophalen"],
   ["ADDRESS_VALIDATION", "Adresvalidatie"],
+  ["GEOCODING", "Geocodering"],
   ["MAP_LOAD", "Kaartpreview"],
+  ["EXTERNAL_NAVIGATION", "Externe navigatie"],
   ["ROUTE_CALCULATION", "Routeberekening"],
   ["ROUTE_MATRIX", "Route Matrix"],
   ["ROUTE_CONFLICT_CHECK", "Conflictcontrole"],
   ["INSTRUCTOR_RECOMMENDATION", "Beste-instructeurvoorstel"],
+  ["VEHICLE_LOCATION_RECOMMENDATION", "Voertuig- en vestigingsvoorstel"],
   ["SINGLE_VEHICLE_OPTIMIZATION", "Routevolgordeoptimalisatie"],
   ["FLEET_OPTIMIZATION", "Multi-instructeurscenario"],
   ["CANCELLATION_OPTIMIZATION", "Annuleringsoptimalisatie"],
