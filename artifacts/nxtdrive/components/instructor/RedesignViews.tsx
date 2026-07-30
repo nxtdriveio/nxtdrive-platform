@@ -38,6 +38,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { InstructorCreditManager } from "@/components/instructor/InstructorCreditManager";
+import { InstructorMessageComposer } from "@/components/instructor/InstructorMessageComposer";
 import { InstructorTaskManager } from "@/components/instructor/InstructorTaskManager";
 import {
   type InstructorAppointment,
@@ -1436,18 +1437,7 @@ export function InstructorMessagesView({
                 ))}
               </div>
               <div className="border-t border-brand-border/70 bg-white/95 p-3">
-                <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-white p-2">
-                  <Input
-                    placeholder="Typ een bericht..."
-                    className="border-0 shadow-none focus-visible:ring-0"
-                  />
-                  <button
-                    className={buttonVariants({ size: "icon" })}
-                    aria-label="Versturen"
-                  >
-                    <Send className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
+                <InstructorMessageComposer conversationId={active.id} />
               </div>
             </div>
           </InstructorCard>

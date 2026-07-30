@@ -24,6 +24,9 @@ function source(pathFromRepoRoot: string): string {
 const runner = source("scripts/src/e2e-business-flows.ts");
 const scriptsPackage = source("scripts/package.json");
 const authenticatedWorkflow = source(".github/workflows/e2e-authenticated.yml");
+const instructorMessageComposer = source(
+  "artifacts/nxtdrive/components/instructor/InstructorMessageComposer.tsx",
+);
 const runbook = source("docs/PRODUCTION_RUNBOOK.md");
 const readiness = source("docs/PRODUCTION_READINESS_CHECKLIST.md");
 
@@ -53,6 +56,13 @@ check(
     runner.includes("verifyBranchIsolation") &&
     runner.includes("verifyWhiteLabelHost") &&
     runner.includes("verifyPayments"),
+);
+
+check(
+  "instructor message composer persists instead of exposing a dead send control",
+  instructorMessageComposer.includes("sendChatMessageAction") &&
+    instructorMessageComposer.includes("router.refresh()") &&
+    instructorMessageComposer.includes('aria-label="Verzenden"'),
 );
 
 check(
