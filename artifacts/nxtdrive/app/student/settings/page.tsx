@@ -26,13 +26,17 @@ export default async function StudentSettingsPage() {
         <StudentSection title="Persoonlijke gegevens" icon={User}>
           <div className="rounded-[var(--radius-card)] border border-brand-border bg-card/90 p-4 shadow-brand-card">
             <div className="flex items-start gap-4">
-              <Avatar name={experience.profile.name} className="h-14 w-14 text-base" />
+              <Avatar
+                name={experience.profile.name}
+                className="h-14 w-14 text-base"
+              />
               <div className="min-w-0">
                 <h2 className="truncate text-lg font-black text-brand-foreground">
                   {experience.profile.name}
                 </h2>
                 <p className="text-sm text-brand-muted-foreground">
-                  {experience.profile.tenantName} - {experience.profile.roleLabel}
+                  {experience.profile.tenantName} -{" "}
+                  {experience.profile.roleLabel}
                 </p>
                 <p className="mt-2 text-sm text-brand-muted-foreground">
                   {experience.profile.email ?? "E-mail niet ingevuld"}
@@ -41,7 +45,11 @@ export default async function StudentSettingsPage() {
             </div>
             <Link
               href="/leerling/instellingen"
-              className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
+              className={buttonVariants({
+                variant: "outline",
+                size: "sm",
+                className: "mt-4",
+              })}
             >
               Profiel bekijken
             </Link>
@@ -53,6 +61,14 @@ export default async function StudentSettingsPage() {
             <SettingsRow
               title="Pushmeldingen"
               body="Ontvang updates over lessen, feedback, betalingen en berichten."
+            />
+          </StudentSection>
+
+          <StudentSection title="Locaties" icon={User}>
+            <SettingsRow
+              title="Woonadres en ophaalpunten"
+              body="Beheer je vaste en extra locaties en controleer wat bij een les wordt gebruikt."
+              href="/leerling/instellingen/locaties"
             />
           </StudentSection>
 
@@ -81,7 +97,10 @@ export default async function StudentSettingsPage() {
           ) : null}
 
           <form action="/auth/logout" method="post">
-            <button type="submit" className={buttonVariants({ variant: "outline" })}>
+            <button
+              type="submit"
+              className={buttonVariants({ variant: "outline" })}
+            >
               <LogOut className="h-4 w-4" aria-hidden />
               Uitloggen
             </button>
@@ -104,7 +123,9 @@ function SettingsRow({
   const content = (
     <div className="rounded-[var(--radius-card)] border border-brand-border bg-card/90 p-4 shadow-brand-card">
       <p className="text-sm font-black text-brand-foreground">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">{body}</p>
+      <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
+        {body}
+      </p>
     </div>
   );
 
