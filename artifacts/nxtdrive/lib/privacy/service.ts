@@ -80,7 +80,7 @@ async function loadExportPayload(
   const studentQuery = service
     .from("students")
     .select(
-      "id, full_name, email, phone, postcode, address_line, city, pickup_location, active, created_at, updated_at",
+      "id, full_name, email, phone, postcode, address_line, city, pickup_address, active, created_at, updated_at",
     )
     .eq("tenant_id", request.tenant_id);
   const { data: students, error: studentError } = request.subject_student_id
@@ -143,6 +143,7 @@ async function loadExportPayload(
     { data: locationVersions, error: locationVersionError },
     { data: locationProposals, error: proposalError },
     { data: travelStatuses, error: travelStatusError },
+    { data: stopConfirmations, error: stopConfirmationError },
   ] = await Promise.all([
     locationRecordIds.length
       ? service
@@ -167,11 +168,11 @@ async function loadExportPayload(
       ? service
           .from("location_change_proposals")
           .select(
-            "id, student_id, appointment_stop_id, proposed_location_record_id, proposed_location_version_id, status, reason, route_impact_document, proposed_at, reviewed_at, reviewed_by, review_reason",
+            "id, student_id, appointment_stop_id, proposed_location_record_id, proposed_location_version_id, status, explanation, route_impact_status, route_impact_document, expires_at, created_at, reviewed_at, reviewed_by, review_reason",
           )
           .eq("tenant_id", request.tenant_id)
           .in("student_id", studentIds)
-          .order("proposed_at")
+          .order("created_at")
       : Promise.resolve({ data: [], error: null }),
     lessonIds.length
       ? service
@@ -183,12 +184,25 @@ async function loadExportPayload(
           .in("appointment_id", lessonIds)
           .order("occurred_at")
       : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("appointment_stop_confirmations")
+          .select(
+            "id, appointment_stop_id, student_id, status, entry_mode, confirmed_at, confirmed_by",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+          .order("confirmed_at")
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (locationRecordError || locationVersionError) {
     throw new Error("Versioned location export failed.");
   }
   if (proposalError) throw new Error("Location proposal export failed.");
   if (travelStatusError) throw new Error("Travel status export failed.");
+  if (stopConfirmationError) {
+    throw new Error("Appointment stop confirmation export failed.");
+  }
 
   const { data: validationEvents, error: validationError } =
     locationRecordIds.length
@@ -232,6 +246,7 @@ async function loadExportPayload(
         changeProposals: locationProposals ?? [],
       },
       appointmentLocationSnapshots: appointmentStops ?? [],
+      appointmentStopConfirmations: stopConfirmations ?? [],
       manualTravelStatuses: travelStatuses ?? [],
     },
     limitations: [

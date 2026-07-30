@@ -689,6 +689,9 @@ begin
   delete from public.location_change_proposals
    where tenant_id = v_request.tenant_id
      and student_id = v_request.subject_student_id;
+  delete from public.appointment_stop_confirmations
+   where tenant_id = v_request.tenant_id
+     and student_id = v_request.subject_student_id;
   delete from public.entity_location_links
    where tenant_id = v_request.tenant_id
      and student_id = v_request.subject_student_id;
@@ -732,6 +735,7 @@ begin
     'studentProfile', 'ANONYMIZED',
     'directProfileIdentifiersRemoved', true,
     'studentLocationLinksRemoved', true,
+    'appointmentStopConfirmationsRemoved', true,
     'orphanLocationRecordsRemoved', v_removed_locations,
     'providerReferencesRemovedWithOrphans', true,
     'routeCacheEntriesInvalidated', v_cache_rows,
