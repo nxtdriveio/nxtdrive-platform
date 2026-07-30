@@ -84,12 +84,15 @@ jobs:
           MOLLIE_KEY_ENCRYPTION_SECRET: ${{ secrets.MOLLIE_KEY_ENCRYPTION_SECRET }}
         run: |
           set -euo pipefail
+          build_timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          migration_version="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1 | sed 's/\.sql$//')"
           umask 002
           mkdir -p "$DEPLOY_BASE/shared"
           umask 027
           cat > "$DEPLOY_BASE/shared/.env" <<EOF
           NODE_ENV=production
           PORT=$PORT
+          NEXT_PUBLIC_APP_VERSION=${GITHUB_SHA:0:7}
           NEXT_PUBLIC_APP_URL=$APP_URL
           NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
           NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -99,6 +102,9 @@ jobs:
           SESSION_SECRET=$SESSION_SECRET
           DATABASE_URL=$DATABASE_URL
           MOLLIE_KEY_ENCRYPTION_SECRET=$MOLLIE_KEY_ENCRYPTION_SECRET
+          GIT_SHA=$GITHUB_SHA
+          BUILD_TIMESTAMP=$build_timestamp
+          DATABASE_MIGRATION_VERSION=$migration_version
           EOF
           chmod 640 "$DEPLOY_BASE/shared/.env"
 

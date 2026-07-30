@@ -34,9 +34,17 @@ for (const [label, workflow] of [
     `${label} runs deploy-integrated smoke in http mode`,
     workflow.includes("Deploy-integrated smoke") &&
       workflow.includes("SMOKE_BROWSER_MODE: off") &&
-      workflow.includes("pnpm --filter @workspace/scripts run smoke:production") &&
+      workflow.includes(
+        "pnpm --filter @workspace/scripts run smoke:production",
+      ) &&
       workflow.includes("SMOKE_TENANT_HOST") &&
       workflow.includes("SMOKE_CUSTOM_DOMAIN_HOST"),
+  );
+  check(
+    `${label} publishes traceable version metadata`,
+    workflow.includes("GIT_SHA=$GITHUB_SHA") &&
+      workflow.includes("BUILD_TIMESTAMP=$build_timestamp") &&
+      workflow.includes("DATABASE_MIGRATION_VERSION=$migration_version"),
   );
 }
 
@@ -48,7 +56,9 @@ check(
     monitorWorkflow.includes("environment: production") &&
     monitorWorkflow.includes("environment: staging") &&
     monitorWorkflow.includes("playwright install --with-deps chromium") &&
-    monitorWorkflow.includes("pnpm --filter @workspace/scripts run smoke:production"),
+    monitorWorkflow.includes(
+      "pnpm --filter @workspace/scripts run smoke:production",
+    ),
 );
 
 check(
@@ -63,8 +73,12 @@ check(
   "smoke runner supports browser-off deploy mode",
   smokeRunner.includes('type BrowserMode = "required" | "off"') &&
     smokeRunner.includes('process.env["SMOKE_BROWSER_MODE"]') &&
-    smokeRunner.includes('record("SKIP", "student login", "browser mode off")') &&
-    smokeRunner.includes('checkLoginPageHttp("/login", "GET /login html shell")'),
+    smokeRunner.includes(
+      'record("SKIP", "student login", "browser mode off")',
+    ) &&
+    smokeRunner.includes(
+      'checkLoginPageHttp("/login", "GET /login html shell")',
+    ),
 );
 
 check(
