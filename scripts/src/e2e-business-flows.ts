@@ -917,6 +917,7 @@ async function verifyMessaging(
     });
     await studentPage
       .getByText(studentMessage, { exact: true })
+      .first()
       .waitFor({ timeout: timeoutMs });
 
     await loginViaUi(instructorPage, instructorAccount);
@@ -928,6 +929,7 @@ async function verifyMessaging(
     );
     await instructorPage
       .getByText(studentMessage, { exact: true })
+      .first()
       .waitFor({ timeout: timeoutMs });
     await instructorPage
       .getByPlaceholder("Typ een bericht...")
@@ -952,6 +954,7 @@ async function verifyMessaging(
     });
     await instructorPage
       .getByText(instructorReply, { exact: true })
+      .first()
       .waitFor({ timeout: timeoutMs });
 
     await studentPage.reload({
