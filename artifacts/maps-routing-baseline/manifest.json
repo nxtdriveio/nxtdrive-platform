@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-30",
+  "commit": "940732d82df4496804ba648555d5e55c8d7dfb46",
+  "branch": "codex/maps-routing-mega-sprint",
+  "worktree": "clean",
+  "tests": {
+    "typecheck": "PASS",
+    "unit": {
+      "status": "PASS",
+      "total": 224,
+      "passed": 224,
+      "failed": 0
+    }
+  },
+  "providers": {
+    "browser": "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+    "routesServer": "GOOGLE_ROUTES_API_KEY",
+    "centralGateway": false,
+    "tenantMetering": false
+  },
+  "security": {
+    "globalUnsafeEval": false,
+    "nonceCsp": true,
+    "isolatedMapOrigin": false
+  },
+  "knownFailures": []
+}
