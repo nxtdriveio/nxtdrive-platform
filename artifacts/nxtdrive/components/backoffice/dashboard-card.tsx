@@ -22,11 +22,11 @@ export function DashboardCard({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-brand-border/90 bg-white shadow-[var(--admin-card-shadow)]",
+        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-brand-border/90 bg-white shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
-      <div className="flex min-h-12 items-center justify-between gap-2 border-b border-brand-border/80 px-4 py-2.5">
+      <div className="flex min-h-10 items-center justify-between gap-2 border-b border-brand-border/80 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-black text-foreground">
           {title}
         </div>
@@ -35,7 +35,7 @@ export function DashboardCard({
           {actionLabel && actionHref && (
             <Link
               href={actionHref}
-              className="rounded-full border border-brand-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="inline-flex h-7 items-center rounded-full border border-brand-border bg-[var(--surface-2)] px-2.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               {actionLabel}
             </Link>
@@ -43,10 +43,7 @@ export function DashboardCard({
         </div>
       </div>
       <div
-        className={cn(
-          "min-h-0 flex-1 overflow-x-hidden px-4 py-4",
-          contentClassName,
-        )}
+        className={cn("min-h-0 flex-1 overflow-x-hidden p-3", contentClassName)}
       >
         {children}
       </div>
@@ -62,7 +59,7 @@ export function DashboardEmptyState({
   message: string;
 }) {
   return (
-    <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[var(--surface-2)] p-4 text-center text-sm text-muted-foreground">
+    <div className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-[var(--surface-2)] p-3 text-center text-sm text-muted-foreground">
       {icon && <div className="text-muted-foreground/60">{icon}</div>}
       <span>{message}</span>
     </div>

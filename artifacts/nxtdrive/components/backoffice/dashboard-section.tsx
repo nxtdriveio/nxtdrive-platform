@@ -221,7 +221,7 @@ export function DashboardSection({
   );
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-12">
+    <div className="grid items-start gap-3 xl:grid-cols-12">
       <DashboardCard
         className="xl:col-span-7"
         title={
@@ -244,7 +244,7 @@ export function DashboardSection({
               <li key={lesson.id}>
                 <Link
                   href={`/backoffice/agenda/${lesson.id}`}
-                  className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:bg-[var(--admin-row-hover)]"
+                  className="flex items-center justify-between gap-3 py-2 transition-colors hover:bg-[var(--admin-row-hover)]"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="w-24 shrink-0 text-xs font-semibold tabular-nums text-primary">
@@ -288,10 +288,10 @@ export function DashboardSection({
                 <li key={alert.id}>
                   <Link
                     href={alert.href}
-                    className="flex items-center gap-3 py-2.5 transition hover:bg-[var(--admin-row-hover)]"
+                    className="flex items-center gap-2.5 py-2 transition hover:bg-[var(--admin-row-hover)]"
                   >
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${colorClass}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${colorClass}`}
                     >
                       <Icon className="h-4 w-4" aria-hidden />
                     </span>
@@ -314,7 +314,7 @@ export function DashboardSection({
               <li key={task.id}>
                 <Link
                   href="/backoffice/taken"
-                  className="flex items-center gap-3 py-2.5 transition hover:bg-[var(--admin-row-hover)]"
+                  className="flex items-center gap-2.5 py-2 transition hover:bg-[var(--admin-row-hover)]"
                 >
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
@@ -349,9 +349,9 @@ export function DashboardSection({
         actionLabel="Rapportages"
         actionHref="/backoffice/rapportages"
       >
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="mb-4 flex items-end justify-between">
+            <div className="mb-2.5 flex items-end justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   Planning deze week
@@ -367,7 +367,7 @@ export function DashboardSection({
                 )}
               </span>
             </div>
-            <div className="flex h-36 items-end gap-2 border-b border-border">
+            <div className="flex h-28 items-end gap-2 border-b border-border">
               {data.weekPlanning.map((point) => (
                 <div
                   key={point.day}
@@ -389,7 +389,7 @@ export function DashboardSection({
           </div>
 
           <div>
-            <div className="mb-4 flex items-end justify-between gap-3">
+            <div className="mb-2.5 flex items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   Omzettrend
@@ -423,16 +423,16 @@ export function DashboardSection({
         actionLabel="Planboard"
         actionHref="/backoffice/planning-board"
       >
-        <div className="grid items-center gap-5 sm:grid-cols-[8rem_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[8rem_minmax(0,1fr)]">
+        <div className="grid items-center gap-3 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[7rem_minmax(0,1fr)]">
           <div
-            className="relative mx-auto grid h-28 w-28 place-items-center rounded-full bg-[conic-gradient(var(--brand-primary)_var(--utilization),#edf1f7_0)]"
+            className="relative mx-auto grid h-24 w-24 place-items-center rounded-full bg-[conic-gradient(var(--brand-primary)_var(--utilization),#edf1f7_0)]"
             style={
               { "--utilization": `${utilization}%` } as React.CSSProperties
             }
           >
-            <div className="grid h-20 w-20 place-items-center rounded-full bg-white shadow-inner">
+            <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-white shadow-inner">
               <div className="text-center">
-                <p className="text-2xl font-black text-foreground">
+                <p className="text-xl font-black text-foreground">
                   {data.todayCapacity.utilizationPercent === null
                     ? "—"
                     : `${utilization}%`}
@@ -449,7 +449,7 @@ export function DashboardSection({
             ].map(([label, minutes]) => (
               <div
                 key={String(label)}
-                className="flex items-center justify-between border-b border-border py-2 last:border-0"
+                className="flex items-center justify-between border-b border-border py-1.5 last:border-0"
               >
                 <dt className="text-sm text-muted-foreground">{label}</dt>
                 <dd className="font-semibold text-foreground">
@@ -489,7 +489,7 @@ export function DashboardSection({
                 <li key={student.studentId}>
                   <Link
                     href={`/backoffice/leerlingen/${student.studentId}`}
-                    className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-[var(--admin-row-hover)]"
+                    className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--admin-row-hover)]"
                   >
                     <span
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black text-primary-foreground"
@@ -509,7 +509,7 @@ export function DashboardSection({
                           {student.completedLessons}/{total}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${pct}%` }}
@@ -546,7 +546,7 @@ export function DashboardSection({
               <li key={trial.id}>
                 <Link
                   href="/backoffice/leads"
-                  className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:bg-[var(--admin-row-hover)]"
+                  className="flex items-center justify-between gap-3 py-2 transition-colors hover:bg-[var(--admin-row-hover)]"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">

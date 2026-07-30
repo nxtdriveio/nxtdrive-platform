@@ -491,16 +491,25 @@ export function BackofficeSidebar({
   return (
     <div className="relative flex h-full flex-col text-brand-sidebar-foreground">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.28),transparent_28%),radial-gradient(circle_at_100%_100%,rgba(47,183,255,0.16),transparent_26%)]" />
-      <div className="relative flex h-[4.5rem] shrink-0 items-center gap-2 border-b border-white/10 px-5">
-        <NxtdriveLogo
-          className="text-lg font-semibold text-white"
-          logoUrl={logoUrl}
-          brandName={tenantName}
-          inverse
-        />
+      <div className="relative flex h-[3.75rem] shrink-0 items-center gap-2 border-b border-white/10 px-4 group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-0">
+        <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden">
+          <NxtdriveLogo
+            className="text-lg font-semibold text-white"
+            logoUrl={logoUrl}
+            brandName={tenantName}
+            inverse
+          />
+        </span>
+        <span className="hidden group-data-[collapsed=true]/sidebar:inline-flex">
+          <NxtdriveLogo
+            className="text-xl font-semibold text-white"
+            showWordmark={false}
+            inverse
+          />
+        </span>
       </div>
 
-      <nav className="relative flex-1 overflow-x-hidden overflow-y-auto px-3 pb-3 pt-4 [scrollbar-color:rgba(255,255,255,0.34)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-white/28 [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-track]:bg-transparent">
+      <nav className="relative flex-1 overflow-x-hidden overflow-y-auto px-3 pb-2 pt-2.5 group-data-[collapsed=true]/sidebar:px-2 [scrollbar-color:rgba(255,255,255,0.34)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-white/28 [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-track]:bg-transparent">
         {NAV_SECTIONS.map((section) => {
           let sectionItems: NavItem[] = [];
           if (section.label === "Franchise" && !hasFranchise) {
@@ -537,13 +546,17 @@ export function BackofficeSidebar({
           if (sectionItems.length === 0) return null;
 
           return (
-            <div key={section.label} className="mb-2">
+            <div
+              key={section.label}
+              className="mb-1 group-data-[collapsed=true]/sidebar:mb-0.5"
+            >
               <button
                 type="button"
                 onClick={() => toggleSection(section.label)}
                 aria-expanded={openSections.has(section.label)}
                 className={cn(
-                  "mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-sidebar-muted/78 transition-colors",
+                  "mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1 text-left text-[9px] font-semibold uppercase tracking-[0.18em] text-brand-sidebar-muted/78 transition-colors",
+                  "group-data-[collapsed=true]/sidebar:hidden",
                   section.label !== "Overzicht" &&
                     "hover:bg-white/5 hover:text-white",
                 )}
@@ -563,6 +576,7 @@ export function BackofficeSidebar({
                 className={cn(
                   "space-y-0.5",
                   !openSections.has(section.label) && "hidden",
+                  "group-data-[collapsed=true]/sidebar:!block",
                 )}
               >
                 {sectionItems.map((item) => {
@@ -572,8 +586,11 @@ export function BackofficeSidebar({
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        aria-label={item.label}
+                        title={item.label}
                         className={cn(
-                          "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-all",
+                          "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-all",
+                          "group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-0",
                           active
                             ? "[background:linear-gradient(135deg,var(--brand-sidebar-active),#3f7cff)] text-brand-sidebar-active-foreground shadow-[0_14px_30px_rgba(76,66,255,0.28)]"
                             : item.muted
@@ -582,9 +599,11 @@ export function BackofficeSidebar({
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                        <span className="truncate">{item.label}</span>
+                        <span className="truncate group-data-[collapsed=true]/sidebar:hidden">
+                          {item.label}
+                        </span>
                         {item.badge ? (
-                          <span className="ml-auto rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/72">
+                          <span className="ml-auto rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/72 group-data-[collapsed=true]/sidebar:hidden">
                             {item.badge}
                           </span>
                         ) : null}
@@ -598,16 +617,20 @@ export function BackofficeSidebar({
         })}
       </nav>
 
-      <div className="relative shrink-0 space-y-2 border-t border-white/10 p-3">
+      <div className="relative shrink-0 space-y-1.5 border-t border-white/10 p-2.5 group-data-[collapsed=true]/sidebar:px-2">
         <Link
           href="/backoffice/abonnement"
-          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.055] px-3 py-2 text-sm transition-colors hover:bg-white/[0.085]"
+          aria-label={`Abonnement: ${planLabel}`}
+          title={`Abonnement: ${planLabel}`}
+          className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.055] px-2.5 py-1.5 text-[13px] transition-colors hover:bg-white/[0.085] group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-0"
         >
           <span className="flex items-center gap-2 text-white">
             <Wallet className="h-4 w-4 shrink-0" aria-hidden />
-            Abonnement
+            <span className="group-data-[collapsed=true]/sidebar:hidden">
+              Abonnement
+            </span>
           </span>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 group-data-[collapsed=true]/sidebar:hidden">
             <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               {planLabel}
             </span>
@@ -619,17 +642,20 @@ export function BackofficeSidebar({
             ) : null}
           </span>
         </Link>
-        <p className="px-2 text-[10px] text-brand-sidebar-muted">
+        <p className="px-2 text-[10px] text-brand-sidebar-muted group-data-[collapsed=true]/sidebar:hidden">
           Powered by <span className="font-semibold text-white">NXTDRIVE</span>
         </p>
         <form method="post" action="/auth/logout">
           <button
             type="submit"
             aria-label="Uitloggen"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-brand-sidebar-muted transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            title="Uitloggen"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-brand-sidebar-muted transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 group-data-[collapsed=true]/sidebar:justify-center"
           >
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-            Uitloggen
+            <span className="group-data-[collapsed=true]/sidebar:hidden">
+              Uitloggen
+            </span>
           </button>
         </form>
       </div>

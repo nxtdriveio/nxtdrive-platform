@@ -15,7 +15,7 @@ export function AdminPage({
   className?: string;
 }) {
   return (
-    <div className={cn("flex w-full flex-col gap-5", className)}>
+    <div className={cn("flex w-full flex-col gap-4", className)}>
       {children}
     </div>
   );
@@ -35,17 +35,17 @@ export function AdminPageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <section className="border-b border-border/70 pb-4">
-      <div className="min-w-0 space-y-1.5">
+    <section className="border-b border-border/70 pb-3">
+      <div className="min-w-0 space-y-1">
         {eyebrow ? (
-          <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             {eyebrow}
           </div>
         ) : null}
-        <h1 className="text-2xl font-black tracking-tight text-foreground md:text-3xl">
+        <h1 className="text-2xl font-black tracking-tight text-foreground">
           {title}
         </h1>
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           {description ? (
             <p className="max-w-3xl text-sm leading-5 text-muted-foreground">
               {description}
@@ -77,7 +77,7 @@ export function AdminGrid({
   return (
     <div
       className={cn(
-        "grid items-start gap-4",
+        "grid items-start gap-3",
         columns === "2" && "lg:grid-cols-2",
         columns === "3" && "xl:grid-cols-3",
         columns === "4" && "md:grid-cols-2 xl:grid-cols-4",
@@ -115,7 +115,7 @@ export function AdminPanel({
         className,
       )}
     >
-      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-brand-border/80 px-4 py-2.5">
+      <div className="flex min-h-10 items-center justify-between gap-3 border-b border-brand-border/80 px-3 py-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <span className="truncate">{title}</span>
@@ -130,14 +130,14 @@ export function AdminPanel({
         {actionHref ? (
           <Link
             href={actionHref}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand-border bg-[var(--surface-2)] px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-brand-border bg-[var(--surface-2)] px-2.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
           >
             {actionLabel}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         ) : null}
       </div>
-      <div className={cn("p-4", contentClassName)}>{children}</div>
+      <div className={cn("p-3", contentClassName)}>{children}</div>
     </section>
   );
 }
@@ -152,13 +152,13 @@ export function AdminSectionHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-0.5 max-w-3xl text-sm leading-5 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -174,20 +174,20 @@ export function AdminMetricStrip({
   items: Array<{ label: string; value: ReactNode; hint?: ReactNode }>;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
       {items.map((item) => (
         <div
           key={item.label}
-          className="min-w-0 rounded-2xl border border-border bg-[var(--surface-1)] px-3.5 py-3 shadow-[var(--admin-card-shadow)] sm:px-4"
+          className="min-w-0 rounded-xl border border-border bg-[var(--surface-1)] px-3 py-2.5 shadow-[var(--admin-card-shadow)]"
         >
           <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px] sm:tracking-[0.2em]">
             {item.label}
           </p>
-          <div className="mt-1 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          <div className="mt-0.5 truncate text-lg font-semibold tracking-tight text-foreground">
             {item.value}
           </div>
           {item.hint ? (
-            <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground sm:text-xs sm:leading-5">
+            <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-muted-foreground">
               {item.hint}
             </p>
           ) : null}
@@ -215,7 +215,7 @@ export function AdminTable({
               {columns.map((column) => (
                 <th
                   key={column}
-                  className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em]"
+                  className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em]"
                 >
                   {column}
                 </th>
@@ -226,7 +226,7 @@ export function AdminTable({
         </table>
       </div>
       {empty ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">
+        <div className="p-6 text-center text-sm text-muted-foreground">
           {empty}
         </div>
       ) : null}
@@ -289,11 +289,11 @@ export function AdminListRow({
             : "bg-[color-mix(in_oklab,var(--primary)_10%,transparent)] text-primary";
 
   const inner = (
-    <div className="group flex min-h-[4.25rem] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-[var(--admin-row-hover)]">
+    <div className="group flex min-h-14 items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--admin-row-hover)]">
       {icon ? (
         <span
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
             toneClass,
           )}
         >
@@ -305,7 +305,7 @@ export function AdminListRow({
           {title}
         </div>
         {subtitle ? (
-          <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+          <div className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
             {subtitle}
           </div>
         ) : null}
@@ -340,11 +340,11 @@ export function AdminModuleTile({
   return (
     <Link
       href={href}
-      className="group flex min-h-28 flex-col justify-between rounded-2xl border border-border bg-[var(--surface-2)] p-4 transition-colors hover:border-primary/40 hover:bg-[var(--admin-row-hover)]"
+      className="group flex min-h-24 flex-col justify-between rounded-xl border border-border bg-[var(--surface-2)] p-3 transition-colors hover:border-primary/40 hover:bg-[var(--admin-row-hover)]"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--primary)_10%,transparent)] text-primary">
-          <Icon className="h-5 w-5" aria-hidden />
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[color-mix(in_oklab,var(--primary)_10%,transparent)] text-primary">
+          <Icon className="h-4.5 w-4.5" aria-hidden />
         </span>
         {badge}
       </div>
@@ -353,7 +353,7 @@ export function AdminModuleTile({
           {label}
           <ArrowUpRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
         </div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+        <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground">
           {description}
         </p>
       </div>

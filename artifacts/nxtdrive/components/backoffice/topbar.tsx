@@ -23,7 +23,7 @@ export function BackofficeTopbar({
   notifications?: ReactNode;
 }) {
   return (
-    <div className="flex h-16 min-w-0 w-full items-center gap-2 overflow-hidden pr-3 sm:gap-3 sm:px-5 lg:h-[4.5rem] lg:px-6">
+    <div className="flex h-16 min-w-0 w-full items-center gap-2 overflow-hidden pr-3 sm:gap-2.5 sm:px-4 lg:h-[3.75rem] lg:px-5">
       {tenantName ? (
         <span className="min-w-0 max-w-[9rem] flex-1 truncate text-sm font-black text-foreground sm:max-w-none lg:hidden">
           {tenantName}

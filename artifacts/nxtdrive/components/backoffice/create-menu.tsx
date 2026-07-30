@@ -144,7 +144,7 @@ export function BackofficeCreateMenu({ className }: { className?: string }) {
         <button
           type="button"
           className={cn(
-            "inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-[0_14px_30px_rgba(91,77,255,0.24)] transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-bold text-primary-foreground shadow-[0_10px_24px_rgba(91,77,255,0.2)] transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             className,
           )}
         >

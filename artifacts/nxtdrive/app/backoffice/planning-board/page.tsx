@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Filter } from "lucide-react";
 
 import {
@@ -68,25 +69,30 @@ function PlanboardFilterForm({
   data: Awaited<ReturnType<typeof loadPlanningBoardData>>;
 }) {
   return (
-    <form className="space-y-3">
-      <div className="space-y-1.5">
+    <form className="space-y-2.5">
+      <div className="space-y-1">
         <Label>Datum</Label>
-        <Input name="date" type="date" defaultValue={filters.date} className="h-9" />
+        <Input
+          name="date"
+          type="date"
+          defaultValue={filters.date}
+          className="h-8"
+        />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Weergave</Label>
-          <Select name="view" defaultValue={filters.view} className="h-9">
+          <Select name="view" defaultValue={filters.view} className="h-8">
             <option value="day">Dag</option>
             <option value="week">Week</option>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Perspectief</Label>
           <Select
             name="perspective"
             defaultValue={filters.perspective ?? "instructor"}
-            className="h-9"
+            className="h-8"
           >
             <option value="instructor">Instructeur</option>
             <option value="branch">Vestiging</option>
@@ -96,9 +102,13 @@ function PlanboardFilterForm({
           </Select>
         </div>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label>Vestiging</Label>
-        <Select name="branch" defaultValue={filters.branchId ?? ""} className="h-9">
+        <Select
+          name="branch"
+          defaultValue={filters.branchId ?? ""}
+          className="h-8"
+        >
           <option value="all">Alle vestigingen</option>
           {data.branches.map((branch) => (
             <option key={branch.id} value={branch.id}>
@@ -107,9 +117,13 @@ function PlanboardFilterForm({
           ))}
         </Select>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label>Instructeur</Label>
-        <Select name="instructor" defaultValue={filters.instructorId ?? ""} className="h-9">
+        <Select
+          name="instructor"
+          defaultValue={filters.instructorId ?? ""}
+          className="h-8"
+        >
           <option value="">Alle instructeurs</option>
           {data.instructors.map((instructor) => (
             <option key={instructor.id} value={instructor.id}>
@@ -119,17 +133,25 @@ function PlanboardFilterForm({
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Status</Label>
-          <Select name="status" defaultValue={filters.status ?? "all"} className="h-9">
+          <Select
+            name="status"
+            defaultValue={filters.status ?? "all"}
+            className="h-8"
+          >
             <option value="open">Open</option>
             <option value="suggested">Suggesties</option>
             <option value="all">Alle</option>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Type</Label>
-          <Select name="appointment_type" defaultValue={filters.appointmentType ?? ""} className="h-9">
+          <Select
+            name="appointment_type"
+            defaultValue={filters.appointmentType ?? ""}
+            className="h-8"
+          >
             <option value="">Alle</option>
             <option value="lesson">Rijles</option>
             <option value="trial_lesson">Proefles</option>
@@ -159,7 +181,10 @@ function PlanboardFilterForm({
           </div>
           <div className="space-y-1.5">
             <Label>Transmissie</Label>
-            <Select name="transmission" defaultValue={filters.transmission ?? ""}>
+            <Select
+              name="transmission"
+              defaultValue={filters.transmission ?? ""}
+            >
               <option value="">Alle</option>
               <option value="schakel">Schakel</option>
               <option value="automaat">Automaat</option>
@@ -189,7 +214,10 @@ function PlanboardFilterForm({
           </div>
           <div className="space-y-1.5">
             <Label>Beschikbaarheid</Label>
-            <Select name="availability" defaultValue={filters.availability ?? ""}>
+            <Select
+              name="availability"
+              defaultValue={filters.availability ?? ""}
+            >
               <option value="">Alle</option>
               <option value="available">Beschikbaar</option>
               <option value="blocked">Geblokkeerd</option>
@@ -206,10 +234,18 @@ function PlanboardFilterForm({
           </label>
         </div>
       </details>
-      <Button type="submit" className="h-9 w-full">
-        <Filter className="h-4 w-4" aria-hidden />
-        Filter toepassen
-      </Button>
+      <div className="grid grid-cols-[auto_1fr] gap-2 pt-1">
+        <Link
+          href="/backoffice/planning-board"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          Wissen
+        </Link>
+        <Button type="submit" className="h-8">
+          <Filter className="h-3.5 w-3.5" aria-hidden />
+          Toepassen
+        </Button>
+      </div>
     </form>
   );
 }
@@ -254,10 +290,10 @@ export default async function PlanningBoardPage({
   );
 
   return (
-    <AdminPage>
+    <AdminPage className="gap-3">
       <AdminSectionHeader
         title="Planboard"
-        description="Sleep queue-items naar een instructeur en tijdslot. De planning-core blijft leidend voor beschikbaarheid, voertuig, rayon, overlap en rechten."
+        description="Sleep afspraken naar een instructeur en tijdslot; controles blijven automatisch actief."
       />
 
       <PlanningBoardWorkspace

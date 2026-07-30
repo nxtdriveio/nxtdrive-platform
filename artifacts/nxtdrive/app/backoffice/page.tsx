@@ -179,7 +179,7 @@ export default async function BackofficePage() {
               Nog geen leads in de funnel.
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid gap-2 sm:grid-cols-4">
               {FUNNEL_STAGES.map((stage) => {
                 const count = pipeline[stage.key] ?? 0;
                 const percentage =
@@ -188,12 +188,12 @@ export default async function BackofficePage() {
                   <Link
                     key={stage.key}
                     href={stage.href}
-                    className="rounded-2xl border border-border bg-[var(--surface-2)] p-4 transition-colors hover:border-primary/40 hover:bg-[var(--admin-row-hover)]"
+                    className="rounded-xl border border-border bg-[var(--surface-2)] p-3 transition-colors hover:border-primary/40 hover:bg-[var(--admin-row-hover)]"
                   >
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       {stage.label}
                     </p>
-                    <p className="mt-2 text-2xl font-semibold text-foreground">
+                    <p className="mt-1 text-xl font-semibold text-foreground">
                       {count}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">

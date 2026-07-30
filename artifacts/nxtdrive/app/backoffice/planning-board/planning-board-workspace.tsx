@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -20,7 +27,10 @@ import {
   Clock3,
   ExternalLink,
   GripVertical,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 
@@ -64,18 +74,49 @@ const START_HOUR = 8;
 const END_HOUR = 18;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 30;
-const SLOT_WIDTH = 64;
-const RESOURCE_ROW_HEIGHT = 74;
-const RESOURCE_COLUMN_WIDTH = 206;
+const SLOT_WIDTH = 56;
+const RESOURCE_ROW_HEIGHT = 56;
+const RESOURCE_COLUMN_WIDTH = 176;
+const SLOT_COUNT = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+const SLOT_PERCENT = 100 / SLOT_COUNT;
+const TIMELINE_MINUTES = (END_HOUR - START_HOUR) * 60;
 const PREVIEW_DEBOUNCE_MS = 180;
 const EVENT_LEGEND = [
-  { key: "lesson", label: "Rijles", className: "bg-planning-lesson border-planning-lesson" },
-  { key: "trial_lesson", label: "Proefles", className: "bg-planning-trial border-planning-trial" },
-  { key: "interim_test", label: "TTT", className: "bg-planning-ttt border-planning-ttt" },
-  { key: "exam", label: "Examen", className: "bg-planning-exam border-planning-exam" },
-  { key: "admin", label: "Administratie", className: "bg-planning-admin border-planning-admin" },
-  { key: "theory_guidance", label: "Theorie", className: "bg-planning-theory border-planning-theory" },
-  { key: "block", label: "Prive/pauze/blok", className: "bg-planning-block border-planning-block" },
+  {
+    key: "lesson",
+    label: "Rijles",
+    className: "bg-planning-lesson border-planning-lesson",
+  },
+  {
+    key: "trial_lesson",
+    label: "Proefles",
+    className: "bg-planning-trial border-planning-trial",
+  },
+  {
+    key: "interim_test",
+    label: "TTT",
+    className: "bg-planning-ttt border-planning-ttt",
+  },
+  {
+    key: "exam",
+    label: "Examen",
+    className: "bg-planning-exam border-planning-exam",
+  },
+  {
+    key: "admin",
+    label: "Administratie",
+    className: "bg-planning-admin border-planning-admin",
+  },
+  {
+    key: "theory_guidance",
+    label: "Theorie",
+    className: "bg-planning-theory border-planning-theory",
+  },
+  {
+    key: "block",
+    label: "Prive/pauze/blok",
+    className: "bg-planning-block border-planning-block",
+  },
 ] as const;
 
 const AVAILABILITY_LEGEND = [
@@ -165,12 +206,10 @@ function eventTop(event: PlanningBoardEvent, timeZone: string): number {
   );
 }
 
-function eventLeft(event: PlanningBoardEvent, timeZone: string): number {
+function eventLeft(event: PlanningBoardEvent, timeZone: string): string {
   const minutes = zonedMinuteOfDay(new Date(event.startsAt), timeZone);
-  return Math.max(
-    0,
-    ((minutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_WIDTH,
-  );
+  const percentage = ((minutes - START_HOUR * 60) / TIMELINE_MINUTES) * 100;
+  return `${Math.max(0, percentage)}%`;
 }
 
 function eventHeight(event: PlanningBoardEvent): number {
@@ -180,19 +219,16 @@ function eventHeight(event: PlanningBoardEvent): number {
   );
 }
 
-function eventWidth(event: PlanningBoardEvent): number {
-  return Math.max(
-    44,
-    (eventDurationMinutes(event) / SLOT_MINUTES) * SLOT_WIDTH - 4,
-  );
+function eventWidth(event: PlanningBoardEvent): string {
+  return `${(eventDurationMinutes(event) / TIMELINE_MINUTES) * 100}%`;
 }
 
 function eventLaneStyle(lane: number, laneCount: number) {
-  const availableHeight = RESOURCE_ROW_HEIGHT - 14;
+  const availableHeight = RESOURCE_ROW_HEIGHT - 8;
   const laneHeight = availableHeight / Math.max(1, laneCount);
   return {
-    top: 7 + lane * laneHeight,
-    height: Math.max(28, laneHeight - 5),
+    top: 4 + lane * laneHeight,
+    height: Math.max(18, laneHeight - 3),
   };
 }
 
@@ -282,8 +318,10 @@ function instructorRowSubtitle(
 ): string | undefined {
   const dayLabel =
     data.filters.view === "week" ? dateShort(day, data.timeZone) : undefined;
-  if (perspective === "exam") return dayLabel ? `Examen / TTT - ${dayLabel}` : "Examen / TTT";
-  if (perspective === "trial_lesson") return dayLabel ? `Proeflessen - ${dayLabel}` : "Proeflessen";
+  if (perspective === "exam")
+    return dayLabel ? `Examen / TTT - ${dayLabel}` : "Examen / TTT";
+  if (perspective === "trial_lesson")
+    return dayLabel ? `Proeflessen - ${dayLabel}` : "Proeflessen";
   return dayLabel;
 }
 
@@ -322,7 +360,9 @@ function resourceRowsForDay(
   if (perspective === "branch") {
     const branchIdsWithEvents = new Set(
       events
-        .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
+        .filter(
+          (event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day,
+        )
         .map((event) => event.branchId ?? "none"),
     );
     const rows: ResourceRow[] = data.branches.map((branch) => ({
@@ -348,7 +388,9 @@ function resourceRowsForDay(
 
   const vehicleIdsWithEvents = new Set(
     events
-      .filter((event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day)
+      .filter(
+        (event) => zonedYmd(new Date(event.startsAt), data.timeZone) === day,
+      )
       .map((event) => event.vehicleId ?? "none"),
   );
   const rows: ResourceRow[] = data.vehicles.map((vehicle) => ({
@@ -376,12 +418,14 @@ function resourceRowsForDay(
 
 function reasonText(validation: PlanningValidationResult | null): string[] {
   if (!validation) return [];
-  return [...validation.blockingReasons, ...validation.warnings].map(
-    (reason) => humanizePlanningMessage(formatPlanningReason(reason)),
+  return [...validation.blockingReasons, ...validation.warnings].map((reason) =>
+    humanizePlanningMessage(formatPlanningReason(reason)),
   );
 }
 
-function dispatchAdviceText(validation: PlanningValidationResult | null): string | null {
+function dispatchAdviceText(
+  validation: PlanningValidationResult | null,
+): string | null {
   if (!validation) return null;
   const reasons = [...validation.blockingReasons, ...validation.warnings];
   const codes = new Set(reasons.map((reason) => reason.code));
@@ -415,10 +459,15 @@ function dispatchAdviceText(validation: PlanningValidationResult | null): string
 }
 
 function humanizePlanningMessage(message: string): string {
-  if (message.includes("student branch does not match planning queue item branch")) {
+  if (
+    message.includes("student branch does not match planning queue item branch")
+  ) {
     return "Vestiging klopt niet: leerling en queue-item horen bij verschillende vestigingen.";
   }
-  if (message.includes("Cannot access") && message.includes("before initialization")) {
+  if (
+    message.includes("Cannot access") &&
+    message.includes("before initialization")
+  ) {
     return "De preview kon niet worden berekend. Probeer opnieuw of laad het planning board opnieuw.";
   }
   return message;
@@ -516,7 +565,9 @@ function eventTimeRange(event: PlanningBoardEvent, timeZone: string): string {
   return `${timeShort(event.startsAt, timeZone)} - ${timeShort(event.endsAt, timeZone)}`;
 }
 
-function queuePriorityLabel(priority: PlanningQueueListItem["priority"]): string {
+function queuePriorityLabel(
+  priority: PlanningQueueListItem["priority"],
+): string {
   if (priority === "urgent") return "Hoog";
   if (priority === "high") return "Hoog";
   if (priority === "low") return "Laag";
@@ -531,7 +582,10 @@ function slotAvailability(
 ): "available" | "blocked" | "closed" {
   const start = START_HOUR * 60 + slot * SLOT_MINUTES;
   const end = start + SLOT_MINUTES;
-  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
+  const weekday = zonedWeekdayIndex(
+    startOfZonedDayUtc(day, timeZone),
+    timeZone,
+  );
   const exception = blocks.find(
     (block) =>
       block.date === day && block.startMinute < end && block.endMinute > start,
@@ -561,8 +615,8 @@ function availabilitySegmentStyle(startMinute: number, endMinute: number) {
   const end = Math.min(timelineEnd, endMinute);
   if (end <= start) return null;
   return {
-    left: ((start - timelineStart) / SLOT_MINUTES) * SLOT_WIDTH,
-    width: ((end - start) / SLOT_MINUTES) * SLOT_WIDTH,
+    left: `${((start - timelineStart) / TIMELINE_MINUTES) * 100}%`,
+    width: `${((end - start) / TIMELINE_MINUTES) * 100}%`,
   };
 }
 
@@ -577,7 +631,10 @@ function AvailabilityBands({
   timeZone: string;
   availabilityFilter?: "available" | "blocked" | null;
 }) {
-  const weekday = zonedWeekdayIndex(startOfZonedDayUtc(day, timeZone), timeZone);
+  const weekday = zonedWeekdayIndex(
+    startOfZonedDayUtc(day, timeZone),
+    timeZone,
+  );
   const dayBlocks = blocks.filter(
     (block) => block.date === day || block.weekday === weekday,
   );
@@ -586,7 +643,9 @@ function AvailabilityBands({
       <div
         className={cn(
           "absolute inset-0 bg-muted/45",
-          availabilityFilter && availabilityFilter !== "blocked" && "opacity-40",
+          availabilityFilter &&
+            availabilityFilter !== "blocked" &&
+            "opacity-40",
         )}
       />
       {dayBlocks.map((block, index) => {
@@ -646,7 +705,9 @@ function QueueCard({
           </p>
           <p className="truncate text-[11px] leading-4 text-muted-foreground">
             {item.duration_minutes} min
-            {item.required_transmission ? ` - ${item.required_transmission}` : ""}
+            {item.required_transmission
+              ? ` - ${item.required_transmission}`
+              : ""}
             {item.service_area_name ? ` - ${item.service_area_name}` : ""}
           </p>
           {item.preferred_instructor_name || item.branch_name ? (
@@ -760,6 +821,7 @@ function EventCard({
       className={cn(
         "absolute overflow-hidden rounded-lg border bg-clip-padding text-[11px] shadow-sm ring-1 ring-white/45 transition-[border-color,transform,opacity]",
         layout === "calendar" && "left-1 right-1",
+        layout === "timeline" && "min-w-11",
         eventTone(event),
         detailed && "text-xs",
         onOpen && "cursor-pointer",
@@ -781,23 +843,31 @@ function EventCard({
         className={cn("absolute inset-y-0 left-0 w-1", eventAccentClass(event))}
         aria-hidden
       />
-      <div className="min-w-0 px-2 py-1.5 pl-3">
+      <div
+        className={cn(
+          "min-w-0 px-2 pl-3",
+          layout === "timeline" ? "py-1" : "py-1.5",
+        )}
+      >
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <p className="truncate text-[10px] font-semibold leading-4 text-muted-foreground">
+          <p className="truncate text-[10px] font-semibold leading-3.5 text-muted-foreground">
             {eventTimeRange(event, timeZone)}
           </p>
           <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/75">
             {planningBoardEventLabel(event)}
           </span>
         </div>
-        <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
+        <p className="truncate text-[11px] font-semibold leading-3.5 text-foreground">
           {event.title}
         </p>
-        <p className="truncate text-[10px] leading-4 text-muted-foreground">
-          {[event.vehicleLabel, event.serviceAreaName].filter(Boolean).join(" - ") ||
-            event.subtitle}
-        </p>
-        {detailed ? (
+        {layout !== "timeline" ? (
+          <p className="truncate text-[10px] leading-4 text-muted-foreground">
+            {[event.vehicleLabel, event.serviceAreaName]
+              .filter(Boolean)
+              .join(" - ") || event.subtitle}
+          </p>
+        ) : null}
+        {detailed && layout !== "timeline" ? (
           <p className="truncate text-[10px] leading-4 text-muted-foreground">
             {event.durationMinutes} min
             {event.bufferMinutes ? ` + ${event.bufferMinutes} buffer` : ""}
@@ -862,7 +932,7 @@ function DroppableSlot({
       )}
       style={
         layout === "timeline"
-          ? { width: SLOT_WIDTH, height: "100%" }
+          ? { width: `${SLOT_PERCENT}%`, height: "100%" }
           : { height: SLOT_HEIGHT }
       }
       title={title}
@@ -908,8 +978,11 @@ export function PlanningBoardWorkspace({
     validation: PlanningValidationResult | null;
     message: string | null;
   } | null>(null);
-  const [selectedEvent, setSelectedEvent] =
-    useState<PlanningBoardEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<PlanningBoardEvent | null>(
+    null,
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(data.queueItems.length > 0);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const lastPreviewTarget = useRef<string | null>(null);
@@ -918,7 +991,7 @@ export function PlanningBoardWorkspace({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
-  const slotCount = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+  const slotCount = SLOT_COUNT;
   const layoutMode = planningBoardLayoutMode(detailMode);
   const perspective = data.filters.perspective ?? "instructor";
   const readonlyResourcePerspective =
@@ -929,6 +1002,20 @@ export function PlanningBoardWorkspace({
   const dispatchAdvice = dispatchAdviceText(preview?.validation ?? null);
   const previewIsBlocked = Boolean(preview && !preview.validation?.allowed);
   const previewStatus = status && status !== previewMessage ? status : null;
+  const activeFilterCount = [
+    data.filters.branchId,
+    data.filters.appointmentType,
+    data.filters.serviceAreaId,
+    data.filters.instructorId,
+    data.filters.transmission,
+    data.filters.capabilityId,
+    data.filters.vehicleId,
+    data.filters.availability,
+    data.filters.conflictsOnly ? "conflicts" : null,
+    data.filters.status && data.filters.status !== "open"
+      ? data.filters.status
+      : null,
+  ].filter(Boolean).length;
   const visibleDays = useMemo(() => {
     if (data.filters.view === "week" || layoutMode === "instructor_timeline") {
       return data.days;
@@ -946,7 +1033,11 @@ export function PlanningBoardWorkspace({
     const map = new Map<string, PlanningBoardEvent[]>();
     for (const event of events) {
       const day = zonedYmd(new Date(event.startsAt), data.timeZone);
-      const key = resourceRowKey(day, perspective, eventResourceId(event, perspective));
+      const key = resourceRowKey(
+        day,
+        perspective,
+        eventResourceId(event, perspective),
+      );
       const bucket = map.get(key) ?? [];
       bucket.push(event);
       map.set(key, bucket);
@@ -989,8 +1080,9 @@ export function PlanningBoardWorkspace({
     );
     return {
       eventCount: visibleEvents.length,
-      lessonCount: visibleEvents.filter((event) => event.entityType === "lesson")
-        .length,
+      lessonCount: visibleEvents.filter(
+        (event) => event.entityType === "lesson",
+      ).length,
       trialCount: visibleEvents.filter(
         (event) => event.entityType === "trial_lesson",
       ).length,
@@ -1011,6 +1103,15 @@ export function PlanningBoardWorkspace({
   useEffect(() => {
     return () => clearPreviewTimer();
   }, []);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [filtersOpen]);
 
   function activePayload(id: string): DragPayload | null {
     const [kind, first, second] = id.split("|");
@@ -1106,6 +1207,7 @@ export function PlanningBoardWorkspace({
     previewRequest.current += 1;
     setActiveQueue(null);
     if (!payload || !target) return;
+    setToolsOpen(true);
     startTransition(async () => {
       setStatus("Planning wordt gecontroleerd...");
       const result =
@@ -1146,10 +1248,13 @@ export function PlanningBoardWorkspace({
                   ...item,
                   instructorId: target.instructorId,
                   startsAt: target.startsAt,
-                  vehicleId: target.vehicleId ?? (selectedVehicleId || item.vehicleId),
+                  vehicleId:
+                    target.vehicleId ?? (selectedVehicleId || item.vehicleId),
                   endsAt: new Date(
-                    (parseZonedDateTime(target.startsAt, data.timeZone)?.getTime() ??
-                      Date.now()) +
+                    (parseZonedDateTime(
+                      target.startsAt,
+                      data.timeZone,
+                    )?.getTime() ?? Date.now()) +
                       eventDurationMinutes(item) * 60000,
                   ).toISOString(),
                 }
@@ -1215,21 +1320,36 @@ export function PlanningBoardWorkspace({
         setActiveQueue(null);
       }}
     >
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_23rem]">
+      <div
+        className={cn(
+          "grid gap-3",
+          toolsOpen && "xl:grid-cols-[minmax(0,1fr)_18rem]",
+        )}
+      >
         <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-sm">
-          <div className="border-b border-border bg-[var(--surface-1)] px-4 py-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <div className="border-b border-border bg-[var(--surface-1)] px-3 py-2.5">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(true)}
+                    className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Weergave en perspectief wijzigen"
+                  >
                     {data.filters.view === "week" ? "Week" : "Dag"} -{" "}
                     {perspectiveLabel(perspective)}
-                  </span>
-                  <span className="rounded-full border border-border bg-[var(--surface-2)] px-3 py-1 text-xs font-medium text-muted-foreground">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(true)}
+                    className="rounded-full border border-border bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Planboarddatum wijzigen"
+                  >
                     {dateShort(data.filters.date, data.timeZone)}
-                  </span>
+                  </button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                <div className="flex max-w-full divide-x divide-border overflow-x-auto rounded-lg border border-border bg-[var(--surface-2)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {[
                     ["Afspraken", boardStats.eventCount],
                     ["Rijlessen", boardStats.lessonCount],
@@ -1239,44 +1359,142 @@ export function PlanningBoardWorkspace({
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2"
+                      className="flex shrink-0 items-baseline gap-1.5 px-2.5 py-1.5"
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        {label}
-                      </p>
-                      <p className="mt-0.5 text-lg font-semibold leading-none text-foreground">
+                      <span className="text-sm font-semibold leading-none text-foreground">
                         {value}
-                      </p>
+                      </span>
+                      <span className="text-[10px] font-medium text-muted-foreground">
+                        {label}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-              <label className="flex w-full items-center gap-2 text-xs text-muted-foreground lg:w-auto">
-                <Car className="h-4 w-4 shrink-0" aria-hidden />
-                <Select
-                  value={selectedVehicleId}
-                  onChange={(event) => setSelectedVehicleId(event.target.value)}
-                  className="h-9 w-full min-w-52 text-xs lg:w-56"
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground lg:flex-none">
+                  <Car className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <Select
+                    value={selectedVehicleId}
+                    onChange={(event) =>
+                      setSelectedVehicleId(event.target.value)
+                    }
+                    aria-label="Voertuig voor nieuwe planning"
+                    className="h-8 min-w-44 flex-1 text-xs lg:w-52"
+                  >
+                    <option value="">Automatisch/geen voertuig</option>
+                    {data.vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.label}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <div className="relative">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setFiltersOpen((current) => !current)}
+                    aria-haspopup="dialog"
+                    aria-expanded={filtersOpen}
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                    Filters
+                    {activeFilterCount > 0 ? (
+                      <Badge className="ml-0.5 rounded-full px-1.5 py-0 text-[9px]">
+                        {activeFilterCount}
+                      </Badge>
+                    ) : null}
+                  </Button>
+                  {filtersOpen && filterForm ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Filters sluiten"
+                        className="fixed inset-0 z-40 cursor-default bg-slate-950/10 backdrop-blur-[1px]"
+                        onClick={() => setFiltersOpen(false)}
+                      />
+                      <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="planboard-filter-title"
+                        className="fixed inset-x-3 bottom-3 top-20 z-50 flex flex-col overflow-hidden rounded-2xl border border-border bg-[var(--surface-1)] shadow-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:max-h-[calc(100vh-8rem)] sm:w-[23rem]"
+                      >
+                        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+                          <div>
+                            <p
+                              id="planboard-filter-title"
+                              className="text-sm font-semibold text-foreground"
+                            >
+                              Planboardfilters
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Pas alleen de relevante doorsnede toe.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFiltersOpen(false)}
+                            aria-label="Filters sluiten"
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <X className="h-4 w-4" aria-hidden />
+                          </button>
+                        </div>
+                        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                          {filterForm}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant={toolsOpen ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setToolsOpen((current) => !current)}
+                  aria-expanded={toolsOpen}
+                  aria-controls="planboard-tools"
                 >
-                  <option value="">Automatisch/geen voertuig</option>
-                  {data.vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.label}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+                  {toolsOpen ? (
+                    <PanelRightClose className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <PanelRightOpen className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  Queue
+                  <Badge
+                    variant="outline"
+                    className="rounded-full px-1.5 py-0 text-[9px]"
+                  >
+                    {queueItems.length}
+                  </Badge>
+                </Button>
+              </div>
             </div>
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1 text-[11px] text-muted-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="mt-2 flex gap-2.5 overflow-x-auto text-[10px] text-muted-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
               {EVENT_LEGEND.map((item) => (
-                <span key={item.key} className="flex shrink-0 items-center gap-1.5">
-                  <span className={cn("h-2.5 w-2.5 rounded-sm border", item.className)} />
+                <span
+                  key={item.key}
+                  className="flex shrink-0 items-center gap-1.5"
+                >
+                  <span
+                    className={cn(
+                      "h-2.5 w-2.5 rounded-sm border",
+                      item.className,
+                    )}
+                  />
                   {item.label}
                 </span>
               ))}
               <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
               {AVAILABILITY_LEGEND.map((item) => (
-                <span key={item.key} className="flex shrink-0 items-center gap-1.5">
+                <span
+                  key={item.key}
+                  className="flex shrink-0 items-center gap-1.5"
+                >
                   <span
                     className={cn(
                       "h-2.5 w-5 rounded-sm border border-border/60",
@@ -1289,10 +1507,12 @@ export function PlanningBoardWorkspace({
             </div>
           </div>
 
-          <div className="max-h-[72vh] overflow-auto [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="max-h-[calc(100vh-13rem)] min-h-[28rem] overflow-auto [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
             <div
-              className="min-w-max"
-              style={{ width: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH }}
+              className="w-full"
+              style={{
+                minWidth: RESOURCE_COLUMN_WIDTH + slotCount * SLOT_WIDTH,
+              }}
             >
               <div
                 className="sticky top-0 z-30 grid border-b border-border bg-[var(--surface-2)]"
@@ -1300,7 +1520,7 @@ export function PlanningBoardWorkspace({
                   gridTemplateColumns: `${RESOURCE_COLUMN_WIDTH}px minmax(0, 1fr)`,
                 }}
               >
-                <div className="sticky left-0 z-40 border-r border-[var(--admin-grid-line)] bg-[var(--surface-2)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <div className="sticky left-0 z-40 border-r border-[var(--admin-grid-line)] bg-[var(--surface-2)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   {perspectiveLabel(perspective)}
                 </div>
                 <div className="flex bg-[var(--surface-2)]">
@@ -1308,10 +1528,10 @@ export function PlanningBoardWorkspace({
                     <div
                       key={slot}
                       className={cn(
-                        "shrink-0 border-l border-[var(--admin-grid-line)] px-2 py-2 text-[11px] font-semibold text-muted-foreground",
+                        "shrink-0 border-l border-[var(--admin-grid-line)] px-2 py-1.5 text-[10px] font-semibold text-muted-foreground",
                         slot % 2 === 0 && "text-foreground",
                       )}
-                      style={{ width: SLOT_WIDTH }}
+                      style={{ width: `${SLOT_PERCENT}%` }}
                     >
                       {slot % 2 === 0 ? timeLabel(slot) : ""}
                     </div>
@@ -1323,7 +1543,9 @@ export function PlanningBoardWorkspace({
                   eventsByRow.get(row.key) ?? [],
                 );
                 const blocks = row.availabilityInstructorId
-                  ? (availabilityByInstructor.get(row.availabilityInstructorId) ?? [])
+                  ? (availabilityByInstructor.get(
+                      row.availabilityInstructorId,
+                    ) ?? [])
                   : [];
                 return (
                   <div
@@ -1334,24 +1556,24 @@ export function PlanningBoardWorkspace({
                       gridTemplateColumns: `${RESOURCE_COLUMN_WIDTH}px minmax(0, 1fr)`,
                     }}
                   >
-                    <div className="sticky left-0 z-20 flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-4">
+                    <div className="sticky left-0 z-20 flex min-w-0 flex-col justify-center border-r border-[var(--admin-grid-line)] bg-[var(--surface-1)] px-3">
                       {row.href ? (
                         <Link
                           href={row.href}
-                          className="truncate text-[13px] font-semibold text-foreground hover:text-primary"
+                          className="truncate text-xs font-semibold text-foreground hover:text-primary"
                         >
                           {row.label}
                         </Link>
                       ) : (
-                        <span className="truncate text-[13px] font-semibold text-foreground">
+                        <span className="truncate text-xs font-semibold text-foreground">
                           {row.label}
                         </span>
                       )}
-                      <span className="truncate text-[11px] text-muted-foreground">
+                      <span className="truncate text-[10px] text-muted-foreground">
                         {row.subtitle ?? perspectiveDescription(perspective)}
                       </span>
                     </div>
-                    <div className="relative flex bg-[linear-gradient(to_right,var(--admin-grid-line)_1px,transparent_1px)] bg-[length:64px_100%]">
+                    <div className="relative flex">
                       {row.availabilityInstructorId ? (
                         <AvailabilityBands
                           blocks={blocks}
@@ -1369,7 +1591,10 @@ export function PlanningBoardWorkspace({
                             <div
                               key={slot}
                               className="relative shrink-0 border-r border-border/45"
-                              style={{ width: SLOT_WIDTH, height: "100%" }}
+                              style={{
+                                width: `${SLOT_PERCENT}%`,
+                                height: "100%",
+                              }}
                               title={`${perspectiveDescription(perspective)} - alleen lezen`}
                             />
                           );
@@ -1387,7 +1612,12 @@ export function PlanningBoardWorkspace({
                             target={target}
                             availability={
                               row.availabilityInstructorId
-                                ? slotAvailability(blocks, row.day, slot, data.timeZone)
+                                ? slotAvailability(
+                                    blocks,
+                                    row.day,
+                                    slot,
+                                    data.timeZone,
+                                  )
                                 : "available"
                             }
                             availabilityFilter={
@@ -1396,7 +1626,9 @@ export function PlanningBoardWorkspace({
                                 : null
                             }
                             layout="timeline"
-                            preview={preview?.target === targetId ? preview : null}
+                            preview={
+                              preview?.target === targetId ? preview : null
+                            }
                           />
                         );
                       })}
@@ -1420,141 +1652,142 @@ export function PlanningBoardWorkspace({
           </div>
         </section>
 
-        <aside className="min-w-0 space-y-3 2xl:sticky 2xl:top-20 2xl:max-h-[calc(100vh-7rem)] 2xl:overflow-y-auto 2xl:pr-1 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
-          <Card className="border-border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between gap-2 text-base">
-                <span className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4" aria-hidden />
-                  Planning queue
-                </span>
-                <Badge variant="outline" className="rounded-full">
-                  {queueItems.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-80 space-y-2 overflow-y-auto pr-1 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
-              {queueItems.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-sm text-muted-foreground">
-                  Geen open items in de planning queue.
-                </p>
-              ) : (
-                queueItems.map((item) => {
-                  const linkedEvent = queueEventLinks.get(item.id);
-                  return (
-                    <div key={item.id} className="space-y-2">
-                      <QueueCard
-                        item={item}
-                        href={linkedEvent?.href}
-                        relatedLabel={linkedEvent?.label}
-                      />
-                      <form
-                        action={planFromFallback}
-                        className="grid gap-2 rounded-xl border border-border bg-[var(--surface-2)] p-2 md:hidden"
-                      >
-                        <input
-                          type="hidden"
-                          name="queue_item_id"
-                          value={item.id}
-                        />
-                        <Label className="text-xs">Click-to-plan</Label>
-                        <Select name="instructor_id" required>
-                          <option value="">Instructeur</option>
-                          {data.instructors.map((instructor) => (
-                            <option key={instructor.id} value={instructor.id}>
-                              {instructor.name}
-                            </option>
-                          ))}
-                        </Select>
-                        <Input name="starts_at" type="datetime-local" required />
-                        <Select name="vehicle_id">
-                          <option value="">Geen voertuig</option>
-                          {data.vehicles.map((vehicle) => (
-                            <option key={vehicle.id} value={vehicle.id}>
-                              {vehicle.label}
-                            </option>
-                          ))}
-                        </Select>
-                        <Button type="submit" size="sm" disabled={pending}>
-                          Plannen
-                        </Button>
-                      </form>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          {filterForm ? (
+        {toolsOpen ? (
+          <aside
+            id="planboard-tools"
+            className="min-w-0 space-y-3 xl:sticky xl:top-4 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto xl:pr-1 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent"
+          >
             <Card className="border-border shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Filters</CardTitle>
+              <CardHeader className="px-3 pb-1.5 pt-3">
+                <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <Clock3 className="h-4 w-4" aria-hidden />
+                    Planning queue
+                  </span>
+                  <Badge variant="outline" className="rounded-full">
+                    {queueItems.length}
+                  </Badge>
+                </CardTitle>
               </CardHeader>
-              <CardContent>{filterForm}</CardContent>
+              <CardContent className="max-h-80 space-y-2 overflow-y-auto px-3 pb-3 pr-3 [scrollbar-color:color-mix(in_oklab,var(--primary)_34%,transparent)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent">
+                {queueItems.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-sm text-muted-foreground">
+                    Geen open items in de planning queue.
+                  </p>
+                ) : (
+                  queueItems.map((item) => {
+                    const linkedEvent = queueEventLinks.get(item.id);
+                    return (
+                      <div key={item.id} className="space-y-2">
+                        <QueueCard
+                          item={item}
+                          href={linkedEvent?.href}
+                          relatedLabel={linkedEvent?.label}
+                        />
+                        <form
+                          action={planFromFallback}
+                          className="grid gap-2 rounded-xl border border-border bg-[var(--surface-2)] p-2 md:hidden"
+                        >
+                          <input
+                            type="hidden"
+                            name="queue_item_id"
+                            value={item.id}
+                          />
+                          <Label className="text-xs">Click-to-plan</Label>
+                          <Select name="instructor_id" required>
+                            <option value="">Instructeur</option>
+                            {data.instructors.map((instructor) => (
+                              <option key={instructor.id} value={instructor.id}>
+                                {instructor.name}
+                              </option>
+                            ))}
+                          </Select>
+                          <Input
+                            name="starts_at"
+                            type="datetime-local"
+                            required
+                          />
+                          <Select name="vehicle_id">
+                            <option value="">Geen voertuig</option>
+                            {data.vehicles.map((vehicle) => (
+                              <option key={vehicle.id} value={vehicle.id}>
+                                {vehicle.label}
+                              </option>
+                            ))}
+                          </Select>
+                          <Button type="submit" size="sm" disabled={pending}>
+                            Plannen
+                          </Button>
+                        </form>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
             </Card>
-          ) : null}
 
-          <Card className="border-border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                {previewIsBlocked ? "Planningcontrole" : "Planning assistent"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {pending ? (
-                <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
-                  Slot controleren...
-                </p>
-              ) : null}
-              {previewStatus ? (
-                <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
-                  {previewStatus}
-                </p>
-              ) : null}
-              {preview?.validation?.allowed ? (
-                <div className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-3 py-2 text-success">
-                  <CheckCircle2 className="h-4 w-4" aria-hidden />
-                  Toegestaan volgens planningregels.
-                </div>
-              ) : preview ? (
-                <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <AlertCircle className="h-4 w-4" aria-hidden />
-                    Niet ingepland
+            <Card className="border-border shadow-sm">
+              <CardHeader className="px-3 pb-1.5 pt-3">
+                <CardTitle className="text-sm">
+                  {previewIsBlocked ? "Planningcontrole" : "Planning assistent"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 px-3 pb-3 text-sm">
+                {pending ? (
+                  <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
+                    Slot controleren...
+                  </p>
+                ) : null}
+                {previewStatus ? (
+                  <p className="rounded-xl border border-border bg-[var(--surface-2)] px-3 py-2 text-muted-foreground">
+                    {previewStatus}
+                  </p>
+                ) : null}
+                {preview?.validation?.allowed ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-3 py-2 text-success">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden />
+                    Toegestaan volgens planningregels.
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed">
-                    {previewMessage ?? "Deze drop is geblokkeerd."}
+                ) : preview ? (
+                  <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <AlertCircle className="h-4 w-4" aria-hidden />
+                      Niet ingepland
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed">
+                      {previewMessage ?? "Deze drop is geblokkeerd."}
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-danger/80">
+                      Dit is alleen een preview. Er is niets opgeslagen in de
+                      agenda.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-muted-foreground">
+                    {readonlyResourcePerspective
+                      ? "Kies een instructeur om vanuit dit perspectief te plannen."
+                      : "Sleep een queue-item of afspraak naar een slot voor validatie."}
                   </p>
-                  <p className="mt-2 text-xs leading-relaxed text-danger/80">
-                    Dit is alleen een preview. Er is niets opgeslagen in de agenda.
-                  </p>
-                </div>
-              ) : (
-                <p className="rounded-xl border border-dashed border-border bg-[var(--surface-2)] px-3 py-4 text-muted-foreground">
-                  {readonlyResourcePerspective
-                    ? "Kies een instructeur om vanuit dit perspectief te plannen."
-                    : "Sleep een queue-item of afspraak naar een slot voor validatie."}
-                </p>
-              )}
-              {previewReasons
-                .filter((reason) => reason !== previewMessage)
-                .map((reason) => (
-                  <p
-                    key={reason}
-                    className="rounded-xl bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground"
-                  >
-                    {reason}
-                  </p>
-                ))}
-              {dispatchAdvice ? (
-                <div className="rounded-xl border border-primary/20 bg-primary-soft px-3 py-2 text-xs leading-5 text-primary">
-                  {dispatchAdvice}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </aside>
+                )}
+                {previewReasons
+                  .filter((reason) => reason !== previewMessage)
+                  .map((reason) => (
+                    <p
+                      key={reason}
+                      className="rounded-xl bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground"
+                    >
+                      {reason}
+                    </p>
+                  ))}
+                {dispatchAdvice ? (
+                  <div className="rounded-xl border border-primary/20 bg-primary-soft px-3 py-2 text-xs leading-5 text-primary">
+                    {dispatchAdvice}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </aside>
+        ) : null}
       </div>
       {selectedEvent ? (
         <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-border bg-background p-5 shadow-xl">

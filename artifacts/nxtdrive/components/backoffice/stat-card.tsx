@@ -23,7 +23,7 @@ export function StatCard({
   const inner = (
     <div
       className={cn(
-        "group flex min-h-[6rem] min-w-0 flex-col justify-between rounded-2xl border border-brand-border bg-white p-3.5 shadow-[var(--admin-card-shadow)] transition-all sm:p-4",
+        "group flex min-h-[5rem] min-w-0 flex-col justify-between rounded-xl border border-brand-border bg-white p-3 shadow-[var(--admin-card-shadow)] transition-all",
         href &&
           "cursor-pointer hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[var(--admin-card-shadow-hover)]",
         className,
@@ -33,16 +33,16 @@ export function StatCard({
         <p className="line-clamp-2 min-w-0 text-[10px] font-semibold leading-4 text-muted-foreground sm:text-xs">
           {label}
         </p>
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--primary)_11%,white)] text-primary sm:h-9 sm:w-9">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[color-mix(in_oklab,var(--primary)_11%,white)] text-primary">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
       <div>
-        <p className="truncate text-xl font-black tracking-tight text-foreground sm:text-2xl">
+        <p className="truncate text-xl font-black tracking-tight text-foreground">
           {value}
         </p>
         {trendHint && (
-          <div className="mt-1 flex items-center gap-1">
+          <div className="mt-0.5 flex items-center gap-1">
             {trendValue !== null && trendValue !== undefined ? (
               <span
                 className={cn(

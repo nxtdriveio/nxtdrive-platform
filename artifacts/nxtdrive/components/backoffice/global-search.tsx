@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, GraduationCap, UserRound, CalendarDays, X } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  GraduationCap,
+  UserRound,
+  CalendarDays,
+  X,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   globalSearch,
@@ -260,7 +267,7 @@ export function GlobalSearch() {
         ref={inputRef}
         type="search"
         placeholder="Zoek leerling, afspraak, voertuig, bericht..."
-        className="h-10 rounded-xl border-brand-border bg-white/92 pl-9 pr-16 text-sm shadow-sm placeholder:text-muted-foreground/78 focus-visible:ring-brand-ring/30"
+        className="h-9 rounded-xl border-brand-border bg-white/92 pl-9 pr-16 text-sm shadow-sm placeholder:text-muted-foreground/78 focus-visible:ring-brand-ring/30"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -379,7 +386,10 @@ export function MobileSearch() {
           <div className="relative z-10 border-b border-border bg-background shadow-lg">
             {/* Input row */}
             <div className="flex items-center gap-2 px-3 py-3">
-              <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <Search
+                className="h-4 w-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
               <input
                 ref={inputRef}
                 type="search"
