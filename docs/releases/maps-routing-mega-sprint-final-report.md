@@ -3,7 +3,7 @@
 Datum: 30 juli 2026  
 Branch: `codex/maps-routing-mega-sprint`  
 Baseline: `940732d`  
-Gevalideerde sprint-HEAD vóór rapportage: `4f5604a`
+Gevalideerde code-HEAD vóór de laatste evidence-refresh: `02fad80`
 
 ## Executive summary
 
@@ -1101,7 +1101,7 @@ Gevolg van uitstel: single-instructorvoorstellen en handmatige planning blijven 
 
 ## Commitoverzicht
 
-De sprint bestaat vóór dit rapport uit 25 kleine conventional commits van `1fe9bc4` tot en met `4f5604a`. De volgorde staat volledig in Git; hoofdgroepen:
+De gevalideerde sprintcode bestaat uit 29 kleine conventional commits van `1fe9bc4` tot en met `02fad80`. De volgorde staat volledig in Git; hoofdgroepen:
 
 - locatie-/migratiefundament;
 - providerneutraal domein en Google-adapters;
@@ -1148,4 +1148,4 @@ Resultaten:
 - visual: 29/29, waarvan 20 Maps-cases;
 - build/typecheck: geslaagd;
 - production dependency audit: nul bekende kwetsbaarheden;
-- secret scan: 1.625 bestanden, geslaagd.
+- secret scan: 1.630 bestanden, geslaagd.
