@@ -22,12 +22,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { STUDENT_BACKOFFICE_READ_ROLES } from "@/lib/students/access";
 import { loadBackofficeRisOverview } from "@/lib/ris/data";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoBubble } from "@/components/ui/info-bubble";
@@ -145,16 +140,21 @@ export default async function BackofficeRisPage({
       student.moduleProgress.some(
         (module) =>
           module.moduleNumber === moduleNumber &&
-          (module.attentionPoints > 0 || module.readyForModuleTest || module.assessedScripts > 0),
+          (module.attentionPoints > 0 ||
+            module.readyForModuleTest ||
+            module.assessedScripts > 0),
       ),
     );
     const ready = students.filter((student) =>
       student.moduleProgress.some(
-        (module) => module.moduleNumber === moduleNumber && module.readyForModuleTest,
+        (module) =>
+          module.moduleNumber === moduleNumber && module.readyForModuleTest,
       ),
     ).length;
     const attention = students.reduce((sum, student) => {
-      const module = student.moduleProgress.find((item) => item.moduleNumber === moduleNumber);
+      const module = student.moduleProgress.find(
+        (item) => item.moduleNumber === moduleNumber,
+      );
       return sum + (module?.attentionPoints ?? 0);
     }, 0);
     const averageProgress =
@@ -169,7 +169,13 @@ export default async function BackofficeRisPage({
             }, 0) / students.length,
           );
 
-    return { moduleNumber, students: students.length, ready, attention, averageProgress };
+    return {
+      moduleNumber,
+      students: students.length,
+      ready,
+      attention,
+      averageProgress,
+    };
   });
 
   return (
@@ -185,14 +191,19 @@ export default async function BackofficeRisPage({
               RIS-overzicht
             </h1>
             <p className="text-sm text-muted-foreground">
-              Volg moduleprogressie, aandachtspunten, toetsklaar-status en
+              Volg moduledekking, aandachtspunten, toetsvoorstellen en
               ongepubliceerde leskaarten voor {tenant.name}.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant={overview.settings.lessonCardMode === "ris" ? "success" : "warning"}>
-            Modus: {overview.settings.lessonCardMode === "ris" ? "RIS actief" : "Legacy"}
+          <Badge
+            variant={
+              overview.settings.lessonCardMode === "ris" ? "success" : "warning"
+            }
+          >
+            Werkmodus:{" "}
+            {overview.settings.lessonCardMode === "ris" ? "RIS" : "Legacy"}
           </Badge>
           <Link
             href="/backoffice/theorie"
@@ -225,6 +236,22 @@ export default async function BackofficeRisPage({
         </Card>
       ) : null}
 
+      <Card className="border-warning/40 bg-warning/5 p-4 text-sm text-foreground">
+        <div className="flex items-start gap-2">
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+            aria-hidden
+          />
+          <p>
+            <strong>Inhoudelijke releasegate:</strong> RIS-readiness blijft
+            interne beslisondersteuning totdat een bevoegde RIS-deskundige de
+            catalogus, toetslogica en gebruiksrechten met een goedgekeurde hash
+            heeft gevalideerd. Dit scherm geeft geen formeel CBR- of
+            examenadvies.
+          </p>
+        </div>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard
           label="Leerlingen"
@@ -239,9 +266,9 @@ export default async function BackofficeRisPage({
           icon={AlertTriangle}
         />
         <SummaryCard
-          label="Toetsklaar"
+          label="Toetsvoorstellen"
           value={String(overview.readyForModuleTest)}
-          hint="Scripts gemarkeerd als moduletoetsklaar."
+          hint="Handmatige markeringen; blokkades blijven leidend."
           icon={ClipboardCheck}
         />
         <SummaryCard
@@ -271,7 +298,8 @@ export default async function BackofficeRisPage({
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Deterministische RIS-signalen voor zwakke scripts, moduleadvies
-                en interne opvolging, met een zichtbare onderbouwing per signaal.
+                en interne opvolging, met een zichtbare onderbouwing per
+                signaal.
               </p>
             </div>
             <InfoBubble className="mt-1 h-4 w-4 text-muted-foreground">
@@ -294,16 +322,25 @@ export default async function BackofficeRisPage({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-foreground">{module.label}</p>
+                      <p className="font-medium text-foreground">
+                        {module.label}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {module.attentionPoints} aandacht - {module.readyForTest} toetsklaar
+                        {module.attentionPoints} aandacht -{" "}
+                        {module.readyForTest} toetsklaar
                       </p>
                     </div>
-                    <Badge variant={module.attentionPoints > 0 ? "warning" : "outline"}>
+                    <Badge
+                      variant={
+                        module.attentionPoints > 0 ? "warning" : "outline"
+                      }
+                    >
                       {module.progressPct}%
                     </Badge>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{module.advice}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {module.advice}
+                  </p>
                 </div>
               ))}
             </div>
@@ -393,8 +430,8 @@ export default async function BackofficeRisPage({
               </p>
             </div>
             <InfoBubble className="mt-1 h-4 w-4 text-muted-foreground">
-              Dit schrijft alleen RIS-toetsstatus. Het daadwerkelijke agenda-event
-              maak je via de knop "Plan in agenda".
+              Dit schrijft alleen RIS-toetsstatus. Het daadwerkelijke
+              agenda-event maak je via de knop "Plan in agenda".
             </InfoBubble>
           </div>
         </CardHeader>
@@ -421,7 +458,12 @@ export default async function BackofficeRisPage({
 
               <div className="space-y-1.5">
                 <Label htmlFor="module_number">Module</Label>
-                <Select id="module_number" name="module_number" defaultValue="1" required>
+                <Select
+                  id="module_number"
+                  name="module_number"
+                  defaultValue="1"
+                  required
+                >
                   <option value="1">Module 1</option>
                   <option value="2">Module 2</option>
                   <option value="3">Module 3</option>
@@ -431,7 +473,12 @@ export default async function BackofficeRisPage({
 
               <div className="space-y-1.5">
                 <Label htmlFor="test_type">Toetsmoment</Label>
-                <Select id="test_type" name="test_type" defaultValue="instructor_test_1" required>
+                <Select
+                  id="test_type"
+                  name="test_type"
+                  defaultValue="instructor_test_1"
+                  required
+                >
                   {TEST_TYPES.map((type) => (
                     <option key={type} value={type}>
                       {TEST_TYPE_LABEL[type]}
@@ -453,12 +500,20 @@ export default async function BackofficeRisPage({
 
               <div className="space-y-1.5">
                 <Label htmlFor="planned_at">Gepland op</Label>
-                <Input id="planned_at" name="planned_at" type="datetime-local" />
+                <Input
+                  id="planned_at"
+                  name="planned_at"
+                  type="datetime-local"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="completed_at">Afgerond op</Label>
-                <Input id="completed_at" name="completed_at" type="datetime-local" />
+                <Input
+                  id="completed_at"
+                  name="completed_at"
+                  type="datetime-local"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -504,13 +559,16 @@ export default async function BackofficeRisPage({
           <CardHeader>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle className="text-foreground">Leerlingen per module</CardTitle>
+                <CardTitle className="text-foreground">
+                  Leerlingen per module
+                </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Waar staat de groep binnen de vier RIS-modules?
                 </p>
               </div>
               <InfoBubble className="mt-1 h-4 w-4 text-muted-foreground">
-                Gemiddelde modulevoortgang gebruikt alleen gepubliceerde RIS-scores.
+                Gemiddelde modulevoortgang gebruikt alleen gepubliceerde
+                RIS-scores.
               </InfoBubble>
             </div>
           </CardHeader>
@@ -522,9 +580,12 @@ export default async function BackofficeRisPage({
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-foreground">Module {row.moduleNumber}</p>
+                    <p className="font-medium text-foreground">
+                      Module {row.moduleNumber}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {row.students} leerlingen · {row.ready} toetsklaar · {row.attention} aandachtspunten
+                      {row.students} leerlingen · {row.ready} toetsklaar ·{" "}
+                      {row.attention} aandachtspunten
                     </p>
                   </div>
                   <Badge variant={row.ready > 0 ? "success" : "outline"}>
@@ -534,7 +595,9 @@ export default async function BackofficeRisPage({
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.max(0, Math.min(100, row.averageProgress))}%` }}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, row.averageProgress))}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -544,7 +607,9 @@ export default async function BackofficeRisPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-foreground">Instructeur-opvolging</CardTitle>
+            <CardTitle className="text-foreground">
+              Instructeur-opvolging
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
               Wie heeft nog drafts, aandachtspunten of toetsklare scripts open?
             </p>
@@ -560,13 +625,18 @@ export default async function BackofficeRisPage({
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-medium text-foreground">{row.instructorName}</p>
+                      <p className="font-medium text-foreground">
+                        {row.instructorName}
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        {row.draftLessonCards} drafts · {row.attentionPoints} aandacht ·{" "}
-                        {row.readyForModuleTest} toetsklaar
+                        {row.draftLessonCards} drafts · {row.attentionPoints}{" "}
+                        aandacht · {row.readyForModuleTest} toetsklaar
                       </p>
                     </div>
-                    <UserRoundCheck className="h-4 w-4 text-primary" aria-hidden />
+                    <UserRoundCheck
+                      className="h-4 w-4 text-primary"
+                      aria-hidden
+                    />
                   </div>
                 </div>
               ))
@@ -610,11 +680,15 @@ export default async function BackofficeRisPage({
                       */}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {row.instructorName}
-                        {row.lastAssessedAt ? ` · ${dateTimeFmt.format(new Date(row.lastAssessedAt))}` : ""}
+                        {row.lastAssessedAt
+                          ? ` · ${dateTimeFmt.format(new Date(row.lastAssessedAt))}`
+                          : ""}
                       </p>
                     </div>
                     <Badge variant="warning">
-                      {row.currentFinalStep ? `Score ${row.currentFinalStep}/10` : "Nog niet beoordeeld"}
+                      {row.currentFinalStep
+                        ? `Score ${row.currentFinalStep}/10`
+                        : "Nog niet beoordeeld"}
                     </Badge>
                   </div>
                 </div>
@@ -625,7 +699,9 @@ export default async function BackofficeRisPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-foreground">Niet-gepubliceerde leskaarten</CardTitle>
+            <CardTitle className="text-foreground">
+              Niet-gepubliceerde leskaarten
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
               Concepten die nog niet zichtbaar zijn voor leerlingen.
             </p>
@@ -651,7 +727,8 @@ export default async function BackofficeRisPage({
                         {card.instructorName}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Laatst bijgewerkt: {dateTimeFmt.format(new Date(card.updatedAt))}
+                        Laatst bijgewerkt:{" "}
+                        {dateTimeFmt.format(new Date(card.updatedAt))}
                       </p>
                     </div>
                     <Badge variant="warning">Draft</Badge>
@@ -687,13 +764,17 @@ export default async function BackofficeRisPage({
                         {test.studentName}
                       </Link>
                       <p className="hidden">
-                        Module {test.moduleNumber} · {TEST_TYPE_LABEL[test.testType] ?? test.testType}
+                        Module {test.moduleNumber} ·{" "}
+                        {TEST_TYPE_LABEL[test.testType] ?? test.testType}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Module {test.moduleNumber} · {TEST_TYPE_LABEL[test.testType] ?? test.testType}
+                        Module {test.moduleNumber} ·{" "}
+                        {TEST_TYPE_LABEL[test.testType] ?? test.testType}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {test.plannedAt ? dateFmt.format(new Date(test.plannedAt)) : "Nog niet gepland"}
+                        {test.plannedAt
+                          ? dateFmt.format(new Date(test.plannedAt))
+                          : "Nog niet gepland"}
                         {test.instructorName ? ` · ${test.instructorName}` : ""}
                       </p>
                       {test.cbrReference ? (
@@ -713,7 +794,9 @@ export default async function BackofficeRisPage({
                       ) : null}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <Badge variant={TEST_RESULT_VARIANT[test.result] ?? "outline"}>
+                      <Badge
+                        variant={TEST_RESULT_VARIANT[test.result] ?? "outline"}
+                      >
                         {TEST_RESULT_LABEL[test.result] ?? test.result}
                       </Badge>
                       <Link

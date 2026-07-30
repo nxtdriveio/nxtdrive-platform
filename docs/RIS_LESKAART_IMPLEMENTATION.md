@@ -219,8 +219,9 @@ Geimplementeerd:
 
 ### RIS-9: Migratie en rollout
 
-RIS kan per tenant gecontroleerd worden aangezet met een migratiepreflight op
-`/backoffice/ris`.
+De technische migratieanalyse bestaat, maar de activatie-UI is bewust niet
+beschikbaar zolang de catalogus en readinesspolicy wachten op echte
+expertvalidatie.
 
 Geimplementeerd:
 
@@ -229,18 +230,12 @@ Geimplementeerd:
 - analyse van `student_skill_scores` om alleen gescoorde legacy-onderdelen als
   migratiekritiek te behandelen;
 - heuristische mapping-suggesties met confidence: high, medium of none;
-- unmapped gescoorde onderdelen worden zichtbaar gerapporteerd;
-- verweesde legacy-scores blokkeren activatie;
-- veilige migratie-activatie na een groene preflight voor tenants met echte
-  historische scoredata;
-- activatie blijft tenant-admin-only en loopt via de bestaande
-  `set_tenant_ris_settings` RPC;
-- de preflight toont checklist, scorecounts, mapped/unmapped aantallen,
-  RIS-catalogusstatus en bestaande RIS-publicaties;
-- expliciete clean-start route voor mock-data: tenant admin typt
-  `SCHOON STARTEN`, waarna alleen `lesson_skill_scores` en
-  `student_skill_scores` voor die tenant worden gewist en RIS wordt
-  geactiveerd;
+- unmapped gescoorde onderdelen en verweesde legacy-scores worden als blokkade
+  gerapporteerd;
+- de database bevat een geaudit, service-role-only clean-startcontract dat
+  uitsluitend legacy scoretabellen wist;
+- de backoffice stelt momenteel geen activatie- of clean-startactie bloot;
+- publicatie en actieve readiness blijven door de expert-hashguard geblokkeerd;
 - tenants met `lesson_card_mode = legacy` blijven veilig op de bestaande
   legacy-leskaart als fallbackmodus.
 
@@ -272,10 +267,11 @@ Geimplementeerd:
 - `test-ris-release-hardening` als samengevoegde statische guard voor de
   release-eisen.
 
-RIS is de standaard voor nieuwe tenants. De bestaande legacy-leskaart blijft
-zichtbaar voor tenants met `lesson_card_mode = legacy`. Tenant admins kunnen
-mock-scoredata schoon verwijderen en daarna RIS activeren zonder mapping; echte
-historische klantdata hoort via de preflight/mapping route te gaan.
+De bestaande legacy-leskaart blijft zichtbaar voor tenants met
+`lesson_card_mode = legacy`. Nieuwe tenants krijgen RIS pas als werkmodus nadat
+de inhoudelijke releasegate voor de gebruikte catalogusversie is vastgelegd.
+Er is geen tenant-adminactie die mock- of historische scoredata verwijdert of
+RIS zelfstandig activeert.
 
 ## Open release gates
 
