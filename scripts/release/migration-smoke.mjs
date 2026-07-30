@@ -137,8 +137,20 @@ const fixtureSql = `
       '{}'::jsonb,
       now(),
       now()
+    ),
+    (
+      '10000000-0000-4000-8000-000000000003',
+      'migration-platform-admin@example.test',
+      '{"full_name":"Migration Platform Admin"}'::jsonb,
+      '{}'::jsonb,
+      now(),
+      now()
     )
   on conflict (id) do nothing;
+
+  update public.profiles
+     set is_platform_admin = true
+   where id = '10000000-0000-4000-8000-000000000003';
 
   insert into public.tenants (id, slug, name)
   values
@@ -206,6 +218,14 @@ function verifyDatabase(database) {
         migration_count integer;
         rls_count integer;
         unsafe_credit_grant_blocked boolean := false;
+        unsafe_catalog_review_blocked boolean := false;
+        incomplete_approval_blocked boolean := false;
+        unvalidated_activation_blocked boolean := false;
+        v_ris_version_id uuid;
+        v_curriculum_id uuid;
+        v_validation_id uuid;
+        catalog_snapshot jsonb;
+        catalog_hash text;
       begin
         select count(*) into migration_count from public._migrations;
         if migration_count <> ${files.length} then
@@ -280,6 +300,110 @@ function verifyDatabase(database) {
         end;
         if not unsafe_credit_grant_blocked then
           raise exception 'cross-tenant instructor credit grant was not blocked';
+        end if;
+
+        select id into v_ris_version_id
+          from public.ris_versions
+         where is_active
+         order by active_from desc
+         limit 1;
+        catalog_snapshot := public.get_ris_catalog_validation_snapshot(v_ris_version_id);
+        catalog_hash := catalog_snapshot ->> 'contentHash';
+        if nullif(catalog_hash, '') is null
+           or jsonb_array_length(catalog_snapshot -> 'document' -> 'modules') <> 4
+           or jsonb_array_length(catalog_snapshot -> 'document' -> 'steps') <> 9
+           or (
+             select count(*)
+             from public.ris_scripts script
+              where script.ris_version_id = v_ris_version_id
+                and script.is_active
+           ) <> 46 then
+          raise exception 'RIS catalog validation snapshot is incomplete';
+        end if;
+
+        begin
+          perform public.review_ris_catalog(
+            v_ris_version_id,
+            '10000000-0000-4000-8000-000000000002',
+            catalog_hash,
+            'IN_REVIEW',
+            null,
+            '[]'::jsonb,
+            null,
+            'Must be rejected'
+          );
+        exception when others then
+          unsafe_catalog_review_blocked := true;
+        end;
+        if not unsafe_catalog_review_blocked then
+          raise exception 'non-platform RIS catalog review was not blocked';
+        end if;
+
+        begin
+          insert into public.expert_validation_records (
+            target_type,
+            target_id,
+            status,
+            content_hash
+          ) values (
+            'CURRICULUM',
+            gen_random_uuid(),
+            'APPROVED',
+            'incomplete-direct-approval'
+          );
+        exception when others then
+          incomplete_approval_blocked := true;
+        end;
+        if not incomplete_approval_blocked then
+          raise exception 'incomplete direct expert approval was not blocked';
+        end if;
+
+        v_validation_id := public.review_ris_catalog(
+          v_ris_version_id,
+          '10000000-0000-4000-8000-000000000003',
+          catalog_hash,
+          'APPROVED',
+          'Migration smoke RIS expert',
+          jsonb_build_array(
+            jsonb_build_object('key', 'catalog_structure', 'passed', true),
+            jsonb_build_object('key', 'script_content', 'passed', true),
+            jsonb_build_object('key', 'step_content', 'passed', true),
+            jsonb_build_object('key', 'module_test_logic', 'passed', true),
+            jsonb_build_object('key', 'source_rights', 'passed', true)
+          ),
+          null,
+          'Behavioral migration smoke approval'
+        );
+        select id into v_curriculum_id
+          from public.curriculum_versions
+         where source_ris_version_id = v_ris_version_id;
+        if not exists (
+          select 1
+            from public.expert_validation_records validation
+            join public.curriculum_versions curriculum
+              on curriculum.expert_validation_record_id = validation.id
+           where validation.id = v_validation_id
+             and validation.status = 'APPROVED'
+             and validation.content_hash = catalog_hash
+             and curriculum.id = v_curriculum_id
+             and curriculum.content_hash = catalog_hash
+        ) then
+          raise exception 'RIS expert approval was not bound to the current content hash';
+        end if;
+
+        begin
+          perform public.set_tenant_ris_settings(
+            '20000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000003',
+            'ris',
+            v_ris_version_id,
+            false
+          );
+        exception when others then
+          unvalidated_activation_blocked := true;
+        end;
+        if not unvalidated_activation_blocked then
+          raise exception 'RIS activation bypassed unpublished curriculum/policy gates';
         end if;
       end
       $verification$;
@@ -427,7 +551,7 @@ try {
         migrationCount: entries.length,
         fixture: {
           tenants: 2,
-          users: 2,
+          users: 3,
           memberships: 1,
           students: 2,
           lessons: 1,
@@ -441,6 +565,9 @@ try {
           "authorized tenant visibility",
           "cross-tenant isolation",
           "instructor credit grant authorization and balance",
+          "RIS catalog canonical snapshot and hash",
+          "RIS expert review authorization and immutable approval",
+          "RIS activation publication gates",
         ],
         entries,
       },

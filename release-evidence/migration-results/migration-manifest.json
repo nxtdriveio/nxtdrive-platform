@@ -3,10 +3,10 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 164,
+  "migrationCount": 165,
   "fixture": {
     "tenants": 2,
-    "users": 2,
+    "users": 3,
     "memberships": 1,
     "students": 2,
     "lessons": 1,
@@ -19,7 +19,10 @@
     "invoice uniqueness",
     "authorized tenant visibility",
     "cross-tenant isolation",
-    "instructor credit grant authorization and balance"
+    "instructor credit grant authorization and balance",
+    "RIS catalog canonical snapshot and hash",
+    "RIS expert review authorization and immutable approval",
+    "RIS activation publication gates"
   ],
   "entries": [
     {
@@ -836,6 +839,11 @@
       "file": "20260730113000_disable_ai_assist.sql",
       "sha256": "0f58cfc8b22476ef52de98e802e5f02f98eb8674a5e190ea6a851ccd374fbb57",
       "bytes": 906
+    },
+    {
+      "file": "20260730120000_ris_catalog_review_workspace.sql",
+      "sha256": "28f71a706da04691635518a9d947c8e60b0a3d9f05b75fe8e5aa0c4fdb7c0409",
+      "bytes": 14677
     },
     {
       "file": "20260730120000_ris_completion_timing.sql",
