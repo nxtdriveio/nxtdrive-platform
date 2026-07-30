@@ -169,7 +169,7 @@ Status: GEDEELTELIJK
 
 Uitgevoerd:
 
-- Export bevat canonical records, versies, relaties, validatie, lesstops, voorstellen, bevestigingen en travelstatus.
+- Export bevat canonical records, versies, relaties, validatie, les-, proefles-, examen-, agenda- en moduletoetsstops, booking/intake, voorstellen, bevestigingen en travelstatus.
 - Anonimisering verwijdert directe velden, links, voorstellen, bevestigingen, orphan locaties en tenantcache.
 - Rapport vermeldt eerlijk dat historische gepubliceerde stops onder retentie kunnen blijven.
 
@@ -184,7 +184,7 @@ Tests:
 
 Resterend:
 
-- Trial-, examen-, agenda- en bookingstops moeten nog in één authenticated exportsmoke worden bewezen.
+- De volledige export moet nog in één authenticated browser-/storage-smoke worden bewezen.
 - Retentie-uitvoering vraagt per tenant een goedgekeurde beleidsversie.
 
 ## Onderdeel: autocomplete
@@ -1035,15 +1035,15 @@ Twintig Maps-baselines dekken autocomplete, handmatig, leerlinglocaties, lesloca
 
 ## Bekende beperkingen
 
-| Beperking                                    | Impact                                               | Veilige huidige toestand                                                |
-| -------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| Geen Google credentials/billing              | Geen live Places, Routes of Optimization             | Handmatig, lijst, external navigation en gelabelde schatting            |
-| Geen geïsoleerde mapdeployment               | Geen echte interactieve providerkaart                | Lijstmodus                                                              |
-| Conflictcheck niet atomair in planbordcommit | Routebewijs kan tussen preview en commit verouderen  | Bestaande planningsbuffers blijven blokkeren; routebesluit is zichtbaar |
-| Scenario-UI niet volledig muterend           | Planner kan nog niet alle diffs toepassen/rollbacken | Geen automatische wijziging                                             |
-| Analyticsjobs niet ingepland                 | Tabellen kunnen leeg zijn                            | UI meldt ontbrekende complete periode                                   |
-| Privacy authenticated exportsmoke onvolledig | Trial/examen/agenda/booking nog niet bewezen         | Geen bredere “compleet”-claim                                           |
-| Geen live provider-E2E                       | Contract-/quota-afwijking kan pas in pilot blijken   | Entitlements standaard uit                                              |
+| Beperking                                    | Impact                                                                 | Veilige huidige toestand                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Geen Google credentials/billing              | Geen live Places, Routes of Optimization                               | Handmatig, lijst, external navigation en gelabelde schatting            |
+| Geen geïsoleerde mapdeployment               | Geen echte interactieve providerkaart                                  | Lijstmodus                                                              |
+| Conflictcheck niet atomair in planbordcommit | Routebewijs kan tussen preview en commit verouderen                    | Bestaande planningsbuffers blijven blokkeren; routebesluit is zichtbaar |
+| Scenario-UI niet volledig muterend           | Planner kan nog niet alle diffs toepassen/rollbacken                   | Geen automatische wijziging                                             |
+| Analyticsjobs niet ingepland                 | Tabellen kunnen leeg zijn                                              | UI meldt ontbrekende complete periode                                   |
+| Privacy authenticated exportsmoke onvolledig | Storage-download en alle subjecttypen nog niet als browserreis bewezen | Geen bredere “compleet”-claim                                           |
+| Geen live provider-E2E                       | Contract-/quota-afwijking kan pas in pilot blijken                     | Entitlements standaard uit                                              |
 
 ## Externe acties
 

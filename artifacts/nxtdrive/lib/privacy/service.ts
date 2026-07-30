@@ -80,7 +80,7 @@ async function loadExportPayload(
   const studentQuery = service
     .from("students")
     .select(
-      "id, full_name, email, phone, postcode, address_line, city, pickup_address, active, created_at, updated_at",
+      "id, lead_id, full_name, email, phone, postcode, address_line, city, pickup_address, active, created_at, updated_at",
     )
     .eq("tenant_id", request.tenant_id);
   const { data: students, error: studentError } = request.subject_student_id
@@ -89,6 +89,9 @@ async function loadExportPayload(
   if (studentError) throw new Error("Subject profile export failed.");
 
   const studentIds = (students ?? []).map((student) => student.id as string);
+  const leadIds = (students ?? [])
+    .map((student) => student.lead_id as string | null)
+    .filter((id): id is string => Boolean(id));
   const { data: lessons, error: lessonError } = studentIds.length
     ? await service
         .from("lessons")
@@ -100,6 +103,86 @@ async function loadExportPayload(
     : { data: [], error: null };
   if (lessonError) throw new Error("Lesson export failed.");
   const lessonIds = (lessons ?? []).map((lesson) => lesson.id as string);
+  const [
+    { data: trialLessons, error: trialLessonError },
+    { data: agendaAppointments, error: agendaError },
+    { data: moduleTests, error: moduleTestError },
+    { data: bookingRequests, error: bookingRequestError },
+    { data: intakeDetails, error: intakeError },
+  ] = await Promise.all([
+    leadIds.length
+      ? service
+          .from("trial_lessons")
+          .select(
+            "id, lead_id, instructor_id, status, starts_at, ends_at, pickup_location, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("lead_id", leadIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("agenda_appointments")
+          .select(
+            "id, student_id, instructor_id, type, status, starts_at, ends_at, location, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length
+      ? service
+          .from("ris_module_tests")
+          .select(
+            "id, student_id, module_number, test_type, planned_at, completed_at, result, instructor_id, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("student_id", studentIds)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length || leadIds.length
+      ? service
+          .from("booking_requests")
+          .select(
+            "id, source, requester_type, entity_type, status, lead_id, student_id, pickup_location, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .or(
+            [
+              studentIds.length
+                ? `student_id.in.(${studentIds.join(",")})`
+                : null,
+              leadIds.length ? `lead_id.in.(${leadIds.join(",")})` : null,
+            ]
+              .filter(Boolean)
+              .join(","),
+          )
+      : Promise.resolve({ data: [], error: null }),
+    leadIds.length
+      ? service
+          .from("lead_intake_details")
+          .select(
+            "id, lead_id, city, pickup_location, pickup_lat, pickup_lng, pickup_place_id, pickup_formatted_address, created_at, updated_at",
+          )
+          .eq("tenant_id", request.tenant_id)
+          .in("lead_id", leadIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (
+    trialLessonError ||
+    agendaError ||
+    moduleTestError ||
+    bookingRequestError ||
+    intakeError
+  ) {
+    throw new Error("Related subject location export failed.");
+  }
+  const trialLessonIds = (trialLessons ?? []).map(
+    (lesson) => lesson.id as string,
+  );
+  const agendaAppointmentIds = (agendaAppointments ?? []).map(
+    (appointment) => appointment.id as string,
+  );
+  const moduleTestIds = (moduleTests ?? []).map(
+    (moduleTest) => moduleTest.id as string,
+  );
 
   const { data: locationLinks, error: locationLinkError } = studentIds.length
     ? await service
@@ -118,20 +201,48 @@ async function loadExportPayload(
       (locationLinks ?? []).map((link) => link.location_record_id as string),
     ),
   ];
-  const { data: appointmentStops, error: appointmentStopError } =
+  const stopSelect =
+    "id, appointment_type, appointment_id, lesson_id, trial_lesson_id, agenda_appointment_id, module_test_id, stop_type, sequence_number, source_location_record_id, source_location_version_id, label_snapshot, formatted_address_snapshot, latitude_snapshot, longitude_snapshot, publication_status, published_at, superseded_at, created_at";
+  const stopResults = await Promise.all([
     lessonIds.length
-      ? await service
+      ? service
           .from("appointment_stops")
-          .select(
-            "id, appointment_type, appointment_id, lesson_id, stop_type, sequence_number, source_location_record_id, source_location_version_id, label_snapshot, formatted_address_snapshot, latitude_snapshot, longitude_snapshot, publication_status, published_at, superseded_at, created_at",
-          )
+          .select(stopSelect)
           .eq("tenant_id", request.tenant_id)
           .in("lesson_id", lessonIds)
-          .order("created_at")
-      : { data: [], error: null };
-  if (appointmentStopError) {
+      : Promise.resolve({ data: [], error: null }),
+    trialLessonIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("trial_lesson_id", trialLessonIds)
+      : Promise.resolve({ data: [], error: null }),
+    agendaAppointmentIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("agenda_appointment_id", agendaAppointmentIds)
+      : Promise.resolve({ data: [], error: null }),
+    moduleTestIds.length
+      ? service
+          .from("appointment_stops")
+          .select(stopSelect)
+          .eq("tenant_id", request.tenant_id)
+          .in("module_test_id", moduleTestIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (stopResults.some((result) => result.error)) {
     throw new Error("Published appointment location export failed.");
   }
+  const appointmentStops = [
+    ...new Map(
+      stopResults
+        .flatMap((result) => result.data ?? [])
+        .map((stop) => [stop.id as string, stop]),
+    ).values(),
+  ];
   const stopLocationRecordIds = (appointmentStops ?? [])
     .map((stop) => stop.source_location_record_id as string | null)
     .filter((id): id is string => Boolean(id));
@@ -238,6 +349,11 @@ async function loadExportPayload(
       account: profile,
       studentProfiles: students ?? [],
       lessons: lessons ?? [],
+      trialLessons: trialLessons ?? [],
+      agendaAppointments: agendaAppointments ?? [],
+      moduleTests: moduleTests ?? [],
+      bookingRequests: bookingRequests ?? [],
+      intakeDetails: intakeDetails ?? [],
       locations: {
         records: locationRecords ?? [],
         versions: locationVersions ?? [],
