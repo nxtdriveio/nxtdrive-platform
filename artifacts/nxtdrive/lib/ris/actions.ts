@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/leskaart-advisor";
 import { primeAiClientIfNeeded } from "@/lib/ai/platform-config";
 import { loadEndOfLessonSchedulingState } from "@/lib/end-of-lesson-scheduling/service";
+import { isFeatureEnabled } from "@/lib/features/flags";
 import type { PlanningActorAccess } from "@/lib/planning-core";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import {
@@ -998,6 +999,9 @@ function buildRisAiSignals(ris: InstructorRisLessonCard) {
 export async function generateRisLessonAiDraftAction(input: {
   lessonId: string;
 }): Promise<ActionResult<{ draft?: RisLessonPublicationDraft }>> {
+  if (!isFeatureEnabled("ai.instructor.enabled")) {
+    return { error: "AI-assistentie is tijdelijk uitgeschakeld." };
+  }
   try {
     const { tenant, user, roles } = await requireActiveTenant([
       "instructor",

@@ -217,7 +217,7 @@ export default async function FranchiseAttentionPage({
               Delegatiepad
             </FranchiseActionLink>
             <FranchiseActionLink href="/backoffice/franchise/ai-insights" variant="primary">
-              AI-samenvatten
+              Prioriteiten bundelen
             </FranchiseActionLink>
           </>
         }

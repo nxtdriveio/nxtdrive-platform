@@ -13,7 +13,12 @@ const ENVIRONMENT_KEYS: Record<FeatureFlag, string> = {
   "readiness.production.enabled": "NXT_READINESS_PRODUCTION_ENABLED",
 };
 
+// Productbesluit: alle modelgestuurde functies blijven tijdelijk hard uit,
+// ook wanneer een oude deployment nog een rol-specifieke env-flag bevat.
+export const AI_TEMPORARILY_DISABLED = true;
+
 export function isFeatureEnabled(flag: FeatureFlag): boolean {
+  if (AI_TEMPORARILY_DISABLED && flag.startsWith("ai.")) return false;
   return process.env[ENVIRONMENT_KEYS[flag]] === "true";
 }
 

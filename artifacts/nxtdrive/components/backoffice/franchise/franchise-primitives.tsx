@@ -24,7 +24,7 @@ export const FRANCHISE_NAV_ITEMS = [
   { href: "/backoffice/franchise/audit", label: "Audit" },
   { href: "/backoffice/franchise/theming", label: "Theming" },
   { href: "/backoffice/franchise/entitlements", label: "Entitlements" },
-  { href: "/backoffice/franchise/ai-insights", label: "AI-inzichten" },
+  { href: "/backoffice/franchise/ai-insights", label: "Prioriteiten" },
   { href: "/backoffice/franchise/reports", label: "Rapportages" },
   { href: "/backoffice/franchise/architecture", label: "Architectuur" },
   { href: "/backoffice/franchise/settings", label: "Instellingen" },

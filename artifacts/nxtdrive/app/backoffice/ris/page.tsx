@@ -264,15 +264,14 @@ export default async function BackofficeRisPage({
             <div>
               <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
                 <Sparkles className="h-4 w-4" aria-hidden />
-                RIS-rapportage & AI-signalen
+                RIS-rapportage & signalen
               </div>
               <CardTitle className="text-foreground">
                 Focus voor opvolging
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Deterministische RIS-signalen voor zwakke scripts, moduleadvies
-                en interne opvolging. AI gebruikt dezelfde data alleen als
-                bewerkbaar advies, nooit als automatische publicatie.
+                en interne opvolging, met een zichtbare onderbouwing per signaal.
               </p>
             </div>
             <InfoBubble className="mt-1 h-4 w-4 text-muted-foreground">

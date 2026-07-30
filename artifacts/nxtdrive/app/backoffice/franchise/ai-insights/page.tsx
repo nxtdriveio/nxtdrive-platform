@@ -42,7 +42,7 @@ function actionTypeLabel(actionType: FranchiseAIInsight["action_type"]) {
 }
 
 export default async function FranchiseAIInsightsPage() {
-  const { tenant, entitlementSnapshot } = await requireFranchiseOperator();
+  const { tenant } = await requireFranchiseOperator();
   const [performance, planning, governance] = await Promise.all([
     loadFranchisePerformanceOverview(tenant.id),
     loadFranchisePlanningOverview(tenant.id),
@@ -58,14 +58,14 @@ export default async function FranchiseAIInsightsPage() {
   return (
     <FranchisePage>
       <FranchisePageHeader
-        eyebrow="AI-inzichten"
-        title="AI-inzichten"
-        description="AI vertaalt franchise-data naar opvolgbare acties. Het systeem publiceert niets autonoom en maakt geen mutaties zonder expliciete beheeractie."
+        eyebrow="Prioriteiten"
+        title="Prioriteitsinzichten"
+        description="Transparante regels vertalen franchise-data naar opvolgbare acties. Het systeem publiceert niets autonoom en maakt geen mutaties zonder expliciete beheeractie."
         badges={
           <>
             <FranchiseModeBadge />
-            <FranchiseStatusBadge tone={entitlementSnapshot.featureAccess.ai_features.allowed ? "success" : "warning"}>
-              {entitlementSnapshot.featureAccess.ai_features.allowed ? "AI beschikbaar" : "AI vereist Elite"}
+            <FranchiseStatusBadge tone="info">
+              Regelgestuurd
             </FranchiseStatusBadge>
           </>
         }

@@ -306,7 +306,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/backoffice/franchise/ai-insights",
-        label: "AI-inzichten",
+        label: "Prioriteiten",
         icon: BrainCircuit,
         adminOnly: true,
         requireFranchise: true,

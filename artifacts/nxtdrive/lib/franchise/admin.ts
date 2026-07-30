@@ -495,7 +495,7 @@ export function buildFranchiseAIInsights(input: {
 
   if (insights.length === 0) {
     insights.push({
-      title: "Geen acute AI-signalen",
+      title: "Geen acute prioriteitssignalen",
       description: "Het netwerk heeft op dit moment geen hoog risico op basis van prestaties, planning en governance.",
       priority: "laag",
       source: "Netwerk",

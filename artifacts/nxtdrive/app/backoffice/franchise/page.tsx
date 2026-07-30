@@ -727,10 +727,10 @@ export default async function FranchiseDashboardPage() {
         </FranchisePanel>
 
         <FranchisePanel
-          title="AI-inzichten"
-          description="AI zet signalen om naar opvolgbare acties, zonder autonome publicatie."
+          title="Prioriteitsinzichten"
+          description="Regelgestuurde signalen worden gebundeld tot opvolgbare acties."
           actionHref="/backoffice/franchise/ai-insights"
-          actionLabel="AI"
+          actionLabel="Open"
         >
           <div className="space-y-3">
             {aiInsights.slice(0, 4).map((insight) => (
