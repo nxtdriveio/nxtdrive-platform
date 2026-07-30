@@ -404,6 +404,13 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
         "Volg CBR-gerelateerde voortgang en openstaande acties per leerling.",
     },
     {
+      href: "/backoffice/ris/catalogus",
+      match: "prefix",
+      title: "RIS-catalogus",
+      description:
+        "Bekijk de versieerbare RIS-inhoud, de actuele catalogushash en de menselijke validatie- en publicatiegates.",
+    },
+    {
       href: "/backoffice/ris",
       match: "prefix",
       title: "RIS-leskaart",
@@ -555,7 +562,10 @@ function matches(pathname: string, entry: RouteInfoEntry) {
 }
 
 function resolveRouteInfo(scope: RouteInfoScope, pathname: string) {
-  return ROUTE_INFO[scope].find((entry) => matches(pathname, entry)) ?? SCOPE_FALLBACK[scope];
+  return (
+    ROUTE_INFO[scope].find((entry) => matches(pathname, entry)) ??
+    SCOPE_FALLBACK[scope]
+  );
 }
 
 export function RouteInfoBubble({

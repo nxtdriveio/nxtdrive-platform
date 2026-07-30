@@ -206,6 +206,12 @@ export default async function BackofficeRisPage({
             {overview.settings.lessonCardMode === "ris" ? "RIS" : "Legacy"}
           </Badge>
           <Link
+            href="/backoffice/ris/catalogus"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            RIS-catalogus
+          </Link>
+          <Link
             href="/backoffice/theorie"
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted"
           >
