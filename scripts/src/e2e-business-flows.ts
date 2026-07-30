@@ -76,26 +76,33 @@ const baseUrl = normalizeBaseUrl(
 );
 const timeoutMs = Number(process.env["E2E_TIMEOUT_MS"] ?? "20000");
 const headless = process.env["E2E_HEADLESS"] !== "0";
-const tenantId = process.env["E2E_TENANT_ID"] ?? DEFAULT_TENANT_ID;
+const tenantId =
+  process.env["E2E_TENANT_ID"]?.trim() || DEFAULT_TENANT_ID;
 const allowPaymentRedirect = process.env["E2E_ENABLE_PAYMENT_REDIRECT"] === "1";
+const enableRisJourney = process.env["E2E_ENABLE_RIS_JOURNEY"] === "1";
 
 const accounts: Account[] = [
   {
     label: "tenant admin",
-    email: process.env["E2E_ADMIN_EMAIL"] ?? "tenantadmin1@nxtdrive.io",
-    password: process.env["E2E_ADMIN_PASSWORD"] ?? "tenantadmin1",
+    email:
+      process.env["E2E_ADMIN_EMAIL"]?.trim() || "tenantadmin1@nxtdrive.io",
+    password: process.env["E2E_ADMIN_PASSWORD"]?.trim() || "tenantadmin1",
     expectedPath: "/backoffice",
   },
   {
     label: "instructor",
-    email: process.env["E2E_INSTRUCTOR_EMAIL"] ?? "instructeur1@nxtdrive.io",
-    password: process.env["E2E_INSTRUCTOR_PASSWORD"] ?? "instructeur1",
+    email:
+      process.env["E2E_INSTRUCTOR_EMAIL"]?.trim() ||
+      "instructeur1@nxtdrive.io",
+    password:
+      process.env["E2E_INSTRUCTOR_PASSWORD"]?.trim() || "instructeur1",
     expectedPath: "/instructeur",
   },
   {
     label: "student",
-    email: process.env["E2E_STUDENT_EMAIL"] ?? "leerling1@nxtdrive.io",
-    password: process.env["E2E_STUDENT_PASSWORD"] ?? "leerling1",
+    email:
+      process.env["E2E_STUDENT_EMAIL"]?.trim() || "leerling1@nxtdrive.io",
+    password: process.env["E2E_STUDENT_PASSWORD"]?.trim() || "leerling1",
     expectedPath: "/leerling",
   },
 ];
@@ -113,6 +120,12 @@ const createdInvoiceIds: string[] = [];
 const createdLessonIds: string[] = [];
 const createdConversationIds: string[] = [];
 const createdMessageIds: string[] = [];
+const risProgressSnapshots: Array<{
+  tenantId: string;
+  studentId: string;
+  scriptId: string;
+  row: Record<string, unknown> | null;
+}> = [];
 
 function assertPersistentSessionCookies(
   account: Account,
@@ -594,6 +607,218 @@ async function verifyLessonPlanningAndCompletion(
   }
 }
 
+async function verifyRisInstructorToStudentJourney(
+  browser: Browser,
+  tenant: TenantRow,
+  adminUserId: string,
+  instructorId: string,
+  studentId: string,
+): Promise<void> {
+  const settings = await service
+    .from("tenant_ris_settings")
+    .select("lesson_card_mode, active_ris_version_id")
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (
+    settings.error ||
+    settings.data?.lesson_card_mode !== "ris" ||
+    !settings.data.active_ris_version_id
+  ) {
+    throw new Error(
+      "E2E tenant must have RIS mode and an active validated catalog",
+    );
+  }
+
+  const enrollment = await service
+    .from("training_enrollments")
+    .select("id")
+    .eq("tenant_id", tenant.id)
+    .eq("student_id", studentId)
+    .eq("training_method", "RIS_2_0")
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+  if (enrollment.error || !enrollment.data?.id) {
+    throw new Error(
+      "E2E student needs an active RIS_2_0 enrollment; the suite never fabricates expert approval",
+    );
+  }
+
+  const firstScript = await service
+    .from("ris_scripts")
+    .select("id, title")
+    .eq("ris_version_id", settings.data.active_ris_version_id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (firstScript.error || !firstScript.data?.id) {
+    throw new Error("active RIS catalog has no script to assess");
+  }
+
+  const progressBefore = await service
+    .from("student_ris_progress")
+    .select("*")
+    .eq("tenant_id", tenant.id)
+    .eq("student_id", studentId)
+    .eq("script_id", firstScript.data.id)
+    .maybeSingle();
+  if (progressBefore.error) {
+    throw new Error(`RIS progress snapshot failed: ${progressBefore.error.message}`);
+  }
+  risProgressSnapshots.push({
+    tenantId: tenant.id,
+    studentId,
+    scriptId: firstScript.data.id as string,
+    row: (progressBefore.data as Record<string, unknown> | null) ?? null,
+  });
+
+  const lessonId = await createPlannedLessonForFlow(
+    tenant,
+    adminUserId,
+    instructorId,
+    studentId,
+  );
+  const instructorContext = await browser.newContext();
+  const instructorPage = await createPage(instructorContext);
+  const reflectionText = `E2E zelfreflectie ${Date.now()}`;
+  const learnerWish = `Ik wil ${firstScript.data.title as string} verder oefenen`;
+
+  try {
+    await loginViaUi(instructorPage, accounts[1]);
+    await instructorPage.goto(appUrl(`/instructeur/lessen/${lessonId}`), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    await instructorPage
+      .getByRole("tab", { name: "Beoordeling", exact: true })
+      .click();
+    const firstModule = instructorPage.locator("details").first();
+    if (!(await firstModule.getAttribute("open"))) {
+      await firstModule.locator("summary").click();
+    }
+    const slider = instructorPage
+      .getByRole("slider", { name: /RIS-stap voor/i })
+      .first();
+    await slider.press("End");
+    await poll(
+      async () =>
+        service
+          .from("ris_script_assessments")
+          .select(
+            "id, lesson_card_id, concept_ris_step, concept_performance_outcome, concept_support_level, concept_safety_status",
+          )
+          .eq("tenant_id", tenant.id)
+          .eq("script_id", firstScript.data!.id)
+          .eq("lesson_id", lessonId)
+          .maybeSingle(),
+      (value) =>
+        value.data?.concept_ris_step === "8" &&
+        Boolean(value.data?.concept_performance_outcome) &&
+        Boolean(value.data?.concept_support_level) &&
+        Boolean(value.data?.concept_safety_status),
+      "separated RIS observation",
+    );
+
+    await instructorPage
+      .getByRole("tab", { name: "Reflectie", exact: true })
+      .click();
+    await instructorPage
+      .getByRole("radio", { name: /Door leerling zelf/i })
+      .check();
+    await instructorPage.getByLabel("Reflectie in een zin").fill(reflectionText);
+    await poll(
+      async () =>
+        service
+          .from("ris_guided_reflections")
+          .select("entry_mode, one_sentence_reflection")
+          .eq("tenant_id", tenant.id)
+          .eq("one_sentence_reflection", reflectionText)
+          .maybeSingle(),
+      (value) => value.data?.entry_mode === "student_self",
+      "student-authored reflection autosave",
+    );
+
+    await instructorPage
+      .getByRole("tab", { name: /Samenvatting/ })
+      .click();
+    instructorPage.once("dialog", (dialog) => void dialog.accept());
+    await instructorPage
+      .getByRole("button", { name: "Afronden & publiceren" })
+      .click();
+
+    const publishedCard = await poll(
+      async () =>
+        service
+          .from("ris_lesson_cards")
+          .select("id, publication_status")
+          .eq("tenant_id", tenant.id)
+          .eq("lesson_id", lessonId)
+          .maybeSingle(),
+      (value) => value.data?.publication_status === "waiting_for_student_response",
+      "RIS publication",
+    );
+    const cardId = publishedCard.data?.id as string | undefined;
+    if (!cardId) throw new Error("published RIS card id missing");
+
+    const studentContext = await browser.newContext();
+    const studentPage = await createPage(studentContext);
+    try {
+      await loginViaUi(studentPage, accounts[2]);
+      await studentPage.goto(appUrl(`/leerling/lessen/${lessonId}`), {
+        waitUntil: "domcontentloaded",
+        timeout: timeoutMs,
+      });
+      await studentPage.getByText(reflectionText, { exact: true }).waitFor();
+      await studentPage
+        .getByText("Door leerling zelf", { exact: true })
+        .waitFor();
+      await studentPage
+        .getByPlaceholder("Mijn korte reactie op deze les...")
+        .fill("De gepubliceerde feedback klopt.");
+      await studentPage
+        .getByPlaceholder("Volgende les wil ik graag oefenen met...")
+        .fill(learnerWish);
+      await studentPage
+        .getByRole("button", { name: "Reactie opslaan" })
+        .click();
+      await studentPage.getByText("Je reactie is opgeslagen.").waitFor();
+    } finally {
+      await studentContext.close();
+    }
+
+    await poll(
+      async () =>
+        service
+          .from("ris_lesson_cards")
+          .select("publication_status")
+          .eq("id", cardId)
+          .maybeSingle(),
+      (value) => value.data?.publication_status === "fully_completed",
+      "student response completion",
+    );
+
+    const nextLessonId = await createPlannedLessonForFlow(
+      tenant,
+      adminUserId,
+      instructorId,
+      studentId,
+    );
+    await instructorPage.goto(appUrl(`/instructeur/lessen/${nextLessonId}`), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    await instructorPage
+      .getByRole("tab", { name: "Plankaart", exact: true })
+      .click();
+    await instructorPage.getByText(learnerWish, { exact: true }).waitFor();
+    await instructorPage
+      .getByText("Regelgebaseerd lesvoorstel", { exact: true })
+      .waitFor();
+  } finally {
+    await instructorContext.close();
+  }
+}
+
 async function verifyMessaging(
   browser: Browser,
   tenant: TenantRow,
@@ -1066,12 +1291,74 @@ async function verifyPayments(
 
 async function cleanupLessons(): Promise<void> {
   for (const lessonId of createdLessonIds) {
+    const cards = await service
+      .from("ris_lesson_cards")
+      .select("id")
+      .eq("lesson_id", lessonId);
+    const cardIds = (cards.data ?? []).map((row) => row.id as string);
+    if (cardIds.length > 0) {
+      await ignoreQuery(
+        service
+          .from("student_post_lesson_responses")
+          .delete()
+          .in("lesson_card_id", cardIds),
+      );
+      await ignoreQuery(
+        service
+          .from("ris_guided_reflections")
+          .delete()
+          .in("lesson_card_id", cardIds),
+      );
+      await ignoreQuery(
+        service
+          .from("ris_script_assessments")
+          .delete()
+          .in("lesson_card_id", cardIds),
+      );
+      await ignoreQuery(
+        service.from("ris_lesson_cards").delete().in("id", cardIds),
+      );
+    }
+    const planningCards = await service
+      .from("planning_cards")
+      .select("id")
+      .eq("next_lesson_id", lessonId);
+    const planningCardIds = (planningCards.data ?? []).map(
+      (row) => row.id as string,
+    );
+    if (planningCardIds.length > 0) {
+      await ignoreQuery(
+        service
+          .from("planning_card_goals")
+          .delete()
+          .in("planning_card_id", planningCardIds),
+      );
+      await ignoreQuery(
+        service.from("planning_cards").delete().in("id", planningCardIds),
+      );
+    }
     await service
       .from("lesson_skill_scores")
       .delete()
       .eq("lesson_id", lessonId);
     await service.from("lesson_notes").delete().eq("lesson_id", lessonId);
     await service.from("lessons").delete().eq("id", lessonId);
+  }
+  for (const snapshot of risProgressSnapshots) {
+    if (snapshot.row) {
+      await ignoreQuery(
+        service.from("student_ris_progress").upsert(snapshot.row),
+      );
+    } else {
+      await ignoreQuery(
+        service
+          .from("student_ris_progress")
+          .delete()
+          .eq("tenant_id", snapshot.tenantId)
+          .eq("student_id", snapshot.studentId)
+          .eq("script_id", snapshot.scriptId),
+      );
+    }
   }
 }
 
@@ -1200,6 +1487,27 @@ async function main(): Promise<void> {
         student.id,
       );
     });
+
+    if (enableRisJourney) {
+      await expect(
+        "RIS instructor assessment -> self-reflection -> publication -> student response -> next focus",
+        async () => {
+          await verifyRisInstructorToStudentJourney(
+            browser,
+            tenant,
+            adminUserId,
+            instructorUserId,
+            student.id,
+          );
+        },
+      );
+    } else {
+      record(
+        "SKIP",
+        "RIS instructor-to-student journey",
+        "set E2E_ENABLE_RIS_JOURNEY=1 on a validated RIS test tenant",
+      );
+    }
 
     await expect("student <-> instructor messaging", async () => {
       await verifyMessaging(browser, tenant, instructorUserId);
