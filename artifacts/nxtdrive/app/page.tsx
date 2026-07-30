@@ -43,7 +43,7 @@ export default async function HomePage() {
             Inloggen
           </Link>
           <Link
-            href="#"
+            href="mailto:sales@nxtdrive.io?subject=Demo%20NXTDRIVE%20aanvragen"
             className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-card px-6 text-sm font-medium text-foreground transition hover:bg-muted"
           >
             Plan een demo
