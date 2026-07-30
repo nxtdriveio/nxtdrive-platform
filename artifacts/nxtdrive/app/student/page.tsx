@@ -91,7 +91,7 @@ export default async function StudentHomePage() {
   const timeZone = resolveTenantTimeZone(tenant);
   const { lessonTimeFmt, shortDateFmt } = createStudentHomeFormatters(timeZone);
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
 
   if (!student) {
     return (
@@ -265,7 +265,7 @@ export default async function StudentHomePage() {
 
   const nextLessonSummary = nextLesson
     ? {
-        href: `/student/agenda/${nextLesson.id}`,
+        href: `/leerling/lessen/${nextLesson.id}`,
         dayLabel: isSameZonedDay(new Date(nextLesson.starts_at), now, timeZone)
           ? "Vandaag"
           : capitalize(shortDateFmt.format(new Date(nextLesson.starts_at))),

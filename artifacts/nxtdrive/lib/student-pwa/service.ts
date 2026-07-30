@@ -12,12 +12,12 @@ import type { StudentExperience, StudentInvoiceStatus, StudentLesson, StudentMes
 import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime";
 
 const quickActions: StudentExperience["quickActions"] = [
-  { label: "Planning", href: "/student/agenda", description: "Je lessen en tijden", iconName: "calendar" },
-  { label: "Voortgang", href: "/student/journey", description: "Je rijbewijsreis", iconName: "route" },
-  { label: "Betalingen", href: "/student/payments", description: "Tegoed en facturen", iconName: "wallet" },
-  { label: "Examens", href: "/student/cbr-exams", description: "CBR en gereedheid", iconName: "badge" },
-  { label: "Theorie", href: "/student/theory", description: "Huiswerk en toetsen", iconName: "book" },
-  { label: "Berichten", href: "/student/messages", description: "Chat met je rijschool", iconName: "message" },
+  { label: "Planning", href: "/leerling/lessen", description: "Je lessen en tijden", iconName: "calendar" },
+  { label: "Voortgang", href: "/leerling/reflectie", description: "Je rijbewijsreis", iconName: "route" },
+  { label: "Betalingen", href: "/leerling/betalingen", description: "Tegoed en facturen", iconName: "wallet" },
+  { label: "Examens", href: "/leerling/examens", description: "CBR en gereedheid", iconName: "badge" },
+  { label: "Theorie", href: "/leerling/theorie", description: "Huiswerk en toetsen", iconName: "book" },
+  { label: "Berichten", href: "/leerling/berichten", description: "Chat met je rijschool", iconName: "message" },
 ];
 
 type StudentFormatters = {
@@ -100,7 +100,7 @@ function mapLesson(
           : lesson.status.startsWith("cancelled")
             ? "cancelled"
             : "pending",
-    href: `/student/agenda/${lesson.id}`,
+    href: `/leerling/lessen/${lesson.id}`,
     preparation: [lesson.attention_points, lesson.advice, lesson.student_note, lesson.notes]
       .filter((value): value is string => Boolean(value?.trim()))
       .flatMap((value) =>
@@ -242,7 +242,7 @@ export async function getStudentExperience({
     dateLabel: invoice.issued_at ? formatters.dateLongFmt.format(new Date(invoice.issued_at)) : "Datum volgt",
     amountLabel: euros(invoice.total_cents),
     status: invoiceStatus(invoice.status, invoice.due_date),
-    href: "/student/payments",
+    href: "/leerling/betalingen",
   }));
 
   const messages = await loadStudentMessageThreads({
@@ -292,7 +292,7 @@ export async function getStudentExperience({
         ? `Blijf oefenen met ${leskaart.recent.skills[0].label.toLowerCase()}.`
         : "Je volgende focus verschijnt zodra je instructeur de leskaart bijwerkt.",
       ctaLabel: "Bekijk plan",
-      href: "/student/journey",
+      href: "/leerling/reflectie",
       progressLabel: nextLesson?.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
       progressCurrent: nextLesson?.status === "planned" ? 1 : 0,
       progressTotal: 1,
@@ -389,7 +389,7 @@ export async function getStudentExperience({
       body: notification.body ?? "",
       timeLabel: formatters.dateFmt.format(new Date(notification.created_at)),
       unread: !notification.read_at,
-      href: notification.type === "invoice" ? "/student/payments" : "/student/notifications",
+      href: notification.type === "invoice" ? "/leerling/betalingen" : "/leerling/meldingen",
     })),
     documents: invoices.map((invoice) => ({
       id: `invoice-${invoice.id}`,
@@ -397,7 +397,7 @@ export async function getStudentExperience({
       category: "Facturen",
       dateLabel: invoice.dateLabel,
       status: invoice.status === "paid" ? "Klaar" : "Nieuw",
-      href: "/student/payments",
+      href: "/leerling/betalingen",
     })),
     activity: [
       ...previousLessons.slice(0, 3).map((lesson) => ({
@@ -435,7 +435,7 @@ function buildEmptyExperience({
       title: "Nog geen leskaart",
       body: "Je gegevens worden zichtbaar zodra je rijschool je dossier koppelt.",
       ctaLabel: "Bekijk agenda",
-      href: "/student/agenda",
+      href: "/leerling/lessen",
       progressLabel: "0/1",
       progressCurrent: 0,
       progressTotal: 1,
@@ -530,7 +530,7 @@ async function loadStudentMessageThreads({
       latestMessage: conversation.last_message_preview ?? "Nog geen berichten.",
       timeLabel: conversation.last_message_at ? formatters.timeFmt.format(new Date(conversation.last_message_at)) : "Nieuw",
       unreadCount,
-      href: `/student/messages/${conversation.id}`,
+      href: `/leerling/berichten/${conversation.id}`,
       messages: messages.map((message) => ({
         id: message.id,
         sender: message.sender_side === "student" ? "student" : "school",

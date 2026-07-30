@@ -40,7 +40,7 @@ export default async function StudentSettingsPage() {
               </div>
             </div>
             <Link
-              href="/student/profile"
+              href="/leerling/instellingen"
               className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}
             >
               Profiel bekijken
@@ -75,7 +75,7 @@ export default async function StudentSettingsPage() {
               <SettingsRow
                 title="Wissel actieve leerling"
                 body="Kies welk leerlingprofiel je wilt bekijken."
-                href="/student/select-child"
+                href="/leerling/kies-leerling"
               />
             </StudentSection>
           ) : null}

@@ -17,12 +17,12 @@ type Shortcut = {
 };
 
 const BASE_SHORTCUTS: Shortcut[] = [
-  { href: "/student/lessons", label: "Lessen", icon: CalendarDays },
-  { href: "/student/voortgang", label: "Voortgang", icon: Route },
-  { href: "/student/payments", label: "Betalingen", icon: Wallet },
-  { href: "/student/cbr-exams", label: "Examens", icon: BadgeCheck },
-  { href: "/student/theory", label: "Theorie", icon: BookOpen },
-  { href: "/student/messages", label: "Berichten", icon: MessageCircle },
+  { href: "/leerling/lessen", label: "Lessen", icon: CalendarDays },
+  { href: "/leerling/voortgang", label: "Voortgang", icon: Route },
+  { href: "/leerling/betalingen", label: "Betalingen", icon: Wallet },
+  { href: "/leerling/examens", label: "Examens", icon: BadgeCheck },
+  { href: "/leerling/theorie", label: "Theorie", icon: BookOpen },
+  { href: "/leerling/berichten", label: "Berichten", icon: MessageCircle },
 ];
 
 export function QuickActions({
@@ -31,7 +31,7 @@ export function QuickActions({
   messageUnreadCount?: number;
 }) {
   const shortcuts = BASE_SHORTCUTS.map((shortcut) =>
-    shortcut.href === "/student/messages"
+    shortcut.href === "/leerling/berichten"
       ? { ...shortcut, badge: messageUnreadCount > 0 ? messageUnreadCount : undefined }
       : shortcut,
   );

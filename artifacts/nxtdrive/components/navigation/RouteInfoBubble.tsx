@@ -22,77 +22,77 @@ type RouteInfoEntry = {
 const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
   student: [
     {
-      href: "/student/lessons/",
+      href: "/leerling/lessen/",
       match: "prefix",
       title: "Lesdetails",
       description:
         "Bekijk per les precies wat is geoefend, welke feedback je kreeg en wat je volgende focus is.",
     },
     {
-      href: "/student/lessons",
+      href: "/leerling/lessen",
       match: "prefix",
       title: "Lessen",
       description:
         "Hier zie je je planning en open je iedere les voor details, context en voortgang.",
     },
     {
-      href: "/student/facturen/",
+      href: "/leerling/betalingen/facturen/",
       match: "prefix",
       title: "Factuurdetail",
       description:
         "Open een factuur om regels, betaalstatus en online betaling rustig te bekijken.",
     },
     {
-      href: "/student/betalingen",
+      href: "/leerling/betalingen",
       match: "prefix",
       title: "Betalingen",
       description:
         "Dit scherm bundelt tegoed, facturen en betaalstatus op een plek.",
     },
     {
-      href: "/student/voortgang",
+      href: "/leerling/voortgang",
       match: "prefix",
       title: "Voortgang",
       description:
         "Volg hier je rijontwikkeling, leskaart en examenvoorbereiding.",
     },
     {
-      href: "/student/theorie",
+      href: "/leerling/theorie",
       match: "prefix",
       title: "Theorie",
       description:
         "Werk theorie-opdrachten af en zie wat nog openstaat voor je volgende stap.",
     },
     {
-      href: "/student/berichten",
+      href: "/leerling/berichten",
       match: "prefix",
       title: "Berichten",
       description:
         "Chat direct met je rijschool of instructeur zonder de app te verlaten.",
     },
     {
-      href: "/student/profile",
+      href: "/leerling/instellingen",
       match: "prefix",
       title: "Profiel",
       description:
         "Beheer je account, contactgegevens en gekoppelde leerling vanuit dit scherm.",
     },
     {
-      href: "/student/cbr",
+      href: "/leerling/examens",
       match: "prefix",
       title: "CBR-status",
       description:
         "Zie welke CBR-stappen al geregeld zijn en wat er nog openstaat.",
     },
     {
-      href: "/student/select-child",
+      href: "/leerling/kies-leerling",
       match: "prefix",
       title: "Leerling kiezen",
       description:
         "Kies welke gekoppelde leerling je nu bekijkt als er meerdere onder je account hangen.",
     },
     {
-      href: "/student",
+      href: "/leerling",
       match: "exact",
       title: "Startscherm",
       description:
@@ -520,7 +520,7 @@ const ROUTE_INFO: Record<RouteInfoScope, RouteInfoEntry[]> = {
 
 const SCOPE_FALLBACK: Record<RouteInfoScope, RouteInfoEntry> = {
   student: {
-    href: "/student",
+    href: "/leerling",
     match: "exact",
     title: "Leerlingapp",
     description:

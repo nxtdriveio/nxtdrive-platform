@@ -14,7 +14,7 @@ export async function getStudentPwaContext() {
     roles,
   );
 
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
 
   const displayName =
     student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";

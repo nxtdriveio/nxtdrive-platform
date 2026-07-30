@@ -585,7 +585,7 @@ export function StudentReadinessCard({
         <div className="min-w-0">
           <p className="text-sm font-black text-brand-foreground">Verwachte gereedheid</p>
           <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">{copy}</p>
-          <Link href="/student/cbr-exams" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
+          <Link href="/leerling/examens" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
             Naar examens
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -719,7 +719,7 @@ export function StudentTheoryProgressCard({
           <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
             {theory.statusCopy}
           </p>
-          <Link href="/student/theory" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
+          <Link href="/leerling/theorie" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
             Naar theorie
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -790,7 +790,7 @@ export function StudentPaymentBalanceCard({
         </div>
       </div>
       <Link
-        href="/student/payments"
+        href="/leerling/betalingen"
         className={buttonVariants({ className: "mt-4 w-full" })}
       >
         Tegoed opwaarderen
@@ -1031,7 +1031,7 @@ export function StudentChatWindow({
     <StudentCard className="flex min-h-[34rem] flex-col">
       <div className="flex items-center gap-3 border-b border-brand-border/80 px-4 py-3">
         {showBack ? (
-          <Link href="/student/messages" className="rounded-full p-2 text-brand-muted-foreground">
+          <Link href="/leerling/berichten" className="rounded-full p-2 text-brand-muted-foreground">
             <ArrowLeft className="h-4 w-4" aria-hidden />
           </Link>
         ) : null}
@@ -1221,14 +1221,14 @@ export function StudentDocumentList({ documents }: { documents: StudentDocument[
 
 export function StudentMoreMenu() {
   const links = [
-    { href: "/student/messages", label: "Berichten", icon: MessageCircle },
-    { href: "/student/payments", label: "Betalingen", icon: Wallet },
-    { href: "/student/cbr-exams", label: "CBR & Examens", icon: BadgeCheck },
-    { href: "/student/documents", label: "Documenten", icon: FileText },
-    { href: "/student/settings", label: "Instellingen", icon: Settings },
-    { href: "/student/profile", label: "Profiel", icon: User },
-    { href: "/student", label: "Hulp & support", icon: MessageCircle },
-    { href: "/student/settings", label: "Uitloggen", icon: MoreHorizontal },
+    { href: "/leerling/berichten", label: "Berichten", icon: MessageCircle },
+    { href: "/leerling/betalingen", label: "Betalingen", icon: Wallet },
+    { href: "/leerling/examens", label: "CBR & Examens", icon: BadgeCheck },
+    { href: "/leerling/documenten", label: "Documenten", icon: FileText },
+    { href: "/leerling/instellingen", label: "Instellingen", icon: Settings },
+    { href: "/leerling/instellingen", label: "Profiel", icon: User },
+    { href: "/leerling", label: "Hulp & support", icon: MessageCircle },
+    { href: "/leerling/instellingen", label: "Uitloggen", icon: MoreHorizontal },
   ];
 
   return (

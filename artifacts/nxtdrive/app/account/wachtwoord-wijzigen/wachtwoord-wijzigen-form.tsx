@@ -57,7 +57,7 @@ export function WachtwoordWijzigenForm({
     }
 
     setDone(true);
-    setTimeout(() => router.push("/student"), 2000);
+    setTimeout(() => router.push("/leerling"), 2000);
   }
 
   return (

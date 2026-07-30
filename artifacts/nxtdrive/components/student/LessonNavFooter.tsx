@@ -22,7 +22,7 @@ export function LessonNavFooter({
       <div className="grid grid-cols-2 gap-2">
         {prevLessonId ? (
           <Link
-            href={`/student/lessons/${prevLessonId}`}
+            href={`/leerling/lessen/${prevLessonId}`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -42,7 +42,7 @@ export function LessonNavFooter({
         )}
         {nextLessonId ? (
           <Link
-            href={`/student/lessons/${nextLessonId}`}
+            href={`/leerling/lessen/${nextLessonId}`}
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
               "justify-end",

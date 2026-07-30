@@ -36,7 +36,7 @@ export default async function StudentCbrPage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
   const { dateFmt } = createStudentCbrFormatters(resolveTenantTimeZone(tenant));
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
   if (!student) {
     return <PWAEmptyState message="Je account is nog niet gekoppeld aan een leerlingdossier." />;
   }

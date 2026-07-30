@@ -113,7 +113,7 @@ function revalidateBrandingSurfaces() {
   revalidatePath("/manifest.webmanifest");
   revalidatePath("/backoffice", "layout");
   revalidatePath("/backoffice/instellingen");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   revalidatePath("/student/manifest.webmanifest");
   revalidatePath("/instructeur", "layout");
   revalidatePath("/instructeur/manifest.webmanifest");
@@ -737,7 +737,7 @@ export async function saveStudentSelfBookingPolicy(
   });
 
   revalidatePath("/backoffice/instellingen");
-  revalidatePath("/student/lessons");
+  revalidatePath("/leerling/lessen");
   return { ok: true };
 }
 
@@ -765,7 +765,7 @@ export async function resetStudentSelfBookingPolicy(): Promise<PolicyActionResul
   });
 
   revalidatePath("/backoffice/instellingen");
-  revalidatePath("/student/lessons");
+  revalidatePath("/leerling/lessen");
   return { ok: true };
 }
 
@@ -1108,7 +1108,7 @@ export async function saveContactPhone(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/backoffice/instellingen");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return { ok: true };
 }
 

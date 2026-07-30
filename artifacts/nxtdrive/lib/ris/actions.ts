@@ -381,9 +381,9 @@ export async function publishRisLessonCardAction(input: {
     revalidatePath("/instructeur");
     if (input.lessonId) revalidatePath(`/instructeur/lessen/${input.lessonId}`);
     if (input.studentId) {
-      revalidatePath("/student");
-      revalidatePath("/student/voortgang");
-      if (input.lessonId) revalidatePath(`/student/lessons/${input.lessonId}`);
+      revalidatePath("/leerling");
+      revalidatePath("/leerling/voortgang");
+      if (input.lessonId) revalidatePath(`/leerling/lessen/${input.lessonId}`);
       revalidatePath(`/backoffice/leerlingen/${input.studentId}`);
     }
     return {};
@@ -427,10 +427,10 @@ export async function submitStudentRisLessonResponseAction(input: {
     );
     if (error) return { error: error.message };
 
-    revalidatePath("/student");
-    revalidatePath("/student/voortgang");
-    revalidatePath("/student/lessons");
-    if (input.lessonId) revalidatePath(`/student/lessons/${input.lessonId}`);
+    revalidatePath("/leerling");
+    revalidatePath("/leerling/voortgang");
+    revalidatePath("/leerling/lessen");
+    if (input.lessonId) revalidatePath(`/leerling/lessen/${input.lessonId}`);
     revalidatePath(`/backoffice/leerlingen/${student.id}`);
     return { responseId: typeof data === "string" ? data : undefined };
   } catch (error) {
@@ -561,9 +561,9 @@ export async function upsertPlanningCardAction(input: {
     revalidatePath("/instructeur");
     if (input.nextLessonId) {
       revalidatePath(`/instructeur/lessen/${input.nextLessonId}`);
-      revalidatePath(`/student/lessons/${input.nextLessonId}`);
+      revalidatePath(`/leerling/lessen/${input.nextLessonId}`);
     }
-    revalidatePath("/student");
+    revalidatePath("/leerling");
     revalidatePath(`/backoffice/leerlingen/${studentId}`);
     return { planningCardId: planningCardId ?? undefined };
   } catch (error) {
@@ -779,7 +779,7 @@ async function notifyNextLessonProposal(input: {
     type: "instructor_next_lesson_proposal",
     title: "Voorstel voor je volgende rijles",
     body: "Je instructeur heeft een nieuw lesmoment voorgesteld.",
-    link: "/student",
+    link: "/leerling",
     related_type: "booking_candidate",
     related_id: input.bookingCandidateId,
     dedupe_key: `next-lesson:${input.bookingCandidateId}:${recipientId}`,
@@ -836,7 +836,7 @@ export async function planInstructorNextLessonAction(
     });
     revalidatePath("/instructeur");
     revalidatePath(`/instructeur/lessen/${lesson.id}`);
-    revalidatePath("/student");
+    revalidatePath("/leerling");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { lessonId: nextLessonId };
   } catch (error) {
@@ -891,7 +891,7 @@ export async function proposeInstructorNextLessonAction(
     });
     revalidatePath("/instructeur");
     revalidatePath(`/instructeur/lessen/${lesson.id}`);
-    revalidatePath("/student");
+    revalidatePath("/leerling");
     revalidatePath(`/backoffice/leerlingen/${lesson.student_id}`);
     return { bookingRequestId: requestId };
   } catch (error) {

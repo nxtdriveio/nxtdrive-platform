@@ -19,15 +19,15 @@ export async function payStudentInvoice(formData: FormData) {
     "parent",
   ]);
   const invoiceId = String(formData.get("invoice_id") ?? "").trim();
-  if (!invoiceId) redirect("/student/betalingen");
+  if (!invoiceId) redirect("/leerling/betalingen");
 
   const { student, needsChildPicker } = await getActiveStudent(
     user,
     tenant.id,
     roles,
   );
-  if (needsChildPicker) redirect("/student/select-child");
-  if (!student) redirect("/student/betalingen");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
+  if (!student) redirect("/leerling/betalingen");
 
   const service = createServiceRoleClient();
   const { data: invRaw } = await service
@@ -37,7 +37,7 @@ export async function payStudentInvoice(formData: FormData) {
     .eq("tenant_id", tenant.id)
     .eq("student_id", student.id)
     .maybeSingle();
-  if (!invRaw) redirect("/student/betalingen");
+  if (!invRaw) redirect("/leerling/betalingen");
   const invoice = invRaw as Invoice;
 
   const result = await createInvoiceCheckout(service, {
@@ -47,7 +47,7 @@ export async function payStudentInvoice(formData: FormData) {
   });
 
   if (!result.ok || !result.checkoutUrl) {
-    redirect(`/student/facturen/${invoiceId}?pay_error=${result.ok ? "no_checkout" : result.error}`);
+    redirect(`/leerling/betalingen/facturen/${invoiceId}?pay_error=${result.ok ? "no_checkout" : result.error}`);
   }
   redirect(result.checkoutUrl);
 }

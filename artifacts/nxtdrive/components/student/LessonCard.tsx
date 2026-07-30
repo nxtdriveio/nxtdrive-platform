@@ -37,7 +37,7 @@ export function StudentLessonCard({
   const start = new Date(lesson.starts_at);
   const end = new Date(lesson.ends_at);
   const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
-  const target = href ?? `/student/lessons/${lesson.id}`;
+  const target = href ?? `/leerling/lessen/${lesson.id}`;
   return (
     <Link
       href={target}

@@ -453,7 +453,7 @@ export async function toggleStudentCbrCompetencyAction(
   if (error) return { error: error.message };
 
   revalidatePath("/instructeur", "layout");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -577,7 +577,7 @@ export async function setLessonContextAction(
   if (error) return { error: error.message };
 
   revalidatePath(`/instructeur/lessen/${lessonId}`);
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -614,7 +614,7 @@ export async function assignTheoryHomeworkAction(
   if (error) return { error: error.message };
 
   revalidatePath(`/instructeur/lessen/${lessonId}`);
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -647,7 +647,7 @@ export async function setTheoryHomeworkStatusAction(
   if (error) return { error: error.message };
 
   revalidatePath(`/instructeur/lessen/${lessonId}`);
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -719,6 +719,6 @@ export async function setStudentCbrStatusAction(
   }
 
   revalidatePath("/instructeur", "layout");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }

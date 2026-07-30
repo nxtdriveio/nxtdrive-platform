@@ -582,7 +582,7 @@ export async function setAppointmentResult(formData: FormData) {
   revalidatePath("/backoffice/cbr");
   revalidatePath("/instructeur/agenda");
   revalidatePath("/instructeur");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   redirect(redirectTo);
 }
 
@@ -658,6 +658,6 @@ export async function setExamAppointmentDetails(formData: FormData) {
   revalidatePath("/backoffice/cbr");
   revalidatePath("/instructeur/agenda");
   revalidatePath("/instructeur");
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   redirect(redirectTo);
 }

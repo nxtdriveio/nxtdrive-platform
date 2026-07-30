@@ -44,7 +44,7 @@ export function LessonHeaderCard({
       title="Lesdetails"
       eyebrow="Overzicht"
       actionLabel="Alle lessen"
-      actionHref="/student/lessons"
+      actionHref="/leerling/lessen"
     >
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">

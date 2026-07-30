@@ -25,7 +25,7 @@ async function pickChildAction(formData: FormData): Promise<void> {
   if (!ok) return;
 
   await setActiveChildId(studentId);
-  redirect("/student");
+  redirect("/leerling");
 }
 
 export default async function SelectChildPage() {
@@ -48,7 +48,7 @@ export default async function SelectChildPage() {
   }
 
   if (children.length === 1) {
-    redirect("/student");
+    redirect("/leerling");
   }
 
   return (

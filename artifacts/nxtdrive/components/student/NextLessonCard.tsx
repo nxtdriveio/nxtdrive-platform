@@ -82,7 +82,7 @@ export function NextLessonCard({
     : null;
 
   return (
-    <Link href={`/student/lessons/${lessonId}`} className="block">
+    <Link href={`/leerling/lessen/${lessonId}`} className="block">
       <PWACard className="border-primary/40 bg-primary-soft/40 transition-colors hover:border-primary/60">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">

@@ -303,7 +303,7 @@ function NextLessonCard({ nextLesson }: { nextLesson: StudentNextLessonSummary |
             </p>
           </div>
           <Link
-            href="/student/agenda"
+            href="/leerling/lessen"
             className="inline-flex h-10 items-center gap-2 rounded-[0.9rem] bg-brand-primary px-3.5 text-sm font-semibold text-brand-primary-foreground transition hover:brightness-105"
           >
             Les plannen
@@ -337,7 +337,7 @@ function ProgressCard({
             Je voortgang in begrijpelijke stappen.
           </p>
           <Link
-            href="/student/journey"
+            href="/leerling/reflectie"
             className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-primary"
           >
             Bekijk voortgang
@@ -381,7 +381,7 @@ function CreditBalanceCard({ availableMinutes }: { availableMinutes: number }) {
           </div>
         ) : null}
         <Link
-          href="/student/payments"
+          href="/leerling/betalingen"
           className="mt-4 inline-flex h-10 items-center gap-2 rounded-[0.9rem] bg-brand-accent px-3.5 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary hover:text-brand-primary-foreground"
         >
           Tegoed opwaarderen
@@ -438,7 +438,7 @@ function JourneyPanel({ steps }: { steps: StudentJourneyStep[] }) {
           </h2>
         </div>
         <Link
-          href="/student/journey"
+          href="/leerling/reflectie"
           className="text-sm font-semibold text-brand-primary"
         >
           Bekijk alles

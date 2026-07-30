@@ -324,7 +324,7 @@ export function StudentRisProgressView({
           Volgende slimme stap
         </PWASectionHeader>
         <Link
-          href="/student/lessons"
+          href="/leerling/lessen"
           className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/72 transition hover:border-white/16 hover:text-white"
         >
           <span className="inline-flex items-center gap-2">

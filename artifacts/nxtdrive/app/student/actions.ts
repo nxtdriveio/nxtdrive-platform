@@ -17,7 +17,7 @@ import {
 import type { Lesson } from "@/lib/lessons/types";
 
 function bookingErrorRedirect(message: string): never {
-  redirect(`/student/lessons/book?error=${encodeURIComponent(message.slice(0, 220))}`);
+  redirect(`/leerling/lessen/boeken?error=${encodeURIComponent(message.slice(0, 220))}`);
 }
 
 /**
@@ -76,7 +76,7 @@ export async function cancelLesson(
   );
   await notifyLessonCancelled(service, tenant.id, lessonId);
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return { refundedCredits: typeof refunded === "number" ? refunded : 0 };
 }
 
@@ -199,7 +199,7 @@ export async function rescheduleLesson(
   );
   await notifyLessonRescheduled(service, tenant.id, lessonId, previousStartsAt);
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return { ok: true, newStartsAt: newStarts.toISOString() };
 }
 
@@ -296,11 +296,11 @@ export async function selfBookLesson(formData: FormData): Promise<void> {
   }
 
   const result = data as { status?: string; lesson_id?: string } | null;
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   if (result?.status === "confirmed" && result.lesson_id) {
-    redirect(`/student/lessons/${result.lesson_id}?self_booking=confirmed`);
+    redirect(`/leerling/lessen/${result.lesson_id}?self_booking=confirmed`);
   }
-  redirect("/student/lessons/book?status=requested");
+  redirect("/leerling/lessen/boeken?status=requested");
 }
 
 /**
@@ -329,7 +329,7 @@ export async function markHomeworkStatusAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -375,7 +375,7 @@ export async function toggleRefillAvailability(
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -413,7 +413,7 @@ export async function respondRefillInvitation(
     await notifyLessonRefillConfirmed(service, tenant.id, invitationId);
   }
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -440,7 +440,7 @@ export async function expressSlotRecoveryInterestAction(
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -496,7 +496,7 @@ export async function respondInstructorNextLessonProposalAction(
     }
   }
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -535,7 +535,7 @@ export async function respondExamInvitation(
     await notifyExamConfirmed(service, tenant.id, invitationId);
   }
 
-  revalidatePath("/student", "layout");
+  revalidatePath("/leerling", "layout");
   return {};
 }
 
@@ -578,6 +578,6 @@ export async function submitStudentReview(
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/student/profile");
+  revalidatePath("/leerling/instellingen");
   return { ok: true };
 }

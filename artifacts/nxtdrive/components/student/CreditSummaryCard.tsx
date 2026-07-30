@@ -30,7 +30,7 @@ export function CreditSummaryCard({
         : { text: "text-success", bar: "bg-success", bg: "bg-success/10" };
 
   return (
-    <Link href="/student/betalingen" className="block min-w-0">
+    <Link href="/leerling/betalingen" className="block min-w-0">
       <PWACard className="transition-colors hover:border-muted-foreground/40">
         <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
           <PWASectionHeader

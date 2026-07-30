@@ -84,7 +84,7 @@ export default async function StudentInvoiceDetailPage({
     tenant.id,
     roles,
   );
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
   if (!student) notFound();
 
   const supabase = await createServerSupabaseClient();
@@ -182,7 +182,7 @@ export default async function StudentInvoiceDetailPage({
               {paymentFlow.badgeLabel}
             </Badge>
             <Link
-              href="/student/betalingen"
+              href="/leerling/betalingen"
               className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden />

@@ -24,7 +24,7 @@ export default async function StudentJourneyPage() {
         title="Je voortgang in begrijpelijke stappen"
         subtitle="Bekijk waar je staat, wat al goed gaat en welke focus je helpt richting je praktijkexamen."
         action={
-          <Link href="/student/journey/ris" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Link href="/leerling/reflectie" className={buttonVariants({ variant: "outline", size: "sm" })}>
             RIS leskaart
           </Link>
         }
@@ -63,11 +63,11 @@ export default async function StudentJourneyPage() {
           />
           <StudentSection title="Klaar voor de volgende stap?" icon={BadgeCheck}>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/student/agenda" className={buttonVariants({ className: "w-full" })}>
+              <Link href="/leerling/lessen" className={buttonVariants({ className: "w-full" })}>
                 Plan je volgende les
               </Link>
               <Link
-                href="/student/journey/ris"
+                href="/leerling/reflectie"
                 className={buttonVariants({ variant: "outline", className: "w-full" })}
               >
                 Bekijk ontwikkelpunten

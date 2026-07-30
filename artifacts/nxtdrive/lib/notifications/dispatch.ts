@@ -105,7 +105,7 @@ export async function notifyInvoicePaid(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Betaling ontvangen",
       body: `Je betaling voor factuur #${invoice.invoice_no} is verwerkt.`,
-      link: "/student/facturen",
+      link: "/leerling/betalingen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -191,7 +191,7 @@ export async function notifyPaymentReminder(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Betalingsherinnering",
       body: `Factuur #${invoice.invoice_no} staat nog open.`,
-      link: "/student/facturen",
+      link: "/leerling/betalingen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -250,7 +250,7 @@ export async function notifyLessonReminder(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Herinnering: rijles",
       body: `Je rijles staat gepland op ${formatWhenNL(lesson.starts_at)}.`,
-      link: "/student/lessons",
+      link: "/leerling/lessen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: data.studentName,
@@ -583,7 +583,7 @@ export async function notifyLessonRefillInvitation(
       recipientUserId: inv.studentUserId,
       title: "Vrijgekomen lesmoment",
       body: `Er is een rijles vrij op ${formatWhenNL(inv.startsAt)}. Reageer snel.`,
-      link: "/student/lessons",
+      link: "/leerling/lessen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: inv.studentName,
@@ -637,7 +637,7 @@ export async function notifyLessonRefillConfirmed(
       recipientUserId: inv.studentUserId,
       title: "Extra les bevestigd",
       body: `Je extra rijles op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
-      link: "/student/lessons",
+      link: "/leerling/lessen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: inv.studentName,
@@ -746,7 +746,7 @@ export async function notifyExamInvitation(
       recipientUserId: inv.studentUserId,
       title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} aangeboden`,
       body: `Er is een ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} beschikbaar op ${formatWhenNL(inv.startsAt)}.`,
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: inv.studentName,
@@ -802,7 +802,7 @@ export async function notifyExamConfirmed(
       recipientUserId: inv.studentUserId,
       title: `${inv.examType === "exam" ? "Examen" : "Tussentijdse toets"} bevestigd`,
       body: `Je ${inv.examType === "exam" ? "examen" : "tussentijdse toets"} op ${formatWhenNL(inv.startsAt)} is bevestigd.`,
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: inv.studentName,
@@ -882,7 +882,7 @@ export async function notifyExamPlanned(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: `${type === "exam" ? "Examen" : "Tussentijdse toets"} ingepland`,
       body: `Er is een ${type === "exam" ? "examen" : "tussentijdse toets"} voor je ingepland op ${formatWhenNL(appt.starts_at as string)}.`,
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -959,7 +959,7 @@ export async function notifyExamResult(
         result === "passed"
           ? `Je bent geslaagd voor je ${type === "exam" ? "examen" : "tussentijdse toets"}.`
           : `Helaas, je ${type === "exam" ? "examen" : "tussentijdse toets"} is niet gehaald. We plannen samen de volgende stap.`,
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -1076,7 +1076,7 @@ export async function notifyLessonCancelled(
           ? " — je tegoed is teruggestort"
           : ""
       }.`,
-      link: "/student/lessons",
+      link: "/leerling/lessen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -1181,7 +1181,7 @@ export async function notifyLessonRescheduled(
         recipientUserId: (student?.user_id as string | null) ?? null,
         title: "Rijles verzet",
         body: `Je rijles is verzet naar ${formatWhenNL(newStartsAt)}.`,
-        link: "/student/lessons",
+        link: "/leerling/lessen",
         vars: {
           tenant_name: branding.tenantName,
           student_name: studentName,
@@ -1363,7 +1363,7 @@ export async function notifyInvoiceCreated(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Nieuwe factuur",
       body: `Factuur #${invoice.invoice_no} staat voor je klaar.`,
-      link: "/student/facturen",
+      link: "/leerling/betalingen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -1419,7 +1419,7 @@ export async function notifyCbrAuthorizationNeeded(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "CBR-machtiging nodig",
       body: "Regel je CBR-machtiging zodat we je examen kunnen aanvragen.",
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student.full_name as string | null) ?? "cursist",
@@ -1475,7 +1475,7 @@ export async function notifyCreditLow(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Lestegoed bijna op",
       body: `Je hebt nog ${balanceMinutes} minuten lestegoed.`,
-      link: "/student/credits",
+      link: "/leerling/betalingen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student.full_name as string | null) ?? "cursist",
@@ -1553,7 +1553,7 @@ export async function notifyInstallmentDue(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Termijn vervalt binnenkort",
       body: `Termijnfactuur #${invoice.invoice_no} vervalt binnenkort.`,
-      link: "/student/facturen",
+      link: "/leerling/betalingen",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -1629,7 +1629,7 @@ export async function notifyExamDayReminder(
       recipientUserId: (student?.user_id as string | null) ?? null,
       title: "Herinnering: examen",
       body: `Je ${type === "exam" ? "examen" : "tussentijdse toets"} is op ${formatWhenNL(appt.starts_at as string)}. Succes!`,
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student?.full_name as string | undefined) ?? "cursist",
@@ -1680,7 +1680,7 @@ export async function notifyStudentReviewRequest(
   const override = await loadOverride(service, tenantId, "review_request");
   const origin = envPublicOrigin();
   const reviewUrl =
-    settings.googleReviewUrl ?? (origin ? `${origin}/student` : "/student");
+    settings.googleReviewUrl ?? (origin ? `${origin}/student` : "/leerling");
   const email = renderReviewRequest(
     branding,
     {
@@ -1710,7 +1710,7 @@ export async function notifyStudentReviewRequest(
       recipientUserId: (student.user_id as string | null) ?? null,
       title: "Deel je ervaring",
       body: "Zou je een momentje willen nemen om een review achter te laten? Het helpt ons enorm!",
-      link: "/student",
+      link: "/leerling",
       vars: {
         tenant_name: branding.tenantName,
         student_name: (student.full_name as string | null) ?? "cursist",

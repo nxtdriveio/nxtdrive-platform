@@ -34,6 +34,6 @@ export async function setOwnReviewConsent(
     return { ok: false, error: "Toestemming kon niet worden opgeslagen." };
   }
 
-  revalidatePath("/student");
+  revalidatePath("/leerling");
   return { ok: true, consent };
 }

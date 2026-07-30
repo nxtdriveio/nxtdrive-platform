@@ -53,7 +53,7 @@ export default async function StudentBookLessonPage({
     tenant.id,
     roles,
   );
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
 
   const timeZone = resolveTenantTimeZone(tenant);
   const dateFmt = createNlDateTimeFormatter(
@@ -104,7 +104,7 @@ export default async function StudentBookLessonPage({
         icon={<CalendarPlus className="h-4 w-4" aria-hidden />}
         actions={
           <Link
-            href="/student/lessons"
+            href="/leerling/lessen"
             className="inline-flex h-9 items-center rounded-full border border-brand-border bg-white px-3 text-xs font-semibold text-brand-foreground"
           >
             Terug
@@ -169,7 +169,7 @@ export default async function StudentBookLessonPage({
             {state.durationOptions.map((duration) => (
               <Link
                 key={duration}
-                href={`/student/lessons/book?duration=${duration}`}
+                href={`/leerling/lessen/boeken?duration=${duration}`}
                 className={[
                   "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                   duration === state.selectedDurationMin

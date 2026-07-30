@@ -101,17 +101,17 @@ export default async function StudentProfilePage({
     {
       key: "documenten",
       label: "Documenten",
-      href: "/student/profile?tab=documenten",
+      href: "/leerling/instellingen?tab=documenten",
     },
     {
       key: "instellingen",
       label: "Instellingen",
-      href: "/student/profile?tab=instellingen",
+      href: "/leerling/instellingen?tab=instellingen",
     },
     {
       key: "contact",
       label: "Contact",
-      href: "/student/profile?tab=contact",
+      href: "/leerling/instellingen?tab=contact",
     },
   ] satisfies Array<{ key: ProfileTab; label: string; href: string }>;
 
@@ -135,7 +135,7 @@ export default async function StudentProfilePage({
           >
             <div className="space-y-2">
               <StudentListRow
-                href="/student/betalingen"
+                href="/leerling/betalingen"
                 title="Facturen & betalingen"
                 subtitle="Open je openstaande bedragen, betaalstatus en pakketoverzicht."
                 meta={`${invoiceCount} facturen`}
@@ -144,7 +144,7 @@ export default async function StudentProfilePage({
                 leading={<StudentInitialBadge label="€" tone="orange" />}
               />
               <StudentListRow
-                href="/student/cbr"
+                href="/leerling/examens"
                 title="CBR & examens"
                 subtitle="Machtiging, theorie en je volgende examenstap."
                 badge={
@@ -156,7 +156,7 @@ export default async function StudentProfilePage({
                 leading={<StudentInitialBadge label="CBR" tone="green" />}
               />
               <StudentListRow
-                href="/student/lessons"
+                href="/leerling/lessen"
                 title="Lesoverzicht"
                 subtitle="Je lessen, planning en lesdetails."
                 badge="Agenda"
@@ -164,7 +164,7 @@ export default async function StudentProfilePage({
                 leading={<StudentInitialBadge label="Les" tone="blue" />}
               />
               <StudentListRow
-                href="/student/theorie"
+                href="/leerling/theorie"
                 title="Theorie voortgang"
                 subtitle="Leer, oefen en houd huiswerk en toetsen samen."
                 badge="Leren"
@@ -247,7 +247,7 @@ export default async function StudentProfilePage({
               eyebrow="Ouderaccount"
             >
               <Link
-                href="/student/select-child"
+                href="/leerling/kies-leerling"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Andere leerling kiezen ({otherChildren.length})
@@ -279,7 +279,7 @@ export default async function StudentProfilePage({
           >
             <div className="space-y-2">
               <StudentListRow
-                href="/student/berichten"
+                href="/leerling/berichten"
                 title="Chat met rijschool"
                 subtitle="Stuur direct een bericht vanuit je leerlingapp."
                 badge="Chat"

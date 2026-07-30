@@ -22,7 +22,7 @@ export function ContactCard({
     >
       <div className="grid min-w-0 grid-cols-2 gap-3">
         <Link
-          href="/student/messages"
+          href="/leerling/berichten"
           className="group relative min-w-0 overflow-hidden rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-3.5 py-4 text-left transition-colors hover:border-primary/40 hover:bg-white/[0.05]"
         >
           <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-primary/12 transition group-hover:scale-125" />

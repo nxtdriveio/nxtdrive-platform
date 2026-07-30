@@ -31,7 +31,7 @@ async function chooseTenant(formData: FormData) {
   }
   if (roles.includes("instructor")) redirect("/instructeur");
   if (roles.includes("student") || roles.includes("parent")) {
-    redirect("/student");
+    redirect("/leerling");
   }
   redirect("/");
 }

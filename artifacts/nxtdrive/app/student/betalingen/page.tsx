@@ -61,7 +61,7 @@ export default async function StudentBetalingenPage() {
   const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
   const { dateFmt } = createStudentPaymentFormatters(resolveTenantTimeZone(tenant));
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
 
   if (!student) {
     return (
@@ -247,7 +247,7 @@ export default async function StudentBetalingenPage() {
                   className="overflow-hidden rounded-[1.15rem] border border-white/10 bg-white/[0.02]"
                 >
                   <Link
-                    href={`/student/facturen/${invoice.id}`}
+                    href={`/leerling/betalingen/facturen/${invoice.id}`}
                     className="flex items-center gap-3 px-3 py-3 transition hover:bg-white/[0.03]"
                   >
                     <StudentInitialBadge label="€" tone="orange" />
@@ -303,7 +303,7 @@ export default async function StudentBetalingenPage() {
               const positive = row.delta > 0;
               const lessonHref =
                 row.related_type === "lesson" && row.related_id
-                  ? `/student/lessons/${row.related_id}`
+                  ? `/leerling/lessen/${row.related_id}`
                   : undefined;
               return (
                 <StudentListRow

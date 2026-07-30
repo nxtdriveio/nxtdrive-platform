@@ -13,7 +13,7 @@ export async function GET() {
   const appName = resolveBrandAppName(brandingContext.tenant, "student");
 
   const manifest = {
-    id: "/student",
+    id: "/leerling",
     name: appName,
     short_name: brandingContext.whiteLabelActive
       ? brandingContext.brandName
@@ -21,8 +21,8 @@ export async function GET() {
     description: resolveBrandDescription(brandingContext.tenant, "student"),
     lang: "nl",
     dir: "ltr",
-    start_url: "/student",
-    scope: "/student",
+    start_url: "/leerling",
+    scope: "/leerling",
     display: "standalone",
     background_color: "#0F172A",
     theme_color: brandingContext.themeColor,

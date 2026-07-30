@@ -33,7 +33,7 @@ export async function notifyChatMessage(
 
     const link = toInstructor
       ? `/instructeur/berichten/${params.conversationId}`
-      : `/student/berichten`;
+      : `/leerling/berichten`;
 
     await dispatchInApp(service, {
       tenantId: params.tenantId,

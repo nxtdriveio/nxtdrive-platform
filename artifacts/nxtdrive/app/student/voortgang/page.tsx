@@ -78,7 +78,7 @@ export default async function StudentVoortgangPage({
     resolveTenantTimeZone(tenant),
   );
   const { student, needsChildPicker } = await getActiveStudent(user, tenant.id, roles);
-  if (needsChildPicker) redirect("/student/select-child");
+  if (needsChildPicker) redirect("/leerling/kies-leerling");
 
   if (!student) {
     return (
@@ -181,17 +181,17 @@ export default async function StudentVoortgangPage({
   const blockers = readiness.blockers.slice(0, 3);
 
   const tabs = [
-    { key: "roadmap", label: "Roadmap", href: "/student/voortgang?tab=roadmap" },
+    { key: "roadmap", label: "Roadmap", href: "/leerling/voortgang?tab=roadmap" },
     {
       key: "onderdelen",
       label: "Vaardigheden",
-      href: "/student/voortgang?tab=onderdelen",
+      href: "/leerling/voortgang?tab=onderdelen",
       count: leskaart.categories.length,
     },
     {
       key: "geschiedenis",
       label: "Lesgeschiedenis",
-      href: "/student/voortgang?tab=geschiedenis",
+      href: "/leerling/voortgang?tab=geschiedenis",
       count: totalHistory.length,
     },
   ] satisfies Array<{ key: ProgressTab; label: string; href: string; count?: number }>;
@@ -255,7 +255,7 @@ export default async function StudentVoortgangPage({
             eyebrow="Slimme inschatting"
             info="Deze indicatie gebruikt dezelfde readiness-engine als je instructeur, zodat jullie naar exact dezelfde voortgang kijken."
             actionLabel="CBR openen"
-            actionHref="/student/cbr"
+            actionHref="/leerling/examens"
           >
             <div className="space-y-3 sm:grid sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:space-y-0">
               <div className="flex items-center gap-3 sm:block">
@@ -418,7 +418,7 @@ export default async function StudentVoortgangPage({
                 {totalHistory.map((point, index) => (
                   <StudentListRow
                     key={point.lessonId}
-                    href={`/student/lessons/${point.lessonId}`}
+                    href={`/leerling/lessen/${point.lessonId}`}
                     title={`Les ${totalHistory.length - index}`}
                     subtitle={
                       point.summary ??
@@ -446,7 +446,7 @@ export default async function StudentVoortgangPage({
           Volgende slimme stap
         </PWASectionHeader>
         <Link
-          href="/student/lessons"
+          href="/leerling/lessen"
           className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/72 transition hover:border-white/16 hover:text-white"
         >
           <span className="inline-flex items-center gap-2">

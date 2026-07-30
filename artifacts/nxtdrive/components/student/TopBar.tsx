@@ -44,7 +44,7 @@ export function StudentTopBar({
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
           {notifications}
           <Link
-            href="/student/messages"
+            href="/leerling/berichten"
             aria-label="Berichten"
             className="relative inline-flex h-[2.125rem] w-[2.125rem] items-center justify-center rounded-full border border-brand-border/70 bg-white text-brand-muted-foreground shadow-sm transition hover:text-brand-primary sm:h-9 sm:w-9"
           >

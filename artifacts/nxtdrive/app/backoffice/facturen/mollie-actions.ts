@@ -48,7 +48,7 @@ export async function createMolliePayment(formData: FormData) {
   });
 
   revalidatePath(`/backoffice/facturen/${invoiceId}`);
-  revalidatePath(`/student/facturen/${invoiceId}`);
+  revalidatePath(`/leerling/betalingen/facturen/${invoiceId}`);
   if (!result.ok) {
     redirect(`/backoffice/facturen/${invoiceId}?mollie_error=${result.error}`);
   }

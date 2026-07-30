@@ -56,7 +56,7 @@ export async function createInvoiceCheckout(
   // active links (and the resulting double-charge / overpay risk) when the same
   // pay action is triggered more than once. A different amount (e.g. a partial
   // payment landed in between, shrinking the remaining) always gets a fresh link.
-  const returnPath = params.returnPath ?? `/student/facturen/${invoice.id}`;
+  const returnPath = params.returnPath ?? `/leerling/betalingen/facturen/${invoice.id}`;
 
   if (
     invoice.mollie_payment_id &&

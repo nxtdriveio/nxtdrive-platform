@@ -27,7 +27,7 @@ export default async function StudentLessonDetailPage({
   return (
     <div className="min-w-0 space-y-4 lg:space-y-6">
       <Link
-        href="/student/agenda"
+        href="/leerling/lessen"
         className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-muted-foreground hover:text-brand-primary"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -80,10 +80,10 @@ export default async function StudentLessonDetailPage({
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Link href="/student/messages/instructor" className={buttonVariants()}>
+            <Link href="/leerling/berichten/instructor" className={buttonVariants()}>
               Bericht instructeur
             </Link>
-            <Link href="/student/agenda" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/leerling/lessen" className={buttonVariants({ variant: "outline" })}>
               Bekijk route
             </Link>
           </div>
