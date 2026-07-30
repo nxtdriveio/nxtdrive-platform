@@ -22,7 +22,7 @@ export function DashboardCard({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-brand-border/90 bg-white shadow-[var(--admin-card-shadow)]",
+        "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-brand-border/90 bg-white shadow-[var(--admin-card-shadow)]",
         className,
       )}
     >
@@ -43,7 +43,10 @@ export function DashboardCard({
         </div>
       </div>
       <div
-        className={cn("min-h-0 flex-1 overflow-x-hidden p-3", contentClassName)}
+        className={cn(
+          "min-h-0 flex-1 overflow-auto overscroll-contain p-3",
+          contentClassName,
+        )}
       >
         {children}
       </div>

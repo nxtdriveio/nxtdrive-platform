@@ -85,9 +85,9 @@ export default function DashboardVisualFixturePage() {
               ))}
             </section>
 
-            <div className="grid items-start gap-3 xl:grid-cols-12">
+            <div className="grid min-w-0 gap-3 xl:auto-rows-[22rem] xl:grid-cols-12">
               <DashboardCard
-                className="xl:col-span-7"
+                className="order-2 xl:col-span-6"
                 title={
                   <>
                     <CalendarDays className="h-4 w-4 text-primary" />
@@ -125,7 +125,7 @@ export default function DashboardVisualFixturePage() {
               </DashboardCard>
 
               <DashboardCard
-                className="xl:col-span-5"
+                className="order-1 xl:col-span-6"
                 title={
                   <>
                     <AlertTriangle className="h-4 w-4 text-warning" />

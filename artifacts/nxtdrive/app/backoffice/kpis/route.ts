@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDashboardKpis } from "@/lib/dashboard/metrics";
+import { resolveTenantTimeZone } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,11 @@ export async function GET() {
     const supabase = await createServerSupabaseClient();
 
     const [metrics, trialCount] = await Promise.all([
-      getDashboardKpis(supabase, tenant.id),
+      getDashboardKpis(
+        supabase,
+        tenant.id,
+        resolveTenantTimeZone(tenant),
+      ),
       supabase
         .from("trial_lessons")
         .select("id", { count: "exact", head: true })

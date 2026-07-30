@@ -41,6 +41,10 @@ import { FEATURE_LABELS, lockedFeatures } from "@/lib/platform/features";
 import { loadTenantEntitlementSnapshot } from "@/lib/platform/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
+import {
+  createNlDateTimeFormatter,
+  resolveTenantTimeZone,
+} from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +78,7 @@ export default async function BackofficePage() {
   ]);
   const supabase = await createServerSupabaseClient();
   const service = createServiceRoleClient();
+  const timeZone = resolveTenantTimeZone(tenant);
 
   const [
     metrics,
@@ -87,23 +92,22 @@ export default async function BackofficePage() {
     weekPlanning,
     todayCapacity,
   ] = await Promise.all([
-    getDashboardKpis(supabase, tenant.id),
-    getTodayLessons(supabase, tenant.id),
+    getDashboardKpis(supabase, tenant.id, timeZone),
+    getTodayLessons(supabase, tenant.id, timeZone),
     getUpcomingTrialLessons(supabase, tenant.id, 4),
     getOpenTasks(supabase, tenant.id, 5),
     getStudentProgressSummary(supabase, tenant.id, 5),
     getSmartAlerts(supabase, tenant.id),
-    getMonthlyRevenue(supabase, tenant.id, 6),
+    getMonthlyRevenue(supabase, tenant.id, 6, timeZone),
     getLeadsPipeline(supabase, tenant.id),
-    getWeekPlanning(supabase, tenant.id),
-    getTodayCapacity(supabase, tenant.id),
+    getWeekPlanning(supabase, tenant.id, timeZone),
+    getTodayCapacity(supabase, tenant.id, timeZone),
   ]);
 
-  const today = new Intl.DateTimeFormat("nl-NL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(new Date());
+  const today = createNlDateTimeFormatter(
+    { weekday: "long", day: "numeric", month: "long" },
+    timeZone,
+  ).format(new Date());
   const showSubscriptionCard = roles.includes("tenant_admin");
   const entitlementSnapshot = showSubscriptionCard
     ? await loadTenantEntitlementSnapshot(service, tenant.id)
@@ -138,6 +142,14 @@ export default async function BackofficePage() {
         }
       />
 
+      <DashboardSection
+        tenantId={tenant.id}
+        initial={initialLive}
+        monthlyRevenue={monthlyRevenue}
+        studentProgress={studentProgress}
+        timeZone={timeZone}
+      />
+
       <KpiSection
         tenantId={tenant.id}
         initial={{
@@ -153,13 +165,6 @@ export default async function BackofficePage() {
           upcomingTrials: upcomingTrials.length,
           fetchedAt: new Date().toISOString(),
         }}
-      />
-
-      <DashboardSection
-        tenantId={tenant.id}
-        initial={initialLive}
-        monthlyRevenue={monthlyRevenue}
-        studentProgress={studentProgress}
       />
 
       <AdminGrid columns="2">

@@ -1,5 +1,5 @@
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
-import { amsterdamYmd, startOfDayUtc } from "./metrics";
+import { amsterdamYmd, startOfDayUtc, zonedYmd } from "./metrics";
 import { LEAD_SOURCE_LABEL } from "@/lib/leads/types";
 import {
   loadTenantReviewOverview,
@@ -151,11 +151,12 @@ export async function getMonthlyRevenue(
   supabase: SupabaseServerClient,
   tenantId: string,
   numMonths = 6,
+  timeZone = "Europe/Amsterdam",
 ): Promise<MonthlyRevenuePoint[]> {
   const keys: string[] = [];
   for (let i = numMonths - 1; i >= 0; i--) keys.push(monthKeyOffset(i));
 
-  const fromTs = monthStart(keys[0]);
+  const fromTs = startOfDayUtc(`${keys[0]}-01`, timeZone).toISOString();
   const { data: invoices } = await supabase
     .from("invoices")
     .select("total_cents, paid_at")
@@ -166,7 +167,7 @@ export async function getMonthlyRevenue(
   const buckets = new Map<string, number>(keys.map((k) => [k, 0]));
   for (const inv of invoices ?? []) {
     if (!inv.paid_at) continue;
-    const key = amsterdamYmd(new Date(inv.paid_at as string)).slice(0, 7);
+    const key = zonedYmd(new Date(inv.paid_at as string), timeZone).slice(0, 7);
     if (buckets.has(key)) {
       buckets.set(key, (buckets.get(key) ?? 0) + ((inv.total_cents as number) ?? 0));
     }

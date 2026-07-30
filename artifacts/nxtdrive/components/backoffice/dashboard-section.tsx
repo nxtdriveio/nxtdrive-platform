@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -23,6 +23,7 @@ import { StatusBadge } from "@/components/backoffice/status-badge";
 import { MiniBarChart } from "@/components/charts/MiniBarChart";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { formatEuros } from "@/lib/invoices/types";
+import { createNlDateTimeFormatter } from "@/lib/datetime";
 import type {
   TodayCapacity,
   TodayLesson,
@@ -51,22 +52,10 @@ type Props = {
   monthlyRevenue: MonthlyRevenuePoint[];
   studentProgress: StudentProgressRow[];
   tenantId: string;
+  timeZone: string;
 };
 
 const REFRESH_INTERVAL_MS = 60_000;
-
-const timeFmt = new Intl.DateTimeFormat("nl-NL", {
-  timeZone: "Europe/Amsterdam",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
-  timeZone: "Europe/Amsterdam",
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
 
 function formatCapacityMinutes(minutes: number): string {
   if (minutes <= 0) return "0 u";
@@ -113,10 +102,27 @@ export function DashboardSection({
   monthlyRevenue,
   studentProgress,
   tenantId,
+  timeZone,
 }: Props) {
   const [data, setData] = useState<DashboardLiveData>(initial);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlightRef = useRef(false);
+  const timeFmt = useMemo(
+    () =>
+      createNlDateTimeFormatter(
+        { hour: "2-digit", minute: "2-digit" },
+        timeZone,
+      ),
+    [timeZone],
+  );
+  const dateFmt = useMemo(
+    () =>
+      createNlDateTimeFormatter(
+        { weekday: "short", day: "numeric", month: "short" },
+        timeZone,
+      ),
+    [timeZone],
+  );
 
   const fetchData = useCallback(async (force = false) => {
     if (
@@ -221,9 +227,9 @@ export function DashboardSection({
   );
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-12">
+    <div className="grid min-w-0 gap-3 xl:auto-rows-[22rem] xl:grid-cols-12">
       <DashboardCard
-        className="xl:col-span-7"
+        className="order-2 xl:col-span-6"
         title={
           <>
             <CalendarDays className="h-4 w-4 text-primary" />
@@ -264,7 +270,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="xl:col-span-5"
+        className="order-1 xl:col-span-6"
         title={
           <>
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -339,7 +345,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="xl:col-span-8"
+        className="order-4 xl:col-span-6"
         title={
           <>
             <BarChart3 className="h-4 w-4 text-primary" />
@@ -349,7 +355,7 @@ export function DashboardSection({
         actionLabel="Rapportages"
         actionHref="/backoffice/rapportages"
       >
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid min-w-[36rem] gap-4 md:grid-cols-2">
           <div>
             <div className="mb-2.5 flex items-end justify-between">
               <div>
@@ -413,7 +419,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="xl:col-span-4"
+        className="order-3 xl:col-span-6"
         title={
           <>
             <Gauge className="h-4 w-4 text-primary" />
@@ -462,7 +468,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="xl:col-span-6"
+        className="order-5 xl:col-span-6"
         title={
           <>
             <Users className="h-4 w-4 text-primary" />
@@ -525,7 +531,7 @@ export function DashboardSection({
       </DashboardCard>
 
       <DashboardCard
-        className="xl:col-span-6"
+        className="order-6 xl:col-span-6"
         title={
           <>
             <Car className="h-4 w-4 text-primary" />

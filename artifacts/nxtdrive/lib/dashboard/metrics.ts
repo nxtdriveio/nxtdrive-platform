@@ -1,4 +1,5 @@
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
+import { normalizeTimeZone } from "@/lib/datetime";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createServerSupabaseClient>
@@ -11,9 +12,9 @@ const TZ = "Europe/Amsterdam";
  * the same wall-clock time. Used to derive the UTC instant of a local
  * midnight (DST-aware).
  */
-function tzOffsetMs(date: Date): number {
+function tzOffsetMs(date: Date, timeZone: string = TZ): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
+    timeZone: normalizeTimeZone(timeZone),
     hour12: false,
     year: "numeric",
     month: "2-digit",
@@ -38,8 +39,12 @@ function tzOffsetMs(date: Date): number {
 
 /** Calendar date (YYYY-MM-DD) of `date` in the Amsterdam timezone. */
 export function amsterdamYmd(date: Date): string {
+  return zonedYmd(date, TZ);
+}
+
+export function zonedYmd(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
+    timeZone: normalizeTimeZone(timeZone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -47,9 +52,9 @@ export function amsterdamYmd(date: Date): string {
 }
 
 /** UTC instant corresponding to local midnight (00:00 Amsterdam) of `ymd`. */
-export function startOfDayUtc(ymd: string): Date {
+export function startOfDayUtc(ymd: string, timeZone: string = TZ): Date {
   const guess = new Date(`${ymd}T00:00:00Z`);
-  const offset = tzOffsetMs(guess);
+  const offset = tzOffsetMs(guess, timeZone);
   return new Date(guess.getTime() - offset);
 }
 
@@ -89,15 +94,19 @@ export type DashboardKpis = {
 export async function getDashboardKpis(
   supabase: SupabaseServerClient,
   tenantId: string,
+  timeZone: string = TZ,
 ): Promise<DashboardKpis> {
   const now = new Date();
-  const todayYmd = amsterdamYmd(now);
-  const todayStart = startOfDayUtc(todayYmd).toISOString();
-  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1)).toISOString();
-  const nextWeekStart = startOfDayUtc(addDays(todayYmd, 7)).toISOString();
+  const todayYmd = zonedYmd(now, timeZone);
+  const todayStart = startOfDayUtc(todayYmd, timeZone).toISOString();
+  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1), timeZone).toISOString();
+  const nextWeekStart = startOfDayUtc(addDays(todayYmd, 7), timeZone).toISOString();
   const monthStartYmd = `${todayYmd.slice(0, 7)}-01`;
-  const monthStart = startOfDayUtc(monthStartYmd).toISOString();
-  const nextMonthStart = startOfDayUtc(firstOfNextMonth(monthStartYmd)).toISOString();
+  const monthStart = startOfDayUtc(monthStartYmd, timeZone).toISOString();
+  const nextMonthStart = startOfDayUtc(
+    firstOfNextMonth(monthStartYmd),
+    timeZone,
+  ).toISOString();
 
   const [
     activeStudents,
@@ -299,10 +308,11 @@ export type TodayCapacity = {
 export async function getTodayLessons(
   supabase: SupabaseServerClient,
   tenantId: string,
+  timeZone: string = TZ,
 ): Promise<TodayLesson[]> {
-  const todayYmd = amsterdamYmd(new Date());
-  const todayStart = startOfDayUtc(todayYmd).toISOString();
-  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1)).toISOString();
+  const todayYmd = zonedYmd(new Date(), timeZone);
+  const todayStart = startOfDayUtc(todayYmd, timeZone).toISOString();
+  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1), timeZone).toISOString();
 
   const { data: lessons } = await supabase
     .from("lessons")
@@ -342,10 +352,11 @@ export async function getTodayLessons(
 export async function getWeekPlanning(
   supabase: SupabaseServerClient,
   tenantId: string,
+  timeZone: string = TZ,
 ): Promise<WeekPlanningPoint[]> {
-  const todayYmd = amsterdamYmd(new Date());
-  const start = startOfDayUtc(todayYmd).toISOString();
-  const end = startOfDayUtc(addDays(todayYmd, 7)).toISOString();
+  const todayYmd = zonedYmd(new Date(), timeZone);
+  const start = startOfDayUtc(todayYmd, timeZone).toISOString();
+  const end = startOfDayUtc(addDays(todayYmd, 7), timeZone).toISOString();
   const days = Array.from({ length: 7 }, (_, index) => addDays(todayYmd, index));
   const buckets = new Map(days.map((day) => [day, 0]));
 
@@ -358,18 +369,18 @@ export async function getWeekPlanning(
     .not("status", "in", "(cancelled_with_refund,cancelled_no_refund)");
 
   for (const row of data ?? []) {
-    const day = amsterdamYmd(new Date(row.starts_at as string));
+    const day = zonedYmd(new Date(row.starts_at as string), timeZone);
     if (buckets.has(day)) buckets.set(day, (buckets.get(day) ?? 0) + 1);
   }
 
   const fmt = new Intl.DateTimeFormat("nl-NL", {
-    timeZone: TZ,
+    timeZone: normalizeTimeZone(timeZone),
     weekday: "short",
   });
 
   return days.map((day) => ({
     day,
-    label: fmt.format(startOfDayUtc(day)),
+    label: fmt.format(startOfDayUtc(day, timeZone)),
     planned: buckets.get(day) ?? 0,
   }));
 }
@@ -398,10 +409,11 @@ function exceptionMinutes(
 export async function getTodayCapacity(
   supabase: SupabaseServerClient,
   tenantId: string,
+  timeZone: string = TZ,
 ): Promise<TodayCapacity> {
-  const todayYmd = amsterdamYmd(new Date());
-  const todayStart = startOfDayUtc(todayYmd).toISOString();
-  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1)).toISOString();
+  const todayYmd = zonedYmd(new Date(), timeZone);
+  const todayStart = startOfDayUtc(todayYmd, timeZone).toISOString();
+  const tomorrowStart = startOfDayUtc(addDays(todayYmd, 1), timeZone).toISOString();
   const weekday = weekdayForAmsterdamYmd(todayYmd);
 
   const [lessons, weeklyAvailability, exceptions] = await Promise.all([

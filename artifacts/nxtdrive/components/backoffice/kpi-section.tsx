@@ -129,7 +129,7 @@ export function KpiSection({
 
   return (
     <section aria-label="KPI-overzicht">
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid auto-rows-fr grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Rijlessen vandaag"
           value={data.lessonsToday.toLocaleString("nl-NL")}
