@@ -12,15 +12,11 @@ test("the instructor route manifest exposes the Dutch canonical navigation", () 
   assert.deepEqual(
     instructorNavigation.map((route) => route.canonicalPath),
     [
-    "/instructeur",
-    "/instructeur/agenda",
-    "/instructeur/dagroute",
+      "/instructeur",
+      "/instructeur/agenda",
       "/instructeur/leerlingen",
-      "/instructeur/berichten",
       "/instructeur/taken",
-      "/instructeur/beschikbaarheid",
-      "/instructeur/theorie",
-      "/instructeur/instellingen",
+      "/instructeur/meer",
     ],
   );
   assert.ok(

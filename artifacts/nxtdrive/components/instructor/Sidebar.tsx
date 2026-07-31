@@ -4,12 +4,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
-  BookOpen,
   CalendarDays,
-  Clock3,
   Home,
   ListTodo,
-  MapPinned,
   MessageCircle,
   MoreHorizontal,
   Settings,
@@ -19,7 +16,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import {
-  instructorRoutes,
   visibleInstructorNavigation,
   type InstructorRouteDefinition,
   type InstructorRouteId,
@@ -38,22 +34,12 @@ type NavItem = {
 const NAV_ICONS: Partial<Record<InstructorRouteId, IconComponent>> = {
   home: Home,
   agenda: CalendarDays,
-  dayRoute: MapPinned,
   students: Users,
   messages: MessageCircle,
   tasks: ListTodo,
-  availability: Clock3,
-  theory: BookOpen,
   settings: Settings,
   more: MoreHorizontal,
 };
-
-const MOBILE_ROUTE_IDS = new Set<InstructorRouteId>([
-  "home",
-  "agenda",
-  "students",
-  "messages",
-]);
 
 function isActive(pathname: string, route: InstructorRouteDefinition) {
   if (route.id === "home") return pathname === route.canonicalPath;
@@ -147,11 +133,7 @@ export function InstructorSidebar({
   notifications?: ReactNode;
 }) {
   const items = navItems(liveCounts);
-  const moreRoute = instructorRoutes.find((route) => route.id === "more")!;
-  const mobileItems = [
-    ...items.filter((item) => MOBILE_ROUTE_IDS.has(item.route.id)),
-    { route: moreRoute, icon: MoreHorizontal },
-  ];
+  const mobileItems = items;
 
   return (
     <>
@@ -183,20 +165,15 @@ export function InstructorSidebar({
           </nav>
 
           <div className="relative mt-4 flex shrink-0 items-center gap-2">
-            <Link
-              href="/instructeur/meer"
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
+            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3">
               <Avatar name={userLabel} className="h-12 w-12 text-sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-white">
                   {userLabel}
                 </p>
-                <p className="truncate text-xs text-white/60">
-                  Account en instellingen
-                </p>
+                <p className="truncate text-xs text-white/60">Instructeur</p>
               </div>
-            </Link>
+            </div>
             {notifications ? (
               <div className="shrink-0 rounded-xl bg-white xl:hidden">
                 {notifications}
