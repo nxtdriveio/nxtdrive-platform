@@ -358,16 +358,22 @@ function AppointmentTypeBadge({ type }: { type: InstructorAppointmentType }) {
 function AppointmentCard({
   appointment,
   compact = false,
+  href = appointment.href,
+  active = false,
 }: {
   appointment: InstructorAppointment;
   compact?: boolean;
+  href?: string;
+  active?: boolean;
 }) {
   return (
     <Link
-      href={appointment.href}
+      href={href}
+      aria-current={active ? "true" : undefined}
       className={cn(
         "relative block overflow-hidden rounded-[1.15rem] border border-brand-border bg-white p-3.5 shadow-sm transition-colors hover:border-brand-primary/35",
         compact && "p-3",
+        active && "border-brand-primary bg-brand-accent/65",
       )}
     >
       <span
@@ -559,10 +565,7 @@ export function InstructorCockpitView({
           </div>
         </InstructorCard>
 
-        <InstructorCard
-          title="Berichten"
-          icon={MessageCircle}
-        >
+        <InstructorCard title="Berichten" icon={MessageCircle}>
           <div className="space-y-2">
             {data.messages.length > 0 ? (
               data.messages.slice(0, 4).map((thread) => (
@@ -647,7 +650,6 @@ export function InstructorCockpitView({
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </InstructorCard>
-
       </div>
     </InstructorPage>
   );
@@ -655,11 +657,18 @@ export function InstructorCockpitView({
 
 export function InstructorAgendaView({
   data,
+  selectedAppointmentId,
 }: {
   data?: InstructorExperience;
+  selectedAppointmentId?: string;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const calendar = currentMonthCalendar();
+  const selectedAppointment =
+    data.appointments.find(
+      (appointment) => appointment.id === selectedAppointmentId,
+    ) ?? null;
+  const activeAppointment = selectedAppointment ?? data.appointments[0] ?? null;
 
   return (
     <InstructorPage>
@@ -682,10 +691,11 @@ export function InstructorAgendaView({
           </>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(17rem,0.9fr)_minmax(18rem,1.1fr)] 2xl:grid-cols-[minmax(22rem,0.8fr)_minmax(32rem,1.2fr)]">
         <InstructorCard
           title="Vandaag"
           icon={CalendarDays}
+          className={cn(selectedAppointment && "hidden lg:block")}
           right={
             <div className="flex rounded-full bg-brand-muted p-1 text-xs font-bold">
               {["Dag", "Week", "Maand"].map((tab, index) => (
@@ -714,7 +724,13 @@ export function InstructorAgendaView({
                   <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
                     {appointment.startsAt}
                   </div>
-                  <AppointmentCard appointment={appointment} />
+                  <AppointmentCard
+                    appointment={appointment}
+                    href={`/instructeur/agenda?afspraak=${encodeURIComponent(
+                      appointment.id,
+                    )}`}
+                    active={appointment.id === activeAppointment?.id}
+                  />
                 </div>
               ))
             ) : (
@@ -725,7 +741,58 @@ export function InstructorAgendaView({
           </div>
         </InstructorCard>
 
-        <div className="space-y-4">
+        <div
+          className={cn("space-y-4", !selectedAppointment && "hidden lg:block")}
+        >
+          {activeAppointment ? (
+            <InstructorCard
+              title="Afspraakdetails"
+              icon={CalendarDays}
+              right={
+                <Link
+                  href="/instructeur/agenda"
+                  className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-brand-primary lg:hidden"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden />
+                  Terug
+                </Link>
+              }
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-black text-foreground">
+                      {activeAppointment.title}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {activeAppointment.studentName ??
+                        activeAppointment.location}
+                    </p>
+                  </div>
+                  <AppointmentTypeBadge type={activeAppointment.type} />
+                </div>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <InfoTile
+                    label="Tijd"
+                    value={`${activeAppointment.startsAt} - ${activeAppointment.endsAt}`}
+                  />
+                  <InfoTile label="Duur" value={activeAppointment.duration} />
+                  <InfoTile
+                    label="Locatie"
+                    value={activeAppointment.location}
+                  />
+                  <InfoTile label="Status" value={activeAppointment.status} />
+                </dl>
+                <Link
+                  href={activeAppointment.href}
+                  className={cn(buttonVariants(), "w-full sm:w-auto")}
+                >
+                  Open volledige afspraak
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+              </div>
+            </InstructorCard>
+          ) : null}
           <InstructorCard title={calendar.label} icon={CalendarDays}>
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
               {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => (
@@ -780,13 +847,16 @@ export function InstructorAgendaView({
 function StudentListItem({
   student,
   active,
+  href = `/instructeur/leerlingen/${student.id}`,
 }: {
   student: InstructorStudent;
   active?: boolean;
+  href?: string;
 }) {
   return (
     <Link
-      href={`/instructeur/leerlingen/${student.id}`}
+      href={href}
+      aria-current={active ? "true" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-2xl border p-3 transition",
         active
@@ -812,12 +882,16 @@ function StudentListItem({
 
 export function InstructorStudentsView({
   data,
+  selectedStudentId,
 }: {
   data?: InstructorExperience;
+  selectedStudentId?: string;
 }) {
   if (!data)
     return <DataUnavailableState title="Leerlingen niet beschikbaar" />;
-  const active = data.students[0] ?? null;
+  const selectedStudent =
+    data.students.find((student) => student.id === selectedStudentId) ?? null;
+  const active = selectedStudent ?? data.students[0] ?? null;
 
   return (
     <InstructorPage>
@@ -829,15 +903,22 @@ export function InstructorStudentsView({
           <AddStudentDialog ris20Qualified={data.profile.ris20Qualified} />
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[24rem_1fr]">
-        <InstructorCard title="Leerlingenlijst" icon={Users}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(17rem,0.85fr)_minmax(20rem,1.15fr)] 2xl:grid-cols-[24rem_1fr]">
+        <InstructorCard
+          title="Leerlingenlijst"
+          icon={Users}
+          className={cn(selectedStudent && "hidden lg:block")}
+        >
           <div className="space-y-2">
             {data.students.length > 0 ? (
-              data.students.map((student, index) => (
+              data.students.map((student) => (
                 <StudentListItem
                   key={student.id}
                   student={student}
-                  active={index === 0}
+                  href={`/instructeur/leerlingen?leerling=${encodeURIComponent(
+                    student.id,
+                  )}`}
+                  active={student.id === active?.id}
                 />
               ))
             ) : (
@@ -847,7 +928,30 @@ export function InstructorStudentsView({
             )}
           </div>
         </InstructorCard>
-        {active ? <StudentDetailPanel student={active} /> : null}
+        {active ? (
+          <div className={cn(!selectedStudent && "hidden lg:block")}>
+            {selectedStudent ? (
+              <Link
+                href="/instructeur/leerlingen"
+                className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-brand-primary lg:hidden"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                Terug naar leerlingen
+              </Link>
+            ) : null}
+            <StudentDetailPanel student={active} />
+            <Link
+              href={`/instructeur/leerlingen/${active.id}`}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "mt-3 w-full sm:w-auto",
+              )}
+            >
+              Open volledig dossier
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
+        ) : null}
       </div>
     </InstructorPage>
   );
@@ -1427,7 +1531,10 @@ export function InstructorSettingsView({
                 className="flex min-h-11 items-center justify-between rounded-2xl px-3 py-2 text-sm font-bold text-foreground transition hover:bg-brand-muted"
               >
                 {label}
-                <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                <ArrowRight
+                  className="h-4 w-4 text-muted-foreground"
+                  aria-hidden
+                />
               </Link>
             ))}
           </div>

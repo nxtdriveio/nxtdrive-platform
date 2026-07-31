@@ -137,7 +137,7 @@ export function InstructorSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 overflow-hidden border-r border-white/10 bg-brand-sidebar-background text-brand-sidebar-foreground lg:flex lg:flex-col lg:w-[18.5rem]">
+      <aside className="sticky top-0 hidden h-screen w-[13.5rem] shrink-0 overflow-hidden border-r border-white/10 bg-brand-sidebar-background text-brand-sidebar-foreground lg:flex lg:flex-col xl:w-[18.5rem]">
         <div className="relative flex min-h-0 flex-1 flex-col p-4">
           <Link
             href="/instructeur"

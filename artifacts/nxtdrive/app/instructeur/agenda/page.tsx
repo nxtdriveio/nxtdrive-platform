@@ -3,7 +3,19 @@ import { loadInstructorExperience } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
-export default async function InstructorAgendaPage() {
+export default async function InstructorAgendaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
+  const selectedAppointmentId =
+    typeof query.afspraak === "string" ? query.afspraak : undefined;
   const data = await loadInstructorExperience();
-  return <InstructorAgendaView data={data} />;
+  return (
+    <InstructorAgendaView
+      data={data}
+      selectedAppointmentId={selectedAppointmentId}
+    />
+  );
 }
