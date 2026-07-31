@@ -20,6 +20,7 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-secret
   SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-secret
   SESSION_SECRET: ci-only-placeholder-with-at-least-32-characters
+  VISUAL_FIXTURES_ENABLED: "true"
 
 jobs:
   smoke:

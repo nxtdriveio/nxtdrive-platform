@@ -57,6 +57,9 @@ jobs:
       - name: Unit tests
         run: pnpm run test:unit
 
+      - name: App release contracts
+        run: pnpm --filter @workspace/scripts run test-app-release-gate
+
       - name: RIS journeybot contract tests
         run: pnpm --filter @workspace/scripts run test-ris-journey-bot
 

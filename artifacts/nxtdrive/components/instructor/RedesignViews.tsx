@@ -658,9 +658,11 @@ export function InstructorCockpitView({
 export function InstructorAgendaView({
   data,
   selectedAppointmentId,
+  selectionBasePath = "/instructeur/agenda",
 }: {
   data?: InstructorExperience;
   selectedAppointmentId?: string;
+  selectionBasePath?: string;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const calendar = currentMonthCalendar();
@@ -726,7 +728,7 @@ export function InstructorAgendaView({
                   </div>
                   <AppointmentCard
                     appointment={appointment}
-                    href={`/instructeur/agenda?afspraak=${encodeURIComponent(
+                    href={`${selectionBasePath}?afspraak=${encodeURIComponent(
                       appointment.id,
                     )}`}
                     active={appointment.id === activeAppointment?.id}
@@ -750,7 +752,7 @@ export function InstructorAgendaView({
               icon={CalendarDays}
               right={
                 <Link
-                  href="/instructeur/agenda"
+                  href={selectionBasePath}
                   className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-brand-primary lg:hidden"
                 >
                   <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -883,9 +885,11 @@ function StudentListItem({
 export function InstructorStudentsView({
   data,
   selectedStudentId,
+  selectionBasePath = "/instructeur/leerlingen",
 }: {
   data?: InstructorExperience;
   selectedStudentId?: string;
+  selectionBasePath?: string;
 }) {
   if (!data)
     return <DataUnavailableState title="Leerlingen niet beschikbaar" />;
@@ -915,7 +919,7 @@ export function InstructorStudentsView({
                 <StudentListItem
                   key={student.id}
                   student={student}
-                  href={`/instructeur/leerlingen?leerling=${encodeURIComponent(
+                  href={`${selectionBasePath}?leerling=${encodeURIComponent(
                     student.id,
                   )}`}
                   active={student.id === active?.id}
@@ -932,7 +936,7 @@ export function InstructorStudentsView({
           <div className={cn(!selectedStudent && "hidden lg:block")}>
             {selectedStudent ? (
               <Link
-                href="/instructeur/leerlingen"
+                href={selectionBasePath}
                 className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-brand-primary lg:hidden"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden />
