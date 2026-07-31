@@ -68,12 +68,7 @@ export type InstructorMessageThread = {
   preview: string;
   time: string;
   unread: number;
-  messages: Array<{
-    id: string;
-    sender: "instructor" | "student";
-    body: string;
-    time: string;
-  }>;
+  messages: import("@/lib/chat/types").ChatMessage[];
 };
 
 export type InstructorVehicle = {

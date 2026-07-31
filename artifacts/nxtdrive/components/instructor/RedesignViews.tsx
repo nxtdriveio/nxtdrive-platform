@@ -35,8 +35,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { InstructorCreditManager } from "@/components/instructor/InstructorCreditManager";
-import { InstructorMessageComposer } from "@/components/instructor/InstructorMessageComposer";
 import { InstructorTaskManager } from "@/components/instructor/InstructorTaskManager";
+import { ChatThread } from "@/components/chat/ChatThread";
 import { SecureInstructorLogoutForm } from "@/components/instructor/SecureLogoutForm";
 import { NotificationInbox } from "@/components/notifications/NotificationInbox";
 import {
@@ -1277,43 +1277,14 @@ export function InstructorMessagesView({
                   <p className="text-xs text-success">Online</p>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-                {active.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex",
-                      message.sender === "instructor"
-                        ? "justify-end"
-                        : "justify-start",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm md:max-w-[68%]",
-                        message.sender === "instructor"
-                          ? "bg-brand-primary text-white"
-                          : "bg-brand-muted text-foreground",
-                      )}
-                    >
-                      <p>{message.body}</p>
-                      <p
-                        className={cn(
-                          "mt-1 text-[10px]",
-                          message.sender === "instructor"
-                            ? "text-white/70"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {message.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-brand-border/70 bg-white/95 p-3">
-                <InstructorMessageComposer conversationId={active.id} />
-              </div>
+              <ChatThread
+                conversationId={active.id}
+                side="instructor"
+                counterpartName={active.name}
+                initialMessages={active.messages}
+                appearance="instructor"
+                showHeader={false}
+              />
             </div>
           </InstructorCard>
         ) : (

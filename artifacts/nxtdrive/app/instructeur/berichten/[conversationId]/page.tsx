@@ -9,6 +9,6 @@ export default async function InstructorMessageThreadPage({
   params: Promise<{ conversationId: string }>;
 }) {
   const { conversationId } = await params;
-  const data = await loadInstructorMessages();
+  const data = await loadInstructorMessages(conversationId);
   return <InstructorMessagesView threadId={conversationId} data={data} />;
 }

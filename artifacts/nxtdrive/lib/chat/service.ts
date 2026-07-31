@@ -38,11 +38,14 @@ export async function listStudentInstructors(params: {
   studentId: string;
 }): Promise<{ instructorId: string; name: string }[]> {
   const service = createServiceRoleClient();
-  const { data } = await service
+  const { data, error } = await service
     .from("lessons")
     .select("instructor_id")
     .eq("tenant_id", params.tenantId)
     .eq("student_id", params.studentId);
+  if (error) {
+    throw new Error(`Chatinstructeurs laden mislukt: ${error.message}`);
+  }
   const ids = Array.from(
     new Set(
       ((data ?? []) as { instructor_id: string | null }[])
@@ -110,7 +113,10 @@ export async function loadThreadMessages(
     .order("created_at", { ascending: true })
     .limit(500);
   if (opts.afterIso) q = q.gt("created_at", opts.afterIso);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) {
+    throw new Error(`Chatberichten laden mislukt: ${error.message}`);
+  }
   return mapMessages(data ?? []);
 }
 
@@ -140,11 +146,14 @@ async function resolveStudentNames(
   studentIds: string[],
 ): Promise<Map<string, string>> {
   if (studentIds.length === 0) return new Map();
-  const { data } = await service
+  const { data, error } = await service
     .from("students")
     .select("id, full_name")
     .eq("tenant_id", tenantId)
     .in("id", studentIds);
+  if (error) {
+    throw new Error(`Chatleerlingen laden mislukt: ${error.message}`);
+  }
   return new Map(
     ((data ?? []) as { id: string; full_name: string }[]).map((s) => [
       s.id,
@@ -158,10 +167,13 @@ async function resolveInstructorNames(
   instructorIds: string[],
 ): Promise<Map<string, string>> {
   if (instructorIds.length === 0) return new Map();
-  const { data } = await service
+  const { data, error } = await service
     .from("profiles")
     .select("id, full_name")
     .in("id", instructorIds);
+  if (error) {
+    throw new Error(`Chatinstructeursnamen laden mislukt: ${error.message}`);
+  }
   return new Map(
     ((data ?? []) as { id: string; full_name: string | null }[]).map((p) => [
       p.id,
@@ -182,7 +194,10 @@ async function countUnread(
     .eq("conversation_id", conversationId)
     .eq("sender_side", otherSide);
   if (sinceIso) q = q.gt("created_at", sinceIso);
-  const { count } = await q;
+  const { count, error } = await q;
+  if (error) {
+    throw new Error(`Ongelezen chatberichten tellen mislukt: ${error.message}`);
+  }
   return count ?? 0;
 }
 
@@ -207,7 +222,10 @@ export async function loadInstructorConversations(params: {
     .eq("tenant_id", params.tenantId)
     .order("last_message_at", { ascending: false, nullsFirst: false });
   if (!params.isAdmin) q = q.eq("instructor_id", params.instructorId);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) {
+    throw new Error(`Instructeursgesprekken laden mislukt: ${error.message}`);
+  }
   const rows = (data ?? []) as ConversationRow[];
 
   const studentNames = await resolveStudentNames(
@@ -261,11 +279,14 @@ export async function countStudentUnread(params: {
   studentId: string;
 }): Promise<number> {
   const service = createServiceRoleClient();
-  const { data } = await service
+  const { data, error } = await service
     .from("chat_conversations")
     .select("id, student_last_read_at")
     .eq("tenant_id", params.tenantId)
     .eq("student_id", params.studentId);
+  if (error) {
+    throw new Error(`Leerlinggesprekken laden mislukt: ${error.message}`);
+  }
   const rows = (data ?? []) as {
     id: string;
     student_last_read_at: string | null;
@@ -290,12 +311,15 @@ export async function loadInstructorThread(params: {
   isAdmin: boolean;
 }): Promise<ChatThreadData | null> {
   const service = createServiceRoleClient();
-  const { data } = await service
+  const { data, error } = await service
     .from("chat_conversations")
     .select("id, tenant_id, student_id, instructor_id")
     .eq("tenant_id", params.tenantId)
     .eq("id", params.conversationId)
     .maybeSingle();
+  if (error) {
+    throw new Error(`Instructeursgesprek laden mislukt: ${error.message}`);
+  }
   const row = data as Pick<
     ConversationRow,
     "id" | "tenant_id" | "student_id" | "instructor_id"
@@ -371,8 +395,7 @@ export async function loadStudentThread(params: {
   return {
     conversationId: params.conversationId,
     side: "student",
-    counterpartName:
-      instructorNames.get(row.instructor_id) ?? "Instructeur",
+    counterpartName: instructorNames.get(row.instructor_id) ?? "Instructeur",
     messages,
   };
 }

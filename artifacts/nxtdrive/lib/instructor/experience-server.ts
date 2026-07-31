@@ -353,6 +353,7 @@ type InstructorRouteScope =
 
 async function loadInstructorRouteExperience(
   scope: InstructorRouteScope,
+  selectedConversationId?: string,
 ): Promise<InstructorExperience> {
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -572,10 +573,16 @@ async function loadInstructorRouteExperience(
   const conversationMessages =
     scope === "all" || scope === "messages"
       ? await Promise.all(
-          conversations.slice(0, 8).map(async (conversation) => ({
-            conversationId: conversation.id,
-            messages: await loadThreadMessages(tenant.id, conversation.id),
-          })),
+          conversations
+            .filter(
+              (conversation) =>
+                conversation.id ===
+                (selectedConversationId ?? conversations[0]?.id),
+            )
+            .map(async (conversation) => ({
+              conversationId: conversation.id,
+              messages: await loadThreadMessages(tenant.id, conversation.id),
+            })),
         )
       : [];
   const messagesByConversation = new Map(
@@ -595,14 +602,7 @@ async function loadInstructorRouteExperience(
         ? formatters.timeFmt.format(new Date(conversation.lastMessageAt))
         : "Nieuw",
       unread: conversation.unreadCount,
-      messages: (messagesByConversation.get(conversation.id) ?? []).map(
-        (message) => ({
-          id: message.id,
-          sender: message.senderSide,
-          body: message.body,
-          time: formatters.timeFmt.format(new Date(message.createdAt)),
-        }),
-      ),
+      messages: messagesByConversation.get(conversation.id) ?? [],
     }));
   const radar = mapStudentsForRadar(students, lessonWindow, balanceMap);
   const profileName = user.profile?.full_name ?? user.email ?? "Instructeur";
@@ -774,8 +774,10 @@ export function loadInstructorStudent(): Promise<InstructorExperience> {
   return loadInstructorRouteExperience("student");
 }
 
-export function loadInstructorMessages(): Promise<InstructorExperience> {
-  return loadInstructorRouteExperience("messages");
+export function loadInstructorMessages(
+  conversationId?: string,
+): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("messages", conversationId);
 }
 
 export function loadInstructorVehicles(): Promise<InstructorExperience> {

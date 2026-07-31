@@ -188,9 +188,10 @@ export const instructorVisualFixture: InstructorExperience = {
       messages: [
         {
           id: "message-1",
-          sender: "student",
+          conversationId: "thread-1",
+          senderSide: "student",
           body: "Kunnen we de ophaallocatie aanpassen?",
-          time: "08:04",
+          createdAt: "2026-07-31T08:04:00.000Z",
         },
       ],
     },
@@ -204,9 +205,10 @@ export const instructorVisualFixture: InstructorExperience = {
       messages: [
         {
           id: "message-2",
-          sender: "student",
+          conversationId: "thread-2",
+          senderSide: "student",
           body: "Dankjewel, tot straks!",
-          time: "gisteren",
+          createdAt: "2026-07-30T16:30:00.000Z",
         },
       ],
     },
