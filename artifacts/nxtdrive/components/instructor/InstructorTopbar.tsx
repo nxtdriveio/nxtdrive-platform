@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -8,16 +8,14 @@ import {
   ChevronDown,
   MessageCircle,
   Moon,
-  Search,
   Settings,
   User,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { InstructorQuickSearch } from "@/components/instructor/InstructorQuickSearch";
+import { SecureInstructorLogoutForm } from "@/components/instructor/SecureLogoutForm";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
-import { clearEncryptedLessonDrafts } from "@/lib/offline/encrypted-draft-store";
-import { clearEncryptedPublishedStops } from "@/lib/offline/encrypted-route-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,33 +35,10 @@ export function InstructorTopbar({
   userLabel: string;
   unreadMessages: number;
 }) {
-  async function handleLogout(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    try {
-      await Promise.all([
-        clearEncryptedLessonDrafts(),
-        clearEncryptedPublishedStops(),
-      ]);
-    } finally {
-      form.submit();
-    }
-  }
-
   return (
     <header className="sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-brand-border/80 bg-white/86 px-4 backdrop-blur-xl xl:flex xl:px-6">
-      <div className="relative max-w-3xl flex-1">
-        <Search
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <input
-          className="h-10 w-full rounded-[1rem] border border-brand-border bg-white pl-10 pr-14 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15"
-          placeholder="Zoek leerling, afspraak, voertuig, bericht..."
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-brand-border bg-brand-muted px-2 py-0.5 text-[10px] font-black text-muted-foreground">
-          CTRL K
-        </span>
+      <div className="max-w-3xl flex-1">
+        <InstructorQuickSearch />
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -154,21 +129,7 @@ export function InstructorTopbar({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <form
-                method="post"
-                action="/auth/logout"
-                className="w-full"
-                onSubmit={(event) => void handleLogout(event)}
-              >
-                <button
-                  type="submit"
-                  className={cn(
-                    "flex w-full items-center gap-2 text-left text-danger",
-                  )}
-                >
-                  Uitloggen
-                </button>
-              </form>
+              <SecureInstructorLogoutForm icon={false} />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

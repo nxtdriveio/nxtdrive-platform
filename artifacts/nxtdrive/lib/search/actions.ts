@@ -61,12 +61,14 @@ export async function globalSearch(query: string): Promise<SearchResults> {
 
   const [studentsRes, leadsRes] = await Promise.all([
     studentQuery,
-    supabase
-      .from("leads")
-      .select("id, full_name, email, phone, status")
-      .eq("tenant_id", tenant.id)
-      .or(`full_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`)
-      .limit(5),
+    isAdmin
+      ? supabase
+          .from("leads")
+          .select("id, full_name, email, phone, status")
+          .eq("tenant_id", tenant.id)
+          .or(`full_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`)
+          .limit(5)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const studentRows = studentsRes.data ?? [];

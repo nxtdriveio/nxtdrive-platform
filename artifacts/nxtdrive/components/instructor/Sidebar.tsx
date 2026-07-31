@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
@@ -137,11 +138,13 @@ export function InstructorSidebar({
   userLabel,
   logoUrl,
   liveCounts,
+  notifications,
 }: {
   tenantName: string;
   userLabel: string;
   logoUrl?: string | null;
   liveCounts: InstructorLiveCounts;
+  notifications?: ReactNode;
 }) {
   const items = navItems(liveCounts);
   const moreRoute = instructorRoutes.find((route) => route.id === "more")!;
@@ -179,14 +182,26 @@ export function InstructorSidebar({
             </ul>
           </nav>
 
-          <div className="relative mt-4 flex shrink-0 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3">
-            <Avatar name={userLabel} className="h-12 w-12 text-sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white">
-                {userLabel}
-              </p>
-              <p className="truncate text-xs text-white/60">Instructeur</p>
-            </div>
+          <div className="relative mt-4 flex shrink-0 items-center gap-2">
+            <Link
+              href="/instructeur/meer"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.055] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Avatar name={userLabel} className="h-12 w-12 text-sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-white">
+                  {userLabel}
+                </p>
+                <p className="truncate text-xs text-white/60">
+                  Account en instellingen
+                </p>
+              </div>
+            </Link>
+            {notifications ? (
+              <div className="shrink-0 rounded-xl bg-white xl:hidden">
+                {notifications}
+              </div>
+            ) : null}
           </div>
         </div>
       </aside>
@@ -207,6 +222,7 @@ export function InstructorSidebar({
             />
           </Link>
           <div className="flex items-center gap-2">
+            {notifications}
             <Link
               href="/instructeur/berichten"
               aria-label={
@@ -221,7 +237,13 @@ export function InstructorSidebar({
                 <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-primary" />
               ) : null}
             </Link>
-            <Avatar name={userLabel} className="h-11 w-11 text-xs" />
+            <Link
+              href="/instructeur/meer"
+              aria-label="Account en instellingen"
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+            >
+              <Avatar name={userLabel} className="h-11 w-11 text-xs" />
+            </Link>
           </div>
         </div>
       </header>

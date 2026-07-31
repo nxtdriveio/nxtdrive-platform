@@ -44,6 +44,7 @@ export default function InstructorVisualFixtureLayout({
           tenantName={tenantName}
           userLabel={userLabel}
           liveCounts={liveCounts}
+          notifications={undefined}
         />
 
         <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">

@@ -137,6 +137,7 @@ export default async function InstructorLayout({
           userLabel={userLabel}
           logoUrl={logoUrl}
           liveCounts={liveCounts}
+          notifications={notificationBell}
         />
 
         <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
