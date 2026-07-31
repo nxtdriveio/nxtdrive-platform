@@ -20,17 +20,16 @@
  * activate.
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const STATIC_CACHE = `nxtdrive-static-${CACHE_VERSION}`;
 const SHELL_CACHE = `nxtdrive-shell-${CACHE_VERSION}`;
 
-const STUDENT_OFFLINE = "/student/offline";
-const INSTRUCTOR_OFFLINE = "/instructeur/offline";
+const STUDENT_OFFLINE = "/offline-leerling.html";
+const INSTRUCTOR_OFFLINE = "/offline-instructeur.html";
 
-// Precached at install. App-shell offline pages are best-effort (they render
-// inside an authed layout, so the fetch needs the user's cookies — which the SW
-// has at install time because registration happens from within the logged-in
-// app). Icons are always cacheable.
+// Precached at install. The offline documents live in /public and never render
+// through an authenticated app layout, so their responses contain no tenant,
+// profile, notification or other private data.
 const PRECACHE_URLS = [
   STUDENT_OFFLINE,
   INSTRUCTOR_OFFLINE,
@@ -66,10 +65,10 @@ self.addEventListener("install", (event) => {
       await Promise.all(
         PRECACHE_URLS.map(async (url) => {
           try {
-            const res = await fetch(url, { credentials: "same-origin" });
+            const res = await fetch(url, { credentials: "omit" });
             if (res.ok) await cache.put(url, res.clone());
           } catch {
-            /* offline page may need auth; skip — runtime caching will fill it */
+            /* best-effort precache; the inline fallback remains available */
           }
         }),
       );
