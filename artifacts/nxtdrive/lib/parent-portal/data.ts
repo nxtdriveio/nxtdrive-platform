@@ -14,6 +14,7 @@ import { remainingCents, type Invoice } from "@/lib/invoices/types";
 import type { Package } from "@/lib/packages/types";
 import type { CreditLedgerRow, StudentBalance } from "@/lib/students/types";
 import type { DocumentCategory } from "@/lib/students/document-types";
+import { loadStudentDocumentMetadata } from "@/lib/students/documents";
 import type { ParentPortalVisibility } from "./visibility";
 
 // ---------------------------------------------------------------------------
@@ -72,9 +73,6 @@ export type PortalDocument = {
   sizeBytes: number;
   createdAt: string;
 };
-
-const PORTAL_DOCUMENT_COLUMNS =
-  "id, file_name, category, mime_type, size_bytes, created_at";
 
 export type ParentPortalData = {
   planning: {
@@ -182,16 +180,24 @@ export async function loadParentPortalData(
           .limit(50),
       ]);
     if (upcomingRes.error) {
-      throw new Error(`portal: upcoming lessons failed (${ctx}): ${upcomingRes.error.message}`);
+      throw new Error(
+        `portal: upcoming lessons failed (${ctx}): ${upcomingRes.error.message}`,
+      );
     }
     if (pastLessonsRes.error) {
-      throw new Error(`portal: past lessons failed (${ctx}): ${pastLessonsRes.error.message}`);
+      throw new Error(
+        `portal: past lessons failed (${ctx}): ${pastLessonsRes.error.message}`,
+      );
     }
     if (appointmentsRes.error) {
-      throw new Error(`portal: appointments failed (${ctx}): ${appointmentsRes.error.message}`);
+      throw new Error(
+        `portal: appointments failed (${ctx}): ${appointmentsRes.error.message}`,
+      );
     }
     if (pastAppointmentsRes.error) {
-      throw new Error(`portal: past appointments failed (${ctx}): ${pastAppointmentsRes.error.message}`);
+      throw new Error(
+        `portal: past appointments failed (${ctx}): ${pastAppointmentsRes.error.message}`,
+      );
     }
     data.planning = {
       upcomingLessons: (upcomingRes.data ?? []) as PortalLesson[],
@@ -213,7 +219,9 @@ export async function loadParentPortalData(
         .limit(50),
     ]);
     if (historyRes.error) {
-      throw new Error(`portal: lesson history failed (${ctx}): ${historyRes.error.message}`);
+      throw new Error(
+        `portal: lesson history failed (${ctx}): ${historyRes.error.message}`,
+      );
     }
     data.voortgang = {
       readiness,
@@ -252,16 +260,24 @@ export async function loadParentPortalData(
           .order("starts_at", { ascending: true }),
       ]);
     if (cbrStatusRes.error) {
-      throw new Error(`portal: cbr status failed (${ctx}): ${cbrStatusRes.error.message}`);
+      throw new Error(
+        `portal: cbr status failed (${ctx}): ${cbrStatusRes.error.message}`,
+      );
     }
     if (competenciesRes.error) {
-      throw new Error(`portal: cbr competencies failed (${ctx}): ${competenciesRes.error.message}`);
+      throw new Error(
+        `portal: cbr competencies failed (${ctx}): ${competenciesRes.error.message}`,
+      );
     }
     if (progressRes.error) {
-      throw new Error(`portal: cbr progress failed (${ctx}): ${progressRes.error.message}`);
+      throw new Error(
+        `portal: cbr progress failed (${ctx}): ${progressRes.error.message}`,
+      );
     }
     if (examRes.error) {
-      throw new Error(`portal: exam appointments failed (${ctx}): ${examRes.error.message}`);
+      throw new Error(
+        `portal: exam appointments failed (${ctx}): ${examRes.error.message}`,
+      );
     }
     data.examens = {
       cbrStatus: (cbrStatusRes.data as StudentCbrStatus | null) ?? null,
@@ -284,7 +300,9 @@ export async function loadParentPortalData(
       .neq("status", "draft")
       .order("created_at", { ascending: false });
     if (invoicesRes.error) {
-      throw new Error(`portal: invoices failed (${ctx}): ${invoicesRes.error.message}`);
+      throw new Error(
+        `portal: invoices failed (${ctx}): ${invoicesRes.error.message}`,
+      );
     }
     const invoices = (invoicesRes.data ?? []) as Invoice[];
     data.facturen = {
@@ -306,10 +324,14 @@ export async function loadParentPortalData(
       .neq("status", "draft")
       .order("created_at", { ascending: false });
     if (invoicesRes.error) {
-      throw new Error(`portal: payments failed (${ctx}): ${invoicesRes.error.message}`);
+      throw new Error(
+        `portal: payments failed (${ctx}): ${invoicesRes.error.message}`,
+      );
     }
     const invoices = (invoicesRes.data ?? []) as Invoice[];
-    const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
+    const paidInvoices = invoices.filter(
+      (invoice) => invoice.status === "paid",
+    );
     data.betalingen = {
       invoices,
       paidInvoices,
@@ -332,7 +354,9 @@ export async function loadParentPortalData(
       .eq("reason", "package_purchase")
       .order("created_at", { ascending: false });
     if (ledgerRes.error) {
-      throw new Error(`portal: packages failed (${ctx}): ${ledgerRes.error.message}`);
+      throw new Error(
+        `portal: packages failed (${ctx}): ${ledgerRes.error.message}`,
+      );
     }
     const ledgerRows = (ledgerRes.data ?? []) as {
       id: string;
@@ -341,7 +365,9 @@ export async function loadParentPortalData(
       created_at: string;
     }[];
     const packageIds = Array.from(
-      new Set(ledgerRows.map((r) => r.related_id).filter((id): id is string => !!id)),
+      new Set(
+        ledgerRows.map((r) => r.related_id).filter((id): id is string => !!id),
+      ),
     );
     let packagesById = new Map<string, Package>();
     if (packageIds.length > 0) {
@@ -351,7 +377,9 @@ export async function loadParentPortalData(
         .eq("tenant_id", tenantId)
         .in("id", packageIds);
       if (pkgRes.error) {
-        throw new Error(`portal: package templates failed (${ctx}): ${pkgRes.error.message}`);
+        throw new Error(
+          `portal: package templates failed (${ctx}): ${pkgRes.error.message}`,
+        );
       }
       packagesById = new Map(
         ((pkgRes.data ?? []) as Package[]).map((p) => [p.id, p]),
@@ -359,7 +387,9 @@ export async function loadParentPortalData(
     }
     data.pakketinformatie = {
       packages: ledgerRows.map((row) => {
-        const pkg = row.related_id ? packagesById.get(row.related_id) : undefined;
+        const pkg = row.related_id
+          ? packagesById.get(row.related_id)
+          : undefined;
         return {
           ledgerId: row.id,
           grantedAt: row.created_at,
@@ -387,13 +417,18 @@ export async function loadParentPortalData(
         .limit(30),
     ]);
     if (balanceRes.error) {
-      throw new Error(`portal: balance failed (${ctx}): ${balanceRes.error.message}`);
+      throw new Error(
+        `portal: balance failed (${ctx}): ${balanceRes.error.message}`,
+      );
     }
     if (ledgerRes.error) {
-      throw new Error(`portal: ledger failed (${ctx}): ${ledgerRes.error.message}`);
+      throw new Error(
+        `portal: ledger failed (${ctx}): ${ledgerRes.error.message}`,
+      );
     }
     data.tegoed = {
-      balance: ((balanceRes.data as StudentBalance | null)?.balance ?? 0) as number,
+      balance: ((balanceRes.data as StudentBalance | null)?.balance ??
+        0) as number,
       ledger: (ledgerRes.data ?? []) as CreditLedgerRow[],
     };
   }
@@ -403,32 +438,8 @@ export async function loadParentPortalData(
     // RLS branch. We select metadata only — never the storage_path — so the
     // private file location never reaches the client; downloads are signed
     // server-side by the guarded /ouder/documenten/[docId] route.
-    const docsRes = await rls
-      .from("student_documents")
-      .select(PORTAL_DOCUMENT_COLUMNS)
-      .eq("tenant_id", tenantId)
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
-    if (docsRes.error) {
-      throw new Error(`portal: documents failed (${ctx}): ${docsRes.error.message}`);
-    }
-    const rows = (docsRes.data ?? []) as {
-      id: string;
-      file_name: string;
-      category: DocumentCategory;
-      mime_type: string;
-      size_bytes: number;
-      created_at: string;
-    }[];
     data.documenten = {
-      documents: rows.map((d) => ({
-        id: d.id,
-        fileName: d.file_name,
-        category: d.category,
-        mimeType: d.mime_type,
-        sizeBytes: d.size_bytes,
-        createdAt: d.created_at,
-      })),
+      documents: await loadStudentDocumentMetadata(rls, tenantId, studentId),
     };
   }
 

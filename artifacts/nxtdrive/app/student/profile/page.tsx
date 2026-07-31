@@ -10,11 +10,10 @@ import {
   User,
 } from "lucide-react";
 import { requireActiveTenant } from "@/lib/auth/require-role";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { PWAPage, PWAPageHeader, PWAEmptyState } from "@/components/pwa/primitives";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
 import { getActiveStudent } from "@/lib/students/access";
 import { RefillOptInForm } from "@/components/student/refill-optin-form";
 import { ReviewForm } from "@/components/student/review-form";
@@ -36,6 +35,11 @@ import {
   StudentShowcaseTabs,
 } from "@/components/student/Showcase";
 import { ContactCard } from "@/components/student/ContactCard";
+import { loadStudentDocumentMetadata } from "@/lib/students/documents";
+import {
+  DOCUMENT_CATEGORY_LABEL,
+  formatFileSize,
+} from "@/lib/students/document-types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,44 +60,81 @@ export default async function StudentProfilePage({
     typeof params.tab === "string" ? params.tab : undefined,
   );
 
-  const { user, tenant, roles } = await requireActiveTenant(["student", "parent"]);
-  const { student, accessible } = await getActiveStudent(user, tenant.id, roles);
-  const [vapidPublicKey, serverPushEnabled, typePreferences] = await Promise.all([
-    Promise.resolve(getVapidPublicKey()),
-    getNotificationPreference(),
-    getNotificationTypePreferences(),
+  const { user, tenant, roles } = await requireActiveTenant([
+    "student",
+    "parent",
   ]);
-
+  const { student, accessible } = await getActiveStudent(
+    user,
+    tenant.id,
+    roles,
+  );
   const supabase = await createServerSupabaseClient();
-  const [orgProfile, contactPhone, cbrSummary, invoicesRes] = await Promise.all([
-    loadOrganizationProfile(supabase, tenant.id),
-    loadContactPhone(supabase, tenant.id),
-    student ? loadStudentCbrSummary(supabase, tenant.id, student.id) : Promise.resolve(null),
-    student
-      ? supabase.from("invoices").select("id", { count: "exact", head: true }).eq("student_id", student.id)
-      : Promise.resolve({ count: 0, error: null }),
+  const [settingsBundle, contactBundle, documentsBundle] = await Promise.all([
+    activeTab === "instellingen"
+      ? Promise.all([
+          Promise.resolve(getVapidPublicKey()),
+          getNotificationPreference(),
+          getNotificationTypePreferences(),
+        ])
+      : Promise.resolve(null),
+    activeTab === "contact"
+      ? Promise.all([
+          loadOrganizationProfile(supabase, tenant.id),
+          loadContactPhone(supabase, tenant.id),
+        ])
+      : Promise.resolve(null),
+    activeTab === "documenten" && student
+      ? Promise.all([
+          loadStudentCbrSummary(supabase, tenant.id, student.id),
+          supabase
+            .from("invoices")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenant.id)
+            .eq("student_id", student.id),
+          loadStudentDocumentMetadata(supabase, tenant.id, student.id),
+        ])
+      : Promise.resolve(null),
   ]);
+  const [vapidPublicKey, serverPushEnabled, typePreferences] =
+    settingsBundle ?? [null, false, {}];
+  const [orgProfile, contactPhone] = contactBundle ?? [null, null];
+  const [cbrSummary, invoicesRes, documents] = documentsBundle ?? [
+    null,
+    { count: 0, error: null },
+    [],
+  ];
+  if (invoicesRes.error) {
+    throw new Error(`Facturen laden mislukt: ${invoicesRes.error.message}`);
+  }
 
   let existingReview: { rating: number; body: string | null } | null = null;
-  if (student) {
-    const { data: reviewRow } = await supabase
+  if (student && activeTab === "instellingen") {
+    const { data: reviewRow, error } = await supabase
       .from("student_reviews")
       .select("rating, body")
       .eq("tenant_id", tenant.id)
       .eq("student_id", student.id)
       .maybeSingle();
-    existingReview = (reviewRow as { rating: number; body: string | null } | null) ?? null;
+    if (error) {
+      throw new Error(`Review laden mislukt: ${error.message}`);
+    }
+    existingReview =
+      (reviewRow as { rating: number; body: string | null } | null) ?? null;
   }
 
   const isParent = roles.includes("parent") && !roles.includes("student");
   const otherChildren = isParent
     ? accessible.filter(
         (accessibleStudent) =>
-          accessibleStudent.id !== student?.id && accessibleStudent.user_id !== user.id,
+          accessibleStudent.id !== student?.id &&
+          accessibleStudent.user_id !== user.id,
       )
     : [];
-  const displayName = student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";
-  const supportEmail = orgProfile?.support_email ?? orgProfile?.billing_email ?? null;
+  const displayName =
+    student?.full_name ?? user.profile?.full_name ?? user.email ?? "Leerling";
+  const supportEmail =
+    orgProfile?.support_email ?? orgProfile?.billing_email ?? null;
   const phoneHref = telHref(contactPhone);
   const invoiceCount = invoicesRes.count ?? 0;
 
@@ -129,9 +170,35 @@ export default async function StudentProfilePage({
       {activeTab === "documenten" ? (
         <div className="space-y-4">
           <StudentShowcaseCard
-            title="Documentencentrum"
-            eyebrow="Handige overzichten"
-            info="Deze hub groepeert je belangrijkste documenten en vervolgstappen zodat je niet hoeft te zoeken door losse schermen."
+            title="Mijn documenten"
+            eyebrow="Veilige downloads"
+            info="Bestanden uit je leerlingdossier worden via een tijdelijke, beveiligde downloadlink geopend."
+          >
+            <div className="space-y-2">
+              {documents.length > 0 ? (
+                documents.map((document) => (
+                  <StudentListRow
+                    key={document.id}
+                    href={`/leerling/documenten/${document.id}`}
+                    title={document.fileName}
+                    subtitle={`${DOCUMENT_CATEGORY_LABEL[document.category]} · ${formatFileSize(document.sizeBytes)}`}
+                    badge="Download"
+                    badgeVariant="primary"
+                    leading={<StudentInitialBadge label="DOC" tone="blue" />}
+                  />
+                ))
+              ) : (
+                <div className="rounded-[1.15rem] border border-dashed border-white/12 bg-white/[0.02] px-4 py-4 text-sm text-white/52">
+                  Er staan nog geen schooldocumenten in je dossier.
+                </div>
+              )}
+            </div>
+          </StudentShowcaseCard>
+
+          <StudentShowcaseCard
+            title="Dossieroverzichten"
+            eyebrow="Handige links"
+            info="Open de andere onderdelen van je dossier zonder dubbele kopieën van dezelfde informatie."
           >
             <div className="space-y-2">
               <StudentListRow
@@ -148,10 +215,14 @@ export default async function StudentProfilePage({
                 title="CBR & examens"
                 subtitle="Machtiging, theorie en je volgende examenstap."
                 badge={
-                  cbrSummary?.preconditions.theorieBehaald ? "Klaar" : "Actie nodig"
+                  cbrSummary?.preconditions.theorieBehaald
+                    ? "Klaar"
+                    : "Actie nodig"
                 }
                 badgeVariant={
-                  cbrSummary?.preconditions.theorieBehaald ? "success" : "warning"
+                  cbrSummary?.preconditions.theorieBehaald
+                    ? "success"
+                    : "warning"
                 }
                 leading={<StudentInitialBadge label="CBR" tone="green" />}
               />
@@ -173,11 +244,6 @@ export default async function StudentProfilePage({
               />
             </div>
           </StudentShowcaseCard>
-
-          <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white/58">
-            Extra schooldocumenten zoals overeenkomsten of uploads kunnen hier later
-            zonder nieuwe app-shell worden toegevoegd.
-          </div>
         </div>
       ) : null}
 
@@ -189,10 +255,15 @@ export default async function StudentProfilePage({
             info="Je rijschool beheert de kerngegevens van je leerlingdossier. Hier zie je de huidige gegevens en regel je je app-voorkeuren."
           >
             <div className="flex items-start gap-4">
-              <Avatar name={displayName} className="h-14 w-14 shrink-0 text-base" />
+              <Avatar
+                name={displayName}
+                className="h-14 w-14 shrink-0 text-base"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-lg font-semibold text-white">{displayName}</h2>
+                  <h2 className="truncate text-lg font-semibold text-white">
+                    {displayName}
+                  </h2>
                   {student ? (
                     <Badge variant={student.active ? "success" : "outline"}>
                       {student.active ? "Actief" : "Inactief"}
@@ -215,7 +286,10 @@ export default async function StudentProfilePage({
             info="Zet pushmeldingen aan op dit apparaat en bepaal per categorie wat je wilt ontvangen."
             bodyClassName="space-y-4"
           >
-            <PushToggle vapidPublicKey={vapidPublicKey} serverPushEnabled={serverPushEnabled} />
+            <PushToggle
+              vapidPublicKey={vapidPublicKey}
+              serverPushEnabled={serverPushEnabled}
+            />
             <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-3.5 py-3">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
                 <Bell className="h-4 w-4 text-primary" aria-hidden />
@@ -256,7 +330,10 @@ export default async function StudentProfilePage({
           ) : null}
 
           <form action="/auth/logout" method="post">
-            <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <button
+              type="submit"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
               <LogOut className="h-4 w-4" aria-hidden />
               Uitloggen
             </button>

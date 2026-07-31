@@ -15,11 +15,8 @@ import type { Invoice } from "@/lib/invoices/types";
 import type { LeadIntakeDetail } from "@/lib/leads/types";
 import type { TheoryHomeworkWithModule } from "@/lib/theory/types";
 import type { Task } from "@/lib/tasks/types";
-import {
-  isDocumentCategory,
-  type DocumentCategory,
-  type StudentDocument,
-} from "@/lib/students/document-types";
+import type { StudentDocument } from "@/lib/students/document-types";
+import { loadStudentDocuments } from "@/lib/students/documents";
 
 /** A guardian linked to the student, with the contact's resolved name/email. */
 export type StudentGuardianView = {
@@ -120,7 +117,7 @@ export async function loadStudentDossier(
     invoicesRes,
     communicationsRes,
     taskLinksRes,
-    documentsRes,
+    documents,
   ] = await Promise.all([
     rls
       .from("student_guardians")
@@ -196,49 +193,58 @@ export async function loadStudentDossier(
       .eq("tenant_id", tenantId)
       .in("entity_type", ["student", "exam"])
       .eq("entity_id", studentId),
-    // Documents: RLS already restricts student_documents to staff only.
-    rls
-      .from("student_documents")
-      .select(
-        "id, tenant_id, student_id, storage_path, file_name, category, mime_type, size_bytes, uploaded_by, created_at",
-      )
-      .eq("tenant_id", tenantId)
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false }),
+    loadStudentDocuments(rls, service, tenantId, studentId),
   ]);
 
   if (guardiansRes.error) {
-    throw new Error(`dossier: guardians load failed (${ctx}): ${guardiansRes.error.message}`);
+    throw new Error(
+      `dossier: guardians load failed (${ctx}): ${guardiansRes.error.message}`,
+    );
   }
   if (intakeRes.error) {
-    throw new Error(`dossier: intake load failed (${ctx}): ${intakeRes.error.message}`);
+    throw new Error(
+      `dossier: intake load failed (${ctx}): ${intakeRes.error.message}`,
+    );
   }
   if (cbrStatusRes.error) {
-    throw new Error(`dossier: cbr status load failed (${ctx}): ${cbrStatusRes.error.message}`);
+    throw new Error(
+      `dossier: cbr status load failed (${ctx}): ${cbrStatusRes.error.message}`,
+    );
   }
   if (competenciesRes.error) {
-    throw new Error(`dossier: cbr competencies load failed (${ctx}): ${competenciesRes.error.message}`);
+    throw new Error(
+      `dossier: cbr competencies load failed (${ctx}): ${competenciesRes.error.message}`,
+    );
   }
   if (progressRes.error) {
-    throw new Error(`dossier: cbr progress load failed (${ctx}): ${progressRes.error.message}`);
+    throw new Error(
+      `dossier: cbr progress load failed (${ctx}): ${progressRes.error.message}`,
+    );
   }
   if (lessonsRes.error) {
-    throw new Error(`dossier: lessons load failed (${ctx}): ${lessonsRes.error.message}`);
+    throw new Error(
+      `dossier: lessons load failed (${ctx}): ${lessonsRes.error.message}`,
+    );
   }
   if (appointmentsRes.error) {
-    throw new Error(`dossier: appointments load failed (${ctx}): ${appointmentsRes.error.message}`);
+    throw new Error(
+      `dossier: appointments load failed (${ctx}): ${appointmentsRes.error.message}`,
+    );
   }
   if (invoicesRes.error) {
-    throw new Error(`dossier: invoices load failed (${ctx}): ${invoicesRes.error.message}`);
+    throw new Error(
+      `dossier: invoices load failed (${ctx}): ${invoicesRes.error.message}`,
+    );
   }
   if (communicationsRes.error) {
-    throw new Error(`dossier: communications load failed (${ctx}): ${communicationsRes.error.message}`);
+    throw new Error(
+      `dossier: communications load failed (${ctx}): ${communicationsRes.error.message}`,
+    );
   }
   if (taskLinksRes.error) {
-    throw new Error(`dossier: task links load failed (${ctx}): ${taskLinksRes.error.message}`);
-  }
-  if (documentsRes.error) {
-    throw new Error(`dossier: documents load failed (${ctx}): ${documentsRes.error.message}`);
+    throw new Error(
+      `dossier: task links load failed (${ctx}): ${taskLinksRes.error.message}`,
+    );
   }
 
   // Resolve guardian contact names/emails. profiles RLS exposes only the
@@ -265,18 +271,12 @@ export async function loadStudentDossier(
   // Resolve open (non-archived) tasks for the linked task ids.
   const taskIds = Array.from(
     new Set(
-      ((taskLinksRes.data ?? []) as { task_id: string }[]).map((r) => r.task_id),
+      ((taskLinksRes.data ?? []) as { task_id: string }[]).map(
+        (r) => r.task_id,
+      ),
     ),
   );
   const tasks = await loadOpenTasks(service, tenantId, taskIds);
-
-  // Resolve uploader names. profiles RLS exposes only the caller's own row, so
-  // staff must read them via the service role — bounded to the user_ids on this
-  // tenant's document rows.
-  const documents = await resolveDocuments(
-    service,
-    (documentsRes.data ?? []) as RawDocumentRow[],
-  );
 
   return {
     guardians,
@@ -293,62 +293,6 @@ export async function loadStudentDossier(
     tasks,
     documents,
   };
-}
-
-type RawDocumentRow = {
-  id: string;
-  tenant_id: string;
-  student_id: string;
-  storage_path: string;
-  file_name: string;
-  category: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_by: string | null;
-  created_at: string;
-};
-
-async function resolveDocuments(
-  service: SupabaseClient,
-  rows: RawDocumentRow[],
-): Promise<StudentDocument[]> {
-  if (rows.length === 0) return [];
-  const uploaderIds = Array.from(
-    new Set(rows.map((r) => r.uploaded_by).filter((v): v is string => !!v)),
-  );
-  let byId = new Map<string, { full_name: string | null }>();
-  if (uploaderIds.length > 0) {
-    const { data: profiles, error } = await service
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", uploaderIds);
-    if (error) {
-      throw new Error(`dossier: document uploader load failed: ${error.message}`);
-    }
-    byId = new Map(
-      ((profiles ?? []) as { id: string; full_name: string | null }[]).map((p) => [
-        p.id,
-        p,
-      ]),
-    );
-  }
-  return rows.map((r) => ({
-    id: r.id,
-    tenant_id: r.tenant_id,
-    student_id: r.student_id,
-    storage_path: r.storage_path,
-    file_name: r.file_name,
-    category: (isDocumentCategory(r.category)
-      ? r.category
-      : "other") as DocumentCategory,
-    mime_type: r.mime_type,
-    size_bytes: Number(r.size_bytes),
-    uploaded_by: r.uploaded_by,
-    uploaded_by_name: r.uploaded_by
-      ? (byId.get(r.uploaded_by)?.full_name ?? null)
-      : null,
-    created_at: r.created_at,
-  }));
 }
 
 async function resolveGuardians(
@@ -370,9 +314,13 @@ async function resolveGuardians(
     throw new Error(`dossier: guardian profiles load failed: ${error.message}`);
   }
   const byId = new Map(
-    ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]).map(
-      (p) => [p.id, p],
-    ),
+    (
+      (profiles ?? []) as {
+        id: string;
+        full_name: string | null;
+        email: string | null;
+      }[]
+    ).map((p) => [p.id, p]),
   );
   return rows.map((r) => {
     const p = byId.get(r.user_id);
@@ -401,7 +349,9 @@ async function loadOpenTasks(
     .is("archived_at", null)
     .order("created_at", { ascending: false });
   if (error) {
-    throw new Error(`dossier: tasks load failed (tenant=${tenantId}): ${error.message}`);
+    throw new Error(
+      `dossier: tasks load failed (tenant=${tenantId}): ${error.message}`,
+    );
   }
   return (data ?? []) as StudentLinkedTask[];
 }

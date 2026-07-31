@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadPortalContext } from "@/lib/parent-portal/context";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { STUDENT_DOCUMENT_BUCKET } from "@/lib/students/document-types";
+import { createStudentDocumentDownloadUrl } from "@/lib/students/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -26,27 +26,14 @@ export async function GET(
   }
 
   const service = createServiceRoleClient();
-  const { data: doc, error } = await service
-    .from("student_documents")
-    .select("storage_path, file_name, student_id, tenant_id")
-    .eq("id", docId)
-    .eq("tenant_id", ctx.tenant.id)
-    .eq("student_id", ctx.student.id)
-    .maybeSingle();
-
-  if (error || !doc) {
+  const signedUrl = await createStudentDocumentDownloadUrl(service, {
+    tenantId: ctx.tenant.id,
+    studentId: ctx.student.id,
+    documentId: docId,
+  });
+  if (!signedUrl) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const { data: signed, error: signError } = await service.storage
-    .from(STUDENT_DOCUMENT_BUCKET)
-    .createSignedUrl(doc.storage_path as string, 60, {
-      download: doc.file_name as string,
-    });
-
-  if (signError || !signed?.signedUrl) {
-    return NextResponse.json({ error: "sign_failed" }, { status: 500 });
-  }
-
-  return NextResponse.redirect(signed.signedUrl);
+  return NextResponse.redirect(signedUrl);
 }
