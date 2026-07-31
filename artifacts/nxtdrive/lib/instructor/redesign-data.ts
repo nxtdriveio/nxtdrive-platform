@@ -44,8 +44,9 @@ export type InstructorStudent = {
   status: InstructorStudentStatus;
   nextLesson: string;
   latestLesson: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
+  conversationId?: string | null;
   attention: string;
   readiness: string;
   creditMinutes: number;
