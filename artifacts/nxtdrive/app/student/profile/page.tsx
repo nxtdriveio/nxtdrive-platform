@@ -42,8 +42,8 @@ export const dynamic = "force-dynamic";
 type ProfileTab = "documenten" | "instellingen" | "contact";
 
 function profileTabFrom(value: string | undefined): ProfileTab {
-  if (value === "instellingen" || value === "contact") return value;
-  return "documenten";
+  if (value === "documenten" || value === "contact") return value;
+  return "instellingen";
 }
 
 export default async function StudentProfilePage({
@@ -118,9 +118,9 @@ export default async function StudentProfilePage({
   return (
     <PWAPage app="student" contentClassName="space-y-4">
       <PWAPageHeader
-        eyebrow="Meer"
-        title="Meer"
-        subtitle="Alles wat je nodig hebt buiten je planning en voortgang: documenten, instellingen en contact."
+        eyebrow="Account"
+        title="Account"
+        subtitle="Je profiel, appvoorkeuren, documenten en contact met je rijschool."
         icon={<Settings2 className="h-4 w-4" aria-hidden />}
       />
 
