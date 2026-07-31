@@ -74,6 +74,20 @@ for (const contract of [
   );
 }
 
+const risActions = appRead("lib", "ris", "actions.ts");
+const completionPanel = appRead(
+  "components",
+  "ris",
+  "RisLessonPublicationPanel.tsx",
+);
+assert.ok(
+  risActions.includes("recordRisLessonCompletionMeasurementAction") &&
+    risActions.includes("ris.lesson_completion_usability_measured") &&
+    completionPanel.includes("data-completion-flow") &&
+    completionPanel.includes("Date.now() - started.startedAtMs"),
+  "canonical lesson completion must record the real user boundary through publish acknowledgement",
+);
+
 const e2e = read("scripts", "src", "e2e-release-smoke.ts");
 for (const viewport of [
   "{ width: 390, height: 844 }",

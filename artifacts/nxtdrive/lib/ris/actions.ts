@@ -43,6 +43,10 @@ import {
   type RisReflectionEntryMode,
   type RisReflectionRating,
 } from "./data";
+import {
+  normalizeLessonCompletionMeasurement,
+  type LessonCompletionMeasurementInput,
+} from "./completion-measurement";
 
 type ActionResult<T = undefined> =
   | (T extends undefined ? { error?: string } : { error?: string } & T)
@@ -388,6 +392,64 @@ export async function publishRisLessonCardAction(input: {
       revalidatePath(`/backoffice/leerlingen/${input.studentId}`);
     }
     return {};
+  } catch (error) {
+    return { error: err(error) };
+  }
+}
+
+export async function recordRisLessonCompletionMeasurementAction(input: {
+  lessonCardId: string;
+  measurement: LessonCompletionMeasurementInput;
+}): Promise<ActionResult<{ recorded: boolean; durationMs?: number }>> {
+  try {
+    const { tenant, user, roles } = await requireActiveTenant([
+      "instructor",
+      "tenant_admin",
+    ]);
+    const measurement = normalizeLessonCompletionMeasurement(input.measurement);
+    if (!measurement) {
+      return { error: "Ongeldige afrondmeting." };
+    }
+
+    const service = createServiceRoleClient();
+    const lessonCardId = requiredId(input.lessonCardId, "RIS-leskaart");
+    const { data: card, error: cardError } = await service
+      .from("ris_lesson_cards")
+      .select("id, lesson_id, student_id, instructor_id, publication_status")
+      .eq("id", lessonCardId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle();
+    if (cardError) return { error: cardError.message };
+    if (!card) return { error: "RIS-leskaart niet gevonden." };
+    if (!roles.includes("tenant_admin") && card.instructor_id !== user.id) {
+      return { error: "Geen toegang tot deze afrondmeting." };
+    }
+
+    const { error: measurementError } = await service.from("audit_log").insert({
+      actor_user_id: user.id,
+      tenant_id: tenant.id,
+      action: "ris.lesson_completion_usability_measured",
+      target_type: "ris_lesson_card",
+      target_id: lessonCardId,
+      payload: {
+        lesson_id: card.lesson_id,
+        student_id: card.student_id,
+        session_id: measurement.sessionId,
+        boundary_version: measurement.boundaryVersion,
+        started_at: measurement.startedAt,
+        completed_at: new Date().toISOString(),
+        duration_ms: measurement.durationMs,
+        duration_seconds: Math.round(measurement.durationMs / 100) / 10,
+        target_ms: measurement.targetMs,
+        within_target: measurement.withinTarget,
+        viewport_width: measurement.viewportWidth,
+        viewport_height: measurement.viewportHeight,
+        publication_status: card.publication_status,
+        source: "canonical_instructor_quick_completion",
+      },
+    });
+    if (measurementError) return { error: measurementError.message };
+    return { recorded: true, durationMs: measurement.durationMs };
   } catch (error) {
     return { error: err(error) };
   }

@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   publishRisLessonCardAction,
+  recordRisLessonCompletionMeasurementAction,
   saveRisLessonCardDraftAction,
   setGuidedReflectionAction,
 } from "@/lib/ris/actions";
@@ -34,6 +35,11 @@ import {
   RIS_REFLECTION_RATING_LABELS,
 } from "@/lib/ris/data";
 import { risStepNumber, type RISStepValue } from "@workspace/leskaart";
+import {
+  LESSON_COMPLETION_BOUNDARY_VERSION,
+  LESSON_COMPLETION_TARGET_MS,
+  type LessonCompletionMeasurementInput,
+} from "@/lib/ris/completion-measurement";
 
 type PublicationMode = "reflection" | "summary" | "quick";
 
@@ -109,7 +115,9 @@ function buildSuggestion(
     .filter((item) => item.isAttentionPoint || item.shouldRepeat)
     .slice(0, 3)
     .map((item) => assessmentName(item, scriptMap));
-  const treated = assessments.slice(0, 4).map((item) => assessmentName(item, scriptMap));
+  const treated = assessments
+    .slice(0, 4)
+    .map((item) => assessmentName(item, scriptMap));
 
   const practiced = focus.length > 0 ? focus : treated;
   const practicedText =
@@ -150,10 +158,20 @@ export function RisLessonPublicationPanel({
   );
   const [cardId, setCardId] = useState(ris.card?.id ?? null);
   const [isPending, startTransition] = useTransition();
+  const completionMeasurement = useRef<{
+    sessionId: string;
+    startedAt: string;
+    startedAtMs: number;
+    viewportWidth: number;
+    viewportHeight: number;
+  } | null>(null);
 
   const scriptMap = useMemo(() => buildScriptMap(ris), [ris]);
   const conceptAssessments = useMemo(
-    () => ris.assessments.filter((item) => risStepNumber(item.conceptRisStep) !== null),
+    () =>
+      ris.assessments.filter(
+        (item) => risStepNumber(item.conceptRisStep) !== null,
+      ),
     [ris.assessments],
   );
   const suggestion = useMemo(
@@ -163,7 +181,20 @@ export function RisLessonPublicationPanel({
 
   const card = ris.card;
   const reflection = ris.reflection;
-  const locked = card ? !OPEN_PUBLICATION_STATUSES.has(card.publicationStatus) : false;
+  const locked = card
+    ? !OPEN_PUBLICATION_STATUSES.has(card.publicationStatus)
+    : false;
+
+  useEffect(() => {
+    if (mode !== "quick" || locked || completionMeasurement.current) return;
+    completionMeasurement.current = {
+      sessionId: crypto.randomUUID(),
+      startedAt: new Date().toISOString(),
+      startedAtMs: Date.now(),
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  }, [locked, mode]);
 
   const [studentPresent, setStudentPresent] = useState(
     reflection?.studentPresent ?? true,
@@ -171,18 +202,16 @@ export function RisLessonPublicationPanel({
   const [entryMode, setEntryMode] = useState<RisReflectionEntryMode>(
     reflection?.entryMode ?? "student_self",
   );
-  const [overallRating, setOverallRating] = useState<RisReflectionRating | null>(
-    reflection?.overallRating ?? null,
-  );
-  const [independenceRating, setIndependenceRating] = useState<RisReflectionRating | null>(
-    reflection?.independenceRating ?? null,
-  );
-  const [insightRating, setInsightRating] = useState<RisReflectionRating | null>(
-    reflection?.insightRating ?? null,
-  );
-  const [confidenceRating, setConfidenceRating] = useState<RisReflectionRating | null>(
-    reflection?.confidenceRating ?? null,
-  );
+  const [overallRating, setOverallRating] =
+    useState<RisReflectionRating | null>(reflection?.overallRating ?? null);
+  const [independenceRating, setIndependenceRating] =
+    useState<RisReflectionRating | null>(
+      reflection?.independenceRating ?? null,
+    );
+  const [insightRating, setInsightRating] =
+    useState<RisReflectionRating | null>(reflection?.insightRating ?? null);
+  const [confidenceRating, setConfidenceRating] =
+    useState<RisReflectionRating | null>(reflection?.confidenceRating ?? null);
   const [oneSentenceReflection, setOneSentenceReflection] = useState(
     reflection?.oneSentenceReflection ?? suggestion.oneSentence,
   );
@@ -224,7 +253,8 @@ export function RisLessonPublicationPanel({
       setError(result.error);
       return null;
     }
-    const nextCardId = "lessonCardId" in result ? result.lessonCardId : undefined;
+    const nextCardId =
+      "lessonCardId" in result ? result.lessonCardId : undefined;
     if (!nextCardId) {
       setError("RIS-leskaart kon niet als concept worden opgeslagen.");
       return null;
@@ -250,7 +280,8 @@ export function RisLessonPublicationPanel({
         setSaveState("idle");
         return;
       }
-      const nextCardId = "lessonCardId" in result ? result.lessonCardId : undefined;
+      const nextCardId =
+        "lessonCardId" in result ? result.lessonCardId : undefined;
       if (nextCardId) setCardId(nextCardId);
       lastDraftSignature.current = draftSignature;
       setSaveState("saved");
@@ -387,7 +418,32 @@ export function RisLessonPublicationPanel({
         return;
       }
 
-      setSuccess("RIS-leskaart is gepubliceerd naar de leerlingvoortgang.");
+      const started = completionMeasurement.current;
+      const measured: LessonCompletionMeasurementInput | null =
+        mode === "quick" && started
+          ? {
+              sessionId: started.sessionId,
+              startedAt: started.startedAt,
+              durationMs: Date.now() - started.startedAtMs,
+              viewportWidth: started.viewportWidth,
+              viewportHeight: started.viewportHeight,
+              boundaryVersion: LESSON_COMPLETION_BOUNDARY_VERSION,
+            }
+          : null;
+      if (measured) {
+        const measurementResult =
+          await recordRisLessonCompletionMeasurementAction({
+            lessonCardId: nextCardId,
+            measurement: measured,
+          });
+        setSuccess(
+          "error" in measurementResult && measurementResult.error
+            ? `RIS-leskaart is gepubliceerd in ${(measured.durationMs / 1000).toFixed(1)} seconden, maar de gebruiksmeting kon niet worden opgeslagen.`
+            : `RIS-leskaart is gepubliceerd en afgerond in ${(measured.durationMs / 1000).toFixed(1)} seconden (doel: maximaal ${LESSON_COMPLETION_TARGET_MS / 1000}).`,
+        );
+      } else {
+        setSuccess("RIS-leskaart is gepubliceerd naar de leerlingvoortgang.");
+      }
       router.refresh();
     });
   }
@@ -520,7 +576,14 @@ export function RisLessonPublicationPanel({
   }
 
   return (
-    <Card id="ris-publicatie" className="scroll-mt-24 overflow-hidden">
+    <Card
+      id="ris-publicatie"
+      data-completion-flow={mode === "quick" ? "canonical" : undefined}
+      data-completion-start-boundary={
+        mode === "quick" ? "quick-panel-interactive" : undefined
+      }
+      className="scroll-mt-24 overflow-hidden"
+    >
       <CardContent className="space-y-5 pt-5">
         <PanelHeader
           icon={ClipboardCheck}
@@ -569,11 +632,13 @@ export function RisLessonPublicationPanel({
             <section className="rounded-2xl border border-border bg-card/70 p-4">
               <h3 className="font-black text-foreground">Gewijzigde scripts</h3>
               <p className="text-sm text-muted-foreground">
-                Deze concepten worden bij publicatie definitief in de RIS-voortgang.
+                Deze concepten worden bij publicatie definitief in de
+                RIS-voortgang.
               </p>
               {conceptAssessments.length === 0 ? (
                 <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  Nog geen behandelde scripts. Kies op tabblad Beoordeling per RIS-script een stap.
+                  Nog geen behandelde scripts. Kies op tabblad Beoordeling per
+                  RIS-script een stap.
                 </p>
               ) : (
                 <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -596,10 +661,18 @@ export function RisLessonPublicationPanel({
                           {meta ? `${meta.code}: ${meta.title}` : "RIS-script"}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          {assessment.isFeaturedForLesson ? <Badge variant="info">Focus</Badge> : null}
-                          {assessment.isAttentionPoint ? <Badge variant="warning">Aandacht</Badge> : null}
-                          {assessment.shouldRepeat ? <Badge variant="outline">Herhalen</Badge> : null}
-                          {assessment.readyForTest ? <Badge variant="success">Toetsklaar</Badge> : null}
+                          {assessment.isFeaturedForLesson ? (
+                            <Badge variant="info">Focus</Badge>
+                          ) : null}
+                          {assessment.isAttentionPoint ? (
+                            <Badge variant="warning">Aandacht</Badge>
+                          ) : null}
+                          {assessment.shouldRepeat ? (
+                            <Badge variant="outline">Herhalen</Badge>
+                          ) : null}
+                          {assessment.readyForTest ? (
+                            <Badge variant="success">Toetsklaar</Badge>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -610,16 +683,22 @@ export function RisLessonPublicationPanel({
 
             <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
               <div className="space-y-3 rounded-2xl border border-border bg-card/70 p-4">
-                <h3 className="font-black text-foreground">Reflectie leerling</h3>
+                <h3 className="font-black text-foreground">
+                  Reflectie leerling
+                </h3>
                 <Badge variant="outline">
                   {RIS_REFLECTION_ENTRY_MODE_LABELS[entryMode]}
                 </Badge>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {oneSentenceReflection.trim() || "Nog geen reflectie ingevuld."}
+                  {oneSentenceReflection.trim() ||
+                    "Nog geen reflectie ingevuld."}
                 </p>
                 <div className="grid gap-2 text-sm">
                   <MiniRating label="Algemeen" value={overallRating} />
-                  <MiniRating label="Zelfstandigheid" value={independenceRating} />
+                  <MiniRating
+                    label="Zelfstandigheid"
+                    value={independenceRating}
+                  />
                   <MiniRating label="Inzicht" value={insightRating} />
                   <MiniRating label="Vertrouwen" value={confidenceRating} />
                 </div>
@@ -630,8 +709,9 @@ export function RisLessonPublicationPanel({
                   <div>
                     <h3 className="font-black text-foreground">Samenvatting</h3>
                     <p className="text-sm text-muted-foreground">
-                      Het voorstel gebruikt alleen de beoordeelde focusscripts en
-                      aandachtspunten. Controleer en bewerk het voor publicatie.
+                      Het voorstel gebruikt alleen de beoordeelde focusscripts
+                      en aandachtspunten. Controleer en bewerk het voor
+                      publicatie.
                     </p>
                   </div>
                 </div>
@@ -662,8 +742,9 @@ export function RisLessonPublicationPanel({
 
             <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-soft/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-muted-foreground">
-                Publiceren maakt de conceptscores definitief. Daarna ziet de leerling
-                de voortgang en kan hij of zij een korte reactie of leerwens invullen.
+                Publiceren maakt de conceptscores definitief. Daarna ziet de
+                leerling de voortgang en kan hij of zij een korte reactie of
+                leerwens invullen.
               </div>
               <Button
                 type="button"
@@ -671,6 +752,9 @@ export function RisLessonPublicationPanel({
                 size="lg"
                 disabled={!canPublish || isPending}
                 onClick={publish}
+                data-completion-end-boundary={
+                  mode === "quick" ? "publish-acknowledged" : undefined
+                }
                 className="shrink-0"
               >
                 {isPending ? (
@@ -726,8 +810,10 @@ function SaveStatus({
   locked: boolean;
 }) {
   if (locked) return <Badge variant="success">Gepubliceerd</Badge>;
-  if (state === "saving") return <Badge variant="primary">Concept opslaan...</Badge>;
-  if (state === "saved") return <Badge variant="success">Concept opgeslagen</Badge>;
+  if (state === "saving")
+    return <Badge variant="primary">Concept opslaan...</Badge>;
+  if (state === "saved")
+    return <Badge variant="success">Concept opgeslagen</Badge>;
   return <Badge variant="outline">Concept</Badge>;
 }
 
