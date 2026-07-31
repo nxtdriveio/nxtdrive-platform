@@ -8,7 +8,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { expressSlotRecoveryInterestAction } from "@/app/student/actions";
+import { expressSlotRecoveryInterestAction } from "@/app/leerling/actions";
 import type { SlotRecoveryInvitation } from "@/lib/slot-recovery/invitations";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {

@@ -8,7 +8,7 @@ import {
   StudentShowcaseEmptyState,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { markHomeworkStatusAction } from "@/app/student/actions";
+import { markHomeworkStatusAction } from "@/app/leerling/actions";
 import {
   THEORY_HOMEWORK_STATUS_LABEL,
   THEORY_HOMEWORK_STATUS_VARIANT,

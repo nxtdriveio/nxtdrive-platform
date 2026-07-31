@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   analyzeProgressAction,
   analyzeRetakeAction,
-} from "@/app/instructor/ai-actions";
+} from "@/app/instructeur/ai-actions";
 import type { ProgressAnalysis } from "@/lib/ai/leskaart-advisor";
 
 const KANS_VARIANT: Record<string, "success" | "warning" | "danger"> = {

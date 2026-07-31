@@ -8,7 +8,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { respondRefillInvitation } from "@/app/student/actions";
+import { respondRefillInvitation } from "@/app/leerling/actions";
 import type { RefillInvitation } from "@/lib/lesson-refill/invitations";
 
 const dateTimeFmt = new Intl.DateTimeFormat("nl-NL", {

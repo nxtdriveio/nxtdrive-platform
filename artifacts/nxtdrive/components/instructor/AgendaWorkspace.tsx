@@ -19,7 +19,7 @@ import {
   moveOwnedAppointmentAction,
   moveOwnedLessonAction,
   setOwnedAppointmentColorAction,
-} from "@/app/instructor/actions";
+} from "@/app/instructeur/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PWACard } from "@/components/pwa/primitives";

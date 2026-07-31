@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   generateLessonReportAction,
   saveLessonProgressSummaryAction,
-} from "@/app/instructor/ai-actions";
+} from "@/app/instructeur/ai-actions";
 
 /**
  * Leskaart L6 — AI-lesverslag. Short instructor notes → polished NL draft that is

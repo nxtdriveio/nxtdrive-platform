@@ -14,7 +14,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { setOwnReviewConsent } from "@/app/student/post-exam-actions";
+import { setOwnReviewConsent } from "@/app/leerling/post-exam-actions";
 import { createNlDateTimeFormatter } from "@/lib/datetime";
 
 const dateFmt = createNlDateTimeFormatter({

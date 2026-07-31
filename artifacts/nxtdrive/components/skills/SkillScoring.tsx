@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LessonScoreSlider } from "@/components/instructor/LessonScoreSlider";
 import { cn } from "@/lib/utils";
-import { setSkillScoreAction } from "@/app/instructor/actions";
+import { setSkillScoreAction } from "@/app/instructeur/actions";
 import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 
 type LiveScore = { current: number | null; today: number | null };

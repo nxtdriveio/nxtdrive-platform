@@ -11,7 +11,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { setStudentCbrStatusAction } from "@/app/instructor/actions";
+import { setStudentCbrStatusAction } from "@/app/instructeur/actions";
 import {
   MACHTIGING_STATUSES,
   MACHTIGING_STATUS_LABEL,

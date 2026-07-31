@@ -7,7 +7,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { toggleRefillAvailability } from "@/app/student/actions";
+import { toggleRefillAvailability } from "@/app/leerling/actions";
 import {
   INTAKE_DAYPARTS,
   INTAKE_DAYPART_LABEL,

@@ -8,7 +8,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { respondExamInvitation } from "@/app/student/actions";
+import { respondExamInvitation } from "@/app/leerling/actions";
 import type { StudentExamInvitation } from "@/lib/exam-invitations/invitations";
 import { createNlDateTimeFormatter } from "@/lib/datetime";
 

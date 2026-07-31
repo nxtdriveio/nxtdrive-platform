@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
-import { setLessonContextAction } from "@/app/instructor/actions";
+import { setLessonContextAction } from "@/app/instructeur/actions";
 import {
   VEHICLE_TRANSMISSION_LABEL,
   type Vehicle,

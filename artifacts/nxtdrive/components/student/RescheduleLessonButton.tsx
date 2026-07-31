@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudentShowcaseNotice } from "@/components/student/Showcase";
-import { rescheduleLesson } from "@/app/student/actions";
+import { rescheduleLesson } from "@/app/leerling/actions";
 
 function toLocalInputValue(iso: string): string {
   const date = new Date(iso);

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ClipboardCheck, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { toggleStudentCbrCompetencyAction } from "@/app/instructor/actions";
+import { toggleStudentCbrCompetencyAction } from "@/app/instructeur/actions";
 import type { CbrChecklistItem } from "@/lib/cbr/types";
 import { readinessPct } from "@/lib/cbr/types";
 

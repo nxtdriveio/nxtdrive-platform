@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { cancelLesson } from "@/app/student/actions";
+import { cancelLesson } from "@/app/leerling/actions";
 import { formatTegoed } from "@/lib/students/types";
 
 export function CancelLessonButton({

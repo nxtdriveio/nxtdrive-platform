@@ -22,7 +22,7 @@ import {
   setSkillScoreAction,
   setLessonProgressAction,
   completeLessonAction,
-} from "@/app/instructor/actions";
+} from "@/app/instructeur/actions";
 import type { InstructorLeskaart } from "@/lib/skills/leskaart-data";
 
 type FlatLeaf = {

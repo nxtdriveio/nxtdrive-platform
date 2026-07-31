@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   assignTheoryHomeworkAction,
   setTheoryHomeworkStatusAction,
-} from "@/app/instructor/actions";
+} from "@/app/instructeur/actions";
 import {
   THEORY_HOMEWORK_STATUS_LABEL,
   THEORY_HOMEWORK_STATUS_VARIANT,

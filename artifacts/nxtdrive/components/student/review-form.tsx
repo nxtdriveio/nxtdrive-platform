@@ -7,7 +7,7 @@ import {
   StudentShowcaseCard,
   StudentShowcaseNotice,
 } from "@/components/student/Showcase";
-import { submitStudentReview } from "@/app/student/actions";
+import { submitStudentReview } from "@/app/leerling/actions";
 
 export function ReviewForm({
   studentId,

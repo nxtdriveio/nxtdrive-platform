@@ -1,4 +1,4 @@
-import { RisEvaluationWorkspace } from "@/app/instructor/evaluations/[lessonId]/RisEvaluationWorkspace";
+import { RisEvaluationWorkspace } from "@/components/instructor/RisEvaluationWorkspace";
 
 export const dynamic = "force-dynamic";
 

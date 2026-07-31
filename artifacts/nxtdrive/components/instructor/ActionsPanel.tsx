@@ -35,7 +35,7 @@ import {
   markNoShowAction,
   addLessonNoteAction,
   setLessonProgressAction,
-} from "@/app/instructor/actions";
+} from "@/app/instructeur/actions";
 
 type Panel = "note" | "progress" | "cancel" | "no_show" | null;
 
