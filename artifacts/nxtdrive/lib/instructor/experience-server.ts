@@ -42,11 +42,9 @@ import type { Task, TaskPriority } from "@/lib/tasks/types";
 import {
   addDaysYmd,
   createNlDateTimeFormatter,
-  DEFAULT_TENANT_TIME_ZONE,
   isSameZonedDay,
   resolveTenantTimeZone,
   startOfZonedDayUtc,
-  zonedHour,
   zonedYmd,
 } from "@/lib/datetime";
 import {
@@ -98,17 +96,6 @@ function createInstructorFormatters(timeZone: string): InstructorFormatters {
       timeZone,
     ),
   };
-}
-
-function firstName(value: string) {
-  return value.trim().split(/\s+/)[0] || value;
-}
-
-function greetingFor(date: Date, timeZone = DEFAULT_TENANT_TIME_ZONE) {
-  const hour = zonedHour(date, timeZone);
-  if (hour < 12) return "Goedemorgen";
-  if (hour < 18) return "Goedemiddag";
-  return "Goedenavond";
 }
 
 function capitalize(text: string) {
@@ -341,7 +328,6 @@ function mapAvailabilityDays(
 }
 
 type InstructorRouteScope =
-  | "all"
   | "cockpit"
   | "agenda"
   | "students"
@@ -372,31 +358,25 @@ async function loadInstructorRouteExperience(
   const availabilityFrom = dayStart;
   const availabilityTo = horizonEnd;
   const needsLessons = [
-    "all",
     "cockpit",
     "agenda",
     "students",
     "student",
     "reports",
   ].includes(scope);
-  const needsTasks = ["all", "cockpit", "reports"].includes(scope);
-  const needsAgenda = ["all", "cockpit", "agenda", "reports"].includes(scope);
+  const needsTasks = ["cockpit", "reports"].includes(scope);
+  const needsAgenda = ["cockpit", "agenda", "reports"].includes(scope);
   const needsConversations = [
-    "all",
     "cockpit",
     "students",
     "student",
     "messages",
   ].includes(scope);
-  const needsVehicles = [
-    "all",
-    "cockpit",
-    "agenda",
-    "vehicles",
-    "reports",
-  ].includes(scope);
-  const needsAvailability = scope === "all" || scope === "cockpit";
-  const needsStudents = ["all", "students", "student"].includes(scope);
+  const needsVehicles = ["cockpit", "agenda", "vehicles", "reports"].includes(
+    scope,
+  );
+  const needsAvailability = scope === "cockpit";
+  const needsStudents = ["students", "student"].includes(scope);
 
   const [
     lessonWindowResult,
@@ -571,7 +551,7 @@ async function loadInstructorRouteExperience(
       };
     });
   const conversationMessages =
-    scope === "all" || scope === "messages"
+    scope === "messages"
       ? await Promise.all(
           conversations
             .filter(
@@ -754,10 +734,6 @@ async function loadInstructorRouteExperience(
   };
 }
 
-export function loadInstructorExperience(): Promise<InstructorExperience> {
-  return loadInstructorRouteExperience("all");
-}
-
 export function loadInstructorCockpit(): Promise<InstructorExperience> {
   return loadInstructorRouteExperience("cockpit");
 }
@@ -823,11 +799,4 @@ function mapStudentsForRadar(
     }
   }
   return items.slice(0, 4);
-}
-
-export function instructorGreeting(
-  data: InstructorExperience,
-  now = new Date(),
-) {
-  return `${greetingFor(now)} ${firstName(data.profile.name)}!`;
 }

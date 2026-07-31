@@ -40,6 +40,11 @@ for (const relativePath of instructorPages) {
 
 const readiness = appRead("lib", "skills", "readiness-data.ts");
 const instructorData = appRead("lib", "instructor", "experience-server.ts");
+assert.equal(
+  instructorData.includes("loadInstructorExperience"),
+  false,
+  "the unused full instructor experience loader must stay removed",
+);
 assert.match(readiness, /export async function loadStudentsReadiness/);
 assert.match(
   readiness,
