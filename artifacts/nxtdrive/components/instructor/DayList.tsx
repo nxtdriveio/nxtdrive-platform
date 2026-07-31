@@ -129,7 +129,7 @@ function itemHref(item: DayItem) {
     return `/instructeur/lessen/${item.lesson.id}`;
   }
   if (item.kind === "trial") {
-    return "/instructeur/intake";
+    return "/instructeur/agenda";
   }
   return `/instructeur/agenda/${item.appointment.id}`;
 }

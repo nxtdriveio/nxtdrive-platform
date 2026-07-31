@@ -222,5 +222,16 @@ assert(
   intakePage.includes('redirect("/instructeur/agenda")'),
   "obsolete intake route should resolve to the working agenda",
 );
+const dayList = read(
+  "artifacts",
+  "nxtdrive",
+  "components",
+  "instructor",
+  "DayList.tsx",
+);
+assert(
+  !dayList.includes('return "/instructeur/intake"'),
+  "trial appointments should not link through the obsolete intake route",
+);
 
 console.log("test-instructor-ui-polish: ok");
