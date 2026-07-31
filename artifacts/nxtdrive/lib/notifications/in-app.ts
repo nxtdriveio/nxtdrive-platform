@@ -4,7 +4,11 @@ import { cache } from "react";
 import { sendWebPushToUser } from "./web-push";
 import { isTenantTriggerEnabled } from "./platform-notification-config";
 import { interpolate } from "./templates";
-import type { InAppContent, InAppNotification, NotificationCategory } from "./types";
+import type {
+  InAppContent,
+  InAppNotification,
+  NotificationCategory,
+} from "./types";
 import { NOTIFICATION_TYPE_CATEGORY } from "./types";
 
 /**
@@ -23,9 +27,9 @@ async function isTypeAllowed(
   userId: string,
   notificationType: string,
 ): Promise<boolean> {
-  const category = NOTIFICATION_TYPE_CATEGORY[notificationType as keyof typeof NOTIFICATION_TYPE_CATEGORY] as
-    | NotificationCategory
-    | undefined;
+  const category = NOTIFICATION_TYPE_CATEGORY[
+    notificationType as keyof typeof NOTIFICATION_TYPE_CATEGORY
+  ] as NotificationCategory | undefined;
   if (!category) return true;
 
   const { data } = await service
@@ -112,13 +116,15 @@ export async function dispatchInApp(
       .eq("channel", "push")
       .maybeSingle()
       .then((r) => r.data as Record<string, string | null> | null),
-  ]).catch(() => [[] as Array<Record<string, string | null>>, null, null] as const);
+  ]).catch(
+    () => [[] as Array<Record<string, string | null>>, null, null] as const,
+  );
 
   const tenantInapp = Array.isArray(tenantTemplates)
-    ? tenantTemplates.find((t) => t.channel === "inapp") ?? null
+    ? (tenantTemplates.find((t) => t.channel === "inapp") ?? null)
     : null;
   const tenantPush = Array.isArray(tenantTemplates)
-    ? tenantTemplates.find((t) => t.channel === "push") ?? null
+    ? (tenantTemplates.find((t) => t.channel === "push") ?? null)
     : null;
 
   // Resolved in-app content: tenant override → platform default → call-site value.
@@ -211,42 +217,54 @@ export async function dispatchInApp(
  * no application-side recipient filter to forget. Returns the most recent N rows
  * plus an exact unread count (counted separately so it is not capped by N).
  */
-const loadInAppNotificationsCached = cache(async (
-  tenantId: string,
-  limit: number,
-): Promise<{ items: InAppNotification[]; unreadCount: number }> => {
-  const supabase = await createServerSupabaseClient();
+const loadInAppNotificationsCached = cache(
+  async (
+    tenantId: string,
+    limit: number,
+  ): Promise<{ items: InAppNotification[]; unreadCount: number }> => {
+    const supabase = await createServerSupabaseClient();
 
-  const [{ data }, { count }] = await Promise.all([
-    supabase
-      .from("app_notifications")
-      .select(
-        "id, type, title, body, link, related_type, related_id, read_at, created_at",
-      )
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("app_notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .is("read_at", null),
-  ]);
+    const [itemsResult, unreadResult] = await Promise.all([
+      supabase
+        .from("app_notifications")
+        .select(
+          "id, type, title, body, link, related_type, related_id, read_at, created_at",
+        )
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(limit),
+      supabase
+        .from("app_notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .is("read_at", null),
+    ]);
+    if (itemsResult.error) {
+      throw new Error(
+        `Meldingen laden mislukt (tenant=${tenantId}): ${itemsResult.error.message}`,
+      );
+    }
+    if (unreadResult.error) {
+      throw new Error(
+        `Ongelezen meldingen tellen mislukt (tenant=${tenantId}): ${unreadResult.error.message}`,
+      );
+    }
 
-  const items: InAppNotification[] = (data ?? []).map((r) => ({
-    id: r.id as string,
-    type: r.type as string,
-    title: r.title as string,
-    body: (r.body as string | null) ?? "",
-    link: (r.link as string | null) ?? null,
-    relatedType: (r.related_type as string | null) ?? null,
-    relatedId: (r.related_id as string | null) ?? null,
-    readAt: (r.read_at as string | null) ?? null,
-    createdAt: r.created_at as string,
-  }));
+    const items: InAppNotification[] = (itemsResult.data ?? []).map((r) => ({
+      id: r.id as string,
+      type: r.type as string,
+      title: r.title as string,
+      body: (r.body as string | null) ?? "",
+      link: (r.link as string | null) ?? null,
+      relatedType: (r.related_type as string | null) ?? null,
+      relatedId: (r.related_id as string | null) ?? null,
+      readAt: (r.read_at as string | null) ?? null,
+      createdAt: r.created_at as string,
+    }));
 
-  return { items, unreadCount: count ?? 0 };
-});
+    return { items, unreadCount: unreadResult.count ?? 0 };
+  },
+);
 
 export async function loadInAppNotifications(
   tenantId: string,

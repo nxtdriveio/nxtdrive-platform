@@ -96,16 +96,14 @@ export async function updateNotificationPreference(
   if (!tenant) return { error: "Geen actieve rijschool" };
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase
-    .from("notification_preferences")
-    .upsert(
-      {
-        user_id: user.id,
-        tenant_id: tenant.id,
-        push_enabled: pushEnabled,
-      },
-      { onConflict: "user_id,tenant_id" },
-    );
+  const { error } = await supabase.from("notification_preferences").upsert(
+    {
+      user_id: user.id,
+      tenant_id: tenant.id,
+      push_enabled: pushEnabled,
+    },
+    { onConflict: "user_id,tenant_id" },
+  );
   if (error) return { error: error.message };
   return {};
 }
@@ -120,12 +118,15 @@ export async function getNotificationPreference(): Promise<boolean | null> {
   if (!tenant) return null;
 
   const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("notification_preferences")
     .select("push_enabled")
     .eq("user_id", user.id)
     .eq("tenant_id", tenant.id)
     .maybeSingle();
+  if (error) {
+    throw new Error(`Pushvoorkeur laden mislukt: ${error.message}`);
+  }
 
   return data?.push_enabled ?? null;
 }
@@ -144,12 +145,15 @@ export async function getNotificationTypePreferences(): Promise<
   if (!tenant) return {};
 
   const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("notification_preferences")
     .select("type_preferences")
     .eq("user_id", user.id)
     .eq("tenant_id", tenant.id)
     .maybeSingle();
+  if (error) {
+    throw new Error(`Meldingsvoorkeuren laden mislukt: ${error.message}`);
+  }
 
   const raw = data?.type_preferences;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -197,16 +201,14 @@ export async function updateNotificationTypePreference(
 
   const updated = { ...current, [category]: enabled };
 
-  const { error } = await supabase
-    .from("notification_preferences")
-    .upsert(
-      {
-        user_id: user.id,
-        tenant_id: tenant.id,
-        type_preferences: updated,
-      },
-      { onConflict: "user_id,tenant_id" },
-    );
+  const { error } = await supabase.from("notification_preferences").upsert(
+    {
+      user_id: user.id,
+      tenant_id: tenant.id,
+      type_preferences: updated,
+    },
+    { onConflict: "user_id,tenant_id" },
+  );
   if (error) return { error: error.message };
   return {};
 }
