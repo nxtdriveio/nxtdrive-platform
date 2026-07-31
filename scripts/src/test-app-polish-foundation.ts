@@ -14,12 +14,12 @@ function expectIncludes(filePath: string, snippet: string, label: string) {
 
 expectIncludes(
   repoPath("artifacts", "nxtdrive", "app", "student", "layout.tsx"),
-  "homePathForRoles(roles) !== \"/student\"",
+  "homePathForRoles(roles) !== \"/leerling\"",
   "student primary app guard",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "instructor", "layout.tsx"),
-  "homePathForRoles(roles) !== \"/instructor\"",
+  repoPath("artifacts", "nxtdrive", "app", "instructeur", "layout.tsx"),
+  "homePathForRoles(roles) !== \"/instructeur\"",
   "instructor primary app guard",
 );
 expectIncludes(
@@ -34,33 +34,43 @@ expectIncludes(
 );
 expectIncludes(
   repoPath("artifacts", "nxtdrive", "app", "student", "manifest.webmanifest", "route.ts"),
-  'orientation: "portrait"',
-  "student portrait manifest",
+  'start_url: "/leerling"',
+  "student canonical manifest",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "instructor", "manifest.webmanifest", "route.ts"),
-  'orientation: "landscape"',
-  "instructor landscape manifest",
+  repoPath("artifacts", "nxtdrive", "app", "instructeur", "manifest.webmanifest", "route.ts"),
+  'start_url: "/instructeur"',
+  "instructor canonical manifest",
 );
 expectIncludes(
   repoPath("artifacts", "nxtdrive", "app", "student", "page.tsx"),
-  "<PWAHero",
-  "student hero shell",
+  "deriveStudentNextAction",
+  "student cross-domain next action",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "instructor", "page.tsx"),
-  "Goedemorgen",
-  "instructor product copy",
+  repoPath("artifacts", "nxtdrive", "app", "instructeur", "page.tsx"),
+  "InstructorCockpitView",
+  "instructor canonical cockpit",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "student", "lessons", "[lessonId]", "page.tsx"),
+  repoPath("artifacts", "nxtdrive", "app", "leerling", "lessen", "[lessonId]", "page.tsx"),
   "<PWAPageHeader",
   "student lesson detail shell",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "instructor", "[lessonId]", "page.tsx"),
-  "<PWAPageHeader",
+  repoPath("artifacts", "nxtdrive", "app", "instructeur", "lessen", "[lessonId]", "page.tsx"),
+  "RisEvaluationWorkspace",
   "instructor lesson cockpit shell",
+);
+expectIncludes(
+  repoPath("artifacts", "nxtdrive", "public", "sw.js"),
+  '"/offline-leerling.html"',
+  "privacy-safe student offline fallback",
+);
+expectIncludes(
+  repoPath("artifacts", "nxtdrive", "public", "sw.js"),
+  '"/offline-instructeur.html"',
+  "privacy-safe instructor offline fallback",
 );
 expectIncludes(
   repoPath("docs", "SPRINT_10_APP_POLISH.md"),
