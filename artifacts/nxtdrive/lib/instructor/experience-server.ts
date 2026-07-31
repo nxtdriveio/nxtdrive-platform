@@ -377,6 +377,16 @@ async function loadInstructorRouteExperience(
   );
   const needsAvailability = scope === "cockpit";
   const needsStudents = ["students", "student"].includes(scope);
+  const needsStudentRows = [
+    "cockpit",
+    "agenda",
+    "students",
+    "student",
+    "reports",
+  ].includes(scope);
+  const needsBalances = ["cockpit", "students", "student", "reports"].includes(
+    scope,
+  );
 
   const [
     lessonWindowResult,
@@ -492,14 +502,14 @@ async function loadInstructorRouteExperience(
     { data: balancesRaw, error: balancesError },
     readinessByStudent,
   ] = await Promise.all([
-    studentIds.length
+    needsStudentRows && studentIds.length
       ? supabase
           .from("students")
           .select("id, full_name, phone, postcode, email")
           .eq("tenant_id", tenant.id)
           .in("id", studentIds)
       : Promise.resolve({ data: [], error: null }),
-    studentIds.length
+    needsBalances && studentIds.length
       ? supabase
           .from("student_credit_balance")
           .select("student_id, balance")
