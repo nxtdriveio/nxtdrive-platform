@@ -64,7 +64,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.reflection",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "navigation",
+    visibility: "contextual",
   },
   {
     id: "learner.messages",
@@ -74,7 +74,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.messages",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "navigation",
+    visibility: "contextual",
   },
   {
     id: "learner.message",
@@ -94,7 +94,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.exams",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "navigation",
+    visibility: "contextual",
   },
   {
     id: "learner.settings",
@@ -114,7 +114,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.theory",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "contextual",
+    visibility: "navigation",
   },
   {
     id: "learner.payments",
@@ -218,9 +218,19 @@ export const routeManifest: readonly RouteDefinition[] = [
   ...learnerRoutes,
 ];
 
-export const learnerNavigation = learnerRoutes.filter(
-  (route) => route.visibility === "navigation",
-);
+const LEARNER_NAVIGATION_ORDER = [
+  "learner.home",
+  "learner.lessons",
+  "learner.progress",
+  "learner.theory",
+  "learner.settings",
+] as const;
+
+export const learnerNavigation = LEARNER_NAVIGATION_ORDER.map((id) => {
+  const route = learnerRoutes.find((candidate) => candidate.id === id);
+  if (!route) throw new Error(`Missing learner navigation route: ${id}`);
+  return route;
+});
 
 function matchRoutePattern(
   pattern: string,

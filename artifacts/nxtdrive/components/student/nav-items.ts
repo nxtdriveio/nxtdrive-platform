@@ -1,14 +1,9 @@
 import {
-  BadgeCheck,
   BookOpen,
   CalendarDays,
-  FileText,
   Home,
-  MessageCircle,
-  MoreHorizontal,
   Route,
-  Settings,
-  Wallet,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { learnerRoutes } from "@/lib/routes";
@@ -42,24 +37,16 @@ export const STUDENT_BOTTOM_NAV_ITEMS: StudentNavItem[] = [
   learnerNavItem("learner.home", Home, true),
   learnerNavItem("learner.lessons", CalendarDays),
   learnerNavItem("learner.progress", Route),
-  learnerNavItem("learner.messages", MessageCircle),
-  { ...learnerNavItem("learner.settings", MoreHorizontal), label: "Meer" },
+  learnerNavItem("learner.theory", BookOpen),
+  { ...learnerNavItem("learner.settings", User), label: "Account" },
 ];
 
 export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
-  {
-    ...learnerNavItem("learner.home", Home, true),
-    label: "Dashboard",
-  },
-  learnerNavItem("learner.progress", Route),
+  learnerNavItem("learner.home", Home, true),
   learnerNavItem("learner.lessons", CalendarDays),
-  learnerNavItem("learner.reflection", Route),
+  learnerNavItem("learner.progress", Route),
   learnerNavItem("learner.theory", BookOpen),
-  learnerNavItem("learner.messages", MessageCircle),
-  learnerNavItem("learner.payments", Wallet),
-  learnerNavItem("learner.exams", BadgeCheck),
-  learnerNavItem("learner.documents", FileText),
-  learnerNavItem("learner.settings", Settings),
+  { ...learnerNavItem("learner.settings", User), label: "Account" },
 ];
 
 export const STUDENT_NAV_ITEMS = STUDENT_SIDEBAR_NAV_ITEMS;
