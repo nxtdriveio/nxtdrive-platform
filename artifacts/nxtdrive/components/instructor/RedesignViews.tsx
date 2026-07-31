@@ -20,7 +20,6 @@ import {
   Phone,
   Plus,
   Route,
-  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -43,7 +42,6 @@ import { NotificationInbox } from "@/components/notifications/NotificationInbox"
 import {
   type InstructorAppointment,
   type InstructorAppointmentType,
-  type InstructorEvaluation,
   type InstructorEvaluationStatus,
   type InstructorExperience,
   type InstructorStudent,
@@ -1083,140 +1081,6 @@ export function InstructorEvaluationsView({
           )}
         </div>
       </InstructorCard>
-    </InstructorPage>
-  );
-}
-
-export function InstructorEvaluationDetailView({
-  lessonId,
-  data,
-}: {
-  lessonId?: string;
-  data?: InstructorExperience;
-}) {
-  if (!data)
-    return <DataUnavailableState title="Lesevaluatie niet beschikbaar" />;
-  const evaluation = data.evaluations.find((item) => item.id === lessonId);
-  if (!evaluation) {
-    return (
-      <DataUnavailableState
-        title="Lesevaluatie niet gevonden"
-        subtitle="Deze leskaart staat niet in jouw instructeursoverzicht."
-      />
-    );
-  }
-  return (
-    <InstructorPage>
-      <PageHeader
-        eyebrow="Les evaluatie"
-        title={evaluation.studentName}
-        subtitle={`${evaluation.lessonLabel} - ${evaluation.lessonDate}`}
-        actions={
-          <Badge variant={evaluationStatus[evaluation.status].variant}>
-            {evaluationStatus[evaluation.status].label}
-          </Badge>
-        }
-      />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <InstructorCard title="RIS beoordeling" icon={FileText}>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {["Lesinfo", "RIS beoordeling", "Reflectie", "Samenvatting"].map(
-              (tab, index) => (
-                <span
-                  key={tab}
-                  className={cn(
-                    "rounded-full px-3 py-2 text-xs font-bold",
-                    index === 1
-                      ? "bg-brand-primary text-white"
-                      : "bg-brand-muted text-muted-foreground",
-                  )}
-                >
-                  {tab}
-                </span>
-              ),
-            )}
-          </div>
-          <div className="space-y-4">
-            {evaluation.modules.length > 0 ? (
-              evaluation.modules.map((module) => (
-                <div
-                  key={module.id}
-                  className="rounded-[1.25rem] border border-brand-border bg-white"
-                >
-                  <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
-                    <p className="font-black text-foreground">{module.name}</p>
-                    <span className="text-xs font-bold text-muted-foreground">
-                      {module.completed} / {module.total} scripts beoordeeld
-                    </span>
-                  </div>
-                  <div className="divide-y divide-brand-border">
-                    {module.scripts.map((script) => (
-                      <div
-                        key={script.id}
-                        className="grid gap-3 px-4 py-3 sm:grid-cols-[2rem_1fr_auto] sm:items-center"
-                      >
-                        <span className="text-sm font-bold text-muted-foreground">
-                          {script.index}.
-                        </span>
-                        <p className="text-sm font-bold text-foreground">
-                          {script.name}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-muted-foreground">
-                            -
-                          </button>
-                          <span
-                            className={cn(
-                              "grid h-8 min-w-12 place-items-center rounded-lg px-3 text-sm font-black",
-                              script.status === "ready"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : script.status === "attention"
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-brand-muted text-muted-foreground",
-                            )}
-                          >
-                            {script.score}
-                          </span>
-                          <button className="h-8 w-8 rounded-lg border border-brand-border bg-white font-black text-brand-primary">
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm leading-6 text-muted-foreground">
-                Deze leskaart bevat nog geen RIS-modules. Open de volledige
-                lesevaluatie om met actuele RIS-data te werken.
-              </p>
-            )}
-          </div>
-        </InstructorCard>
-        <div className="space-y-4">
-          <InstructorCard title="Samenvatting concept" icon={FileText}>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Er is nog geen conceptsamenvatting opgeslagen voor deze leskaart.
-            </p>
-          </InstructorCard>
-          <InstructorCard title="Publiceren" icon={Send}>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Controleer de samenvatting voordat je publiceert. Pas na jouw
-              bevestiging ziet de leerling de reflectie; interne notities
-              blijven verborgen.
-            </p>
-            <div className="mt-4 grid gap-2">
-              <button className={buttonVariants({ variant: "outline" })}>
-                Opslaan als concept
-              </button>
-              <button className={buttonVariants()}>
-                Afronden & publiceren
-              </button>
-            </div>
-          </InstructorCard>
-        </div>
-      </div>
     </InstructorPage>
   );
 }

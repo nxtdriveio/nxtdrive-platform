@@ -224,7 +224,7 @@ export function InstructorActionsPanel({
           <LinkTile
             icon={ClipboardCheck}
             label="Proefles beoordelen"
-            href="/instructeur/intake"
+            href="/instructeur/agenda"
           />
           <LinkTile
             icon={PackagePlus}
