@@ -13,7 +13,7 @@ function expectIncludes(filePath: string, snippet: string, label: string) {
 }
 
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "student", "layout.tsx"),
+  repoPath("artifacts", "nxtdrive", "app", "leerling", "layout.tsx"),
   "homePathForRoles(roles) !== \"/leerling\"",
   "student primary app guard",
 );
@@ -33,7 +33,7 @@ expectIncludes(
   "shared hero primitive",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "student", "manifest.webmanifest", "route.ts"),
+  repoPath("artifacts", "nxtdrive", "app", "leerling", "manifest.webmanifest", "route.ts"),
   'start_url: "/leerling"',
   "student canonical manifest",
 );
@@ -43,7 +43,7 @@ expectIncludes(
   "instructor canonical manifest",
 );
 expectIncludes(
-  repoPath("artifacts", "nxtdrive", "app", "student", "page.tsx"),
+  repoPath("artifacts", "nxtdrive", "app", "leerling", "page.tsx"),
   "deriveStudentNextAction",
   "student cross-domain next action",
 );

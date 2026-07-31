@@ -204,10 +204,41 @@ const studentDetailPage = read(
   "page.tsx",
 );
 assert(
-  studentDetailPage.includes("loadInstructorExperience") &&
+  studentDetailPage.includes("loadInstructorStudent") &&
     redesign.includes("student.conversationId") &&
     redesign.includes("`/instructeur/berichten/${student.conversationId}`"),
   "instructor student workspace should expose the scoped conversation",
+);
+
+const agendaPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructeur",
+  "agenda",
+  "page.tsx",
+);
+const studentsPage = read(
+  "artifacts",
+  "nxtdrive",
+  "app",
+  "instructeur",
+  "leerlingen",
+  "page.tsx",
+);
+assert(
+  agendaPage.includes("loadInstructorAgenda") &&
+    agendaPage.includes("selectedAppointmentId") &&
+    studentsPage.includes("loadInstructorStudents") &&
+    studentsPage.includes("selectedStudentId") &&
+    redesign.includes("?afspraak=") &&
+    redesign.includes("?leerling="),
+  "tablet agenda and student routes should use scoped master-detail loaders",
+);
+assert(
+  cockpit.includes("sm:grid-cols-2 xl:grid-cols-4") &&
+    !cockpit.includes("lg:grid-cols-3"),
+  "instructor cockpit should stay at no more than two columns on tablet",
 );
 
 const intakePage = read(

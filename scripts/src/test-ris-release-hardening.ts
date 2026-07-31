@@ -26,10 +26,8 @@ const reflectionRlsMigration = read(
 const instructorLessonWorkspace = read(
   "artifacts",
   "nxtdrive",
-  "app",
+  "components",
   "instructor",
-  "evaluations",
-  "[lessonId]",
   "RisEvaluationWorkspace.tsx",
 );
 const actionsPanel = read(
@@ -44,14 +42,6 @@ const studentProgressPage = read(
   "nxtdrive",
   "app",
   "leerling",
-  "voortgang",
-  "page.tsx",
-);
-const studentProgressImplementation = read(
-  "artifacts",
-  "nxtdrive",
-  "app",
-  "student",
   "voortgang",
   "page.tsx",
 );
@@ -138,10 +128,9 @@ ok(
 );
 
 ok(
-  studentProgressPage.includes('from "@/app/student/voortgang/page"') &&
-    studentProgressImplementation.includes("loadStudentRisProgress") &&
-    studentProgressImplementation.includes('lessonCardMode === "ris"') &&
-    studentProgressImplementation.includes("loadStudentLeskaart"),
+  studentProgressPage.includes("loadStudentRisProgress") &&
+    studentProgressPage.includes('lessonCardMode === "ris"') &&
+    studentProgressPage.includes("loadStudentLeskaart"),
   "Student progress route switches between RIS and legacy views per tenant setting",
 );
 
