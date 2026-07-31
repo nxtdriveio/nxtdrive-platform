@@ -1,28 +1,26 @@
-import { getStudentPwaContext } from "@/lib/student-pwa/context";
-import {
-  StudentNotificationList,
-  StudentPageHeader,
-} from "@/components/student/StudentPwa";
-import { buttonVariants } from "@/components/ui/button";
+import { Bell } from "lucide-react";
+import { requireActiveTenant } from "@/lib/auth/require-role";
+import { NotificationInbox } from "@/components/notifications/NotificationInbox";
+import { PWAPage, PWAPageHeader } from "@/components/pwa/primitives";
+import { loadInAppNotifications } from "@/lib/notifications/in-app";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentNotificationsPage() {
-  const { experience } = await getStudentPwaContext();
+  const { tenant } = await requireActiveTenant(["student", "parent"]);
+  const { items, unreadCount } = await loadInAppNotifications(tenant.id, {
+    limit: 100,
+  });
 
   return (
-    <div className="min-w-0 space-y-4 lg:space-y-6">
-      <StudentPageHeader
+    <PWAPage app="student" contentClassName="space-y-4">
+      <PWAPageHeader
         eyebrow="Meldingen"
         title="Updates"
         subtitle="Lessen, feedback, betalingen en berichten die aandacht vragen."
-        action={
-          <button type="button" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Alles gelezen
-          </button>
-        }
+        icon={<Bell className="h-4 w-4" aria-hidden />}
       />
-      <StudentNotificationList notifications={experience.notifications} />
-    </div>
+      <NotificationInbox items={items} unreadCount={unreadCount} />
+    </PWAPage>
   );
 }
