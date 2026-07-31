@@ -362,3 +362,26 @@ export const instructorVisualFixture: InstructorExperience = {
     href: "/instructeur/lessen/appointment-1",
   },
 };
+
+export const instructorChatVisualFixture: InstructorExperience = {
+  ...instructorVisualFixture,
+  messages: instructorVisualFixture.messages.map((thread) =>
+    thread.id === "thread-1"
+      ? {
+          ...thread,
+          messages: Array.from({ length: 14 }, (_, index) => ({
+            id: `chat-layout-message-${index + 1}`,
+            conversationId: "thread-1",
+            senderSide: index % 2 === 0 ? "student" : "instructor",
+            body:
+              index % 2 === 0
+                ? `Vraag van Mila over lesonderdeel ${index + 1}.`
+                : `Antwoord van de instructeur op bericht ${index}.`,
+            createdAt: new Date(
+              Date.UTC(2026, 6, 31, 8, index * 5),
+            ).toISOString(),
+          })),
+        }
+      : thread,
+  ),
+};

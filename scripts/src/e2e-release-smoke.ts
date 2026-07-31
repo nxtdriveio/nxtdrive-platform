@@ -198,6 +198,7 @@ try {
     "/visual-fixtures/instructeur",
     "/visual-fixtures/instructeur/agenda",
     "/visual-fixtures/instructeur/leerlingen",
+    "/visual-fixtures/instructeur/berichten/thread-1",
     "/visual-fixtures/instructeur/meer",
   ];
   for (const viewport of requiredViewports) {
@@ -235,6 +236,74 @@ try {
     page,
     "mobile instructor notification overlay at 390x844",
   );
+
+  await page.goto(`${baseUrl}/visual-fixtures/instructeur/berichten/thread-1`, {
+    waitUntil: "networkidle",
+  });
+  const chatLayout = await page.evaluate(() => {
+    const thread = document.querySelector<HTMLElement>("[data-chat-thread]");
+    const messages = document.querySelector<HTMLElement>(
+      "[data-chat-messages]",
+    );
+    const composer = document.querySelector<HTMLElement>(
+      "[data-chat-composer]",
+    );
+    const bottomNav = document.querySelector<HTMLElement>(
+      'nav[aria-label="Mobiele instructeurnavigatie"]',
+    );
+    if (!thread || !messages || !composer || !bottomNav) return null;
+    const threadRect = thread.getBoundingClientRect();
+    const composerRect = composer.getBoundingClientRect();
+    const bottomNavRect = bottomNav.getBoundingClientRect();
+    return {
+      documentScrollHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+      chatBottom: threadRect.bottom,
+      composerBottom: composerRect.bottom,
+      bottomNavTop: bottomNavRect.top,
+      messageOverflowY: getComputedStyle(messages).overflowY,
+      messagesScrollHeight: messages.scrollHeight,
+      messagesClientHeight: messages.clientHeight,
+      onlineLabels: Array.from(document.querySelectorAll("p, span")).filter(
+        (element) => element.textContent?.trim() === "Online",
+      ).length,
+    };
+  });
+  assert.ok(chatLayout, "mobile instructor chat layout must render");
+  assert.equal(
+    chatLayout.documentScrollHeight <= chatLayout.viewportHeight + 1,
+    true,
+    "mobile instructor chat page itself must not scroll",
+  );
+  assert.equal(
+    chatLayout.bottomNavTop - chatLayout.chatBottom >= 8,
+    true,
+    "mobile chat container must keep space above the bottom navigation",
+  );
+  assert.equal(
+    Math.abs(chatLayout.chatBottom - chatLayout.composerBottom) <= 1,
+    true,
+    "message composer must sit at the bottom of the white chat container",
+  );
+  assert.equal(
+    chatLayout.messageOverflowY === "auto" ||
+      chatLayout.messageOverflowY === "scroll",
+    true,
+    "conversation must use inline vertical scrolling",
+  );
+  assert.equal(
+    chatLayout.messagesScrollHeight > chatLayout.messagesClientHeight,
+    true,
+    "long conversations must overflow inside the messages region",
+  );
+  assert.equal(
+    chatLayout.onlineLabels,
+    0,
+    "chat must not claim a learner is online without presence data",
+  );
+  await page.getByRole("link", { name: "Terug naar gesprekken" }).click();
+  await page.waitForURL(`${baseUrl}/visual-fixtures/instructeur/berichten`);
+  await page.getByRole("heading", { name: "Berichten" }).waitFor();
 
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/meer`, {
     waitUntil: "networkidle",

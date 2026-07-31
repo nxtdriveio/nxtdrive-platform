@@ -129,7 +129,7 @@ export function ChatThread({
       className={cn(
         "flex flex-col overflow-hidden",
         instructorAppearance
-          ? "h-full min-h-0 bg-white"
+          ? "min-h-0 flex-1 bg-white"
           : "h-[min(34rem,calc(100dvh-12.5rem))] min-h-[24rem] rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,33,0.96),rgba(10,10,22,0.98))] shadow-[0_24px_60px_rgba(2,3,10,0.38)]",
       )}
     >
@@ -176,8 +176,9 @@ export function ChatThread({
       ) : null}
 
       <div
+        data-chat-messages=""
         ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
       >
         {messages.length === 0 ? (
           <div
@@ -267,8 +268,9 @@ export function ChatThread({
       </div>
 
       <div
+        data-chat-composer=""
         className={cn(
-          "border-t p-3",
+          "shrink-0 border-t p-3",
           instructorAppearance
             ? "border-brand-border bg-white"
             : "border-white/8",

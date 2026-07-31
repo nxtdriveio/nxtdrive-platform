@@ -1196,9 +1196,11 @@ export function InstructorEvaluationsView({
 export function InstructorMessagesView({
   threadId,
   data,
+  messagesBasePath = "/instructeur/berichten",
 }: {
   threadId?: string;
   data?: InstructorExperience;
+  messagesBasePath?: string;
 }) {
   if (!data) return <DataUnavailableState title="Berichten niet beschikbaar" />;
   const hasSelectedThread = Boolean(threadId);
@@ -1207,7 +1209,11 @@ export function InstructorMessagesView({
     (hasSelectedThread ? null : data.messages[0]) ??
     null;
   return (
-    <InstructorPage>
+    <InstructorPage
+      className={cn(
+        hasSelectedThread && "h-full space-y-0 overflow-hidden md:h-auto",
+      )}
+    >
       <div className={cn(hasSelectedThread && "hidden md:block")}>
         <PageHeader
           eyebrow="Communicatie"
@@ -1215,7 +1221,13 @@ export function InstructorMessagesView({
           subtitle="Gesprekken met leerlingen, planning en team in een overzichtelijke split-view."
         />
       </div>
-      <div className="grid gap-3 md:h-[calc(100dvh-12rem)] md:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]">
+      <div
+        data-instructor-chat-detail={hasSelectedThread ? "" : undefined}
+        className={cn(
+          "grid gap-3 md:h-[calc(100dvh-12rem)] md:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)]",
+          hasSelectedThread && "h-full min-h-0",
+        )}
+      >
         <InstructorCard
           title="Gesprekken"
           icon={MessageCircle}
@@ -1227,7 +1239,7 @@ export function InstructorMessagesView({
               data.messages.map((thread) => (
                 <Link
                   key={thread.id}
-                  href={`/instructeur/berichten/${thread.id}`}
+                  href={`${messagesBasePath}/${thread.id}`}
                   className={cn(
                     "flex min-h-[4.75rem] items-center gap-3 rounded-2xl border p-3 transition hover:border-brand-primary/40 hover:bg-brand-accent/70",
                     thread.id === active?.id
@@ -1260,15 +1272,22 @@ export function InstructorMessagesView({
           <InstructorCard
             title={active.name}
             icon={User}
-            right={<Badge variant="success">Online</Badge>}
-            className={cn(!hasSelectedThread && "hidden md:block", "md:h-full")}
+            right={<Badge variant="info">{active.role}</Badge>}
+            className={cn(
+              !hasSelectedThread && "hidden md:block",
+              hasSelectedThread && "h-full min-h-0",
+              "md:h-full",
+            )}
             headerClassName="hidden md:flex"
-            contentClassName="flex min-h-[calc(100dvh-8.5rem)] flex-col p-0 md:h-[calc(100%-4.25rem)] md:min-h-0"
+            contentClassName="flex h-full min-h-0 flex-col p-0 md:h-[calc(100%-4.25rem)]"
           >
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
+              <div className="relative z-10 flex shrink-0 items-center gap-2 border-b border-brand-border/70 px-4 py-3 md:hidden">
                 <Link
-                  href="/instructeur/berichten"
+                  href={messagesBasePath}
+                  replace
+                  prefetch={false}
+                  data-chat-back=""
                   aria-label="Terug naar gesprekken"
                   className="grid h-9 w-9 place-items-center rounded-xl border border-brand-border bg-white text-foreground"
                 >
@@ -1278,7 +1297,7 @@ export function InstructorMessagesView({
                   <p className="truncate text-sm font-black text-foreground">
                     {active.name}
                   </p>
-                  <p className="text-xs text-success">Online</p>
+                  <p className="text-xs text-muted-foreground">{active.role}</p>
                 </div>
               </div>
               <ChatThread

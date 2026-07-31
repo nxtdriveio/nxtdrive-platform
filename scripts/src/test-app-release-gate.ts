@@ -55,6 +55,12 @@ assert.match(instructorData, /loadStudentsReadiness/);
 const redesign = appRead("components", "instructor", "RedesignViews.tsx");
 assert.match(redesign, /<ChatThread/);
 assert.equal(
+  redesign.includes('variant="success">Online</Badge>') ||
+    redesign.includes('className="text-xs text-success">Online</p>'),
+  false,
+  "instructor chat must not invent online presence",
+);
+assert.equal(
   existsSync(
     path.join(
       appRoot,
@@ -109,6 +115,9 @@ for (const releaseCheck of [
   "Account en instellingen",
   "Uitloggen",
   "Leerling toevoegen",
+  "mobile instructor chat page itself must not scroll",
+  "conversation must use inline vertical scrolling",
+  "Terug naar gesprekken",
   "?afspraak=",
   "?leerling=",
 ]) {

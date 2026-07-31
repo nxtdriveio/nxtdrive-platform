@@ -1302,3 +1302,37 @@ body {
 [data-pwa-copy] :where(table, ul, ol, div, section, article) {
   min-width: 0;
 }
+
+/*
+ * Een geopend instructeursgesprek gebruikt op telefoon de appviewport als
+ * vaste werkruimte. De pagina zelf beweegt niet; alleen de berichtenkolom
+ * scrolt. De bestaande main-padding houdt de witte kaart vrij van de bottomnav.
+ */
+@media (max-width: 767px) {
+  html:has([data-instructor-chat-detail]),
+  body:has([data-instructor-chat-detail]) {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  [data-instructor-shell]:has([data-instructor-chat-detail]) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  [data-instructor-shell]:has([data-instructor-chat-detail]) > div,
+  main:has([data-instructor-chat-detail]),
+  main:has([data-instructor-chat-detail]) > div {
+    min-height: 0;
+  }
+
+  main:has([data-instructor-chat-detail]) {
+    overflow: hidden;
+  }
+
+  main:has([data-instructor-chat-detail]) > div {
+    height: 100%;
+  }
+}
