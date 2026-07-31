@@ -20,12 +20,24 @@ function source(pathFromRepoRoot: string): string {
 
 const entitlements = source("artifacts/nxtdrive/lib/platform/entitlements.ts");
 const branchActions = source("artifacts/nxtdrive/lib/branches/actions.ts");
-const settingsActions = source("artifacts/nxtdrive/app/backoffice/instellingen/actions.ts");
-const reportsPage = source("artifacts/nxtdrive/app/backoffice/rapportages/page.tsx");
-const reportExportRoute = source("artifacts/nxtdrive/app/backoffice/rapportages/export/route.ts");
-const leadActions = source("artifacts/nxtdrive/app/backoffice/leads/actions.ts");
-const leadDetailPage = source("artifacts/nxtdrive/app/backoffice/leads/[id]/page.tsx");
-const instructorAiActions = source("artifacts/nxtdrive/app/instructor/ai-actions.ts");
+const settingsActions = source(
+  "artifacts/nxtdrive/app/backoffice/instellingen/actions.ts",
+);
+const reportsPage = source(
+  "artifacts/nxtdrive/app/backoffice/rapportages/page.tsx",
+);
+const reportExportRoute = source(
+  "artifacts/nxtdrive/app/backoffice/rapportages/export/route.ts",
+);
+const leadActions = source(
+  "artifacts/nxtdrive/app/backoffice/leads/actions.ts",
+);
+const leadDetailPage = source(
+  "artifacts/nxtdrive/app/backoffice/leads/[id]/page.tsx",
+);
+const instructorAiActions = source(
+  "artifacts/nxtdrive/app/instructeur/ai-actions.ts",
+);
 const notificationActions = source(
   "artifacts/nxtdrive/app/backoffice/instellingen/notificaties/actions.ts",
 );
@@ -41,14 +53,26 @@ const branchesPage = source(
 const memberBranchesPage = source(
   "artifacts/nxtdrive/app/backoffice/medewerkers/[membershipId]/vestigingen/page.tsx",
 );
-const platformTenantActions = source("artifacts/nxtdrive/app/admin/tenants/[id]/actions.ts");
+const platformTenantActions = source(
+  "artifacts/nxtdrive/app/admin/tenants/[id]/actions.ts",
+);
 const franchiseAccess = source("artifacts/nxtdrive/lib/franchise/access.ts");
 const franchiseActions = source("artifacts/nxtdrive/lib/franchise/actions.ts");
-const franchiseDashboardPage = source("artifacts/nxtdrive/app/backoffice/franchise/page.tsx");
-const franchiseTemplatesPage = source("artifacts/nxtdrive/app/backoffice/franchise/templates/page.tsx");
-const packagesPage = source("artifacts/nxtdrive/app/backoffice/packages/page.tsx");
-const accountingPage = source("artifacts/nxtdrive/app/backoffice/boekhouding/page.tsx");
-const commercialAccess = source("artifacts/nxtdrive/lib/platform/commercial-access.ts");
+const franchiseDashboardPage = source(
+  "artifacts/nxtdrive/app/backoffice/franchise/page.tsx",
+);
+const franchiseTemplatesPage = source(
+  "artifacts/nxtdrive/app/backoffice/franchise/templates/page.tsx",
+);
+const packagesPage = source(
+  "artifacts/nxtdrive/app/backoffice/packages/page.tsx",
+);
+const accountingPage = source(
+  "artifacts/nxtdrive/app/backoffice/boekhouding/page.tsx",
+);
+const commercialAccess = source(
+  "artifacts/nxtdrive/lib/platform/commercial-access.ts",
+);
 const accountingInvoiceExportRoute = source(
   "artifacts/nxtdrive/app/backoffice/boekhouding/export/facturen/route.ts",
 );
@@ -58,7 +82,9 @@ const accountingPaymentExportRoute = source(
 const accountingCustomerExportRoute = source(
   "artifacts/nxtdrive/app/backoffice/boekhouding/export/klanten/route.ts",
 );
-const subscriptionPage = source("artifacts/nxtdrive/app/backoffice/abonnement/page.tsx");
+const subscriptionPage = source(
+  "artifacts/nxtdrive/app/backoffice/abonnement/page.tsx",
+);
 const docs = source("docs/SPRINT_7_ENTITLEMENTS_COMPLETION.md");
 const scriptsPackage = source("scripts/package.json");
 
@@ -102,8 +128,12 @@ check(
     commercialAccess.includes("featureAccess.advanced_reports") &&
     commercialAccess.includes("NextResponse.json") &&
     reportExportRoute.includes("requireAdvancedReportExportAccess") &&
-    accountingInvoiceExportRoute.includes("requireAdvancedReportExportAccess") &&
-    accountingPaymentExportRoute.includes("requireAdvancedReportExportAccess") &&
+    accountingInvoiceExportRoute.includes(
+      "requireAdvancedReportExportAccess",
+    ) &&
+    accountingPaymentExportRoute.includes(
+      "requireAdvancedReportExportAccess",
+    ) &&
     accountingCustomerExportRoute.includes("requireAdvancedReportExportAccess"),
 );
 

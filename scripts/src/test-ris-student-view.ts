@@ -15,7 +15,7 @@ function check(name: string, ok: boolean): void {
 
 const risData = source("artifacts/nxtdrive/lib/ris/data.ts");
 const studentProgressPage = source(
-  "artifacts/nxtdrive/app/student/voortgang/page.tsx",
+  "artifacts/nxtdrive/app/leerling/voortgang/page.tsx",
 );
 const studentRisView = source(
   "artifacts/nxtdrive/components/ris/StudentRisProgressView.tsx",

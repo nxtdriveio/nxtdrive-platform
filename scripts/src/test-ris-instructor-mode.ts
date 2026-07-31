@@ -20,7 +20,7 @@ const lessonPage = source(
   "artifacts/nxtdrive/app/instructeur/lessen/[lessonId]/page.tsx",
 );
 const evaluationWorkspace = source(
-  "artifacts/nxtdrive/app/instructor/evaluations/[lessonId]/RisEvaluationWorkspace.tsx",
+  "artifacts/nxtdrive/components/instructor/RisEvaluationWorkspace.tsx",
 );
 const evaluationTabs = source(
   "artifacts/nxtdrive/components/ris/RisEvaluationTabs.tsx",

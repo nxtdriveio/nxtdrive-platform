@@ -18,12 +18,21 @@ function source(pathFromRepoRoot: string): string {
   return readFileSync(fileURLToPath(url), "utf8");
 }
 
-const cookieOptions = source("artifacts/nxtdrive/lib/supabase/cookie-options.ts");
+const cookieOptions = source(
+  "artifacts/nxtdrive/lib/supabase/cookie-options.ts",
+);
 const middleware = source("artifacts/nxtdrive/middleware.ts");
+const securityHeaders = source("artifacts/nxtdrive/lib/security/headers.ts");
 const nextConfig = source("artifacts/nxtdrive/next.config.mjs");
-const platformManifest = source("artifacts/nxtdrive/app/manifest.webmanifest/route.ts");
-const studentManifest = source("artifacts/nxtdrive/app/student/manifest.webmanifest/route.ts");
-const instructorManifest = source("artifacts/nxtdrive/app/instructor/manifest.webmanifest/route.ts");
+const platformManifest = source(
+  "artifacts/nxtdrive/app/manifest.webmanifest/route.ts",
+);
+const studentManifest = source(
+  "artifacts/nxtdrive/app/leerling/manifest.webmanifest/route.ts",
+);
+const instructorManifest = source(
+  "artifacts/nxtdrive/app/instructeur/manifest.webmanifest/route.ts",
+);
 const tlsCheck = source("artifacts/nxtdrive/app/api/tls-check/route.ts");
 const readinessDocs = source("docs/PRODUCTION_READINESS_CHECKLIST.md");
 const scriptsPackage = source("scripts/package.json");
@@ -41,18 +50,18 @@ check(
   middleware.includes("PROTECTED_PATHS") &&
     middleware.includes("isProtectedPath") &&
     middleware.includes("shouldSkipAuthRefresh") &&
-    middleware.includes('"/backoffice/:path*"') &&
-    middleware.includes('"/student/:path*"') &&
-    middleware.includes('"/instructor/:path*"') &&
-    !middleware.includes('/((?!api/health'),
+    middleware.includes('"/backoffice"') &&
+    middleware.includes('"/leerling"') &&
+    middleware.includes('"/instructeur"') &&
+    !middleware.includes("/((?!api/health"),
 );
 
 check(
   "middleware adds baseline app security headers",
   middleware.includes("withAppSecurityHeaders") &&
-    middleware.includes("X-Content-Type-Options") &&
-    middleware.includes("Referrer-Policy") &&
-    middleware.includes("X-Frame-Options"),
+    securityHeaders.includes("X-Content-Type-Options") &&
+    securityHeaders.includes("Referrer-Policy") &&
+    securityHeaders.includes("X-Frame-Options"),
 );
 
 check(
@@ -60,7 +69,8 @@ check(
   [platformManifest, studentManifest, instructorManifest].every(
     (manifest) =>
       manifest.includes("stale-while-revalidate=86400") &&
-      manifest.includes('"Vary": "Host, X-Forwarded-Host"'),
+      (manifest.includes('"Vary": "Host, X-Forwarded-Host"') ||
+        manifest.includes('Vary: "Host, X-Forwarded-Host"')),
   ),
 );
 
