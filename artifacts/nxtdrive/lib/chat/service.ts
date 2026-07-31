@@ -325,3 +325,54 @@ export async function loadInstructorThread(params: {
     messages,
   };
 }
+
+/**
+ * Load a single conversation for the student side. The tenant + student filter
+ * is mandatory even though message reads also use RLS: it prevents a guessed
+ * conversation id from resolving to another learner before the thread is shown.
+ */
+export async function loadStudentThread(params: {
+  tenantId: string;
+  conversationId: string;
+  studentId: string;
+  actorId: string;
+}): Promise<ChatThreadData | null> {
+  const service = createServiceRoleClient();
+  const { data, error } = await service
+    .from("chat_conversations")
+    .select("id, tenant_id, student_id, instructor_id")
+    .eq("tenant_id", params.tenantId)
+    .eq("student_id", params.studentId)
+    .eq("id", params.conversationId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Studentgesprek laden mislukt: ${error.message}`);
+  }
+
+  const row = data as Pick<
+    ConversationRow,
+    "id" | "tenant_id" | "student_id" | "instructor_id"
+  > | null;
+  if (!row) return null;
+
+  const instructorNames = await resolveInstructorNames(service, [
+    row.instructor_id,
+  ]);
+  await markConversationRead({
+    tenantId: params.tenantId,
+    conversationId: params.conversationId,
+    actorId: params.actorId,
+  });
+  const messages = await loadThreadMessages(
+    params.tenantId,
+    params.conversationId,
+  );
+
+  return {
+    conversationId: params.conversationId,
+    side: "student",
+    counterpartName:
+      instructorNames.get(row.instructor_id) ?? "Instructeur",
+    messages,
+  };
+}
