@@ -22,7 +22,9 @@ async function assertNoViewportClipping(
   const result = await page.evaluate(() => {
     const viewportWidth = window.innerWidth;
     const visibleOffenders = Array.from(
-      document.querySelectorAll<HTMLElement>("main a, main button, main input"),
+      document.querySelectorAll<HTMLElement>(
+        "main a, main button, main input, [data-notification-panel], [role=dialog]",
+      ),
     )
       .filter((element) => {
         const style = window.getComputedStyle(element);
@@ -229,6 +231,10 @@ try {
   await page.getByRole("button", { name: "Meldingen" }).click();
   await page.getByRole("link", { name: "Bekijk alles" }).waitFor();
   await page.getByRole("link", { name: "Account en instellingen" }).waitFor();
+  await assertNoViewportClipping(
+    page,
+    "mobile instructor notification overlay at 390x844",
+  );
 
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/meer`, {
     waitUntil: "networkidle",

@@ -136,10 +136,11 @@ export function NotificationBell({
 
       {open && (
         <div
+          data-notification-panel=""
           className={cn(
             floating
               ? "fixed right-3 top-[calc(env(safe-area-inset-top)+4rem)] z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden text-popover-foreground sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 sm:max-w-[calc(100vw-2rem)]"
-              : "absolute right-0 z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden text-popover-foreground",
+              : "fixed right-3 top-[calc(env(safe-area-inset-top)+4rem)] z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden text-popover-foreground sm:absolute sm:right-0 sm:top-auto sm:mt-3 sm:w-80 sm:max-w-[calc(100vw-2rem)]",
             floating
               ? "rounded-[1.75rem] border border-border/60 bg-popover/80 shadow-2xl shadow-black/20 backdrop-blur-2xl"
               : "rounded-[1.35rem] border border-border/80 bg-popover shadow-2xl shadow-black/10",
