@@ -56,10 +56,6 @@ import type { InAppNotification } from "@/lib/notifications/types";
 
 type IconComponent = typeof CalendarDays;
 
-const cockpitCardClassName = "h-full min-h-0 flex flex-col";
-const cockpitCardContentClassName =
-  "min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-gutter:stable]";
-
 function currentMonthCalendar() {
   const today = new Date();
   const year = today.getFullYear();
@@ -407,88 +403,6 @@ function AppointmentCard({
   );
 }
 
-function NextLessonCard({
-  appointments,
-}: {
-  appointments: InstructorAppointment[];
-}) {
-  const lesson =
-    appointments.find((appointment) => appointment.type === "lesson") ??
-    appointments[0] ??
-    null;
-
-  if (!lesson) {
-    return (
-      <InstructorCard
-        title="Volgende les"
-        icon={CalendarDays}
-        className={cockpitCardClassName}
-        contentClassName={cn(cockpitCardContentClassName, "space-y-3")}
-      >
-        <p className="text-sm leading-6 text-muted-foreground">
-          Er staat vandaag nog geen les in je agenda.
-        </p>
-        <Link
-          href="/instructeur/agenda/nieuw"
-          className={buttonVariants({ size: "sm" })}
-        >
-          Les plannen
-        </Link>
-      </InstructorCard>
-    );
-  }
-
-  return (
-    <InstructorCard
-      title="Volgende les"
-      icon={CalendarDays}
-      right={<Badge variant="primary">{lesson.startsAt}</Badge>}
-      className={cockpitCardClassName}
-      contentClassName={cn(cockpitCardContentClassName, "space-y-3")}
-    >
-      <div className="flex items-start gap-3">
-        <Avatar
-          name={lesson.studentName ?? lesson.title}
-          className="h-12 w-12 text-sm"
-        />
-        <div className="min-w-0">
-          <h3 className="truncate text-base font-black text-foreground">
-            {lesson.studentName ?? lesson.title}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {lesson.title} - {lesson.duration}
-          </p>
-        </div>
-      </div>
-      <div className="grid gap-2 text-sm text-muted-foreground">
-        <span className="flex items-center gap-2">
-          <Clock3 className="h-4 w-4 text-brand-primary" aria-hidden />
-          {lesson.startsAt} - {lesson.endsAt}
-        </span>
-        <span className="flex items-center gap-2">
-          <Home className="h-4 w-4 text-brand-primary" aria-hidden />
-          {lesson.location}
-        </span>
-        <span className="flex items-center gap-2">
-          <CarFront className="h-4 w-4 text-brand-primary" aria-hidden />
-          {lesson.vehicle ?? "Voertuig nog niet gekoppeld"}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href={lesson.href} className={buttonVariants({ size: "sm" })}>
-          Les starten
-        </Link>
-        <Link
-          href={lesson.href}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Details bekijken
-        </Link>
-      </div>
-    </InstructorCard>
-  );
-}
-
 export function InstructorCockpitView({
   data,
 }: {
@@ -498,7 +412,7 @@ export function InstructorCockpitView({
   const firstName = data.profile.name.split(" ")[0] ?? data.profile.name;
 
   return (
-    <InstructorPage className="space-y-3 lg:grid lg:h-[calc(100dvh-3.5rem)] lg:min-h-0 lg:grid-rows-[auto_auto_auto_minmax(0,1fr)] lg:gap-3 lg:space-y-0 xl:h-[calc(100dvh-7.5rem)] xl:space-y-0">
+    <InstructorPage className="space-y-3">
       <PageHeader
         eyebrow={data.profile.tenantName}
         title={`Dag ${firstName}!`}
@@ -532,7 +446,6 @@ export function InstructorCockpitView({
               {data.nextAction.time ? (
                 <span>Tijd: {data.nextAction.time}</span>
               ) : null}
-              <span>Reden: {data.nextAction.reasonCode}</span>
             </div>
           </div>
           <Link
@@ -545,7 +458,7 @@ export function InstructorCockpitView({
         </div>
       </InstructorCard>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {data.stats.map((stat) => (
           <StatCard
             key={stat.label}
@@ -574,17 +487,49 @@ export function InstructorCockpitView({
         ))}
       </div>
 
-      <div className="grid min-h-0 gap-3 lg:grid-cols-3 lg:grid-rows-2">
-        <div className="min-h-0 lg:col-start-1 lg:row-start-1">
-          <NextLessonCard appointments={data.appointments} />
-        </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <InstructorCard
+          title="Vandaag"
+          icon={CalendarDays}
+          right={<Badge variant="primary">{data.appointments.length}</Badge>}
+          className="md:col-span-2"
+        >
+          {data.appointments.length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {data.appointments.map((appointment) => (
+                <AppointmentCard
+                  key={`${appointment.type}:${appointment.id}`}
+                  appointment={appointment}
+                  compact
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm leading-6 text-muted-foreground">
+                Er staan vandaag geen afspraken meer in je planning.
+              </p>
+              <Link
+                href="/instructeur/agenda/nieuw"
+                className={buttonVariants({ size: "sm" })}
+              >
+                Afspraak plannen
+              </Link>
+            </div>
+          )}
+          <Link
+            href="/instructeur/agenda"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-primary"
+          >
+            Naar volledige planning
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </InstructorCard>
 
         <InstructorCard
           title="Taken"
           icon={ListTodo}
           right={<Badge variant="primary">{data.tasks.length}</Badge>}
-          className={cn(cockpitCardClassName, "lg:col-start-2 lg:row-start-1")}
-          contentClassName={cockpitCardContentClassName}
         >
           <div className="space-y-2">
             {data.tasks.length > 0 ? (
@@ -619,8 +564,6 @@ export function InstructorCockpitView({
         <InstructorCard
           title="Berichten"
           icon={MessageCircle}
-          className={cn(cockpitCardClassName, "lg:col-start-1 lg:row-start-2")}
-          contentClassName={cockpitCardContentClassName}
         >
           <div className="space-y-2">
             {data.messages.length > 0 ? (
@@ -655,8 +598,7 @@ export function InstructorCockpitView({
         <InstructorCard
           title="Dagoverzicht"
           icon={BarChart3}
-          className={cn(cockpitCardClassName, "lg:col-start-2 lg:row-start-2")}
-          contentClassName={cockpitCardContentClassName}
+          className="md:col-span-2"
         >
           <div className="flex items-center gap-5">
             <ProgressRing
@@ -708,42 +650,6 @@ export function InstructorCockpitView({
           </Link>
         </InstructorCard>
 
-        <InstructorCard
-          title="Quick links"
-          icon={Route}
-          className={cn(
-            cockpitCardClassName,
-            "lg:col-start-3 lg:row-span-2 lg:row-start-1",
-          )}
-          contentClassName={cockpitCardContentClassName}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ["Leerlingen", "/instructeur/leerlingen", Users],
-              ["Agenda", "/instructeur/agenda", CalendarDays],
-              ["Lesevaluaties", "/instructeur/agenda", FileText],
-              ["Voertuigen", "/instructeur/voertuigen", CarFront],
-              ["Beschikbaarheid", "/instructeur/beschikbaarheid", Clock3],
-              ["Rapportages", "/instructeur/rapportages", BarChart3],
-            ].map(([label, href, Icon]) => {
-              const LinkIcon = Icon as IconComponent;
-              return (
-                <Link
-                  key={String(href)}
-                  href={String(href)}
-                  className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm hover:border-brand-primary/40"
-                >
-                  <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
-                    <LinkIcon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="mt-2 block text-xs font-bold text-foreground">
-                    {String(label)}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </InstructorCard>
       </div>
     </InstructorPage>
   );
@@ -1718,7 +1624,6 @@ export function InstructorProfileView({
 
 export function InstructorMoreView() {
   const links = [
-    ["Taken", "/instructeur/taken", ListTodo],
     ["Berichten", "/instructeur/berichten", MessageCircle],
     ["Meldingen", "/instructeur/meldingen", Bell],
     ["Voertuigen", "/instructeur/voertuigen", CarFront],
