@@ -1,1 +1,5 @@
-export { default } from "@/app/student/journey/ris/page";
+import { redirect } from "next/navigation";
+
+export default function LearnerReflectionPage() {
+  redirect("/leerling/voortgang?tab=reflectie");
+}

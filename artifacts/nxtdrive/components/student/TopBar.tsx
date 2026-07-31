@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { NxtdriveLogo } from "@/components/nxtdrive-logo";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -29,17 +29,7 @@ export function StudentTopBar({
           />
         </div>
 
-        <div className="pointer-events-auto relative hidden min-w-0 flex-1 xl:block">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted-foreground"
-            aria-hidden
-          />
-          <input
-            className="h-10 w-full rounded-xl border border-brand-border bg-white/80 pl-9 pr-3 text-sm text-brand-foreground outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15"
-            placeholder="Zoek in NXTDRIVE..."
-            aria-label="Zoek in NXTDRIVE"
-          />
-        </div>
+        <div className="hidden min-w-0 flex-1 xl:block" aria-hidden />
 
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
           {notifications}
@@ -50,10 +40,16 @@ export function StudentTopBar({
           >
             <MessageCircle className="h-4 w-4 sm:h-[1.05rem] sm:w-[1.05rem]" aria-hidden />
           </Link>
-          <Avatar
-            name={userLabel}
-            className="h-[2.125rem] w-[2.125rem] border border-brand-border/70 bg-brand-accent text-[10px] text-brand-foreground shadow-sm sm:h-9 sm:w-9 sm:text-[11px]"
-          />
+          <Link
+            href="/leerling/instellingen?tab=instellingen"
+            aria-label="Account en instellingen"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+          >
+            <Avatar
+              name={userLabel}
+              className="h-[2.125rem] w-[2.125rem] border border-brand-border/70 bg-brand-accent text-[10px] text-brand-foreground shadow-sm sm:h-9 sm:w-9 sm:text-[11px]"
+            />
+          </Link>
           <div className="hidden min-w-0 xl:block">
             <p className="truncate text-sm font-bold text-brand-foreground">{userLabel}</p>
             <p className="truncate text-xs text-brand-muted-foreground">Leerling</p>

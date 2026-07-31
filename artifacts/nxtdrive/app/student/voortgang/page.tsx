@@ -54,14 +54,19 @@ function createStudentProgressFormatters(timeZone: string) {
   };
 }
 
-type ProgressTab = "roadmap" | "onderdelen" | "geschiedenis";
+type ProgressTab = "roadmap" | "onderdelen" | "geschiedenis" | "reflectie";
 type RisProgressTab = "roadmap" | "modules" | "feedback";
 
 function legacyProgressTabFrom(value: string | undefined): ProgressTab {
-  return value === "onderdelen" || value === "geschiedenis" ? value : "roadmap";
+  return value === "onderdelen" ||
+    value === "geschiedenis" ||
+    value === "reflectie"
+    ? value
+    : "roadmap";
 }
 
 function risProgressTabFrom(value: string | undefined): RisProgressTab {
+  if (value === "reflectie") return "feedback";
   return value === "modules" || value === "feedback" ? value : "roadmap";
 }
 
@@ -193,6 +198,12 @@ export default async function StudentVoortgangPage({
       label: "Lesgeschiedenis",
       href: "/leerling/voortgang?tab=geschiedenis",
       count: totalHistory.length,
+    },
+    {
+      key: "reflectie",
+      label: "Reflectie",
+      href: "/leerling/voortgang?tab=reflectie",
+      count: lastLesson ? 1 : 0,
     },
   ] satisfies Array<{ key: ProgressTab; label: string; href: string; count?: number }>;
 
@@ -437,6 +448,56 @@ export default async function StudentVoortgangPage({
                 ))}
               </div>
             </div>
+          )}
+        </StudentShowcaseCard>
+      ) : null}
+
+      {activeTab === "reflectie" ? (
+        <StudentShowcaseCard
+          title="Reflectie en lesfeedback"
+          eyebrow="Laatste gepubliceerde les"
+          info="Hier staat de samenvatting die je instructeur met jou heeft gedeeld. Open de les voor alle geoefende onderdelen en vervolgadviezen."
+        >
+          {lastLesson ? (
+            <div className="space-y-3">
+              <div className="rounded-[1.2rem] border border-primary/20 bg-primary/10 px-3.5 py-3.5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-primary/68">
+                      Laatste les
+                    </div>
+                    <div className="mt-1 text-lg font-semibold text-white">
+                      {historyDateFmt.format(new Date(lastLesson.startsAt))}
+                    </div>
+                  </div>
+                  <StudentRing
+                    value={Math.round(
+                      (Math.min(
+                        8,
+                        lastLesson.progressScore ?? lastLesson.averageScore,
+                      ) /
+                        8) *
+                        100,
+                    )}
+                    size={84}
+                    stroke={9}
+                    label="Lesniveau"
+                  />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-white/62">
+                  {lastLesson.summary ??
+                    "Je instructeur heeft voor deze les nog geen openbare samenvatting toegevoegd."}
+                </p>
+              </div>
+              <Link
+                href={`/leerling/lessen/${lastLesson.lessonId}`}
+                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+              >
+                Bekijk volledige lesfeedback
+              </Link>
+            </div>
+          ) : (
+            <PWAEmptyState message="Na je eerste gepubliceerde leskaart verschijnt je reflectie en feedback hier." />
           )}
         </StudentShowcaseCard>
       ) : null}

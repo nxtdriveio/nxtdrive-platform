@@ -24,7 +24,7 @@ export default async function StudentJourneyPage() {
         title="Je voortgang in begrijpelijke stappen"
         subtitle="Bekijk waar je staat, wat al goed gaat en welke focus je helpt richting je praktijkexamen."
         action={
-          <Link href="/leerling/reflectie" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Link href="/leerling/voortgang?tab=reflectie" className={buttonVariants({ variant: "outline", size: "sm" })}>
             RIS leskaart
           </Link>
         }
@@ -67,7 +67,7 @@ export default async function StudentJourneyPage() {
                 Plan je volgende les
               </Link>
               <Link
-                href="/leerling/reflectie"
+                href="/leerling/voortgang?tab=reflectie"
                 className={buttonVariants({ variant: "outline", className: "w-full" })}
               >
                 Bekijk ontwikkelpunten

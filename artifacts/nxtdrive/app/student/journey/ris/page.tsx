@@ -5,7 +5,6 @@ import {
   StudentEmptyState,
   StudentModuleProgressList,
   StudentPageHeader,
-  StudentReflectionForm,
   StudentRISReflectionCard,
   StudentSection,
 } from "@/components/student/StudentPwa";
@@ -28,7 +27,7 @@ export default async function StudentRisPage() {
           title="RIS is nog niet actief voor jouw opleiding."
           message="Zodra je rijschool RIS publiceert, zie je hier alleen de onderdelen die voor jou bedoeld zijn."
         />
-        <Link href="/leerling/reflectie" className={buttonVariants()}>
+        <Link href="/leerling/voortgang" className={buttonVariants()}>
           Bekijk algemene voortgang
         </Link>
       </div>
@@ -60,7 +59,6 @@ export default async function StudentRisPage() {
         </div>
 
         <div className="space-y-4">
-          <StudentReflectionForm />
           <StudentSection title="Vraag aan je instructeur" icon={MessageCircle}>
             <div className="rounded-[var(--radius-card)] border border-brand-border bg-white/90 p-4 shadow-brand-card">
               <p className="text-sm leading-6 text-brand-muted-foreground">
@@ -68,7 +66,7 @@ export default async function StudentRisPage() {
                 bericht vanuit je leerlingomgeving.
               </p>
               <Link
-                href="/leerling/berichten/instructor"
+                href="/leerling/berichten"
                 className={buttonVariants({ size: "sm", className: "mt-3" })}
               >
                 Bericht instructeur

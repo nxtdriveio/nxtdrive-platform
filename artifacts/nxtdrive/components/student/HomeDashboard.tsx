@@ -327,7 +327,7 @@ function JourneyPanel({ steps }: { steps: StudentJourneyStep[] }) {
           </h2>
         </div>
         <Link
-          href="/leerling/reflectie"
+          href="/leerling/voortgang?tab=reflectie"
           className="text-sm font-semibold text-brand-primary"
         >
           Bekijk alles
