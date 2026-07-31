@@ -267,6 +267,11 @@ try {
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/leerlingen`, {
     waitUntil: "networkidle",
   });
+  await page.getByRole("button", { name: "Leerling toevoegen" }).click();
+  await page
+    .getByRole("dialog", { name: "Leerling direct toevoegen" })
+    .waitFor();
+  await page.getByRole("button", { name: "Annuleren" }).click();
   const studentSelection = page.locator('a[href*="?leerling="]').first();
   assert.match(
     (await studentSelection.getAttribute("href")) ?? "",

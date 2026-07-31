@@ -108,6 +108,7 @@ for (const releaseCheck of [
   "assertVisibleActions",
   "Account en instellingen",
   "Uitloggen",
+  "Leerling toevoegen",
   "?afspraak=",
   "?leerling=",
 ]) {
