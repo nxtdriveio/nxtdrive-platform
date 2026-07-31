@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
   BadgeCheck,
   Bell,
@@ -11,16 +10,13 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
-  Download,
   FileText,
   Home,
+  LogOut,
   MapPin,
   MessageCircle,
   MoreHorizontal,
-  Paperclip,
   Route,
-  Search,
-  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -30,14 +26,11 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type {
   StudentCBRStatus,
   StudentCBRStatusItem,
-  StudentDocument,
   StudentInvoice,
   StudentInvoiceStatus,
   StudentJourneyModule,
@@ -45,8 +38,6 @@ import type {
   StudentJourneyStatus,
   StudentLesson,
   StudentLessonStatus,
-  StudentMessageThread,
-  StudentNotification,
   StudentPaymentBalance,
   StudentQuickAction,
   StudentRISReflection,
@@ -924,311 +915,27 @@ export function StudentRISReflectionCard({
   );
 }
 
-export function StudentReflectionForm() {
-  const chips = [
-    "Ik vond dit makkelijk",
-    "Ik wil dit nog oefenen",
-    "Ik begrijp dit nog niet helemaal",
-  ];
-
-  return (
-    <StudentCard className="p-4">
-      <p className="text-sm font-black text-brand-foreground">Jouw reflectie</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {chips.map((chip) => (
-          <button
-            key={chip}
-            type="button"
-            className="rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs font-extrabold text-brand-foreground shadow-sm transition hover:bg-brand-accent hover:text-brand-primary"
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
-      <Textarea
-        className="mt-3 min-h-28 border-brand-border bg-white text-brand-foreground placeholder:text-brand-muted-foreground"
-        placeholder="Schrijf kort hoe de les voor jou ging..."
-      />
-      <Button className="mt-3">Reflectie opslaan</Button>
-    </StudentCard>
-  );
-}
-
-export function StudentChatThreadList({
-  threads,
-  activeId,
-}: {
-  threads: StudentMessageThread[];
-  activeId?: string;
-}) {
-  return (
-    <StudentCard>
-      <div className="border-b border-brand-border/80 p-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted-foreground" aria-hidden />
-          <Input className="pl-9" placeholder="Zoek gesprek..." />
-        </div>
-      </div>
-      <div className="divide-y divide-brand-border/80">
-        {threads.map((thread) => (
-          <Link
-            key={thread.id}
-            href={thread.href}
-            className={cn(
-              "flex gap-3 px-4 py-3 transition hover:bg-brand-muted/60",
-              activeId === thread.id && "bg-brand-accent/70",
-            )}
-          >
-            <Avatar name={thread.name} className="h-10 w-10 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-brand-foreground">
-                    {thread.name}
-                  </p>
-                  <p className="text-xs text-brand-muted-foreground">{thread.role}</p>
-                </div>
-                <span className="shrink-0 text-[11px] text-brand-muted-foreground">
-                  {thread.timeLabel}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <p className="min-w-0 flex-1 truncate text-xs text-brand-muted-foreground">
-                  {thread.latestMessage}
-                </p>
-                {thread.unreadCount > 0 ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[10px] font-black text-brand-primary-foreground">
-                    {thread.unreadCount}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </StudentCard>
-  );
-}
-
-export function StudentChatWindow({
-  thread,
-  showBack = false,
-}: {
-  thread: StudentMessageThread | null;
-  showBack?: boolean;
-}) {
-  if (!thread) {
-    return (
-      <StudentEmptyState
-        icon={MessageCircle}
-        title="Selecteer een gesprek"
-        message="Kies links een gesprek om je berichten te lezen."
-      />
-    );
-  }
-
-  return (
-    <StudentCard className="flex min-h-[34rem] flex-col">
-      <div className="flex items-center gap-3 border-b border-brand-border/80 px-4 py-3">
-        {showBack ? (
-          <Link href="/leerling/berichten" className="rounded-full p-2 text-brand-muted-foreground">
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-          </Link>
-        ) : null}
-        <Avatar name={thread.name} className="h-10 w-10" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-brand-foreground">{thread.name}</p>
-          <p className="text-xs text-brand-muted-foreground">{thread.role}</p>
-        </div>
-      </div>
-      <div className="flex-1 space-y-3 p-4">
-        <div className="mx-auto w-fit rounded-full bg-brand-muted px-3 py-1 text-[11px] font-extrabold text-brand-muted-foreground">
-          Ongelezen berichten
-        </div>
-        {thread.messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "flex",
-              message.sender === "student" ? "justify-end" : "justify-start",
-            )}
-          >
-            <div
-              className={cn(
-                "max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
-                message.sender === "student"
-                  ? "bg-brand-primary text-brand-primary-foreground"
-                  : "border border-brand-border bg-card text-brand-foreground",
-              )}
-            >
-              <p className="leading-6">{message.body}</p>
-              <p
-                className={cn(
-                  "mt-1 text-[10px]",
-                  message.sender === "student"
-                    ? "text-white/72"
-                    : "text-brand-muted-foreground",
-                )}
-              >
-                {message.timeLabel}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-brand-border/80 p-3">
-        <div className="mb-2 flex flex-wrap gap-2">
-          {[
-            "Ik heb een vraag over mijn les",
-            "Ik wil mijn planning bespreken",
-            "Ik heb een vraag over betaling",
-          ].map((reply) => (
-            <button
-              key={reply}
-              type="button"
-              className="rounded-full border border-brand-border px-3 py-1.5 text-[11px] font-extrabold text-brand-foreground"
-            >
-              {reply}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="icon" aria-label="Bijlage">
-            <Paperclip className="h-4 w-4" aria-hidden />
-          </Button>
-          <Input placeholder="Typ je bericht..." />
-          <Button type="button" size="icon" aria-label="Versturen">
-            <Send className="h-4 w-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </StudentCard>
-  );
-}
-
-export function StudentNotificationList({
-  notifications,
-}: {
-  notifications: StudentNotification[];
-}) {
-  const unread = notifications.filter((notification) => notification.unread);
-  const earlier = notifications.filter((notification) => !notification.unread);
-
-  return (
-    <div className="space-y-4">
-      <StudentNotificationGroup title="Nieuw" notifications={unread} />
-      <StudentNotificationGroup title="Eerder" notifications={earlier} />
-    </div>
-  );
-}
-
-function StudentNotificationGroup({
-  title,
-  notifications,
-}: {
-  title: string;
-  notifications: StudentNotification[];
-}) {
-  if (notifications.length === 0) {
-    return (
-      <StudentEmptyState
-        title={title}
-        message={title === "Nieuw" ? "Je hebt geen nieuwe meldingen." : "Geen oudere meldingen."}
-      />
-    );
-  }
-
-  return (
-    <StudentSection title={title}>
-      <StudentCard>
-        <div className="divide-y divide-brand-border/80">
-          {notifications.map((notification) => (
-            <Link
-              key={notification.id}
-              href={notification.href}
-              className="flex gap-3 px-4 py-3 transition hover:bg-brand-muted/60"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
-                <Bell className="h-4 w-4" aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-black text-brand-foreground">
-                    {notification.title}
-                  </p>
-                  {notification.unread ? (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-brand-primary" />
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
-                  {notification.body}
-                </p>
-              </div>
-              <span className="shrink-0 text-xs text-brand-muted-foreground">
-                {notification.timeLabel}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </StudentCard>
-    </StudentSection>
-  );
-}
-
-export function StudentDocumentList({ documents }: { documents: StudentDocument[] }) {
-  if (documents.length === 0) {
-    return (
-      <StudentEmptyState
-        icon={FileText}
-        title="Geen documenten"
-        message="Er staan nog geen documenten klaar."
-      />
-    );
-  }
-
-  return (
-    <StudentCard>
-      <div className="divide-y divide-brand-border/80">
-        {documents.map((document) => (
-          <div key={document.id} className="flex items-center gap-3 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
-              <FileText className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-brand-foreground">
-                {document.title}
-              </p>
-              <p className="text-xs text-brand-muted-foreground">
-                {document.category} - {document.dateLabel}
-              </p>
-            </div>
-            <Badge variant={document.status === "Nieuw" ? "primary" : "default"}>
-              {document.status}
-            </Badge>
-            <Link
-              href={document.href}
-              aria-label="Downloaden"
-              className={buttonVariants({ variant: "outline", size: "icon" })}
-            >
-              <Download className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-        ))}
-      </div>
-    </StudentCard>
-  );
-}
-
 export function StudentMoreMenu() {
   const links = [
     { href: "/leerling/berichten", label: "Berichten", icon: MessageCircle },
     { href: "/leerling/betalingen", label: "Betalingen", icon: Wallet },
     { href: "/leerling/examens", label: "CBR & Examens", icon: BadgeCheck },
-    { href: "/leerling/documenten", label: "Documenten", icon: FileText },
-    { href: "/leerling/instellingen", label: "Instellingen", icon: Settings },
-    { href: "/leerling/instellingen", label: "Profiel", icon: User },
-    { href: "/leerling", label: "Hulp & support", icon: MessageCircle },
-    { href: "/leerling/instellingen", label: "Uitloggen", icon: MoreHorizontal },
+    {
+      href: "/leerling/instellingen?tab=documenten",
+      label: "Documenten",
+      icon: FileText,
+    },
+    { href: "/leerling/meldingen", label: "Meldingen", icon: Bell },
+    {
+      href: "/leerling/instellingen?tab=instellingen",
+      label: "Account & instellingen",
+      icon: Settings,
+    },
+    {
+      href: "/leerling/instellingen?tab=contact",
+      label: "Hulp & contact",
+      icon: MessageCircle,
+    },
   ];
 
   return (
@@ -1251,6 +958,20 @@ export function StudentMoreMenu() {
           </Link>
         );
       })}
+      <form action="/auth/logout" method="post">
+        <button
+          type="submit"
+          className="flex w-full items-center gap-3 rounded-[var(--radius-card)] border border-brand-border bg-white p-4 text-left shadow-brand-card transition hover:border-danger/40"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/10 text-danger">
+            <LogOut className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-sm font-black text-danger">
+            Uitloggen
+          </span>
+          <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden />
+        </button>
+      </form>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default async function StudentLessonDetailPage({
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Link href="/leerling/berichten/instructor" className={buttonVariants()}>
+            <Link href="/leerling/berichten" className={buttonVariants()}>
               Bericht instructeur
             </Link>
             <Link href="/leerling/lessen" className={buttonVariants({ variant: "outline" })}>

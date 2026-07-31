@@ -106,7 +106,7 @@ export function StudentRisProgressView({
     },
     {
       key: "feedback",
-      label: "Feedback",
+      label: "Reflectie",
       href: "/leerling/voortgang?tab=feedback",
       count: recentCards.length,
     },

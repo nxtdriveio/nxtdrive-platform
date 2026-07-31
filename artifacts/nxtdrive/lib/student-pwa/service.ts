@@ -13,7 +13,7 @@ import { createNlDateTimeFormatter, resolveTenantTimeZone } from "@/lib/datetime
 
 const quickActions: StudentExperience["quickActions"] = [
   { label: "Planning", href: "/leerling/lessen", description: "Je lessen en tijden", iconName: "calendar" },
-  { label: "Voortgang", href: "/leerling/reflectie", description: "Je rijbewijsreis", iconName: "route" },
+  { label: "Voortgang", href: "/leerling/voortgang", description: "Je rijbewijsreis", iconName: "route" },
   { label: "Betalingen", href: "/leerling/betalingen", description: "Tegoed en facturen", iconName: "wallet" },
   { label: "Examens", href: "/leerling/examens", description: "CBR en gereedheid", iconName: "badge" },
   { label: "Theorie", href: "/leerling/theorie", description: "Huiswerk en toetsen", iconName: "book" },
@@ -292,7 +292,7 @@ export async function getStudentExperience({
         ? `Blijf oefenen met ${leskaart.recent.skills[0].label.toLowerCase()}.`
         : "Je volgende focus verschijnt zodra je instructeur de leskaart bijwerkt.",
       ctaLabel: "Bekijk plan",
-      href: "/leerling/reflectie",
+      href: "/leerling/voortgang?tab=reflectie",
       progressLabel: nextLesson?.status === "planned" ? "Volgende les gepland" : "Nog te plannen",
       progressCurrent: nextLesson?.status === "planned" ? 1 : 0,
       progressTotal: 1,
