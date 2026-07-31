@@ -1,7 +1,7 @@
-import { InstructorIntakeView } from "@/components/instructor/RedesignViews";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function InstructorIntakePage() {
-  return <InstructorIntakeView />;
+  redirect("/instructeur/agenda");
 }

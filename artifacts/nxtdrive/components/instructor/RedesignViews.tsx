@@ -20,7 +20,6 @@ import {
   Phone,
   Plus,
   Route,
-  Search,
   Send,
   Settings,
   ShieldCheck,
@@ -33,13 +32,14 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AddStudentDialog } from "@/components/students/AddStudentDialog";
 import { InstructorCreditManager } from "@/components/instructor/InstructorCreditManager";
 import { InstructorMessageComposer } from "@/components/instructor/InstructorMessageComposer";
 import { InstructorTaskManager } from "@/components/instructor/InstructorTaskManager";
+import { SecureInstructorLogoutForm } from "@/components/instructor/SecureLogoutForm";
+import { NotificationInbox } from "@/components/notifications/NotificationInbox";
 import {
   type InstructorAppointment,
   type InstructorAppointmentType,
@@ -52,6 +52,7 @@ import {
   type InstructorVehicleStatus,
 } from "@/lib/instructor/redesign-data";
 import type { InstructorTaskWorkspace } from "@/lib/instructor/tasks";
+import type { InAppNotification } from "@/lib/notifications/types";
 
 type IconComponent = typeof CalendarDays;
 
@@ -919,19 +920,13 @@ export function InstructorStudentsView({
       <PageHeader
         eyebrow="Leerlingen"
         title="Mijn leerlingen"
-        subtitle="Zoek, filter en open direct het dossier of de voortgang van je gekoppelde leerlingen."
+        subtitle="Open direct het dossier of de voortgang van je gekoppelde leerlingen."
         actions={
           <AddStudentDialog ris20Qualified={data.profile.ris20Qualified} />
         }
       />
       <div className="grid gap-4 xl:grid-cols-[24rem_1fr]">
         <InstructorCard title="Leerlingenlijst" icon={Users}>
-          <div className="mb-3 flex items-center gap-2 rounded-2xl border border-brand-border bg-white px-3 py-2">
-            <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <span className="text-sm text-muted-foreground">
-              Zoek leerling...
-            </span>
-          </div>
           <div className="space-y-2">
             {data.students.length > 0 ? (
               data.students.map((student, index) => (
@@ -969,17 +964,23 @@ function StudentDetailPanel({ student }: { student: InstructorStudent }) {
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
-                href="/instructeur/berichten"
+                href={
+                  student.conversationId
+                    ? `/instructeur/berichten/${student.conversationId}`
+                    : "/instructeur/berichten"
+                }
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 <MessageCircle className="h-4 w-4" aria-hidden /> Bericht
               </Link>
-              <a
-                href={`tel:${student.phone}`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <Phone className="h-4 w-4" aria-hidden /> Bel
-              </a>
+              {student.phone ? (
+                <a
+                  href={`tel:${student.phone}`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <Phone className="h-4 w-4" aria-hidden /> Bel
+                </a>
+              ) : null}
               {student.email ? (
                 <a
                   href={`mailto:${student.email}`}
@@ -1639,54 +1640,45 @@ export function InstructorSettingsView({
     <InstructorPage>
       <PageHeader
         eyebrow="Instellingen"
-        title="Instellingen"
-        subtitle="Profiel, agenda-uren, notificaties, app instellingen en thema."
+        title="Account en voorkeuren"
+        subtitle="Open de juiste omgeving voor je profiel, beschikbaarheid en meldingen."
       />
       <div className="grid gap-4 xl:grid-cols-[18rem_1fr]">
-        <InstructorCard title="Menu" icon={Settings}>
+        <InstructorCard title="Snel naar" icon={Settings}>
           <div className="grid gap-2">
-            {["Profiel", "Agenda uren", "Notificaties", "Thema", "Account"].map(
-              (item, index) => (
-                <span
-                  key={item}
-                  className={cn(
-                    "rounded-2xl px-3 py-2 text-sm font-bold",
-                    index === 0
-                      ? "bg-brand-accent text-brand-primary"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {item}
-                </span>
-              ),
-            )}
+            {[
+              ["Profiel", "/instructeur/profiel"],
+              ["Beschikbaarheid", "/instructeur/beschikbaarheid"],
+              ["Meldingen", "/instructeur/meldingen"],
+            ].map(([label, href]) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex min-h-11 items-center justify-between rounded-2xl px-3 py-2 text-sm font-bold text-foreground transition hover:bg-brand-muted"
+              >
+                {label}
+                <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+              </Link>
+            ))}
           </div>
         </InstructorCard>
         <div className="space-y-4">
           <InstructorCard title="Profiel" icon={User}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-bold text-foreground">
-                Naam
-                <Input defaultValue={data.profile.name} />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-foreground">
-                Telefoon
-                <Input
-                  defaultValue={data.profile.phone ?? ""}
-                  placeholder="Niet ingevuld"
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-foreground md:col-span-2">
-                E-mail
-                <Input
-                  defaultValue={data.profile.email ?? ""}
-                  placeholder="Niet ingevuld"
-                />
-              </label>
+            <div className="grid gap-3 md:grid-cols-3">
+              <InfoTile label="Naam" value={data.profile.name} />
+              <InfoTile
+                label="Telefoon"
+                value={data.profile.phone ?? "Niet ingevuld"}
+              />
+              <InfoTile
+                label="E-mail"
+                value={data.profile.email ?? "Niet ingevuld"}
+              />
             </div>
-            <button className={cn(buttonVariants(), "mt-5")}>
-              Instellingen opslaan
-            </button>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              Je rijschool beheert je accountgegevens. Neem contact op met de
+              administratie wanneer deze gegevens niet kloppen.
+            </p>
           </InstructorCard>
         </div>
       </div>
@@ -1727,7 +1719,8 @@ export function InstructorProfileView({
 export function InstructorMoreView() {
   const links = [
     ["Taken", "/instructeur/taken", ListTodo],
-    ["Theorie", "/instructeur/theorie", BookOpen],
+    ["Berichten", "/instructeur/berichten", MessageCircle],
+    ["Meldingen", "/instructeur/meldingen", Bell],
     ["Voertuigen", "/instructeur/voertuigen", CarFront],
     ["Beschikbaarheid", "/instructeur/beschikbaarheid", Clock3],
     ["Rapportages", "/instructeur/rapportages", BarChart3],
@@ -1760,6 +1753,9 @@ export function InstructorMoreView() {
               />
             </Link>
           ))}
+          <div className="rounded-2xl border border-danger/20 bg-danger/5 px-4">
+            <SecureInstructorLogoutForm />
+          </div>
         </div>
       </InstructorCard>
     </InstructorPage>
@@ -1790,14 +1786,22 @@ export function InstructorSimpleView({
   );
 }
 
-export function InstructorNotificationsView() {
+export function InstructorNotificationsView({
+  items,
+  unreadCount,
+}: {
+  items: InAppNotification[];
+  unreadCount: number;
+}) {
   return (
-    <InstructorSimpleView
-      eyebrow="Meldingen"
-      title="Meldingen"
-      subtitle="Belangrijke updates over leerlingen, planning en taken."
-      icon={Bell}
-    />
+    <InstructorPage>
+      <PageHeader
+        eyebrow="Meldingen"
+        title="Meldingen"
+        subtitle="Belangrijke updates over leerlingen, planning en taken."
+      />
+      <NotificationInbox items={items} unreadCount={unreadCount} />
+    </InstructorPage>
   );
 }
 

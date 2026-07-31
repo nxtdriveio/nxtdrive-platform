@@ -201,7 +201,7 @@ function mapTrial(
     duration: `${trial.duration_min} min`,
     location: trial.pickup_location ?? "Ophaallocatie volgt",
     status: trial.status === "confirmed" ? "confirmed" : "planned",
-    href: "/instructeur/intake",
+    href: "/instructeur/agenda",
   };
 }
 
@@ -236,6 +236,7 @@ function mapStudent(
   lessons: Lesson[],
   balanceMap: Map<string, number>,
   formatters: InstructorFormatters,
+  conversationId?: string | null,
 ): InstructorStudent {
   const studentLessons = lessons
     .filter((lesson) => lesson.student_id === student.id)
@@ -283,8 +284,9 @@ function mapStudent(
     latestLesson: latest
       ? `${dateLabel(latest.starts_at, formatters)} - ${formatters.timeFmt.format(new Date(latest.starts_at))}`
       : "Nog geen les afgerond",
-    phone: student.phone ?? "Niet ingevuld",
+    phone: student.phone,
     email: student.email,
+    conversationId: conversationId ?? null,
     attention:
       balance <= 300
         ? "Lespakket bijna op of vervolgplanning nodig."
@@ -574,8 +576,20 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const mappedTasks = ((openTasksResult.data ?? []) as DashboardTask[]).map(
     (task) => mapTask(task, formatters),
   );
+  const conversationByStudentId = new Map(
+    conversations.map((conversation) => [
+      conversation.studentId,
+      conversation.id,
+    ]),
+  );
   const mappedStudents = students.map((student) =>
-    mapStudent(student, lessonWindow, balanceMap, formatters),
+    mapStudent(
+      student,
+      lessonWindow,
+      balanceMap,
+      formatters,
+      conversationByStudentId.get(student.id),
+    ),
   );
   const nextAction = deriveNextInstructorAction({
     appointments: mappedAppointments,
