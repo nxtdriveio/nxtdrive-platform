@@ -52,6 +52,7 @@ import {
   loadLatestStudentPlanningCard,
   loadStudentRisProgress,
 } from "@/lib/ris/data";
+import { deriveStudentNextAction } from "@/lib/student/next-action";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,7 @@ export default async function StudentHomePage() {
     reviewNotif,
     latestPlanningCard,
     risProgress,
+    overdueInvoiceCountRes,
   ] = await Promise.all([
     supabase.from("student_credit_breakdown").select("*").eq("student_id", student.id).maybeSingle(),
     listOpenInvitationsForStudent(supabase, tenant.id, student.id),
@@ -176,7 +178,19 @@ export default async function StudentHomePage() {
       .maybeSingle(),
     loadLatestStudentPlanningCard(supabase, tenant.id, student.id),
     loadStudentRisProgress(supabase, tenant.id, student.id),
+    supabase
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", student.id)
+      .eq("status", "open")
+      .lt("due_date", nowIso),
   ]);
+  if (overdueInvoiceCountRes.error) {
+    throw new Error(
+      `Achterstallige facturen laden mislukt: ${overdueInvoiceCountRes.error.message}`,
+    );
+  }
 
   const referralUrl = referralCode ? buildReferralUrl(origin, tenant.slug, referralCode) : null;
   const reviewNotificationId =
@@ -343,6 +357,36 @@ export default async function StudentHomePage() {
       : latestRisCard
         ? `/leerling/lessen/${latestRisCard.lessonId}`
         : "/leerling/voortgang";
+  const nextAction = deriveStudentNextAction({
+    nowIso,
+    examInvitationCount: examInvitations.length,
+    lessonProposalCount:
+      refillInvitations.length +
+      slotRecoveryInvitations.length +
+      nextLessonProposals.length,
+    overdueInvoiceCount: overdueInvoiceCountRes.count ?? 0,
+    creditAvailableMinutes: breakdown?.available_minutes ?? 0,
+    nextLesson: nextLesson
+      ? {
+          href: `/leerling/lessen/${nextLesson.id}`,
+          startsAt: nextLesson.starts_at,
+        }
+      : null,
+    cbr: {
+      theoryDone: cbrSummary.preconditions.theorieBehaald,
+      authorizationReceived:
+        cbrSummary.preconditions.machtigingStatus === "ontvangen",
+      healthDeclarationRequired:
+        cbrSummary.preconditions.gezondheidsverklaringVereist,
+      healthDeclarationDone:
+        cbrSummary.preconditions.gezondheidsverklaringGeregeld,
+    },
+    fallback: {
+      title: coachTitle,
+      body: coachBody,
+      href: coachCtaHref,
+    },
+  });
 
   const journeyStatus =
     passedExam
@@ -375,9 +419,10 @@ export default async function StudentHomePage() {
           eta: examEta,
         }}
         coach={{
-          title: coachTitle,
-          body: coachBody,
-          ctaHref: coachCtaHref,
+          title: nextAction.title,
+          body: nextAction.body,
+          ctaHref: nextAction.href,
+          ctaLabel: nextAction.ctaLabel,
         }}
         messageUnreadCount={chatUnread}
         creditAvailableMinutes={breakdown?.available_minutes ?? 0}
@@ -390,10 +435,12 @@ export default async function StudentHomePage() {
         />
       ) : null}
 
-      <RefillInvitations invitations={refillInvitations} />
-      <SlotRecoveryInvitations invitations={slotRecoveryInvitations} />
-      <NextLessonProposals proposals={nextLessonProposals} />
-      <ExamInvitations invitations={examInvitations} />
+      <section id="openstaande-acties" className="scroll-mt-28 space-y-4">
+        <RefillInvitations invitations={refillInvitations} />
+        <SlotRecoveryInvitations invitations={slotRecoveryInvitations} />
+        <NextLessonProposals proposals={nextLessonProposals} />
+        <ExamInvitations invitations={examInvitations} />
+      </section>
 
       {referralUrl ? (
         <ReferralInvite url={referralUrl} schoolName={tenant.name} summary={referralSummary} />
