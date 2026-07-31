@@ -1636,9 +1636,9 @@ export function InstructorMoreView() {
   return (
     <InstructorPage>
       <PageHeader
-        eyebrow="Meer"
-        title="Meer"
-        subtitle="Alle aanvullende instructeurfuncties op een plek."
+        eyebrow="Account"
+        title="Account"
+        subtitle="Berichten, meldingen, hulpmiddelen en je accountvoorkeuren."
       />
       <InstructorCard>
         <div className="grid gap-2">
