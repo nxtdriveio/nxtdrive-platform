@@ -36,6 +36,7 @@ export type StudentCoachSummary = {
   title: string;
   body: string;
   ctaHref: string;
+  ctaLabel?: string;
   eyebrow?: string;
 };
 
@@ -208,7 +209,7 @@ function NextStepHero({ coach }: { coach: StudentCoachSummary }) {
             href={coach.ctaHref}
             className="inline-flex h-9 items-center gap-2 rounded-[0.85rem] bg-white px-3.5 text-xs font-semibold text-brand-primary shadow-sm transition hover:bg-white/92 sm:h-10 sm:text-sm"
           >
-            Bekijk plan
+            {coach.ctaLabel ?? "Bekijk plan"}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
