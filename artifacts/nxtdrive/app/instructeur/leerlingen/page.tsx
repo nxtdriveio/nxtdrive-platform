@@ -1,5 +1,5 @@
 import { InstructorStudentsView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorStudents } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function InstructorStudentsPage({
   const query = await searchParams;
   const selectedStudentId =
     typeof query.leerling === "string" ? query.leerling : undefined;
-  const data = await loadInstructorExperience();
+  const data = await loadInstructorStudents();
   return (
     <InstructorStudentsView data={data} selectedStudentId={selectedStudentId} />
   );

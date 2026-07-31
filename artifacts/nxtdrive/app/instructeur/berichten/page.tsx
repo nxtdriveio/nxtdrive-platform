@@ -1,9 +1,9 @@
 import { InstructorMessagesView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorMessages } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function InstructorMessagesPage() {
-  const data = await loadInstructorExperience();
+  const data = await loadInstructorMessages();
   return <InstructorMessagesView data={data} />;
 }

@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  ADVICE_LABELS,
+  PHASE_LABELS,
+  type ReadinessResult,
+} from "@workspace/leskaart";
 import { requireActiveTenant } from "@/lib/auth/require-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -57,6 +62,7 @@ import {
   type InstructorVehicle,
 } from "@/lib/instructor/redesign-data";
 import { deriveNextInstructorAction } from "@/lib/instructor/next-action";
+import { loadStudentsReadiness } from "@/lib/skills/readiness-data";
 
 type StudentSummary = Pick<
   Student,
@@ -236,6 +242,7 @@ function mapStudent(
   lessons: Lesson[],
   balanceMap: Map<string, number>,
   formatters: InstructorFormatters,
+  readiness: ReadinessResult,
   conversationId?: string | null,
 ): InstructorStudent {
   const studentLessons = lessons
@@ -255,15 +262,7 @@ function mapStudent(
     (a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime(),
   )[0];
   const balance = balanceMap.get(student.id) ?? 0;
-  const progress = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(
-        (completed.length / Math.max(40, completed.length || 1)) * 100,
-      ),
-    ),
-  );
+  const progress = readiness.readinessPct;
 
   return {
     id: student.id,
@@ -291,7 +290,7 @@ function mapStudent(
       balance <= 300
         ? "Lespakket bijna op of vervolgplanning nodig."
         : "Geen urgente aandachtspunten.",
-    readiness: `${progress}% voortgang`,
+    readiness: `${ADVICE_LABELS[readiness.advice]} · ${PHASE_LABELS[readiness.phase]}`,
     creditMinutes: balance,
   };
 }
@@ -341,7 +340,20 @@ function mapAvailabilityDays(
   });
 }
 
-export async function loadInstructorExperience(): Promise<InstructorExperience> {
+type InstructorRouteScope =
+  | "all"
+  | "cockpit"
+  | "agenda"
+  | "students"
+  | "student"
+  | "messages"
+  | "vehicles"
+  | "reports"
+  | "profile";
+
+async function loadInstructorRouteExperience(
+  scope: InstructorRouteScope,
+): Promise<InstructorExperience> {
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
     "tenant_admin",
@@ -358,6 +370,32 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const horizonEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 15), timeZone);
   const availabilityFrom = dayStart;
   const availabilityTo = horizonEnd;
+  const needsLessons = [
+    "all",
+    "cockpit",
+    "agenda",
+    "students",
+    "student",
+    "reports",
+  ].includes(scope);
+  const needsTasks = ["all", "cockpit", "reports"].includes(scope);
+  const needsAgenda = ["all", "cockpit", "agenda", "reports"].includes(scope);
+  const needsConversations = [
+    "all",
+    "cockpit",
+    "students",
+    "student",
+    "messages",
+  ].includes(scope);
+  const needsVehicles = [
+    "all",
+    "cockpit",
+    "agenda",
+    "vehicles",
+    "reports",
+  ].includes(scope);
+  const needsAvailability = scope === "all" || scope === "cockpit";
+  const needsStudents = ["all", "students", "student"].includes(scope);
 
   const [
     lessonWindowResult,
@@ -371,54 +409,72 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     availabilityExceptions,
     ris20QualificationResult,
   ] = await Promise.all([
-    supabase
-      .from("lessons")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .eq("instructor_id", user.id)
-      .gte("starts_at", dayStart.toISOString())
-      .lt("starts_at", horizonEnd.toISOString())
-      .order("starts_at", { ascending: true }),
-    supabase
-      .from("tasks")
-      .select("id, title, priority, due_date, created_at, updated_at")
-      .eq("tenant_id", tenant.id)
-      .eq("assignee_user_id", user.id)
-      .is("archived_at", null)
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true })
-      .limit(8),
-    supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenant.id)
-      .eq("assignee_user_id", user.id)
-      .is("archived_at", null),
-    loadAgendaTrialLessons(supabase, {
-      tenantId: tenant.id,
-      from: dayStart,
-      to: dayEnd,
-      instructorId: user.id,
-    }),
-    loadAgendaAppointments(supabase, {
-      tenantId: tenant.id,
-      from: dayStart,
-      to: horizonEnd,
-      instructorId: user.id,
-    }),
-    loadInstructorConversations({
-      tenantId: tenant.id,
-      instructorId: user.id,
-      isAdmin,
-    }),
-    loadVehicles(supabase, tenant.id, { includeShared: true }),
-    loadWeeklyAvailability(supabase, tenant.id, user.id),
-    loadExceptions(supabase, tenant.id, user.id, {
-      from: availabilityFrom,
-      to: availabilityTo,
-      timeZone,
-    }),
-    roles.includes("instructor")
+    needsLessons
+      ? supabase
+          .from("lessons")
+          .select("*")
+          .eq("tenant_id", tenant.id)
+          .eq("instructor_id", user.id)
+          .gte("starts_at", dayStart.toISOString())
+          .lt("starts_at", horizonEnd.toISOString())
+          .order("starts_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    needsTasks
+      ? supabase
+          .from("tasks")
+          .select("id, title, priority, due_date, created_at, updated_at")
+          .eq("tenant_id", tenant.id)
+          .eq("assignee_user_id", user.id)
+          .is("archived_at", null)
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true })
+          .limit(8)
+      : Promise.resolve({ data: [], error: null }),
+    needsTasks
+      ? supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenant.id)
+          .eq("assignee_user_id", user.id)
+          .is("archived_at", null)
+      : Promise.resolve({ data: [], error: null, count: 0 }),
+    needsAgenda
+      ? loadAgendaTrialLessons(supabase, {
+          tenantId: tenant.id,
+          from: dayStart,
+          to: dayEnd,
+          instructorId: user.id,
+        })
+      : Promise.resolve([]),
+    needsAgenda
+      ? loadAgendaAppointments(supabase, {
+          tenantId: tenant.id,
+          from: dayStart,
+          to: horizonEnd,
+          instructorId: user.id,
+        })
+      : Promise.resolve([]),
+    needsConversations
+      ? loadInstructorConversations({
+          tenantId: tenant.id,
+          instructorId: user.id,
+          isAdmin,
+        })
+      : Promise.resolve([]),
+    needsVehicles
+      ? loadVehicles(supabase, tenant.id, { includeShared: true })
+      : Promise.resolve([]),
+    needsAvailability
+      ? loadWeeklyAvailability(supabase, tenant.id, user.id)
+      : Promise.resolve([]),
+    needsAvailability
+      ? loadExceptions(supabase, tenant.id, user.id, {
+          from: availabilityFrom,
+          to: availabilityTo,
+          timeZone,
+        })
+      : Promise.resolve([]),
+    needsStudents && roles.includes("instructor")
       ? supabase
           .from("instructor_training_qualifications")
           .select("is_qualified")
@@ -453,6 +509,7 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
   const [
     { data: studentsRaw, error: studentsError },
     { data: balancesRaw, error: balancesError },
+    readinessByStudent,
   ] = await Promise.all([
     studentIds.length
       ? supabase
@@ -468,6 +525,9 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
           .eq("tenant_id", tenant.id)
           .in("student_id", studentIds)
       : Promise.resolve({ data: [], error: null }),
+    needsStudents && studentIds.length
+      ? loadStudentsReadiness(supabase, tenant.id, studentIds)
+      : Promise.resolve(new Map<string, ReadinessResult>()),
   ]);
   if (studentsError) throw studentsError;
   if (balancesError) throw balancesError;
@@ -509,12 +569,15 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
         modules: [],
       };
     });
-  const conversationMessages = await Promise.all(
-    conversations.slice(0, 8).map(async (conversation) => ({
-      conversationId: conversation.id,
-      messages: await loadThreadMessages(tenant.id, conversation.id),
-    })),
-  );
+  const conversationMessages =
+    scope === "all" || scope === "messages"
+      ? await Promise.all(
+          conversations.slice(0, 8).map(async (conversation) => ({
+            conversationId: conversation.id,
+            messages: await loadThreadMessages(tenant.id, conversation.id),
+          })),
+        )
+      : [];
   const messagesByConversation = new Map(
     conversationMessages.map((thread) => [
       thread.conversationId,
@@ -582,15 +645,24 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
       conversation.id,
     ]),
   );
-  const mappedStudents = students.map((student) =>
-    mapStudent(
-      student,
-      lessonWindow,
-      balanceMap,
-      formatters,
-      conversationByStudentId.get(student.id),
-    ),
-  );
+  const mappedStudents = needsStudents
+    ? students.map((student) => {
+        const readiness = readinessByStudent.get(student.id);
+        if (!readiness) {
+          throw new Error(
+            `readiness: instructor projection missing for student=${student.id}`,
+          );
+        }
+        return mapStudent(
+          student,
+          lessonWindow,
+          balanceMap,
+          formatters,
+          readiness,
+          conversationByStudentId.get(student.id),
+        );
+      })
+    : [];
   const nextAction = deriveNextInstructorAction({
     appointments: mappedAppointments,
     tasks: mappedTasks,
@@ -680,6 +752,42 @@ export async function loadInstructorExperience(): Promise<InstructorExperience> 
     radar,
     nextAction,
   };
+}
+
+export function loadInstructorExperience(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("all");
+}
+
+export function loadInstructorCockpit(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("cockpit");
+}
+
+export function loadInstructorAgenda(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("agenda");
+}
+
+export function loadInstructorStudents(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("students");
+}
+
+export function loadInstructorStudent(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("student");
+}
+
+export function loadInstructorMessages(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("messages");
+}
+
+export function loadInstructorVehicles(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("vehicles");
+}
+
+export function loadInstructorReports(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("reports");
+}
+
+export function loadInstructorProfile(): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("profile");
 }
 
 function mapStudentsForRadar(

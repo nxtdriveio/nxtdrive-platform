@@ -1,5 +1,5 @@
 import { InstructorAgendaView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorAgenda } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function InstructorAgendaPage({
   const query = await searchParams;
   const selectedAppointmentId =
     typeof query.afspraak === "string" ? query.afspraak : undefined;
-  const data = await loadInstructorExperience();
+  const data = await loadInstructorAgenda();
   return (
     <InstructorAgendaView
       data={data}

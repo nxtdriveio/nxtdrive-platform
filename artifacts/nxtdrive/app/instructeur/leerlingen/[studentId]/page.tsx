@@ -1,5 +1,5 @@
 import { InstructorStudentDetailView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorStudent } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,6 @@ export default async function InstructorStudentPage({
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = await params;
-  const data = await loadInstructorExperience();
+  const data = await loadInstructorStudent();
   return <InstructorStudentDetailView studentId={studentId} data={data} />;
 }

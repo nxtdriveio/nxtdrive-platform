@@ -1,9 +1,9 @@
 import { InstructorCockpitView } from "@/components/instructor/RedesignViews";
-import { loadInstructorExperience } from "@/lib/instructor/experience-server";
+import { loadInstructorCockpit } from "@/lib/instructor/experience-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function InstructorIndexPage() {
-  const data = await loadInstructorExperience();
+  const data = await loadInstructorCockpit();
   return <InstructorCockpitView data={data} />;
 }
