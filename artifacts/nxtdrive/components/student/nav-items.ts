@@ -2,8 +2,8 @@ import {
   BookOpen,
   CalendarDays,
   Home,
+  MoreHorizontal,
   Route,
-  User,
   type LucideIcon,
 } from "lucide-react";
 import { learnerRoutes } from "@/lib/routes";
@@ -14,6 +14,7 @@ export type StudentNavItem = {
   icon: LucideIcon;
   /** Only the exact path is active. */
   exact?: boolean;
+  activePaths?: string[];
 };
 
 type LearnerRouteId = (typeof learnerRoutes)[number]["id"];
@@ -38,7 +39,20 @@ export const STUDENT_BOTTOM_NAV_ITEMS: StudentNavItem[] = [
   learnerNavItem("learner.lessons", CalendarDays),
   learnerNavItem("learner.progress", Route),
   learnerNavItem("learner.theory", BookOpen),
-  { ...learnerNavItem("learner.settings", User), label: "Account" },
+  {
+    ...learnerNavItem("learner.more", MoreHorizontal),
+    activePaths: [
+      "/leerling/meer",
+      "/leerling/account",
+      "/leerling/berichten",
+      "/leerling/hulp",
+      "/leerling/documenten",
+      "/leerling/instellingen",
+      "/leerling/betalingen",
+      "/leerling/examens",
+      "/leerling/meldingen",
+    ],
+  },
 ];
 
 export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
@@ -46,7 +60,20 @@ export const STUDENT_SIDEBAR_NAV_ITEMS: StudentNavItem[] = [
   learnerNavItem("learner.lessons", CalendarDays),
   learnerNavItem("learner.progress", Route),
   learnerNavItem("learner.theory", BookOpen),
-  { ...learnerNavItem("learner.settings", User), label: "Account" },
+  {
+    ...learnerNavItem("learner.more", MoreHorizontal),
+    activePaths: [
+      "/leerling/meer",
+      "/leerling/account",
+      "/leerling/berichten",
+      "/leerling/hulp",
+      "/leerling/documenten",
+      "/leerling/instellingen",
+      "/leerling/betalingen",
+      "/leerling/examens",
+      "/leerling/meldingen",
+    ],
+  },
 ];
 
 export const STUDENT_NAV_ITEMS = STUDENT_SIDEBAR_NAV_ITEMS;
@@ -56,5 +83,10 @@ export function isNavItemActive(
   pathname: string,
 ): boolean {
   if (item.exact) return pathname === item.href;
+  if (item.activePaths) {
+    return item.activePaths.some(
+      (path) => pathname === path || pathname.startsWith(path + "/"),
+    );
+  }
   return pathname === item.href || pathname.startsWith(item.href + "/");
 }

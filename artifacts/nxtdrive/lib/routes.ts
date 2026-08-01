@@ -97,6 +97,16 @@ export const learnerRoutes = [
     visibility: "contextual",
   },
   {
+    id: "learner.account",
+    canonicalPath: "/leerling/account",
+    aliases: ["/student/account"],
+    navLabel: "Account",
+    analyticsKey: "learner.account",
+    allowedRoles: LEARNER_ROLES,
+    requiredEntitlements: [],
+    visibility: "contextual",
+  },
+  {
     id: "learner.settings",
     canonicalPath: "/leerling/instellingen",
     aliases: ["/student/settings", "/student/profile"],
@@ -104,7 +114,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.settings",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "navigation",
+    visibility: "contextual",
   },
   {
     id: "learner.theory",
@@ -192,6 +202,16 @@ export const learnerRoutes = [
     visibility: "contextual",
   },
   {
+    id: "learner.help",
+    canonicalPath: "/leerling/hulp",
+    aliases: ["/student/help", "/student/support"],
+    navLabel: "Hulp & uitleg",
+    analyticsKey: "learner.help",
+    allowedRoles: LEARNER_ROLES,
+    requiredEntitlements: [],
+    visibility: "contextual",
+  },
+  {
     id: "learner.more",
     canonicalPath: "/leerling/meer",
     aliases: ["/student/more"],
@@ -199,7 +219,7 @@ export const learnerRoutes = [
     analyticsKey: "learner.more",
     allowedRoles: LEARNER_ROLES,
     requiredEntitlements: [],
-    visibility: "hidden",
+    visibility: "navigation",
   },
   {
     id: "learner.manifest",
@@ -223,7 +243,7 @@ const LEARNER_NAVIGATION_ORDER = [
   "learner.lessons",
   "learner.progress",
   "learner.theory",
-  "learner.settings",
+  "learner.more",
 ] as const;
 
 export const learnerNavigation = LEARNER_NAVIGATION_ORDER.map((id) => {

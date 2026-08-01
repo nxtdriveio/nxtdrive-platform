@@ -16,7 +16,7 @@ export default async function StudentMorePage() {
       <StudentPageHeader
         eyebrow="Meer"
         title="Alles op een plek"
-        subtitle="Berichten, betalingen, documenten, instellingen en support."
+        subtitle="Account, berichten, hulp, documenten en instellingen, elk op een eigen pagina."
       />
       <StudentSection title="Menu" icon={MoreHorizontal}>
         <StudentMoreMenu />

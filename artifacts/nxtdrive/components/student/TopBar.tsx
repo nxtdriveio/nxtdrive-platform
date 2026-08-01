@@ -38,11 +38,14 @@ export function StudentTopBar({
             aria-label="Berichten"
             className="relative inline-flex h-[2.125rem] w-[2.125rem] items-center justify-center rounded-full border border-brand-border/70 bg-white text-brand-muted-foreground shadow-sm transition hover:text-brand-primary sm:h-9 sm:w-9"
           >
-            <MessageCircle className="h-4 w-4 sm:h-[1.05rem] sm:w-[1.05rem]" aria-hidden />
+            <MessageCircle
+              className="h-4 w-4 sm:h-[1.05rem] sm:w-[1.05rem]"
+              aria-hidden
+            />
           </Link>
           <Link
-            href="/leerling/instellingen?tab=instellingen"
-            aria-label="Account en instellingen"
+            href="/leerling/meer"
+            aria-label="Meer"
             className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
           >
             <Avatar
@@ -51,8 +54,12 @@ export function StudentTopBar({
             />
           </Link>
           <div className="hidden min-w-0 xl:block">
-            <p className="truncate text-sm font-bold text-brand-foreground">{userLabel}</p>
-            <p className="truncate text-xs text-brand-muted-foreground">Leerling</p>
+            <p className="truncate text-sm font-bold text-brand-foreground">
+              {userLabel}
+            </p>
+            <p className="truncate text-xs text-brand-muted-foreground">
+              Leerling
+            </p>
           </div>
         </div>
       </div>

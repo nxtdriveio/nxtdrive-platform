@@ -12,6 +12,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  LifeBuoy,
   LogOut,
   MapPin,
   MessageCircle,
@@ -93,9 +94,17 @@ const cbrStatus: Record<
   in_progress: { label: "In behandeling", variant: "warning", icon: Clock },
   passed: { label: "Geslaagd", variant: "success", icon: CheckCircle2 },
   approved: { label: "Goedgekeurd", variant: "success", icon: ShieldCheck },
-  not_planned: { label: "Nog niet gepland", variant: "default", icon: CalendarDays },
+  not_planned: {
+    label: "Nog niet gepland",
+    variant: "default",
+    icon: CalendarDays,
+  },
   planned: { label: "Gepland", variant: "primary", icon: CalendarDays },
-  action_needed: { label: "Actie nodig", variant: "danger", icon: AlertTriangle },
+  action_needed: {
+    label: "Actie nodig",
+    variant: "danger",
+    icon: AlertTriangle,
+  },
 };
 
 const theoryStatus: Record<
@@ -212,7 +221,11 @@ export function StudentProgressRing({
 
   return (
     <div className={cn("relative h-24 w-24 shrink-0", className)}>
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden>
+      <svg
+        viewBox="0 0 100 100"
+        className="h-full w-full -rotate-90"
+        aria-hidden
+      >
         <circle
           cx="50"
           cy="50"
@@ -233,7 +246,13 @@ export function StudentProgressRing({
           strokeDashoffset={offset}
         />
         <defs>
-          <linearGradient id="student-ring-gradient" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient
+            id="student-ring-gradient"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+          >
             <stop offset="0%" stopColor="var(--brand-primary)" />
             <stop offset="100%" stopColor="var(--brand-secondary)" />
           </linearGradient>
@@ -276,7 +295,10 @@ export function StudentHeroNextStepCard({
 
   return (
     <StudentCard className="relative border-white/10 bg-brand-primary text-brand-primary-foreground shadow-brand-card">
-      <div className="absolute inset-0" style={{ background: "var(--brand-hero-background)" }} />
+      <div
+        className="absolute inset-0"
+        style={{ background: "var(--brand-hero-background)" }}
+      />
       <svg
         viewBox="0 0 360 160"
         className="pointer-events-none absolute inset-y-0 right-0 h-full w-2/3 opacity-70"
@@ -325,7 +347,9 @@ export function StudentHeroNextStepCard({
               {progressCurrent}/{progressTotal}
             </div>
           </div>
-          <p className="text-xs font-semibold text-white/74 sm:text-center">{progressLabel}</p>
+          <p className="text-xs font-semibold text-white/74 sm:text-center">
+            {progressLabel}
+          </p>
         </div>
       </div>
     </StudentCard>
@@ -351,13 +375,22 @@ export function StudentStatCard({
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
           <Icon className="h-5 w-5" aria-hidden />
         </span>
-        {href ? <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden /> : null}
+        {href ? (
+          <ChevronRight
+            className="h-4 w-4 text-brand-muted-foreground"
+            aria-hidden
+          />
+        ) : null}
       </div>
       <p className="mt-4 text-xs font-semibold uppercase text-brand-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 truncate text-lg font-black text-brand-foreground">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-brand-muted-foreground">{hint}</p>
+      <p className="mt-1 truncate text-lg font-black text-brand-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-brand-muted-foreground">
+        {hint}
+      </p>
     </StudentCard>
   );
 
@@ -389,10 +422,17 @@ export function StudentQuickActionGrid({
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-brand-primary">
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
-              <ArrowRight className="h-4 w-4 text-brand-muted-foreground transition group-hover:text-brand-primary" aria-hidden />
+              <ArrowRight
+                className="h-4 w-4 text-brand-muted-foreground transition group-hover:text-brand-primary"
+                aria-hidden
+              />
             </div>
-            <p className="mt-3 truncate text-sm font-extrabold text-brand-foreground">{action.label}</p>
-            <p className="mt-1 text-xs leading-5 text-brand-muted-foreground">{action.description}</p>
+            <p className="mt-3 truncate text-sm font-extrabold text-brand-foreground">
+              {action.label}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-brand-muted-foreground">
+              {action.description}
+            </p>
           </Link>
         );
       })}
@@ -449,9 +489,14 @@ export function StudentModuleProgressList({
     <StudentCard>
       <div className="divide-y divide-brand-border/80">
         {modules.map((module) => (
-          <div key={module.id} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[10rem_1fr_auto] sm:items-center">
+          <div
+            key={module.id}
+            className="grid gap-2 px-4 py-3.5 sm:grid-cols-[10rem_1fr_auto] sm:items-center"
+          >
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-brand-foreground">{module.title}</p>
+              <p className="truncate text-sm font-extrabold text-brand-foreground">
+                {module.title}
+              </p>
               <p className="mt-0.5 text-xs leading-5 text-brand-muted-foreground">
                 {module.description}
               </p>
@@ -460,7 +505,9 @@ export function StudentModuleProgressList({
               <div className="h-2 rounded-full bg-brand-muted">
                 <div
                   className="h-full rounded-full bg-brand-primary"
-                  style={{ width: `${Math.max(0, Math.min(100, module.progress))}%` }}
+                  style={{
+                    width: `${Math.max(0, Math.min(100, module.progress))}%`,
+                  }}
                 />
               </div>
             </div>
@@ -517,13 +564,19 @@ export function StudentDevelopmentChart({
     <StudentCard className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-brand-foreground">Ontwikkeling</p>
+          <p className="text-sm font-black text-brand-foreground">
+            Ontwikkeling
+          </p>
           <p className="mt-1 text-xs text-brand-muted-foreground">
             Je voortgang per module in de afgelopen maanden.
           </p>
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 h-48 w-full" aria-hidden>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="mt-3 h-48 w-full"
+        aria-hidden
+      >
         {[25, 50, 75, 100].map((line) => (
           <line
             key={line}
@@ -574,9 +627,16 @@ export function StudentReadinessCard({
       <div className="flex items-center gap-4">
         <StudentProgressRing value={readiness} label="gereed" />
         <div className="min-w-0">
-          <p className="text-sm font-black text-brand-foreground">Verwachte gereedheid</p>
-          <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">{copy}</p>
-          <Link href="/leerling/examens" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
+          <p className="text-sm font-black text-brand-foreground">
+            Verwachte gereedheid
+          </p>
+          <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
+            {copy}
+          </p>
+          <Link
+            href="/leerling/examens"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary"
+          >
             Naar examens
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -595,8 +655,12 @@ export function StudentLessonCard({ lesson }: { lesson: StudentLesson }) {
             <p className="text-xs font-semibold uppercase text-brand-muted-foreground">
               {lesson.title}
             </p>
-            <h3 className="mt-1 text-lg font-black text-brand-foreground">{lesson.dateLabel}</h3>
-            <p className="mt-1 text-sm font-bold text-brand-foreground">{lesson.timeLabel}</p>
+            <h3 className="mt-1 text-lg font-black text-brand-foreground">
+              {lesson.dateLabel}
+            </h3>
+            <p className="mt-1 text-sm font-bold text-brand-foreground">
+              {lesson.timeLabel}
+            </p>
           </div>
           <Badge variant={lessonStatus[lesson.status].variant}>
             {lessonStatus[lesson.status].label}
@@ -649,7 +713,9 @@ export function StudentLessonTable({ lessons }: { lessons: StudentLesson[] }) {
             <tr key={lesson.id} className="text-brand-foreground">
               <td className="px-4 py-3">
                 <div className="font-extrabold">{lesson.dateLabel}</div>
-                <div className="text-xs text-brand-muted-foreground">{lesson.timeLabel}</div>
+                <div className="text-xs text-brand-muted-foreground">
+                  {lesson.timeLabel}
+                </div>
               </td>
               <td className="px-4 py-3">{lesson.location}</td>
               <td className="px-4 py-3">{lesson.vehicle}</td>
@@ -660,7 +726,10 @@ export function StudentLessonTable({ lessons }: { lessons: StudentLesson[] }) {
                 </Badge>
               </td>
               <td className="px-4 py-3">
-                <Link href={lesson.href} className="font-extrabold text-brand-primary hover:underline">
+                <Link
+                  href={lesson.href}
+                  className="font-extrabold text-brand-primary hover:underline"
+                >
                   Bekijk les
                 </Link>
               </td>
@@ -675,8 +744,12 @@ export function StudentLessonTable({ lessons }: { lessons: StudentLesson[] }) {
 export function StudentLessonTimeline({ lesson }: { lesson: StudentLesson }) {
   const items = [
     "Les gepland",
-    lesson.status === "completed" ? "Les afgerond" : "Voorbereiding klaarzetten",
-    lesson.publishedReflection ? "Feedback gepubliceerd" : "Feedback volgt na de les",
+    lesson.status === "completed"
+      ? "Les afgerond"
+      : "Voorbereiding klaarzetten",
+    lesson.publishedReflection
+      ? "Feedback gepubliceerd"
+      : "Feedback volgt na de les",
     "Reflectie invullen",
   ];
 
@@ -688,7 +761,9 @@ export function StudentLessonTimeline({ lesson }: { lesson: StudentLesson }) {
             <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-accent text-xs font-black text-brand-primary">
               {index + 1}
             </span>
-            <span className="text-sm font-bold text-brand-foreground">{item}</span>
+            <span className="text-sm font-bold text-brand-foreground">
+              {item}
+            </span>
           </li>
         ))}
       </ol>
@@ -706,11 +781,16 @@ export function StudentTheoryProgressCard({
       <div className="flex items-center gap-4">
         <StudentProgressRing value={theory.progress} />
         <div className="min-w-0">
-          <p className="text-sm font-black text-brand-foreground">Theorie voortgang</p>
+          <p className="text-sm font-black text-brand-foreground">
+            Theorie voortgang
+          </p>
           <p className="mt-2 text-sm leading-6 text-brand-muted-foreground">
             {theory.statusCopy}
           </p>
-          <Link href="/leerling/theorie" className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
+          <Link
+            href="/leerling/theorie"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary"
+          >
             Naar theorie
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -725,7 +805,13 @@ export function StudentTheoryList({
   items,
 }: {
   title: string;
-  items: Array<{ id: string; title: string; countLabel?: string; meta?: string; status: keyof typeof theoryStatus }>;
+  items: Array<{
+    id: string;
+    title: string;
+    countLabel?: string;
+    meta?: string;
+    status: keyof typeof theoryStatus;
+  }>;
 }) {
   return (
     <StudentCard>
@@ -734,9 +820,14 @@ export function StudentTheoryList({
       </div>
       <div className="divide-y divide-brand-border/80">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
+          <div
+            key={item.id}
+            className="flex items-center justify-between gap-3 px-4 py-3"
+          >
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-brand-foreground">{item.title}</p>
+              <p className="truncate text-sm font-extrabold text-brand-foreground">
+                {item.title}
+              </p>
               <p className="text-xs text-brand-muted-foreground">
                 {item.countLabel ?? item.meta}
               </p>
@@ -776,7 +867,10 @@ export function StudentPaymentBalanceCard({
       </div>
       <div className="mt-4 rounded-2xl border border-brand-warning/25 bg-[color-mix(in_oklab,var(--brand-warning)_10%,white)] px-3 py-3 text-sm text-brand-foreground">
         <div className="flex gap-2">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-brand-warning" aria-hidden />
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-brand-warning"
+            aria-hidden
+          />
           <p>{balance.warning}</p>
         </div>
       </div>
@@ -790,7 +884,11 @@ export function StudentPaymentBalanceCard({
   );
 }
 
-export function StudentInvoiceList({ invoices }: { invoices: StudentInvoice[] }) {
+export function StudentInvoiceList({
+  invoices,
+}: {
+  invoices: StudentInvoice[];
+}) {
   return (
     <StudentCard>
       <div className="divide-y divide-brand-border/80">
@@ -804,10 +902,14 @@ export function StudentInvoiceList({ invoices }: { invoices: StudentInvoice[] })
               <p className="truncate text-sm font-extrabold text-brand-foreground">
                 Factuur #{invoice.invoiceNumber}
               </p>
-              <p className="text-xs text-brand-muted-foreground">{invoice.dateLabel}</p>
+              <p className="text-xs text-brand-muted-foreground">
+                {invoice.dateLabel}
+              </p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-black text-brand-foreground">{invoice.amountLabel}</p>
+              <p className="text-sm font-black text-brand-foreground">
+                {invoice.amountLabel}
+              </p>
               <Badge variant={invoiceStatus[invoice.status].variant}>
                 {invoiceStatus[invoice.status].label}
               </Badge>
@@ -819,7 +921,11 @@ export function StudentInvoiceList({ invoices }: { invoices: StudentInvoice[] })
   );
 }
 
-export function StudentCBRStatusList({ items }: { items: StudentCBRStatusItem[] }) {
+export function StudentCBRStatusList({
+  items,
+}: {
+  items: StudentCBRStatusItem[];
+}) {
   return (
     <StudentCard>
       <div className="divide-y divide-brand-border/80">
@@ -833,7 +939,9 @@ export function StudentCBRStatusList({ items }: { items: StudentCBRStatusItem[] 
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-extrabold text-brand-foreground">{item.title}</p>
+                  <p className="font-extrabold text-brand-foreground">
+                    {item.title}
+                  </p>
                   <Badge variant={meta.variant}>{meta.label}</Badge>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-brand-muted-foreground">
@@ -862,7 +970,9 @@ export function StudentActivityList({
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-extrabold text-brand-foreground">{item.title}</p>
+              <p className="text-sm font-extrabold text-brand-foreground">
+                {item.title}
+              </p>
               <p className="text-xs text-brand-muted-foreground">{item.body}</p>
             </div>
             <span className="shrink-0 text-xs text-brand-muted-foreground">
@@ -884,7 +994,9 @@ export function StudentRISReflectionCard({
     <StudentCard className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-brand-foreground">{reflection.title}</p>
+          <p className="text-sm font-black text-brand-foreground">
+            {reflection.title}
+          </p>
           <p className="mt-1 text-xs text-brand-muted-foreground">
             {reflection.lessonLabel} - {reflection.publishedAt}
           </p>
@@ -893,19 +1005,25 @@ export function StudentRISReflectionCard({
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
-          <p className="text-xs font-extrabold text-brand-muted-foreground">Wat ging goed?</p>
+          <p className="text-xs font-extrabold text-brand-muted-foreground">
+            Wat ging goed?
+          </p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.whatWentWell}
           </p>
         </div>
         <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
-          <p className="text-xs font-extrabold text-brand-muted-foreground">Waar werken we aan?</p>
+          <p className="text-xs font-extrabold text-brand-muted-foreground">
+            Waar werken we aan?
+          </p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.workingOn}
           </p>
         </div>
         <div className="rounded-2xl border border-brand-border/70 bg-white/90 p-3 shadow-sm">
-          <p className="text-xs font-extrabold text-brand-muted-foreground">Volgende focus</p>
+          <p className="text-xs font-extrabold text-brand-muted-foreground">
+            Volgende focus
+          </p>
           <p className="mt-1 text-sm leading-6 text-brand-foreground">
             {reflection.nextFocus}
           </p>
@@ -917,25 +1035,14 @@ export function StudentRISReflectionCard({
 
 export function StudentMoreMenu() {
   const links = [
+    { href: "/leerling/account", label: "Account", icon: User },
     { href: "/leerling/berichten", label: "Berichten", icon: MessageCircle },
+    { href: "/leerling/hulp", label: "Hulp & uitleg", icon: LifeBuoy },
+    { href: "/leerling/documenten", label: "Documenten", icon: FileText },
+    { href: "/leerling/instellingen", label: "Instellingen", icon: Settings },
     { href: "/leerling/betalingen", label: "Betalingen", icon: Wallet },
     { href: "/leerling/examens", label: "CBR & Examens", icon: BadgeCheck },
-    {
-      href: "/leerling/instellingen?tab=documenten",
-      label: "Documenten",
-      icon: FileText,
-    },
     { href: "/leerling/meldingen", label: "Meldingen", icon: Bell },
-    {
-      href: "/leerling/instellingen?tab=instellingen",
-      label: "Account & instellingen",
-      icon: Settings,
-    },
-    {
-      href: "/leerling/instellingen?tab=contact",
-      label: "Hulp & contact",
-      icon: MessageCircle,
-    },
   ];
 
   return (
@@ -954,7 +1061,10 @@ export function StudentMoreMenu() {
             <span className="min-w-0 flex-1 truncate text-sm font-black text-brand-foreground">
               {item.label}
             </span>
-            <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden />
+            <ChevronRight
+              className="h-4 w-4 text-brand-muted-foreground"
+              aria-hidden
+            />
           </Link>
         );
       })}
@@ -969,7 +1079,10 @@ export function StudentMoreMenu() {
           <span className="min-w-0 flex-1 truncate text-sm font-black text-danger">
             Uitloggen
           </span>
-          <ChevronRight className="h-4 w-4 text-brand-muted-foreground" aria-hidden />
+          <ChevronRight
+            className="h-4 w-4 text-brand-muted-foreground"
+            aria-hidden
+          />
         </button>
       </form>
     </div>
@@ -992,7 +1105,9 @@ export function StudentEmptyState({
           <Icon className="h-6 w-6" aria-hidden />
         </span>
       ) : null}
-      {title ? <p className="mt-3 font-black text-brand-foreground">{title}</p> : null}
+      {title ? (
+        <p className="mt-3 font-black text-brand-foreground">{title}</p>
+      ) : null}
       <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-brand-muted-foreground">
         {message}
       </p>
