@@ -27,6 +27,9 @@ export type InstructorAppointment = {
   type: InstructorAppointmentType;
   title: string;
   studentName?: string;
+  dateYmd: string;
+  dateLabel: string;
+  startsAtIso: string;
   startsAt: string;
   endsAt: string;
   duration: string;
@@ -34,6 +37,7 @@ export type InstructorAppointment = {
   vehicle?: string;
   status: InstructorAppointmentStatus;
   href: string;
+  evaluationHref?: string;
 };
 
 export type InstructorStudent = {
@@ -146,6 +150,7 @@ export type InstructorExperience = {
     tone: "blue" | "purple" | "rose" | "green";
   }>;
   appointments: InstructorAppointment[];
+  agendaPeriod?: import("./agenda-period").InstructorAgendaPeriod;
   students: InstructorStudent[];
   tasks: InstructorTask[];
   messages: InstructorMessageThread[];

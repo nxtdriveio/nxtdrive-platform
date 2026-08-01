@@ -61,6 +61,10 @@ import {
 } from "@/lib/instructor/redesign-data";
 import { deriveNextInstructorAction } from "@/lib/instructor/next-action";
 import { loadStudentsReadiness } from "@/lib/skills/readiness-data";
+import {
+  resolveInstructorAgendaPeriod,
+  type InstructorAgendaMode,
+} from "@/lib/instructor/agenda-period";
 
 type StudentSummary = Pick<
   Student,
@@ -165,6 +169,9 @@ function mapLesson(
     type: "lesson",
     title: "Rijles",
     studentName: student?.full_name ?? "Leerling",
+    dateYmd: zonedYmd(new Date(lesson.starts_at), formatters.timeZone),
+    dateLabel: dateLabel(lesson.starts_at, formatters),
+    startsAtIso: lesson.starts_at,
     startsAt: formatters.timeFmt.format(new Date(lesson.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(lesson.ends_at)),
     duration: durationLabel(lesson.starts_at, lesson.ends_at),
@@ -177,6 +184,7 @@ function mapLesson(
           ? "confirmed"
           : "planned",
     href: `/instructeur/lessen/${lesson.id}`,
+    evaluationHref: `/instructeur/lessen/${lesson.id}`,
   };
 }
 
@@ -189,6 +197,9 @@ function mapTrial(
     type: "trial",
     title: "Proefles",
     studentName: trial.lead_name,
+    dateYmd: zonedYmd(new Date(trial.starts_at), formatters.timeZone),
+    dateLabel: dateLabel(trial.starts_at, formatters),
+    startsAtIso: trial.starts_at,
     startsAt: formatters.timeFmt.format(new Date(trial.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(trial.ends_at)),
     duration: `${trial.duration_min} min`,
@@ -211,6 +222,9 @@ function mapAppointment(
     type: appointmentType(appointment.type),
     title: appointment.title ?? APPOINTMENT_TYPE_SHORT[appointment.type],
     studentName: appointment.student_name ?? appointment.team_name ?? undefined,
+    dateYmd: zonedYmd(new Date(appointment.starts_at), formatters.timeZone),
+    dateLabel: dateLabel(appointment.starts_at, formatters),
+    startsAtIso: appointment.starts_at,
     startsAt: formatters.timeFmt.format(new Date(appointment.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(appointment.ends_at)),
     duration: durationLabel(appointment.starts_at, appointment.ends_at),
@@ -337,9 +351,15 @@ type InstructorRouteScope =
   | "reports"
   | "profile";
 
+type InstructorAgendaRequest = {
+  mode?: InstructorAgendaMode | string | null;
+  date?: string | null;
+};
+
 async function loadInstructorRouteExperience(
   scope: InstructorRouteScope,
   selectedConversationId?: string,
+  agendaRequest?: InstructorAgendaRequest,
 ): Promise<InstructorExperience> {
   const { user, tenant, roles } = await requireActiveTenant([
     "instructor",
@@ -355,6 +375,21 @@ async function loadInstructorRouteExperience(
   const dayStart = startOfZonedDayUtc(todayYmd, timeZone);
   const dayEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 1), timeZone);
   const horizonEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 15), timeZone);
+  const agendaPeriod =
+    scope === "agenda"
+      ? resolveInstructorAgendaPeriod({
+          mode: agendaRequest?.mode,
+          date: agendaRequest?.date,
+          now,
+          timeZone,
+        })
+      : undefined;
+  const experienceFrom = agendaPeriod
+    ? startOfZonedDayUtc(agendaPeriod.fromYmd, timeZone)
+    : dayStart;
+  const experienceTo = agendaPeriod
+    ? startOfZonedDayUtc(agendaPeriod.toYmd, timeZone)
+    : horizonEnd;
   const availabilityFrom = dayStart;
   const availabilityTo = horizonEnd;
   const needsLessons = [
@@ -392,7 +427,7 @@ async function loadInstructorRouteExperience(
     lessonWindowResult,
     openTasksResult,
     openTaskCountResult,
-    todayTrials,
+    agendaTrials,
     appointmentWindow,
     conversations,
     vehicles,
@@ -406,8 +441,8 @@ async function loadInstructorRouteExperience(
           .select("*")
           .eq("tenant_id", tenant.id)
           .eq("instructor_id", user.id)
-          .gte("starts_at", dayStart.toISOString())
-          .lt("starts_at", horizonEnd.toISOString())
+          .gte("starts_at", experienceFrom.toISOString())
+          .lt("starts_at", experienceTo.toISOString())
           .order("starts_at", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
     needsTasks
@@ -432,16 +467,16 @@ async function loadInstructorRouteExperience(
     needsAgenda
       ? loadAgendaTrialLessons(supabase, {
           tenantId: tenant.id,
-          from: dayStart,
-          to: dayEnd,
+          from: experienceFrom,
+          to: agendaPeriod ? experienceTo : dayEnd,
           instructorId: user.id,
         })
       : Promise.resolve([]),
     needsAgenda
       ? loadAgendaAppointments(supabase, {
           tenantId: tenant.id,
-          from: dayStart,
-          to: horizonEnd,
+          from: experienceFrom,
+          to: experienceTo,
           instructorId: user.id,
         })
       : Promise.resolve([]),
@@ -486,6 +521,9 @@ async function loadInstructorRouteExperience(
   );
   const todayAppointments = (appointmentWindow ?? []).filter((appointment) =>
     isSameZonedDay(new Date(appointment.starts_at), now, timeZone),
+  );
+  const todayTrials = (agendaTrials ?? []).filter((trial) =>
+    isSameZonedDay(new Date(trial.starts_at), now, timeZone),
   );
   const studentIds = Array.from(
     new Set([
@@ -534,15 +572,37 @@ async function loadInstructorRouteExperience(
   const vehiclesById = new Map(
     vehicles.map((vehicle) => [vehicle.id, vehicle]),
   );
+  const isHistory = agendaPeriod?.mode === "history";
+  const displayedLessons = isHistory
+    ? lessonWindow.filter(
+        (lesson) => new Date(lesson.starts_at).getTime() < now.getTime(),
+      )
+    : agendaPeriod
+      ? lessonWindow
+      : todayLessons;
+  const displayedTrials = isHistory
+    ? []
+    : agendaPeriod
+      ? agendaTrials
+      : todayTrials;
+  const displayedAppointments = isHistory
+    ? []
+    : agendaPeriod
+      ? appointmentWindow
+      : todayAppointments;
   const mappedAppointments = [
-    ...todayLessons.map((lesson) =>
+    ...displayedLessons.map((lesson) =>
       mapLesson(lesson, studentMap, vehiclesById, formatters),
     ),
-    ...todayTrials.map((trial) => mapTrial(trial, formatters)),
-    ...todayAppointments.map((appointment) =>
+    ...displayedTrials.map((trial) => mapTrial(trial, formatters)),
+    ...displayedAppointments.map((appointment) =>
       mapAppointment(appointment, vehiclesById, formatters),
     ),
-  ].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  ].sort((a, b) =>
+    agendaPeriod?.mode === "history"
+      ? b.startsAtIso.localeCompare(a.startsAtIso)
+      : a.startsAtIso.localeCompare(b.startsAtIso),
+  );
 
   const activeVehicles = vehicles.filter((vehicle) => vehicle.active);
   const evaluations: InstructorEvaluation[] = lessonWindow
@@ -596,7 +656,7 @@ async function loadInstructorRouteExperience(
     }));
   const radar = mapStudentsForRadar(students, lessonWindow, balanceMap);
   const profileName = user.profile?.full_name ?? user.email ?? "Instructeur";
-  const examTodayCount = todayAppointments.filter(
+  const displayedExamCount = displayedAppointments.filter(
     (appointment) =>
       appointment.type === "exam" || appointment.type === "interim_test",
   ).length;
@@ -678,20 +738,20 @@ async function loadInstructorRouteExperience(
     stats: [
       {
         label: "Rijlessen",
-        value: String(todayLessons.length),
-        hint: "Vandaag",
+        value: String(displayedLessons.length),
+        hint: agendaPeriod?.label ?? "Vandaag",
         tone: "blue",
       },
       {
         label: "Proeflessen",
-        value: String(todayTrials.length),
-        hint: "Vandaag",
+        value: String(displayedTrials.length),
+        hint: agendaPeriod?.label ?? "Vandaag",
         tone: "purple",
       },
       {
         label: "Examens / TTT",
-        value: String(examTodayCount),
-        hint: "Vandaag",
+        value: String(displayedExamCount),
+        hint: agendaPeriod?.label ?? "Vandaag",
         tone: "rose",
       },
       {
@@ -704,6 +764,7 @@ async function loadInstructorRouteExperience(
       },
     ],
     appointments: mappedAppointments,
+    agendaPeriod,
     students: mappedStudents,
     tasks: mappedTasks,
     messages,
@@ -748,8 +809,10 @@ export function loadInstructorCockpit(): Promise<InstructorExperience> {
   return loadInstructorRouteExperience("cockpit");
 }
 
-export function loadInstructorAgenda(): Promise<InstructorExperience> {
-  return loadInstructorRouteExperience("agenda");
+export function loadInstructorAgenda(
+  request: InstructorAgendaRequest = {},
+): Promise<InstructorExperience> {
+  return loadInstructorRouteExperience("agenda", undefined, request);
 }
 
 export function loadInstructorStudents(): Promise<InstructorExperience> {

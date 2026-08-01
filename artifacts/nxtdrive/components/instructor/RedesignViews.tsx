@@ -51,28 +51,53 @@ import {
 } from "@/lib/instructor/redesign-data";
 import type { InstructorTaskWorkspace } from "@/lib/instructor/tasks";
 import type { InAppNotification } from "@/lib/notifications/types";
+import {
+  resolveInstructorAgendaPeriod,
+  type InstructorAgendaMode,
+} from "@/lib/instructor/agenda-period";
 
 type IconComponent = typeof CalendarDays;
 
-function currentMonthCalendar() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+function monthCalendar(selectedDate: string, todayYmd: string) {
+  const selected = new Date(`${selectedDate}T12:00:00.000Z`);
+  const year = selected.getUTCFullYear();
+  const month = selected.getUTCMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const mondayFirstOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const mondayFirstOffset =
+    (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7;
   const label = new Intl.DateTimeFormat("nl-NL", {
     month: "long",
     year: "numeric",
-  }).format(today);
+    timeZone: "UTC",
+  }).format(selected);
 
   return {
     label: `${label.charAt(0).toUpperCase()}${label.slice(1)}`,
-    today: today.getDate(),
+    todayYmd,
+    selectedDate,
     days: [
       ...Array.from({ length: mondayFirstOffset }, () => null),
-      ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = String(index + 1).padStart(2, "0");
+        return {
+          day: index + 1,
+          ymd: `${year}-${String(month + 1).padStart(2, "0")}-${day}`,
+        };
+      }),
     ],
   };
+}
+
+function instructorAgendaHref(
+  basePath: string,
+  mode: InstructorAgendaMode,
+  date?: string | null,
+  appointmentId?: string | null,
+) {
+  const params = new URLSearchParams({ weergave: mode });
+  if (date && mode !== "history") params.set("datum", date);
+  if (appointmentId) params.set("afspraak", appointmentId);
+  return `${basePath}?${params.toString()}`;
 }
 
 const appointmentTone: Record<InstructorAppointmentType, string> = {
@@ -360,19 +385,20 @@ function AppointmentCard({
   compact = false,
   href = appointment.href,
   active = false,
+  actionHref,
+  actionLabel,
 }: {
   appointment: InstructorAppointment;
   compact?: boolean;
   href?: string;
   active?: boolean;
+  actionHref?: string;
+  actionLabel?: string;
 }) {
   return (
-    <Link
-      href={href}
-      aria-current={active ? "true" : undefined}
+    <div
       className={cn(
-        "relative block overflow-hidden rounded-[1.15rem] border border-brand-border bg-white p-3.5 shadow-sm transition-colors hover:border-brand-primary/35",
-        compact && "p-3",
+        "relative overflow-hidden rounded-[1.15rem] border border-brand-border bg-white shadow-sm transition-colors hover:border-brand-primary/35",
         active && "border-brand-primary bg-brand-accent/65",
       )}
     >
@@ -382,7 +408,11 @@ function AppointmentCard({
           appointmentRail[appointment.type],
         )}
       />
-      <div className="pl-2">
+      <Link
+        href={href}
+        aria-current={active ? "true" : undefined}
+        className={cn("block p-3.5 pl-5", compact && "p-3 pl-5")}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-black text-foreground">
@@ -402,8 +432,19 @@ function AppointmentCard({
             {appointment.duration} - {appointment.location}
           </span>
         </div>
-      </div>
-    </Link>
+      </Link>
+      {actionHref && actionLabel ? (
+        <div className="border-t border-brand-border/70 px-3.5 py-2.5 pl-5">
+          <Link
+            href={actionHref}
+            className="inline-flex min-h-10 items-center gap-1 text-xs font-black text-brand-primary"
+          >
+            {actionLabel}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -665,12 +706,28 @@ export function InstructorAgendaView({
   selectionBasePath?: string;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
-  const calendar = currentMonthCalendar();
+  const period =
+    data.agendaPeriod ??
+    resolveInstructorAgendaPeriod({ mode: "day", date: null });
+  const calendar = monthCalendar(period.selectedDate, period.todayYmd);
   const selectedAppointment =
     data.appointments.find(
       (appointment) => appointment.id === selectedAppointmentId,
     ) ?? null;
   const activeAppointment = selectedAppointment ?? data.appointments[0] ?? null;
+  const periodTabs: Array<{
+    mode: Exclude<InstructorAgendaMode, "history">;
+    label: string;
+  }> = [
+    { mode: "day", label: "Dag" },
+    { mode: "week", label: "Week" },
+    { mode: "month", label: "Maand" },
+  ];
+  const listBackHref = instructorAgendaHref(
+    selectionBasePath,
+    period.mode,
+    period.selectedDate,
+  );
 
   return (
     <InstructorPage>
@@ -680,6 +737,23 @@ export function InstructorAgendaView({
         subtitle="Plan je dag, week en maand met snelle toegang tot lessen, proeflessen en administratieve blokken."
         actions={
           <>
+            <Link
+              href={
+                period.mode === "history"
+                  ? instructorAgendaHref(
+                      selectionBasePath,
+                      "day",
+                      period.todayYmd,
+                    )
+                  : instructorAgendaHref(selectionBasePath, "history")
+              }
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Clock3 className="h-4 w-4" aria-hidden />
+              {period.mode === "history"
+                ? "Terug naar vandaag"
+                : "Rijleshistorie"}
+            </Link>
             <Link href="/instructeur/agenda/nieuw" className={buttonVariants()}>
               <Plus className="h-4 w-4" aria-hidden />
               Nieuwe afspraak
@@ -695,49 +769,133 @@ export function InstructorAgendaView({
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(17rem,0.9fr)_minmax(18rem,1.1fr)] 2xl:grid-cols-[minmax(22rem,0.8fr)_minmax(32rem,1.2fr)]">
         <InstructorCard
-          title="Vandaag"
+          title={period.label}
           icon={CalendarDays}
           className={cn(selectedAppointment && "hidden lg:block")}
           right={
-            <div className="flex rounded-full bg-brand-muted p-1 text-xs font-bold">
-              {["Dag", "Week", "Maand"].map((tab, index) => (
-                <span
-                  key={tab}
-                  className={cn(
-                    "rounded-full px-3 py-1.5",
-                    index === 0
-                      ? "bg-white text-brand-primary shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {tab}
-                </span>
-              ))}
-            </div>
+            period.mode !== "history" ? (
+              <div className="flex rounded-full bg-brand-muted p-1 text-xs font-bold">
+                {periodTabs.map((tab) => (
+                  <Link
+                    key={tab.mode}
+                    href={instructorAgendaHref(
+                      selectionBasePath,
+                      tab.mode,
+                      period.selectedDate,
+                    )}
+                    aria-current={period.mode === tab.mode ? "page" : undefined}
+                    className={cn(
+                      "rounded-full px-3 py-1.5",
+                      period.mode === tab.mode
+                        ? "bg-white text-brand-primary shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Badge variant="primary">Historie</Badge>
+            )
           }
         >
+          {period.mode !== "history" ? (
+            <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl bg-brand-muted/55 p-2">
+              <Link
+                href={instructorAgendaHref(
+                  selectionBasePath,
+                  period.mode,
+                  period.previousDate,
+                )}
+                aria-label="Vorige periode"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "icon",
+                })}
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+              </Link>
+              <Link
+                href={instructorAgendaHref(
+                  selectionBasePath,
+                  "day",
+                  period.todayYmd,
+                )}
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
+                Vandaag
+              </Link>
+              <Link
+                href={instructorAgendaHref(
+                  selectionBasePath,
+                  period.mode,
+                  period.nextDate,
+                )}
+                aria-label="Volgende periode"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "icon",
+                })}
+              >
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
+          ) : (
+            <p className="mb-4 rounded-2xl bg-brand-muted/55 p-3 text-xs leading-5 text-muted-foreground">
+              Afgeronde en eerdere afspraken van de afgelopen zes maanden,
+              nieuwste eerst. Open een rijles direct om de lesdetails en
+              lesevaluatie terug te zien.
+            </p>
+          )}
           <div className="grid gap-3">
             {data.appointments.length > 0 ? (
-              data.appointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="grid gap-3 md:grid-cols-[4.5rem_1fr]"
-                >
-                  <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
-                    {appointment.startsAt}
+              data.appointments.map((appointment, index) => {
+                const previous = data.appointments[index - 1];
+                const showDate =
+                  period.mode !== "day" &&
+                  previous?.dateYmd !== appointment.dateYmd;
+                return (
+                  <div key={appointment.id} className="grid gap-2">
+                    {showDate ? (
+                      <div className="pt-1 text-xs font-black uppercase tracking-wide text-muted-foreground">
+                        {appointment.dateLabel}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-3 md:grid-cols-[4.5rem_1fr]">
+                      <div className="pt-3 text-sm font-bold tabular-nums text-muted-foreground">
+                        {appointment.startsAt}
+                      </div>
+                      <AppointmentCard
+                        appointment={appointment}
+                        href={instructorAgendaHref(
+                          selectionBasePath,
+                          period.mode,
+                          period.selectedDate,
+                          appointment.id,
+                        )}
+                        active={appointment.id === activeAppointment?.id}
+                        actionHref={
+                          period.mode === "history"
+                            ? appointment.evaluationHref
+                            : undefined
+                        }
+                        actionLabel={
+                          period.mode === "history" &&
+                          appointment.evaluationHref
+                            ? "Open lesdetails en evaluatie"
+                            : undefined
+                        }
+                      />
+                    </div>
                   </div>
-                  <AppointmentCard
-                    appointment={appointment}
-                    href={`${selectionBasePath}?afspraak=${encodeURIComponent(
-                      appointment.id,
-                    )}`}
-                    active={appointment.id === activeAppointment?.id}
-                  />
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
-                Er staan vandaag geen agenda-items voor jou.
+                {period.mode === "history"
+                  ? "Er zijn in de afgelopen zes maanden geen eerdere agenda-items gevonden."
+                  : `Er staan geen agenda-items in deze ${period.mode === "day" ? "dag" : period.mode === "week" ? "week" : "maand"}.`}
               </p>
             )}
           </div>
@@ -752,7 +910,7 @@ export function InstructorAgendaView({
               icon={CalendarDays}
               right={
                 <Link
-                  href={selectionBasePath}
+                  href={listBackHref}
                   className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-brand-primary lg:hidden"
                 >
                   <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -776,7 +934,7 @@ export function InstructorAgendaView({
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <InfoTile
                     label="Tijd"
-                    value={`${activeAppointment.startsAt} - ${activeAppointment.endsAt}`}
+                    value={`${activeAppointment.dateLabel}, ${activeAppointment.startsAt} - ${activeAppointment.endsAt}`}
                   />
                   <InfoTile label="Duur" value={activeAppointment.duration} />
                   <InfoTile
@@ -786,10 +944,14 @@ export function InstructorAgendaView({
                   <InfoTile label="Status" value={activeAppointment.status} />
                 </dl>
                 <Link
-                  href={activeAppointment.href}
+                  href={
+                    activeAppointment.evaluationHref ?? activeAppointment.href
+                  }
                   className={cn(buttonVariants(), "w-full sm:w-auto")}
                 >
-                  Open volledige afspraak
+                  {activeAppointment.evaluationHref
+                    ? "Open lesdetails en evaluatie"
+                    : "Open volledige afspraak"}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               </div>
@@ -805,22 +967,32 @@ export function InstructorAgendaView({
                   {day}
                 </span>
               ))}
-              {calendar.days.map((day, index) =>
-                day === null ? (
+              {calendar.days.map((calendarDay, index) =>
+                calendarDay === null ? (
                   <span key={`empty-${index}`} aria-hidden className="py-2" />
                 ) : (
-                  <span
-                    key={day}
-                    aria-current={day === calendar.today ? "date" : undefined}
+                  <Link
+                    key={calendarDay.ymd}
+                    href={instructorAgendaHref(
+                      selectionBasePath,
+                      "day",
+                      calendarDay.ymd,
+                    )}
+                    aria-current={
+                      calendarDay.ymd === calendar.todayYmd ? "date" : undefined
+                    }
+                    aria-label={`Open agenda voor ${calendarDay.ymd}`}
                     className={cn(
                       "rounded-xl py-2",
-                      day === calendar.today
+                      calendarDay.ymd === calendar.selectedDate
                         ? "bg-brand-primary text-white"
-                        : "text-foreground hover:bg-brand-muted",
+                        : calendarDay.ymd === calendar.todayYmd
+                          ? "ring-1 ring-brand-primary/40 text-brand-primary"
+                          : "text-foreground hover:bg-brand-muted",
                     )}
                   >
-                    {day}
-                  </span>
+                    {calendarDay.day}
+                  </Link>
                 ),
               )}
             </div>
