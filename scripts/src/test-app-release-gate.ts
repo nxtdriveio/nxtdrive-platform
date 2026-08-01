@@ -51,6 +51,15 @@ assert.match(
   /const results = await loadStudentsReadiness\(client, tenantId, \[studentId\]\)/,
 );
 assert.match(instructorData, /loadStudentsReadiness/);
+assert.match(instructorData, /resolveInstructorAgendaPeriod/);
+assert.match(
+  instructorData,
+  /\.gte\("starts_at", experienceFrom\.toISOString\(\)\)/,
+);
+assert.match(
+  instructorData,
+  /\.lt\("starts_at", experienceTo\.toISOString\(\)\)/,
+);
 
 const redesign = appRead("components", "instructor", "RedesignViews.tsx");
 assert.match(redesign, /<ChatThread/);
@@ -72,6 +81,53 @@ assert.equal(
   false,
   "duplicate instructor chat composer must stay removed",
 );
+for (const agendaContract of [
+  'label: "Dag"',
+  'label: "Week"',
+  'label: "Maand"',
+  "Rijleshistorie",
+  "Open lesdetails en evaluatie",
+  "instructorAgendaHref",
+]) {
+  assert.ok(
+    redesign.includes(agendaContract),
+    `instructor agenda must expose ${agendaContract}`,
+  );
+}
+
+const studentNav = appRead("components", "student", "nav-items.ts");
+assert.ok(
+  studentNav.includes('learnerNavItem("learner.more", MoreHorizontal)') &&
+    studentNav.includes('"/leerling/account"') &&
+    studentNav.includes('"/leerling/hulp"'),
+  "learner primary navigation must use Meer and keep its child pages active",
+);
+const studentMore = appRead("components", "student", "StudentPwa.tsx");
+for (const route of [
+  "/leerling/account",
+  "/leerling/berichten",
+  "/leerling/hulp",
+  "/leerling/documenten",
+  "/leerling/instellingen",
+]) {
+  assert.ok(
+    studentMore.includes(route),
+    `learner Meer menu must link to ${route}`,
+  );
+}
+for (const page of [
+  "app/leerling/account/page.tsx",
+  "app/leerling/berichten/page.tsx",
+  "app/leerling/hulp/page.tsx",
+  "app/leerling/documenten/page.tsx",
+  "app/leerling/instellingen/page.tsx",
+]) {
+  assert.equal(
+    existsSync(path.join(appRoot, ...page.split("/"))),
+    true,
+    `${page} must remain a standalone page`,
+  );
+}
 
 const documents = appRead("lib", "students", "documents.ts");
 for (const contract of [
@@ -118,8 +174,11 @@ for (const releaseCheck of [
   "mobile instructor chat page itself must not scroll",
   "conversation must use inline vertical scrolling",
   "Terug naar gesprekken",
-  "?afspraak=",
+  "afspraak=",
   "?leerling=",
+  "Rijleshistorie",
+  "Open lesdetails en evaluatie",
+  "/visual-fixtures/leerling/meer",
 ]) {
   assert.ok(
     e2e.includes(releaseCheck),

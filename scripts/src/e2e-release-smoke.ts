@@ -200,6 +200,7 @@ try {
     "/visual-fixtures/instructeur/leerlingen",
     "/visual-fixtures/instructeur/berichten/thread-1",
     "/visual-fixtures/instructeur/meer",
+    "/visual-fixtures/leerling/meer",
   ];
   for (const viewport of requiredViewports) {
     await page.setViewportSize(viewport);
@@ -322,19 +323,51 @@ try {
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/agenda`, {
     waitUntil: "networkidle",
   });
-  const appointmentSelection = page.locator('a[href*="?afspraak="]').first();
+  await page.getByRole("link", { name: "Week", exact: true }).click();
+  await page.waitForURL(/weergave=week/);
+  assert.equal(
+    await page
+      .getByRole("link", { name: "Week", exact: true })
+      .getAttribute("aria-current"),
+    "page",
+    "week must be a functional agenda view",
+  );
+  await page.getByRole("link", { name: "Maand", exact: true }).click();
+  await page.waitForURL(/weergave=month/);
+  assert.equal(
+    await page
+      .getByRole("link", { name: "Maand", exact: true })
+      .getAttribute("aria-current"),
+    "page",
+    "month must be a functional agenda view",
+  );
+  await page.getByRole("link", { name: "Rijleshistorie" }).click();
+  await page.waitForURL(/weergave=history/);
+  assert.match(
+    (await page
+      .getByRole("link", { name: "Open lesdetails en evaluatie" })
+      .first()
+      .getAttribute("href")) ?? "",
+    /^\/instructeur\/lessen\//,
+    "history must link a lesson to its canonical evaluation workspace",
+  );
+  await page.getByRole("link", { name: "Terug naar vandaag" }).click();
+  await page.waitForURL(/weergave=day/);
+  const appointmentSelection = page.locator('a[href*="afspraak="]').first();
   const appointmentDestination =
     await appointmentSelection.getAttribute("href");
   assert.match(
     appointmentDestination ?? "",
-    /^\/visual-fixtures\/instructeur\/agenda\?afspraak=.+/,
+    /^\/visual-fixtures\/instructeur\/agenda\?.*afspraak=.+/,
   );
   await appointmentSelection.click();
   await page.getByRole("heading", { name: "Afspraakdetails" }).waitFor();
   assert.match(page.url(), /[?&]afspraak=/);
   assert.match(
     (await page
-      .getByRole("link", { name: /Open volledige afspraak/ })
+      .getByRole("link", {
+        name: /Open (lesdetails en evaluatie|volledige afspraak)/,
+      })
       .getAttribute("href")) ?? "",
     /^\/instructeur\/(lessen|agenda)\//,
   );
@@ -355,6 +388,30 @@ try {
   await studentSelection.click();
   await page.getByRole("link", { name: "Open volledig dossier" }).waitFor();
   assert.match(page.url(), /[?&]leerling=/);
+
+  await page.goto(`${baseUrl}/visual-fixtures/leerling/meer`, {
+    waitUntil: "networkidle",
+  });
+  const learnerNav = page.locator('nav[aria-label="Hoofdnavigatie"]');
+  assert.equal(
+    await learnerNav.locator("a").count(),
+    5,
+    "learner bottom navigation must expose exactly five primary actions",
+  );
+  await learnerNav.getByRole("link", { name: "Meer", exact: true }).waitFor();
+  for (const destination of [
+    "/leerling/account",
+    "/leerling/berichten",
+    "/leerling/hulp",
+    "/leerling/documenten",
+    "/leerling/instellingen",
+  ]) {
+    assert.equal(
+      await page.locator(`main a[href="${destination}"]`).count(),
+      1,
+      `Meer must expose one visible standalone destination for ${destination}`,
+    );
+  }
 } finally {
   await browser.close();
 }
