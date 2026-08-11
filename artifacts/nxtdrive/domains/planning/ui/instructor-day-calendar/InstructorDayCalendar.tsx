@@ -156,6 +156,7 @@ export function InstructorDayCalendar({
   selectedAppointmentId,
   selectionBasePath = "/instructeur/agenda",
   createOptions,
+  createAction,
 }: {
   period: InstructorAgendaPeriod;
   items: readonly InstructorDayAgendaItem[];
@@ -164,6 +165,7 @@ export function InstructorDayCalendar({
   selectedAppointmentId?: string;
   selectionBasePath?: string;
   createOptions?: InstructorAgendaCreateOptions;
+  createAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const hourHeight = useHourHeight();
   const timelineHeight = pixelsFromMinutes(MINUTES_PER_DAY_VIEW, hourHeight);
@@ -683,6 +685,7 @@ export function InstructorDayCalendar({
         selectedTime={selectedTime}
         options={createOptions}
         redirectTo={redirectTo}
+        createAction={createAction}
       />
       <AppointmentQuickView
         item={selectedItem}

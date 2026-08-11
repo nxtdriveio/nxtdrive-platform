@@ -142,6 +142,7 @@ export function AppointmentCreateSheet({
   selectedTime,
   options,
   redirectTo,
+  createAction = createInstructorAgendaItem,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -150,6 +151,7 @@ export function AppointmentCreateSheet({
   selectedTime: string;
   options?: InstructorAgendaCreateOptions;
   redirectTo: string;
+  createAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const presentation = type ? appointmentTypePresentation(type) : null;
   if (!presentation || presentation.creationFlow === "EXISTING_ONLY")
@@ -195,7 +197,7 @@ export function AppointmentCreateSheet({
           </DialogDescription>
         </DialogHeader>
         <AppointmentForm
-          action={createInstructorAgendaItem}
+          action={createAction}
           mode="create"
           redirectTo={redirectTo}
           errorTo={`/instructeur/agenda/nieuw?type=${presentation.type}&date=${selectedDate}&time=${selectedTime}`}

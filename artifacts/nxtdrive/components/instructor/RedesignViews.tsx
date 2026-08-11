@@ -703,11 +703,13 @@ export function InstructorAgendaView({
   selectedAppointmentId,
   selectionBasePath = "/instructeur/agenda",
   createOptions,
+  createAction,
 }: {
   data?: InstructorExperience;
   selectedAppointmentId?: string;
   selectionBasePath?: string;
   createOptions?: InstructorAgendaCreateOptions;
+  createAction?: (formData: FormData) => void | Promise<void>;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const period =
@@ -743,6 +745,7 @@ export function InstructorAgendaView({
         selectedAppointmentId={selectedAppointmentId}
         selectionBasePath={selectionBasePath}
         createOptions={createOptions}
+        createAction={createAction}
       />
     );
   }

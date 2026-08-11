@@ -9,7 +9,7 @@ import type {
   InstructorExperience,
 } from "@/lib/instructor/redesign-data";
 
-function fixtureAppointment(input: {
+export function fixtureAppointment(input: {
   id: string;
   displayType: InstructorAppointmentType;
   calendarType: InstructorDayCalendarType;

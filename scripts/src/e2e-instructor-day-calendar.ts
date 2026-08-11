@@ -43,11 +43,17 @@ async function assertViewportContract(page: Page) {
 }
 
 async function testMobile(page: Page) {
+  const renderStartedAt = performance.now();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/agenda`, {
     waitUntil: "networkidle",
   });
   await page.locator("[data-instructor-day-calendar]").waitFor();
+  const initialRenderMs = Math.round(performance.now() - renderStartedAt);
+  assert.ok(
+    initialRenderMs < 5_000,
+    `calendar render took ${initialRenderMs}ms`,
+  );
   await assertViewportContract(page);
 
   assert.equal(await page.locator('[role="gridcell"]').count(), 60);
@@ -101,8 +107,11 @@ async function testMobile(page: Page) {
   const beforeQuickAddScroll = await scroller.evaluate(
     (element) => element.scrollTop,
   );
+  const quickAddStartedAt = performance.now();
   await slot.click();
   await page.locator("[data-appointment-type-picker]").waitFor();
+  const quickAddOpenMs = Math.round(performance.now() - quickAddStartedAt);
+  assert.ok(quickAddOpenMs < 1_000, `quick-add took ${quickAddOpenMs}ms`);
   await page.getByRole("button", { name: "Rijles", exact: true }).click();
   const createDialog = page.getByRole("dialog", { name: "Nieuwe rijles" });
   await createDialog.waitFor();
@@ -135,6 +144,19 @@ async function testMobile(page: Page) {
     ) <= 1,
     "closing quick-add must preserve calendar scroll",
   );
+
+  const keyboardSlot = page.getByRole("gridcell", {
+    name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 10:30/,
+  });
+  await keyboardSlot.focus();
+  await page.keyboard.press("ArrowDown");
+  assert.match(
+    (await page.locator(":focus").getAttribute("aria-label")) ?? "",
+    /10:45/,
+  );
+  await page.keyboard.press("Enter");
+  await page.locator("[data-appointment-type-picker]").waitFor();
+  await page.keyboard.press("Escape");
 
   const event = page.locator('[data-calendar-event="appointment-3"]');
   await event.scrollIntoViewIfNeeded();
@@ -169,6 +191,36 @@ async function testMobile(page: Page) {
     };
   });
   assert.deepEqual(overlap, { separateColumns: true, similarWidths: true });
+  console.log(
+    `mobile timings: render=${initialRenderMs}ms quick-add=${quickAddOpenMs}ms`,
+  );
+}
+
+async function testCreateFlow(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `${baseUrl}/visual-fixtures/instructeur/agenda?fixture=empty`,
+    { waitUntil: "networkidle" },
+  );
+  const slot = page.getByRole("gridcell", {
+    name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 13:30/,
+  });
+  await slot.scrollIntoViewIfNeeded();
+  await slot.click();
+  await page.getByRole("button", { name: "Rijles", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Nieuwe rijles" });
+  await dialog.locator('select[name="student_id"]').selectOption("student-1");
+  const createStartedAt = performance.now();
+  await dialog.getByRole("button", { name: "Rijles toevoegen" }).click();
+  await page.waitForURL(/created=lesson/);
+  const createdEvent = page.locator(
+    '[data-calendar-event="appointment-created"]',
+  );
+  await createdEvent.waitFor();
+  const createFlowMs = Math.round(performance.now() - createStartedAt);
+  assert.match((await createdEvent.textContent()) ?? "", /13:30/);
+  assert.match((await createdEvent.textContent()) ?? "", /Noah Jansen/);
+  console.log(`fixture create return=${createFlowMs}ms`);
 }
 
 async function testTablet(page: Page, width: number, height: number) {
@@ -196,6 +248,7 @@ async function main() {
   });
   try {
     await testMobile(page);
+    await testCreateFlow(page);
     await testTablet(page, 768, 1024);
     await testTablet(page, 834, 1194);
     await testTablet(page, 1024, 768);
