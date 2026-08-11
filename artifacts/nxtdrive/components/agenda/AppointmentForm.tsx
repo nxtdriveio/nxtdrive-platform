@@ -68,6 +68,8 @@ export function AppointmentForm({
   allowLesson = false,
   lockType = false,
   returnToCalendar = false,
+  onTypeChange,
+  durationByType,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
@@ -87,10 +89,13 @@ export function AppointmentForm({
   allowLesson?: boolean;
   lockType?: boolean;
   returnToCalendar?: boolean;
+  onTypeChange?: (type: InstructorPlanningType) => void;
+  durationByType?: Partial<Record<InstructorPlanningType, number>>;
 }) {
   const [type, setType] = useState<InstructorPlanningType>(
     defaults?.type ?? (allowLesson ? "lesson" : "exam"),
   );
+  const [durationMin, setDurationMin] = useState(defaults?.durationMin ?? 50);
   // In edit mode the type is immutable (the DB RPC does not change it).
   const typeLocked = mode === "edit" || lockType;
   // The instructor is also immutable in edit mode - update_agenda_appointment
@@ -104,7 +109,7 @@ export function AppointmentForm({
   const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
   const showStudent = isStudentLinkedPlanningType(type);
   const compactQuickAdd =
-    lockType &&
+    returnToCalendar &&
     (type === "break" || type === "private_block" || type === "free_block");
   const showVehicle =
     type === "lesson" ||
@@ -121,7 +126,7 @@ export function AppointmentForm({
   const defaultBranchId = defaults?.branchId ?? branches?.[0]?.id ?? "";
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4 pb-2">
       <input type="hidden" name="redirect_to" value={redirectTo} />
       <input type="hidden" name="error_to" value={errorTo} />
       {returnToCalendar ? (
@@ -146,7 +151,13 @@ export function AppointmentForm({
             id="type"
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as InstructorPlanningType)}
+            onChange={(event) => {
+              const nextType = event.target.value as InstructorPlanningType;
+              setType(nextType);
+              const nextDuration = durationByType?.[nextType];
+              if (nextDuration !== undefined) setDurationMin(nextDuration);
+              onTypeChange?.(nextType);
+            }}
             disabled={typeLocked}
             required
           >
@@ -305,7 +316,8 @@ export function AppointmentForm({
           <Select
             id="duration_min"
             name="duration_min"
-            defaultValue={String(defaults?.durationMin ?? 50)}
+            value={String(durationMin)}
+            onChange={(event) => setDurationMin(Number(event.target.value))}
           >
             {APPOINTMENT_DURATIONS.map((d) => (
               <option key={d} value={d}>

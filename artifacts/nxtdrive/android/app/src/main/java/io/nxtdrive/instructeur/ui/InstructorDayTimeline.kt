@@ -6,9 +6,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-internal const val INSTRUCTOR_DAY_START_HOUR = 7
-internal const val INSTRUCTOR_DAY_END_HOUR = 22
-internal const val INSTRUCTOR_DAY_MINUTES = 15 * 60
+internal const val INSTRUCTOR_DAY_START_HOUR = 0
+internal const val INSTRUCTOR_DAY_END_HOUR = 24
+internal const val INSTRUCTOR_DAY_MINUTES = 24 * 60
 internal const val INSTRUCTOR_DAY_SLOT_MINUTES = 15
 
 internal enum class NativeCalendarTone { BLUE, VIOLET, ROSE, AMBER, GREEN, TEAL, NEUTRAL }

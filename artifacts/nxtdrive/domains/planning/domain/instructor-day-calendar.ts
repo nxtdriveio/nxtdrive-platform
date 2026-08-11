@@ -1,7 +1,7 @@
 import { zonedMinuteOfDay, zonedYmd } from "@/lib/datetime";
 
-export const CALENDAR_START_HOUR = 7;
-export const CALENDAR_END_HOUR = 22;
+export const CALENDAR_START_HOUR = 0;
+export const CALENDAR_END_HOUR = 24;
 export const MINUTES_PER_DAY_VIEW =
   (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
 export const CALENDAR_SLOT_MINUTES = 15;
@@ -250,13 +250,11 @@ export function initialScrollMinutes(input: {
   firstVisibleEventMinute?: number | null;
 }): number {
   if (input.selectedDate === input.today) {
-    if (input.nowMinuteOfDay < CALENDAR_START_HOUR * 60) return 0;
-    if (input.nowMinuteOfDay >= CALENDAR_END_HOUR * 60) {
-      return (18 - CALENDAR_START_HOUR) * 60;
-    }
     return Math.max(0, input.nowMinuteOfDay - CALENDAR_START_HOUR * 60 - 60);
   }
-  return Math.max(0, (input.firstVisibleEventMinute ?? 60) - 60);
+  return input.firstVisibleEventMinute == null
+    ? 7 * 60
+    : Math.max(0, input.firstVisibleEventMinute - 60);
 }
 
 export function formatMinuteOffset(minutes: number): string {

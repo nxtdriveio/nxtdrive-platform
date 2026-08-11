@@ -22,9 +22,7 @@ import type { InstructorAgendaPeriod } from "@/lib/instructor/agenda-period";
 import { cn } from "@/lib/utils";
 import type { InstructorAgendaCreateOptions } from "../../application/instructor-agenda-create-options";
 import {
-  CALENDAR_END_HOUR,
   CALENDAR_SLOT_MINUTES,
-  CALENDAR_START_HOUR,
   MINUTES_PER_DAY_VIEW,
   currentTimeMinutes,
   formatMinuteOffset,
@@ -41,7 +39,6 @@ import {
 import {
   AppointmentCreateSheet,
   AppointmentQuickView,
-  AppointmentTypePicker,
 } from "./AppointmentSheets";
 import { CalendarEventBlock } from "./CalendarEventBlock";
 import { DayCalendarHeader } from "./DayCalendarHeader";
@@ -62,34 +59,6 @@ function useHourHeight(): number {
 
 function dateFromYmd(ymd: string): Date {
   return new Date(`${ymd}T12:00:00.000Z`);
-}
-
-function isCompletelyBeforeWindow(
-  item: InstructorDayAgendaItem,
-  selectedDate: string,
-  timeZone: string,
-): boolean {
-  const end = new Date(item.endsAt);
-  const endYmd = zonedYmd(end, timeZone);
-  return (
-    endYmd < selectedDate ||
-    (endYmd === selectedDate &&
-      zonedMinuteOfDay(end, timeZone) <= CALENDAR_START_HOUR * 60)
-  );
-}
-
-function isCompletelyAfterWindow(
-  item: InstructorDayAgendaItem,
-  selectedDate: string,
-  timeZone: string,
-): boolean {
-  const start = new Date(item.startsAt);
-  const startYmd = zonedYmd(start, timeZone);
-  return (
-    startYmd > selectedDate ||
-    (startYmd === selectedDate &&
-      zonedMinuteOfDay(start, timeZone) >= CALENDAR_END_HOUR * 60)
-  );
 }
 
 function timelineHref(basePath: string, mode: string, date: string): string {
@@ -176,9 +145,8 @@ export function InstructorDayCalendar({
   const initialNow = useMemo(() => new Date(initialNowIso), [initialNowIso]);
   const [now, setNow] = useState(initialNow);
   const [offline, setOffline] = useState(false);
-  const [quickAddMinute, setQuickAddMinute] = useState(120);
-  const [focusedSlot, setFocusedSlot] = useState(120);
-  const [typePickerOpen, setTypePickerOpen] = useState(false);
+  const [quickAddMinute, setQuickAddMinute] = useState(9 * 60);
+  const [focusedSlot, setFocusedSlot] = useState(9 * 60);
   const [createType, setCreateType] =
     useState<InstructorDayCalendarType | null>(null);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -248,25 +216,6 @@ export function InstructorDayCalendar({
     () => items.filter((item) => intervals.has(item.id)),
     [intervals, items],
   );
-  const beforeItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          !intervals.has(item.id) &&
-          isCompletelyBeforeWindow(item, period.selectedDate, timeZone),
-      ),
-    [intervals, items, period.selectedDate, timeZone],
-  );
-  const afterItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          !intervals.has(item.id) &&
-          isCompletelyAfterWindow(item, period.selectedDate, timeZone),
-      ),
-    [intervals, items, period.selectedDate, timeZone],
-  );
-
   const layouts = useMemo(
     () =>
       layoutOverlappingEvents(visibleItems, (item) => {
@@ -318,7 +267,8 @@ export function InstructorDayCalendar({
       if (occupiedSlots.has(snapped)) return;
       setQuickAddMinute(snapped);
       setFocusedSlot(snapped);
-      setTypePickerOpen(true);
+      setCreateType("lesson");
+      setCreateSheetOpen(true);
       calendarAnalytics("calendar_quick_add_opened", {
         minute: snapped,
       });
@@ -329,7 +279,7 @@ export function InstructorDayCalendar({
   const openUsefulQuickAdd = useCallback(() => {
     const preferred =
       currentMinute === null
-        ? 120
+        ? 9 * 60
         : snapMinutesToCreatableSlot(currentMinute + CALENDAR_SLOT_MINUTES);
     const next =
       availableSlots.find((minute) => minute >= preferred) ??
@@ -353,14 +303,26 @@ export function InstructorDayCalendar({
         ? firstVisible
         : null,
     });
-    const timer = window.setTimeout(() => {
-      scroller.scrollTop = Math.max(
-        0,
-        pixelsFromMinutes(targetMinutes, hourHeight) - 12,
-      );
+    const targetScrollTop = Math.max(
+      0,
+      pixelsFromMinutes(targetMinutes, hourHeight) - 12,
+    );
+    const applyInitialScroll = () => {
+      scroller.scrollTop = targetScrollTop;
       initialScrollDateRef.current = period.selectedDate;
-    }, 120);
-    return () => window.clearTimeout(timer);
+    };
+    const timer = window.setTimeout(applyInitialScroll, 120);
+    // Next.js may restore the nested viewport once after hydration. Retry only
+    // when that one-off restoration put the untouched calendar back at zero.
+    const hydrationSettleTimer = window.setTimeout(() => {
+      if (targetScrollTop > 0 && scroller.scrollTop === 0) {
+        applyInitialScroll();
+      }
+    }, 500);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(hydrationSettleTimer);
+    };
   }, [
     hourHeight,
     initialNow,
@@ -393,12 +355,17 @@ export function InstructorDayCalendar({
               : 0;
     if (!delta) return;
     event.preventDefault();
-    let candidate = Math.max(0, Math.min(885, minute + delta));
+    const lastSlot = MINUTES_PER_DAY_VIEW - CALENDAR_SLOT_MINUTES;
+    let candidate = Math.max(0, Math.min(lastSlot, minute + delta));
     const direction = delta > 0 ? 15 : -15;
-    while (occupiedSlots.has(candidate) && candidate >= 0 && candidate <= 885) {
+    while (
+      occupiedSlots.has(candidate) &&
+      candidate >= 0 &&
+      candidate <= lastSlot
+    ) {
       candidate += direction;
     }
-    candidate = Math.max(0, Math.min(885, candidate));
+    candidate = Math.max(0, Math.min(lastSlot, candidate));
     if (occupiedSlots.has(candidate)) return;
     setFocusedSlot(candidate);
     slotRefs.current.get(candidate)?.focus();
@@ -476,31 +443,6 @@ export function InstructorDayCalendar({
         </div>
       </div>
 
-      {beforeItems.length > 0 || afterItems.length > 0 ? (
-        <div className="flex shrink-0 flex-wrap gap-2 border-b border-brand-border/65 px-3 py-2 sm:px-4">
-          {beforeItems.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setSelectedItem(beforeItems[0] ?? null)}
-              className="min-h-9 rounded-full border border-brand-border bg-brand-muted/45 px-3 text-xs font-bold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
-            >
-              {beforeItems.length}{" "}
-              {beforeItems.length === 1 ? "afspraak" : "afspraken"} vóór 07:00
-            </button>
-          ) : null}
-          {afterItems.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setSelectedItem(afterItems[0] ?? null)}
-              className="min-h-9 rounded-full border border-brand-border bg-brand-muted/45 px-3 text-xs font-bold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
-            >
-              {afterItems.length}{" "}
-              {afterItems.length === 1 ? "afspraak" : "afspraken"} na 22:00
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       <div
         ref={scrollRef}
         data-calendar-scroll-viewport=""
@@ -519,39 +461,45 @@ export function InstructorDayCalendar({
             className="absolute inset-y-0 left-0 w-[3.35rem] bg-card/72 sm:w-16"
             aria-hidden
           />
-          {Array.from({ length: 31 }, (_, index) => index * 30).map(
-            (minute) => {
-              const fullHour = minute % 60 === 0;
-              return (
-                <div
-                  key={minute}
-                  data-calendar-grid-line={fullHour ? "hour" : "half-hour"}
-                  className="pointer-events-none absolute inset-x-0 z-0"
-                  style={{ top: pixelsFromMinutes(minute, hourHeight) }}
-                  aria-hidden
-                >
-                  {fullHour ? (
-                    <span className="absolute left-1 top-0 w-12 -translate-y-1/2 bg-card/80 pr-1 text-right text-[10px] font-bold tabular-nums text-muted-foreground sm:left-2 sm:w-12 sm:text-[11px]">
-                      {formatMinuteOffset(minute)}
-                    </span>
-                  ) : null}
-                  <span
-                    className={cn(
-                      "absolute left-[3.35rem] right-0 top-0 border-t sm:left-16",
-                      fullHour
-                        ? "border-solid border-slate-300/60 dark:border-slate-600/65"
-                        : "border-dashed border-slate-300/45 dark:border-slate-600/45",
-                    )}
-                  />
-                </div>
-              );
-            },
-          )}
+          {Array.from(
+            { length: MINUTES_PER_DAY_VIEW / CALENDAR_SLOT_MINUTES + 1 },
+            (_, index) => index * CALENDAR_SLOT_MINUTES,
+          ).map((minute) => {
+            const fullHour = minute % 60 === 0;
+            const halfHour = minute % 30 === 0 && !fullHour;
+            return (
+              <div
+                key={minute}
+                data-calendar-grid-line={
+                  fullHour ? "hour" : halfHour ? "half-hour" : "quarter-hour"
+                }
+                className="pointer-events-none absolute inset-x-0 z-0"
+                style={{ top: pixelsFromMinutes(minute, hourHeight) }}
+                aria-hidden
+              >
+                {fullHour ? (
+                  <span className="absolute left-1 top-0 w-12 -translate-y-1/2 bg-card/80 pr-1 text-right text-[10px] font-bold tabular-nums text-muted-foreground sm:left-2 sm:w-12 sm:text-[11px]">
+                    {formatMinuteOffset(minute)}
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "absolute left-[3.35rem] right-0 top-0 border-t sm:left-16",
+                    fullHour
+                      ? "border-solid border-slate-300/60 dark:border-slate-600/65"
+                      : halfHour
+                        ? "border-dashed border-slate-300/45 dark:border-slate-600/45"
+                        : "border-dotted border-slate-300/30 dark:border-slate-600/30",
+                  )}
+                />
+              </div>
+            );
+          })}
 
           <div
             ref={contentRef}
             role="grid"
-            aria-label={`Dagagenda ${selectedDateLabel}, van 07:00 tot 22:00`}
+            aria-label={`Dagagenda ${selectedDateLabel}, van 00:00 tot 24:00`}
             aria-rowcount={slotMinutes.length}
             className="absolute inset-y-0 left-[3.35rem] right-0 overflow-hidden sm:left-16"
             onPointerUp={openFromPointer}
@@ -665,18 +613,6 @@ export function InstructorDayCalendar({
           : ""}
       </div>
 
-      <AppointmentTypePicker
-        open={typePickerOpen}
-        onOpenChange={setTypePickerOpen}
-        selectedDateLabel={selectedDateLabel}
-        selectedTime={selectedTime}
-        offline={offline}
-        onSelect={(type) => {
-          setTypePickerOpen(false);
-          setCreateType(type);
-          setCreateSheetOpen(true);
-        }}
-      />
       <AppointmentCreateSheet
         open={createSheetOpen}
         onOpenChange={setCreateSheetOpen}
@@ -685,6 +621,7 @@ export function InstructorDayCalendar({
         selectedTime={selectedTime}
         options={createOptions}
         redirectTo={redirectTo}
+        offline={offline}
         createAction={createAction}
       />
       <AppointmentQuickView

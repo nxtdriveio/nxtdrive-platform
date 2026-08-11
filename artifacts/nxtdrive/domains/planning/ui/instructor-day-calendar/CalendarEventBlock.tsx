@@ -149,13 +149,13 @@ export function CalendarEventBlock({
       {interval.startsBeforeWindow && height >= 34 ? (
         <span className="mt-1 flex items-center gap-1 truncate text-[9px] font-bold opacity-75">
           <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
-          Begonnen vóór 07:00
+          Begonnen op de vorige dag
         </span>
       ) : null}
       {interval.endsAfterWindow && height >= 34 ? (
         <span className="mt-1 flex items-center gap-1 truncate text-[9px] font-bold opacity-75">
           <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
-          Loopt door na 22:00
+          Loopt door op de volgende dag
         </span>
       ) : null}
     </button>

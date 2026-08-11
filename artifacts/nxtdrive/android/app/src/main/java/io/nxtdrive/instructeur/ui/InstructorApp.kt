@@ -580,7 +580,6 @@ private fun AgendaScreen(
     val today = remember(timeZone) { nativeTodayKey(timeZone) }
     var selectedDate by remember(timeZone) { mutableStateOf(today) }
     var quickAddMinute by remember { mutableStateOf<Int?>(null) }
-    var quickAddType by remember { mutableStateOf<String?>(null) }
     var selectedAppointment by remember { mutableStateOf<NativeAppointment?>(null) }
     var now by remember { mutableStateOf(Date()) }
     val dayAppointments = remember(data.appointments, selectedDate, timeZone) {
@@ -588,12 +587,6 @@ private fun AgendaScreen(
     }
     val timelineAppointments = remember(dayAppointments, timeZone) {
         layoutNativeDayAppointments(dayAppointments, timeZone)
-    }
-    val beforeWindow = remember(dayAppointments, timeZone) {
-        dayAppointments.count { (nativeMinuteOfDay(it.endsAt, timeZone) ?: 0) <= 7 * 60 }
-    }
-    val afterWindow = remember(dayAppointments, timeZone) {
-        dayAppointments.count { (nativeMinuteOfDay(it.startsAt, timeZone) ?: 0) >= 22 * 60 }
     }
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -603,14 +596,10 @@ private fun AgendaScreen(
         val initialMinute = when {
             selectedDate == today -> {
                 val current = nativeMinuteForDate(now, timeZone)
-                when {
-                    current < 0 -> 0
-                    current >= INSTRUCTOR_DAY_MINUTES -> 11 * 60
-                    else -> (current - 60).coerceAtLeast(0)
-                }
+                (current - 60).coerceAtLeast(0)
             }
             firstStart != null -> (firstStart - 60).coerceAtLeast(0)
-            else -> 0
+            else -> 7 * 60
         }
         scrollState.scrollTo(with(density) { (initialMinute * 1.2f).dp.roundToPx() })
     }
@@ -662,18 +651,6 @@ private fun AgendaScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (beforeWindow > 0 || afterWindow > 0) {
-            Text(
-                listOfNotNull(
-                    beforeWindow.takeIf { it > 0 }?.let { "$it vóór 07:00" },
-                    afterWindow.takeIf { it > 0 }?.let { "$it na 22:00" },
-                ).joinToString(" · "),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -693,30 +670,17 @@ private fun AgendaScreen(
     }
 
     quickAddMinute?.let { minute ->
-        if (quickAddType == null) {
-            NativeAppointmentTypePicker(
-                date = selectedDate,
-                minute = minute,
-                onDismiss = { quickAddMinute = null },
-                onSelect = { quickAddType = it },
-            )
-        } else {
-            PlanningDialog(
-                data = data,
-                initialDate = selectedDate,
-                initialTime = nativeTimelineTime(minute),
-                initialType = quickAddType ?: "lesson",
-                onDismiss = {
-                    quickAddMinute = null
-                    quickAddType = null
-                },
-                onSave = {
-                    viewModel.createPlanningItem(it)
-                    quickAddMinute = null
-                    quickAddType = null
-                },
-            )
-        }
+        PlanningDialog(
+            data = data,
+            initialDate = selectedDate,
+            initialTime = nativeTimelineTime(minute),
+            initialType = "lesson",
+            onDismiss = { quickAddMinute = null },
+            onSave = {
+                viewModel.createPlanningItem(it)
+                quickAddMinute = null
+            },
+        )
     }
 
     selectedAppointment?.let { appointment ->
@@ -761,22 +725,36 @@ private fun NativeDayTimeline(
 ) {
     val hourHeight = 72.dp
     val gutterWidth = 54.dp
-    val totalHeight = hourHeight * 15
+    val totalHeight = hourHeight * 24
     val fullLine = MaterialTheme.colorScheme.outlineVariant
     val halfLine = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+    val quarterLine = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(totalHeight)) {
         Canvas(Modifier.fillMaxSize()) {
             val gutterPx = gutterWidth.toPx()
-            for (halfHour in 0..30) {
-                val y = halfHour * hourHeight.toPx() / 2f
+            for (quarterHour in 0..96) {
+                val fullHour = quarterHour % 4 == 0
+                val halfHour = quarterHour % 2 == 0 && !fullHour
+                val y = quarterHour * hourHeight.toPx() / 4f
                 drawLine(
-                    color = if (halfHour % 2 == 0) fullLine else halfLine,
+                    color = when {
+                        fullHour -> fullLine
+                        halfHour -> halfLine
+                        else -> quarterLine
+                    },
                     start = androidx.compose.ui.geometry.Offset(gutterPx, y),
                     end = androidx.compose.ui.geometry.Offset(size.width, y),
                     strokeWidth = 1.dp.toPx(),
-                    pathEffect = if (halfHour % 2 == 0) null else
-                        PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 7.dp.toPx())),
+                    pathEffect = when {
+                        fullHour -> null
+                        halfHour -> PathEffect.dashPathEffect(
+                            floatArrayOf(5.dp.toPx(), 7.dp.toPx()),
+                        )
+                        else -> PathEffect.dashPathEffect(
+                            floatArrayOf(1.dp.toPx(), 5.dp.toPx()),
+                        )
+                    },
                 )
             }
         }
@@ -893,36 +871,6 @@ private fun NativeDayTimeline(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NativeAppointmentTypePicker(
-    date: String,
-    minute: Int,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
-) {
-    val options = nativeAppointmentPresentations.filter { it.quickAdd }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text("Nieuwe afspraak", style = MaterialTheme.typography.titleLarge)
-            Text(
-                "${formatDateOnly(date)} · ${nativeTimelineTime(minute)}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            options.forEach { option ->
-                TextButton(
-                    onClick = { onSelect(option.type) },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                ) { Text(option.shortLabel, modifier = Modifier.fillMaxWidth()) }
-            }
-        }
-    }
-}
-
 @Composable
 private fun PlanningCreateButton(
     data: InstructorBootstrap,
@@ -997,7 +945,9 @@ private fun PlanningDialog(
         title = { Text("Nieuwe planning") },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Box {
