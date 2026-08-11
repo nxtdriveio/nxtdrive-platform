@@ -2,6 +2,9 @@ package io.nxtdrive.instructeur.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -31,6 +35,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -63,6 +69,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -87,7 +94,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -113,6 +122,7 @@ import java.util.Date
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.delay
 
 private data class NavigationItem(
     val destination: AppDestination,
@@ -421,7 +431,7 @@ private fun InstructorShell(
                 floatingActionButton = {
                     when (state.destination) {
                         AppDestination.TASKS -> TaskCreateButton(data, viewModel)
-                        AppDestination.AGENDA -> PlanningCreateButton(data, viewModel)
+                        AppDestination.AGENDA -> Unit
                         AppDestination.STUDENTS -> StudentCreateButton(data, viewModel)
                         else -> Unit
                     }
@@ -434,7 +444,7 @@ private fun InstructorShell(
                 ) {
                     when (state.destination) {
                         AppDestination.HOME -> DashboardScreen(data, viewModel)
-                        AppDestination.AGENDA -> AgendaScreen(data.appointments)
+                        AppDestination.AGENDA -> AgendaScreen(data, viewModel)
                         AppDestination.STUDENTS -> StudentsScreen(data.students, viewModel)
                         AppDestination.TASKS -> TasksScreen(data, viewModel)
                         AppDestination.MORE -> MoreScreen(data, viewModel)
@@ -460,6 +470,9 @@ private fun InstructorShell(
 
 @Composable
 private fun DashboardScreen(data: InstructorBootstrap, viewModel: InstructorViewModel) {
+    val upcomingAppointments = remember(data.appointments) {
+        data.appointments.filter { nativeIsFuture(it.startsAt) }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 32.dp),
@@ -486,11 +499,11 @@ private fun DashboardScreen(data: InstructorBootstrap, viewModel: InstructorView
                 viewModel.navigate(AppDestination.AGENDA)
             }
             Spacer(Modifier.height(8.dp))
-            if (data.appointments.isEmpty()) {
+            if (upcomingAppointments.isEmpty()) {
                 EmptyCard("Geen afspraken in de komende periode.")
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    data.appointments.take(3).forEach { AppointmentCard(it) }
+                    upcomingAppointments.take(3).forEach { AppointmentCard(it) }
                 }
             }
         }
@@ -557,29 +570,362 @@ private fun DashboardStatCard(stat: DashboardStat) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AgendaScreen(appointments: List<NativeAppointment>) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 32.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
+private fun AgendaScreen(
+    data: InstructorBootstrap,
+    viewModel: InstructorViewModel,
+) {
+    val timeZone = data.profile.tenantTimeZone
+    val today = remember(timeZone) { nativeTodayKey(timeZone) }
+    var selectedDate by remember(timeZone) { mutableStateOf(today) }
+    var quickAddMinute by remember { mutableStateOf<Int?>(null) }
+    var quickAddType by remember { mutableStateOf<String?>(null) }
+    var selectedAppointment by remember { mutableStateOf<NativeAppointment?>(null) }
+    var now by remember { mutableStateOf(Date()) }
+    val dayAppointments = remember(data.appointments, selectedDate, timeZone) {
+        data.appointments.filter { nativeDayKey(it.startsAt, timeZone) == selectedDate }
+    }
+    val timelineAppointments = remember(dayAppointments, timeZone) {
+        layoutNativeDayAppointments(dayAppointments, timeZone)
+    }
+    val beforeWindow = remember(dayAppointments, timeZone) {
+        dayAppointments.count { (nativeMinuteOfDay(it.endsAt, timeZone) ?: 0) <= 7 * 60 }
+    }
+    val afterWindow = remember(dayAppointments, timeZone) {
+        dayAppointments.count { (nativeMinuteOfDay(it.startsAt, timeZone) ?: 0) >= 22 * 60 }
+    }
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+
+    LaunchedEffect(selectedDate) {
+        val firstStart = timelineAppointments.minOfOrNull { it.startMinute }
+        val initialMinute = when {
+            selectedDate == today -> {
+                val current = nativeMinuteForDate(now, timeZone)
+                when {
+                    current < 0 -> 0
+                    current >= INSTRUCTOR_DAY_MINUTES -> 11 * 60
+                    else -> (current - 60).coerceAtLeast(0)
+                }
+            }
+            firstStart != null -> (firstStart - 60).coerceAtLeast(0)
+            else -> 0
+        }
+        scrollState.scrollTo(with(density) { (initialMinute * 1.2f).dp.roundToPx() })
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            now = Date()
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Surface(tonalElevation = 1.dp) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            selectedDate = addNativeDays(selectedDate, -1, timeZone)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Vorige dag")
+                        }
+                        TextButton(onClick = { selectedDate = today }) { Text("Vandaag") }
+                        IconButton(onClick = {
+                            selectedDate = addNativeDays(selectedDate, 1, timeZone)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Volgende dag")
+                        }
+                    }
+                    IconButton(onClick = { quickAddMinute = 9 * 60 - INSTRUCTOR_DAY_START_HOUR * 60 }) {
+                        Icon(Icons.Default.Add, "Afspraak toevoegen")
+                    }
+                }
+                Text(
+                    nativeDateLabel(selectedDate, timeZone),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+
+        if (dayAppointments.isEmpty()) {
             Text(
-                "Je planning",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                "Alle lessen en afspraaktypen in één native overzicht.",
+                "Nog geen afspraken · tik op een tijdstip om iets toe te voegen.",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (appointments.isEmpty()) {
-            item { EmptyCard("Er staan geen toekomstige afspraken gepland.") }
+        if (beforeWindow > 0 || afterWindow > 0) {
+            Text(
+                listOfNotNull(
+                    beforeWindow.takeIf { it > 0 }?.let { "$it vóór 07:00" },
+                    afterWindow.takeIf { it > 0 }?.let { "$it na 22:00" },
+                ).joinToString(" · "),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scrollState),
+        ) {
+            NativeDayTimeline(
+                appointments = timelineAppointments,
+                selectedDate = selectedDate,
+                today = today,
+                now = now,
+                timeZone = timeZone,
+                onEmptySlot = { quickAddMinute = it },
+                onAppointment = { selectedAppointment = it },
+            )
+        }
+    }
+
+    quickAddMinute?.let { minute ->
+        if (quickAddType == null) {
+            NativeAppointmentTypePicker(
+                date = selectedDate,
+                minute = minute,
+                onDismiss = { quickAddMinute = null },
+                onSelect = { quickAddType = it },
+            )
         } else {
-            items(appointments, key = { it.id }) { appointment ->
-                AppointmentCard(appointment)
+            PlanningDialog(
+                data = data,
+                initialDate = selectedDate,
+                initialTime = nativeTimelineTime(minute),
+                initialType = quickAddType ?: "lesson",
+                onDismiss = {
+                    quickAddMinute = null
+                    quickAddType = null
+                },
+                onSave = {
+                    viewModel.createPlanningItem(it)
+                    quickAddMinute = null
+                    quickAddType = null
+                },
+            )
+        }
+    }
+
+    selectedAppointment?.let { appointment ->
+        ModalBottomSheet(onDismissRequest = { selectedAppointment = null }) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(appointment.title, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${formatIso(appointment.startsAt, "HH:mm", timeZone)}–" +
+                        formatIso(appointment.endsAt, "HH:mm", timeZone),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                appointment.studentName?.let { Text(it) }
+                appointment.location?.let {
+                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    appointment.status,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = { selectedAppointment = null },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                ) { Text("Sluiten") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NativeDayTimeline(
+    appointments: List<NativeTimelinePosition>,
+    selectedDate: String,
+    today: String,
+    now: Date,
+    timeZone: String,
+    onEmptySlot: (Int) -> Unit,
+    onAppointment: (NativeAppointment) -> Unit,
+) {
+    val hourHeight = 72.dp
+    val gutterWidth = 54.dp
+    val totalHeight = hourHeight * 15
+    val fullLine = MaterialTheme.colorScheme.outlineVariant
+    val halfLine = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+
+    BoxWithConstraints(Modifier.fillMaxWidth().height(totalHeight)) {
+        Canvas(Modifier.fillMaxSize()) {
+            val gutterPx = gutterWidth.toPx()
+            for (halfHour in 0..30) {
+                val y = halfHour * hourHeight.toPx() / 2f
+                drawLine(
+                    color = if (halfHour % 2 == 0) fullLine else halfLine,
+                    start = androidx.compose.ui.geometry.Offset(gutterPx, y),
+                    end = androidx.compose.ui.geometry.Offset(size.width, y),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = if (halfHour % 2 == 0) null else
+                        PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 7.dp.toPx())),
+                )
+            }
+        }
+
+        (INSTRUCTOR_DAY_START_HOUR..INSTRUCTOR_DAY_END_HOUR).forEach { hour ->
+            Text(
+                String.format(Locale.ROOT, "%02d:00", hour),
+                modifier = Modifier.offset(y = hourHeight * (hour - INSTRUCTOR_DAY_START_HOUR))
+                    .width(gutterWidth).padding(end = 8.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        repeat(INSTRUCTOR_DAY_MINUTES / INSTRUCTOR_DAY_SLOT_MINUTES) { slot ->
+            val minute = slot * INSTRUCTOR_DAY_SLOT_MINUTES
+            Box(
+                modifier = Modifier
+                    .offset(x = gutterWidth, y = hourHeight * (minute / 60f))
+                    .width(maxWidth - gutterWidth)
+                    .height(hourHeight / 4)
+                    .clickable(
+                        onClickLabel = "Nieuwe afspraak toevoegen om ${nativeTimelineTime(minute)}",
+                    ) { onEmptySlot(minute) },
+            )
+        }
+
+        appointments.forEach { positioned ->
+            val columnCount = positioned.columnCount.coerceAtMost(3)
+            val column = positioned.column.coerceAtMost(2)
+            val eventAreaWidth = maxWidth - gutterWidth - 6.dp
+            val columnWidth = eventAreaWidth / columnCount
+            val tone = nativeAppointmentTone(positioned.appointment.kind)
+            Surface(
+                modifier = Modifier
+                    .offset(
+                        x = gutterWidth + columnWidth * column + 2.dp,
+                        y = hourHeight * (positioned.startMinute / 60f),
+                    )
+                    .width(columnWidth - 3.dp)
+                    .height(hourHeight * (positioned.durationMinutes / 60f))
+                    .clickable(
+                        onClickLabel = "${positioned.appointment.title}, " +
+                            "${nativeDateLabel(selectedDate, timeZone)}, " +
+                            "${formatIso(positioned.appointment.startsAt, "HH:mm", timeZone)} openen",
+                    ) { onAppointment(positioned.appointment) },
+                shape = RoundedCornerShape(10.dp),
+                color = tone.first,
+                contentColor = tone.second,
+                shadowElevation = 1.dp,
+            ) {
+                Column(Modifier.padding(horizontal = 7.dp, vertical = 5.dp)) {
+                    Text(
+                        "${formatIso(positioned.appointment.startsAt, "HH:mm", timeZone)} · " +
+                            positioned.appointment.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (positioned.durationMinutes >= 30) {
+                        positioned.appointment.studentName?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    if (positioned.durationMinutes >= 60) {
+                        positioned.appointment.location?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (selectedDate == today) {
+            val minute = nativeMinuteForDate(now, timeZone)
+            if (minute in 0 until INSTRUCTOR_DAY_MINUTES) {
+                val accent = MaterialTheme.colorScheme.primary
+                val y = hourHeight * (minute / 60f)
+                Canvas(Modifier.fillMaxSize()) {
+                    val yPx = y.toPx()
+                    drawCircle(accent, radius = 4.dp.toPx(), center = androidx.compose.ui.geometry.Offset(gutterWidth.toPx(), yPx))
+                    drawLine(
+                        accent,
+                        androidx.compose.ui.geometry.Offset(gutterWidth.toPx(), yPx),
+                        androidx.compose.ui.geometry.Offset(size.width, yPx),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                }
+                Surface(
+                    modifier = Modifier.offset(y = y - 10.dp).width(gutterWidth - 5.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(99.dp),
+                ) {
+                    Text(
+                        nativeTimelineTime(minute),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NativeAppointmentTypePicker(
+    date: String,
+    minute: Int,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val options = listOf(
+        "lesson" to "Rijles",
+        "exam" to "Examen",
+        "interim_test" to "Toets / assessment",
+        "break" to "Pauze",
+        "private_block" to "Privé",
+        "admin" to "Administratie",
+        "free_block" to "Overig",
+    )
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Nieuwe afspraak", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "${formatDateOnly(date)} · ${nativeTimelineTime(minute)}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            options.forEach { option ->
+                TextButton(
+                    onClick = { onSelect(option.first) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                ) { Text(option.second, modifier = Modifier.fillMaxWidth()) }
             }
         }
     }
@@ -611,27 +957,32 @@ private fun PlanningCreateButton(
 @Composable
 private fun PlanningDialog(
     data: InstructorBootstrap,
+    initialDate: String? = null,
+    initialTime: String = "09:00",
+    initialType: String = "lesson",
     onDismiss: () -> Unit,
     onSave: (PlanningRequest) -> Unit,
 ) {
     val context = LocalContext.current
     val calendar = remember {
-        Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
+        Calendar.getInstance(TimeZone.getTimeZone(data.profile.tenantTimeZone)).apply {
+            add(Calendar.DAY_OF_MONTH, 1)
+        }
     }
-    var type by remember { mutableStateOf("lesson") }
+    var type by remember(initialType) { mutableStateOf(initialType) }
     var studentId by remember { mutableStateOf<String?>(null) }
-    var date by remember {
+    var date by remember(initialDate) {
         mutableStateOf(
-            String.format(
-                Locale.ROOT,
-                "%04d-%02d-%02d",
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH) + 1,
-                calendar.get(Calendar.DAY_OF_MONTH),
-            ),
+            initialDate ?: String.format(
+                    Locale.ROOT,
+                    "%04d-%02d-%02d",
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH) + 1,
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                ),
         )
     }
-    var time by remember { mutableStateOf("09:00") }
+    var time by remember(initialTime) { mutableStateOf(initialTime) }
     var duration by remember { mutableStateOf(60) }
     var buffer by remember { mutableStateOf(0) }
     var title by remember { mutableStateOf("") }
@@ -2042,7 +2393,70 @@ private fun formatDateOnly(value: String): String {
     return runCatching { output.format(input.parse(value) ?: return value) }.getOrDefault(value)
 }
 
-private fun formatIso(value: String, outputPattern: String): String {
+private fun nativeTodayKey(timeZone: String): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        this.timeZone = TimeZone.getTimeZone(timeZone)
+    }.format(Date())
+
+private fun addNativeDays(value: String, amount: Int, timeZone: String): String {
+    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        isLenient = false
+        this.timeZone = TimeZone.getTimeZone(timeZone)
+    }
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone(timeZone)).apply {
+        time = formatter.parse(value) ?: Date()
+        add(Calendar.DAY_OF_MONTH, amount)
+    }
+    return formatter.format(calendar.time)
+}
+
+private fun nativeDateLabel(value: String, timeZone: String): String {
+    val input = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        isLenient = false
+        this.timeZone = TimeZone.getTimeZone(timeZone)
+    }
+    val output = SimpleDateFormat("EEEE d MMMM", Locale.forLanguageTag("nl-NL")).apply {
+        this.timeZone = TimeZone.getTimeZone(timeZone)
+    }
+    return runCatching { output.format(input.parse(value) ?: return value) }.getOrDefault(value)
+        .replaceFirstChar { it.titlecase(Locale.forLanguageTag("nl-NL")) }
+}
+
+private fun nativeMinuteForDate(value: Date, timeZone: String): Int {
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone(timeZone)).apply { time = value }
+    return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE) -
+        INSTRUCTOR_DAY_START_HOUR * 60
+}
+
+private fun nativeTimelineTime(minute: Int): String {
+    val minuteOfDay = INSTRUCTOR_DAY_START_HOUR * 60 + minute
+    return String.format(Locale.ROOT, "%02d:%02d", minuteOfDay / 60, minuteOfDay % 60)
+}
+
+@Composable
+private fun nativeAppointmentTone(kind: String): Pair<Color, Color> {
+    val dark = isSystemInDarkTheme()
+    val colors = when (kind) {
+        "lesson" -> 0xFFDCEBFF to 0xFF153A67
+        "trial" -> 0xFFEDE4FF to 0xFF4B287D
+        "exam" -> 0xFFFFE1E8 to 0xFF76263A
+        "interim_test", "theory_guidance" -> 0xFFFFECC7 to 0xFF68430A
+        "private_block" -> 0xFFDDF4E7 to 0xFF185437
+        "admin" -> 0xFFD9F3F1 to 0xFF12504C
+        else -> 0xFFECEAE6 to 0xFF403D38
+    }
+    return if (dark) {
+        Color(colors.second).copy(alpha = 0.72f) to Color(colors.first)
+    } else {
+        Color(colors.first) to Color(colors.second)
+    }
+}
+
+private fun formatIso(
+    value: String,
+    outputPattern: String,
+    outputTimeZone: String? = null,
+): String {
     val patterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
         "yyyy-MM-dd'T'HH:mm:ssXXX",
@@ -2057,7 +2471,9 @@ private fun formatIso(value: String, outputPattern: String): String {
             }.parse(value)
         }.getOrNull()
     } ?: return value
-    return SimpleDateFormat(outputPattern, Locale.forLanguageTag("nl-NL")).format(parsed)
+    return SimpleDateFormat(outputPattern, Locale.forLanguageTag("nl-NL")).apply {
+        outputTimeZone?.let { timeZone = TimeZone.getTimeZone(it) }
+    }.format(parsed)
 }
 
 private fun formatEpoch(epochSeconds: Long): String =

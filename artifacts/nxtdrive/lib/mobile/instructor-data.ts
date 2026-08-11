@@ -77,6 +77,7 @@ export async function loadNativeInstructorBootstrap(
   const now = new Date();
   const timeZone = resolveTenantTimeZone(tenant);
   const todayYmd = zonedYmd(now, timeZone);
+  const agendaStart = startOfZonedDayUtc(addDaysYmd(todayYmd, -7), timeZone);
   const todayStart = startOfZonedDayUtc(todayYmd, timeZone);
   const tomorrowStart = startOfZonedDayUtc(addDaysYmd(todayYmd, 1), timeZone);
   const horizonEnd = startOfZonedDayUtc(addDaysYmd(todayYmd, 15), timeZone);
@@ -113,7 +114,7 @@ export async function loadNativeInstructorBootstrap(
       .eq("tenant_id", tenant.id)
       .eq("instructor_id", user.id)
       .neq("status", "cancelled")
-      .gte("starts_at", todayStart.toISOString())
+      .gte("starts_at", agendaStart.toISOString())
       .lt("starts_at", horizonEnd.toISOString())
       .order("starts_at", { ascending: true }),
     service
@@ -124,7 +125,7 @@ export async function loadNativeInstructorBootstrap(
       .eq("tenant_id", tenant.id)
       .eq("instructor_id", user.id)
       .in("status", ["provisional", "confirmed"])
-      .gte("starts_at", todayStart.toISOString())
+      .gte("starts_at", agendaStart.toISOString())
       .lt("starts_at", horizonEnd.toISOString())
       .order("starts_at", { ascending: true }),
     service
@@ -193,10 +194,10 @@ export async function loadNativeInstructorBootstrap(
   }
 
   const lessons = (lessonsResult.data ?? []) as LessonRow[];
-  const futureLessons = lessons
+  const agendaLessons = lessons
     .filter(
       (lesson) =>
-        lesson.starts_at >= todayStart.toISOString() &&
+        lesson.starts_at >= agendaStart.toISOString() &&
         lesson.starts_at < horizonEnd.toISOString() &&
         !lesson.status.startsWith("cancelled"),
     )
@@ -336,7 +337,7 @@ export async function loadNativeInstructorBootstrap(
   );
 
   const nativeAppointments = [
-    ...futureLessons.map((lesson) => ({
+    ...agendaLessons.map((lesson) => ({
       id: lesson.id,
       kind: "lesson",
       title: "Rijles",
@@ -379,7 +380,7 @@ export async function loadNativeInstructorBootstrap(
     messagesByConversation.set(message.conversation_id, existing);
   }
 
-  const todayLessons = futureLessons.filter(
+  const todayLessons = agendaLessons.filter(
     (lesson) =>
       lesson.starts_at >= todayStart.toISOString() &&
       lesson.starts_at < tomorrowStart.toISOString(),
@@ -406,6 +407,7 @@ export async function loadNativeInstructorBootstrap(
       email: profile?.email ?? user.email ?? "",
       activeTenantId: tenant.id,
       tenantName: tenant.name,
+      tenantTimeZone: timeZone,
       ris20Qualified: Boolean(
         (
           qualificationResult.data as {
