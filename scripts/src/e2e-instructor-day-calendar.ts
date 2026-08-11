@@ -87,6 +87,21 @@ async function testMobile(page: Page) {
     initialScrollTop > 250,
     "today must initially scroll near the current time",
   );
+  const scrollTiming = await scroller.evaluate(async (element) => {
+    const startedAt = performance.now();
+    for (let frame = 0; frame < 20; frame += 1) {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      element.scrollTop += 32;
+    }
+    const elapsedMs = performance.now() - startedAt;
+    return { averageFrameMs: elapsedMs / 20 };
+  });
+  assert.ok(
+    scrollTiming.averageFrameMs < 35,
+    `calendar scroll averaged ${scrollTiming.averageFrameMs}ms per frame`,
+  );
   const headerTop = await page
     .locator("[data-instructor-day-calendar] > header")
     .evaluate((element) => element.getBoundingClientRect().top);
@@ -192,7 +207,8 @@ async function testMobile(page: Page) {
   });
   assert.deepEqual(overlap, { separateColumns: true, similarWidths: true });
   console.log(
-    `mobile timings: render=${initialRenderMs}ms quick-add=${quickAddOpenMs}ms`,
+    `mobile timings: render=${initialRenderMs}ms quick-add=${quickAddOpenMs}ms ` +
+      `scroll-frame=${scrollTiming.averageFrameMs.toFixed(1)}ms`,
   );
 }
 
@@ -238,6 +254,20 @@ async function testTablet(page: Page, width: number, height: number) {
   await page.keyboard.press("Escape");
 }
 
+async function testDaySwitch(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/visual-fixtures/instructeur/agenda`, {
+    waitUntil: "networkidle",
+  });
+  const startedAt = performance.now();
+  await page.getByRole("link", { name: "Vorige dag" }).click();
+  await page.waitForURL(/datum=2026-08-10/);
+  await page.locator("[data-instructor-day-calendar]").waitFor();
+  const daySwitchMs = Math.round(performance.now() - startedAt);
+  assert.ok(daySwitchMs < 5_000, `day switch took ${daySwitchMs}ms`);
+  console.log(`day switch=${daySwitchMs}ms`);
+}
+
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({
@@ -249,6 +279,7 @@ async function main() {
   try {
     await testMobile(page);
     await testCreateFlow(page);
+    await testDaySwitch(page);
     await testTablet(page, 768, 1024);
     await testTablet(page, 834, 1194);
     await testTablet(page, 1024, 768);
