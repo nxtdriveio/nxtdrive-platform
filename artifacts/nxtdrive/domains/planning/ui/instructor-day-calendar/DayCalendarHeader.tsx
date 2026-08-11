@@ -4,6 +4,12 @@ import { buttonVariants } from "@/components/ui/button";
 import type { InstructorAgendaPeriod } from "@/lib/instructor/agenda-period";
 import { cn } from "@/lib/utils";
 
+const MOBILE_DATE_FORMATTER = new Intl.DateTimeFormat("nl-NL", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
 function agendaHref(basePath: string, mode: string, date: string): string {
   const params = new URLSearchParams({ weergave: mode, datum: date });
   return `${basePath}?${params.toString()}`;
@@ -19,7 +25,7 @@ export function DayCalendarHeader({
   onQuickAdd: () => void;
 }) {
   return (
-    <header className="relative z-30 shrink-0 border-b border-brand-border/75 bg-white/94 px-3 py-2.5 backdrop-blur-xl sm:px-4">
+    <header className="relative z-30 shrink-0 border-b border-brand-border/75 bg-card/94 px-3 py-2.5 backdrop-blur-xl sm:px-4">
       <div className="mx-auto flex max-w-6xl items-center gap-2">
         <div className="flex shrink-0 items-center gap-1">
           <Link
@@ -78,7 +84,9 @@ export function DayCalendarHeader({
           </p>
           <h1 className="truncate text-sm font-black capitalize leading-tight text-foreground sm:text-base">
             <span className="sm:hidden">
-              {period.label.replace(/^[^ ]+\s+/, "").replace(/\s+\d{4}$/, "")}
+              {MOBILE_DATE_FORMATTER.format(
+                new Date(`${period.selectedDate}T12:00:00.000Z`),
+              )}
             </span>
             <span className="hidden sm:inline">
               {period.label.replace(/\s+\d{4}$/, "")}

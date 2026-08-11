@@ -103,7 +103,8 @@ export function CalendarEventBlock({
         TONE_CLASS[presentation.calendarTone],
         compact && "rounded-lg px-1.5 py-1",
         tiny && "py-0.5",
-        isCurrent && "ring-2 ring-brand-primary/55 ring-offset-1",
+        isCurrent &&
+          "ring-2 ring-brand-primary/55 ring-offset-1 ring-offset-card",
         isPast && "saturate-[0.72]",
       )}
       style={

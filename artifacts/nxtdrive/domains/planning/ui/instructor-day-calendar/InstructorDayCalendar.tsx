@@ -1,20 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CarFront, CloudOff, Route } from "lucide-react";
+import { AlertTriangle, CarFront, CloudOff } from "lucide-react";
 import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
   createNlDateTimeFormatter,
   zonedMinuteOfDay,
@@ -129,7 +127,7 @@ function TravelGapIndicator({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute right-2 z-10 flex max-w-[70%] items-center gap-1 rounded-full border bg-white/94 px-2 py-1 text-[9px] font-black shadow-sm backdrop-blur sm:text-[10px]",
+        "pointer-events-none absolute right-2 z-10 flex max-w-[70%] items-center gap-1 rounded-full border bg-card/94 px-2 py-1 text-[9px] font-black shadow-sm backdrop-blur sm:text-[10px]",
         warning
           ? "border-amber-300 text-amber-900"
           : "border-brand-border text-muted-foreground",
@@ -427,7 +425,7 @@ export function InstructorDayCalendar({
   return (
     <section
       data-instructor-day-calendar=""
-      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.35rem] border border-brand-border/80 bg-white/94 shadow-brand-card backdrop-blur"
+      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.35rem] border border-brand-border/80 bg-card/94 shadow-brand-card backdrop-blur"
     >
       <DayCalendarHeader
         period={period}
@@ -448,7 +446,7 @@ export function InstructorDayCalendar({
               className={cn(
                 "inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring",
                 mode === "day"
-                  ? "bg-white text-brand-primary shadow-sm"
+                  ? "bg-card text-brand-primary shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -516,7 +514,7 @@ export function InstructorDayCalendar({
           }
         >
           <div
-            className="absolute inset-y-0 left-0 w-[3.35rem] bg-white/72 sm:w-16"
+            className="absolute inset-y-0 left-0 w-[3.35rem] bg-card/72 sm:w-16"
             aria-hidden
           />
           {Array.from({ length: 31 }, (_, index) => index * 30).map(
@@ -531,7 +529,7 @@ export function InstructorDayCalendar({
                   aria-hidden
                 >
                   {fullHour ? (
-                    <span className="absolute left-1 top-0 w-12 -translate-y-1/2 bg-white/80 pr-1 text-right text-[10px] font-bold tabular-nums text-muted-foreground sm:left-2 sm:w-12 sm:text-[11px]">
+                    <span className="absolute left-1 top-0 w-12 -translate-y-1/2 bg-card/80 pr-1 text-right text-[10px] font-bold tabular-nums text-muted-foreground sm:left-2 sm:w-12 sm:text-[11px]">
                       {formatMinuteOffset(minute)}
                     </span>
                   ) : null}
@@ -587,7 +585,7 @@ export function InstructorDayCalendar({
             })}
 
             {visibleItems.length === 0 ? (
-              <div className="pointer-events-none absolute left-3 right-3 top-4 z-[2] rounded-2xl border border-dashed border-brand-border/80 bg-white/86 p-3 text-center backdrop-blur sm:left-6 sm:right-6">
+              <div className="pointer-events-none absolute left-3 right-3 top-4 z-[2] rounded-2xl border border-dashed border-brand-border/80 bg-card/86 p-3 text-center backdrop-blur sm:left-6 sm:right-6">
                 <p className="text-sm font-black text-foreground">
                   Nog geen afspraken{" "}
                   {period.selectedDate === period.todayYmd
@@ -648,7 +646,7 @@ export function InstructorDayCalendar({
                 aria-label={`Huidige tijd ${formatMinuteOffset(currentMinute)}`}
                 data-current-time-indicator=""
               >
-                <span className="-ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-primary ring-2 ring-white" />
+                <span className="-ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-primary ring-2 ring-card" />
                 <span className="ml-1 rounded-full bg-brand-primary px-1.5 py-0.5 text-[9px] font-black tabular-nums text-white shadow-sm">
                   {formatMinuteOffset(currentMinute)}
                 </span>

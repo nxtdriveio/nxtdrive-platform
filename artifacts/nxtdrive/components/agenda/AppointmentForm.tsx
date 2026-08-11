@@ -67,6 +67,7 @@ export function AppointmentForm({
   submitLabel,
   allowLesson = false,
   lockType = false,
+  returnToCalendar = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
@@ -85,6 +86,7 @@ export function AppointmentForm({
   submitLabel: string;
   allowLesson?: boolean;
   lockType?: boolean;
+  returnToCalendar?: boolean;
 }) {
   const [type, setType] = useState<InstructorPlanningType>(
     defaults?.type ?? (allowLesson ? "lesson" : "exam"),
@@ -122,6 +124,9 @@ export function AppointmentForm({
     <form action={action} className="space-y-4">
       <input type="hidden" name="redirect_to" value={redirectTo} />
       <input type="hidden" name="error_to" value={errorTo} />
+      {returnToCalendar ? (
+        <input type="hidden" name="return_to_calendar" value="true" />
+      ) : null}
       {appointmentId ? (
         <input type="hidden" name="appointment_id" value={appointmentId} />
       ) : null}

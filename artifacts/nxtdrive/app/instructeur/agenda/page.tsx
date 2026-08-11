@@ -12,12 +12,16 @@ export default async function InstructorAgendaPage({
   const query = await searchParams;
   const selectedAppointmentId =
     typeof query.afspraak === "string" ? query.afspraak : undefined;
+  const requestedMode =
+    typeof query.weergave === "string" ? query.weergave : undefined;
   const [data, createOptions] = await Promise.all([
     loadInstructorAgenda({
-      mode: typeof query.weergave === "string" ? query.weergave : undefined,
+      mode: requestedMode,
       date: typeof query.datum === "string" ? query.datum : undefined,
     }),
-    loadInstructorAgendaCreateOptions(),
+    !requestedMode || requestedMode === "day"
+      ? loadInstructorAgendaCreateOptions()
+      : Promise.resolve(undefined),
   ]);
   return (
     <InstructorAgendaView

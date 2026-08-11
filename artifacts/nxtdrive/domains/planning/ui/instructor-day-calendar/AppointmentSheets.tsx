@@ -112,10 +112,12 @@ export function AppointmentTypePicker({
                 }}
                 className="flex min-h-14 items-center gap-2 rounded-xl border border-brand-border bg-brand-muted/40 px-3 py-2.5 text-left text-sm font-bold text-foreground transition hover:border-brand-primary/35 hover:bg-brand-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-brand-primary shadow-sm">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-card text-brand-primary shadow-sm">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
-                <span className="min-w-0 truncate">{presentation.label}</span>
+                <span className="min-w-0 truncate">
+                  {presentation.shortLabel}
+                </span>
               </button>
             );
           })}
@@ -218,6 +220,7 @@ export function AppointmentCreateSheet({
           }}
           allowLesson
           lockType
+          returnToCalendar
           submitLabel={`${presentation.label} toevoegen`}
         />
       </DialogContent>
