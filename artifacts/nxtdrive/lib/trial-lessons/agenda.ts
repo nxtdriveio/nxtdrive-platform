@@ -40,8 +40,8 @@ export async function loadAgendaTrialLessons(
     .select("*")
     .eq("tenant_id", opts.tenantId)
     .in("status", AGENDA_STATUSES as unknown as string[])
-    .gte("starts_at", opts.from.toISOString())
     .lt("starts_at", opts.to.toISOString())
+    .gt("ends_at", opts.from.toISOString())
     .order("starts_at", { ascending: true });
   if (opts.instructorId) {
     query = query.eq("instructor_id", opts.instructorId);

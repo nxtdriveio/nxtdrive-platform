@@ -45,8 +45,8 @@ export async function loadAgendaAppointments(
     .select("*")
     .eq("tenant_id", opts.tenantId)
     .eq("status", "planned")
-    .gte("starts_at", opts.from.toISOString())
     .lt("starts_at", opts.to.toISOString())
+    .gt("ends_at", opts.from.toISOString())
     .order("starts_at", { ascending: true });
   if (opts.instructorId) {
     query = query.eq("instructor_id", opts.instructorId);
@@ -67,16 +67,21 @@ export async function loadAgendaAppointments(
     ? rows
     : rows.filter((row) => {
         if (row.instructor_id === viewerUserId) return true;
-        if ((row.participant_user_ids ?? []).includes(viewerUserId)) return true;
-        return row.visibility_scope === "team" &&
+        if ((row.participant_user_ids ?? []).includes(viewerUserId))
+          return true;
+        return (
+          row.visibility_scope === "team" &&
           typeof row.team_id === "string" &&
-          viewerTeamIds.has(row.team_id);
+          viewerTeamIds.has(row.team_id)
+        );
       });
   if (scopedRows.length === 0) return [];
 
   // Resolve student names (RLS-scoped) for the student-linked types.
   const studentIds = Array.from(
-    new Set(scopedRows.map((r) => r.student_id).filter((id): id is string => !!id)),
+    new Set(
+      scopedRows.map((r) => r.student_id).filter((id): id is string => !!id),
+    ),
   );
   const studentNames = new Map<string, string>();
   if (studentIds.length > 0) {
@@ -93,7 +98,9 @@ export async function loadAgendaAppointments(
   }
 
   const teamIds = Array.from(
-    new Set(scopedRows.map((row) => row.team_id).filter((id): id is string => !!id)),
+    new Set(
+      scopedRows.map((row) => row.team_id).filter((id): id is string => !!id),
+    ),
   );
   const teamNames = new Map<string, string>();
   if (teamIds.length > 0) {
@@ -101,7 +108,10 @@ export async function loadAgendaAppointments(
       .from("organization_teams")
       .select("id, name")
       .in("id", teamIds);
-    for (const team of (teamsRaw ?? []) as { id: string; name: string | null }[]) {
+    for (const team of (teamsRaw ?? []) as {
+      id: string;
+      name: string | null;
+    }[]) {
       teamNames.set(team.id, team.name ?? "Team");
     }
   }

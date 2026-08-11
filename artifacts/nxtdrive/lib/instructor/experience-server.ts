@@ -172,6 +172,7 @@ function mapLesson(
     dateYmd: zonedYmd(new Date(lesson.starts_at), formatters.timeZone),
     dateLabel: dateLabel(lesson.starts_at, formatters),
     startsAtIso: lesson.starts_at,
+    endsAtIso: lesson.ends_at,
     startsAt: formatters.timeFmt.format(new Date(lesson.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(lesson.ends_at)),
     duration: durationLabel(lesson.starts_at, lesson.ends_at),
@@ -185,6 +186,37 @@ function mapLesson(
           : "planned",
     href: `/instructeur/lessen/${lesson.id}`,
     evaluationHref: `/instructeur/lessen/${lesson.id}`,
+    calendarType: "lesson",
+    calendarItem: {
+      id: lesson.id,
+      kind: "lesson",
+      type: "lesson",
+      startsAt: lesson.starts_at,
+      endsAt: lesson.ends_at,
+      status: lesson.status,
+      title: "Rijles",
+      participantLabel: student?.full_name ?? "Leerling",
+      location: {
+        label: lesson.location ? "Ophaalpunt" : "Locatie volgt",
+        formattedAddress: lesson.location ?? student?.postcode ?? undefined,
+      },
+      vehicle: vehicle
+        ? { displayName: vehicleLabel(vehicle) ?? vehicle.label }
+        : undefined,
+      href: `/instructeur/lessen/${lesson.id}`,
+      evaluationHref: `/instructeur/lessen/${lesson.id}`,
+      permissions: {
+        canOpen: true,
+        canEdit: true,
+        canCancel:
+          lesson.status !== "completed" &&
+          lesson.status !== "cancelled_with_refund" &&
+          lesson.status !== "cancelled_no_refund",
+        canStartLesson:
+          lesson.status === "planned" || lesson.status === "in_progress",
+        canNavigate: Boolean(lesson.location),
+      },
+    },
   };
 }
 
@@ -200,12 +232,36 @@ function mapTrial(
     dateYmd: zonedYmd(new Date(trial.starts_at), formatters.timeZone),
     dateLabel: dateLabel(trial.starts_at, formatters),
     startsAtIso: trial.starts_at,
+    endsAtIso: trial.ends_at,
     startsAt: formatters.timeFmt.format(new Date(trial.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(trial.ends_at)),
     duration: `${trial.duration_min} min`,
     location: trial.pickup_location ?? "Ophaallocatie volgt",
     status: trial.status === "confirmed" ? "confirmed" : "planned",
     href: "/instructeur/agenda",
+    calendarType: "trial",
+    calendarItem: {
+      id: trial.id,
+      kind: "trial",
+      type: "trial",
+      startsAt: trial.starts_at,
+      endsAt: trial.ends_at,
+      status: trial.status,
+      title: "Proefles",
+      participantLabel: trial.lead_name,
+      location: {
+        label: "Ophaalpunt",
+        formattedAddress: trial.pickup_location ?? undefined,
+      },
+      href: "/instructeur/agenda",
+      permissions: {
+        canOpen: false,
+        canEdit: false,
+        canCancel: false,
+        canStartLesson: false,
+        canNavigate: Boolean(trial.pickup_location),
+      },
+    },
   };
 }
 
@@ -225,6 +281,7 @@ function mapAppointment(
     dateYmd: zonedYmd(new Date(appointment.starts_at), formatters.timeZone),
     dateLabel: dateLabel(appointment.starts_at, formatters),
     startsAtIso: appointment.starts_at,
+    endsAtIso: appointment.ends_at,
     startsAt: formatters.timeFmt.format(new Date(appointment.starts_at)),
     endsAt: formatters.timeFmt.format(new Date(appointment.ends_at)),
     duration: durationLabel(appointment.starts_at, appointment.ends_at),
@@ -235,6 +292,34 @@ function mapAppointment(
     vehicle: vehicleLabel(vehicle),
     status: appointment.status === "completed" ? "completed" : "planned",
     href: `/instructeur/agenda/${appointment.id}`,
+    calendarType: appointment.type,
+    calendarItem: {
+      id: appointment.id,
+      kind: "appointment",
+      type: appointment.type,
+      startsAt: appointment.starts_at,
+      endsAt: appointment.ends_at,
+      status: appointment.status,
+      title: appointment.title ?? APPOINTMENT_TYPE_SHORT[appointment.type],
+      participantLabel:
+        appointment.student_name ?? appointment.team_name ?? undefined,
+      location: {
+        label: appointment.location ? "Locatie" : undefined,
+        formattedAddress:
+          appointment.location ?? appointment.team_name ?? undefined,
+      },
+      vehicle: vehicle
+        ? { displayName: vehicleLabel(vehicle) ?? vehicle.label }
+        : undefined,
+      href: `/instructeur/agenda/${appointment.id}`,
+      permissions: {
+        canOpen: true,
+        canEdit: appointment.status === "planned",
+        canCancel: appointment.status === "planned",
+        canStartLesson: false,
+        canNavigate: Boolean(appointment.location),
+      },
+    },
   };
 }
 
@@ -441,8 +526,8 @@ async function loadInstructorRouteExperience(
           .select("*")
           .eq("tenant_id", tenant.id)
           .eq("instructor_id", user.id)
-          .gte("starts_at", experienceFrom.toISOString())
           .lt("starts_at", experienceTo.toISOString())
+          .gt("ends_at", experienceFrom.toISOString())
           .order("starts_at", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
     needsTasks
@@ -590,7 +675,7 @@ async function loadInstructorRouteExperience(
     : agendaPeriod
       ? appointmentWindow
       : todayAppointments;
-  const mappedAppointments = [
+  let mappedAppointments = [
     ...displayedLessons.map((lesson) =>
       mapLesson(lesson, studentMap, vehiclesById, formatters),
     ),
@@ -603,6 +688,88 @@ async function loadInstructorRouteExperience(
       ? b.startsAtIso.localeCompare(a.startsAtIso)
       : a.startsAtIso.localeCompare(b.startsAtIso),
   );
+
+  if (
+    scope === "agenda" &&
+    agendaPeriod?.mode === "day" &&
+    mappedAppointments.length > 1
+  ) {
+    const appointmentIds = mappedAppointments.map(
+      (appointment) => appointment.id,
+    );
+    const { data: routeDecisions } = await supabase
+      .from("route_calculation_decisions")
+      .select(
+        "appointment_id, status, duration_seconds, method, as_of, created_at",
+      )
+      .eq("tenant_id", tenant.id)
+      .in("appointment_id", appointmentIds)
+      .order("created_at", { ascending: false });
+    const latestRouteByAppointment = new Map<
+      string,
+      {
+        status: string;
+        duration_seconds: number | null;
+        method: string;
+        as_of: string;
+      }
+    >();
+    for (const decision of routeDecisions ?? []) {
+      const appointmentId = decision.appointment_id as string | null;
+      if (appointmentId && !latestRouteByAppointment.has(appointmentId)) {
+        latestRouteByAppointment.set(appointmentId, {
+          status: String(decision.status),
+          duration_seconds:
+            typeof decision.duration_seconds === "number"
+              ? decision.duration_seconds
+              : null,
+          method: String(decision.method),
+          as_of: String(decision.as_of),
+        });
+      }
+    }
+    mappedAppointments = mappedAppointments.map((appointment, index, rows) => {
+      const previous = rows[index - 1];
+      if (!previous) return appointment;
+      const route = latestRouteByAppointment.get(appointment.id);
+      const availableMinutes = Math.max(
+        0,
+        Math.round(
+          (Date.parse(appointment.startsAtIso) -
+            Date.parse(previous.endsAtIso)) /
+            60_000,
+        ),
+      );
+      const routeStatus = route?.status;
+      const status =
+        routeStatus === "INFEASIBLE"
+          ? "INFEASIBLE"
+          : routeStatus === "TIGHT"
+            ? "TIGHT"
+            : routeStatus === "FALLBACK_ESTIMATE"
+              ? "FALLBACK"
+              : routeStatus === "FEASIBLE"
+                ? "AMPLE"
+                : "UNKNOWN";
+      return {
+        ...appointment,
+        calendarItem: {
+          ...appointment.calendarItem,
+          travelFromPrevious: {
+            durationMinutes:
+              route?.duration_seconds === null ||
+              route?.duration_seconds === undefined
+                ? undefined
+                : Math.ceil(route.duration_seconds / 60),
+            availableMinutes,
+            status,
+            asOf: route?.as_of,
+            method: route?.method,
+          },
+        },
+      };
+    });
+  }
 
   const activeVehicles = vehicles.filter((vehicle) => vehicle.active);
   const evaluations: InstructorEvaluation[] = lessonWindow
@@ -765,6 +932,8 @@ async function loadInstructorRouteExperience(
     ],
     appointments: mappedAppointments,
     agendaPeriod,
+    agendaTimeZone: timeZone,
+    agendaNowIso: now.toISOString(),
     students: mappedStudents,
     tasks: mappedTasks,
     messages,
