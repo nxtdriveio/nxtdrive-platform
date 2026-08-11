@@ -79,6 +79,17 @@
   --shadow-brand-soft: var(--shadow-soft);
 }
 
+/* The 07:00–22:00 instructor timeline owns vertical scrolling. The app shell,
+   mobile browser chrome and bottom navigation therefore stay viewport-bound. */
+[data-instructor-shell] main:has([data-instructor-day-calendar]) {
+  overflow-y: hidden;
+}
+
+[data-instructor-shell] main:has([data-instructor-day-calendar]) > div {
+  height: 100%;
+  min-height: 0;
+}
+
 :root {
   color-scheme: light;
 

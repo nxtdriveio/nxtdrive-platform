@@ -55,6 +55,8 @@ import {
   resolveInstructorAgendaPeriod,
   type InstructorAgendaMode,
 } from "@/lib/instructor/agenda-period";
+import { InstructorDayCalendar } from "@/domains/planning/ui/instructor-day-calendar";
+import type { InstructorAgendaCreateOptions } from "@/domains/planning/application/instructor-agenda-create-options";
 
 type IconComponent = typeof CalendarDays;
 
@@ -700,10 +702,12 @@ export function InstructorAgendaView({
   data,
   selectedAppointmentId,
   selectionBasePath = "/instructeur/agenda",
+  createOptions,
 }: {
   data?: InstructorExperience;
   selectedAppointmentId?: string;
   selectionBasePath?: string;
+  createOptions?: InstructorAgendaCreateOptions;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const period =
@@ -728,6 +732,20 @@ export function InstructorAgendaView({
     period.mode,
     period.selectedDate,
   );
+
+  if (period.mode === "day") {
+    return (
+      <InstructorDayCalendar
+        period={period}
+        items={data.appointments.map((appointment) => appointment.calendarItem)}
+        timeZone={data.agendaTimeZone ?? "Europe/Amsterdam"}
+        initialNowIso={data.agendaNowIso ?? new Date().toISOString()}
+        selectedAppointmentId={selectedAppointmentId}
+        selectionBasePath={selectionBasePath}
+        createOptions={createOptions}
+      />
+    );
+  }
 
   return (
     <InstructorPage>
@@ -895,7 +913,7 @@ export function InstructorAgendaView({
               <p className="rounded-2xl border border-dashed border-brand-border bg-brand-muted/45 p-4 text-sm text-muted-foreground">
                 {period.mode === "history"
                   ? "Er zijn in de afgelopen zes maanden geen eerdere agenda-items gevonden."
-                  : `Er staan geen agenda-items in deze ${period.mode === "day" ? "dag" : period.mode === "week" ? "week" : "maand"}.`}
+                  : `Er staan geen agenda-items in deze ${period.mode === "week" ? "week" : "maand"}.`}
               </p>
             )}
           </div>

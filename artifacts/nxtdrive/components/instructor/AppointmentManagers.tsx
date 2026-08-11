@@ -37,6 +37,12 @@ import {
 } from "@/lib/agenda/types";
 import { loadTenantPlanningSettings } from "@/lib/planning-settings/service";
 import type { Student } from "@/lib/students/types";
+import {
+  addDaysYmd,
+  resolveTenantTimeZone,
+  zonedMinuteOfDay,
+  zonedYmd,
+} from "@/lib/datetime";
 
 type NewAppointmentSearchParams = {
   error?: string;
@@ -228,8 +234,12 @@ export async function InstructorNewAppointmentManager({
       : allBranches;
 
   const now = new Date();
-  now.setMinutes(0, 0, 0);
-  now.setHours(now.getHours() + 1);
+  const timeZone = resolveTenantTimeZone(tenant);
+  const today = zonedYmd(now, timeZone);
+  const nextHour = Math.ceil((zonedMinuteOfDay(now, timeZone) + 1) / 60) * 60;
+  const defaultDate = nextHour >= 24 * 60 ? addDaysYmd(today, 1) : today;
+  const defaultTimeMinutes = nextHour % (24 * 60);
+  const defaultTime = `${String(Math.floor(defaultTimeMinutes / 60)).padStart(2, "0")}:00`;
 
   const defaultBranchId =
     param(sp.branch_id, 80) &&
@@ -306,8 +316,8 @@ export async function InstructorNewAppointmentManager({
                 studentId: defaultStudentId,
                 vehicleId: defaultVehicleId,
                 pickupServiceAreaId: defaultServiceAreaId,
-                date: dateParam(sp.date) ?? now.toISOString().slice(0, 10),
-                time: timeParam(sp.time) ?? now.toISOString().slice(11, 16),
+                date: dateParam(sp.date) ?? defaultDate,
+                time: timeParam(sp.time) ?? defaultTime,
                 durationMin:
                   durationParam(sp.duration_min) ??
                   planningSettings.defaultLessonDurationMinutes,
