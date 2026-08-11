@@ -1,4 +1,4 @@
-# NXTDRIVE Instructeur — dagagenda 07:00–22:00
+# NXTDRIVE Instructeur — 24-uurs dagagenda
 
 Implementatiestatus: gereed op 11 augustus 2026.
 
@@ -35,9 +35,10 @@ overlap-, route- en rechtenvalidatie wordt hergebruikt.
 
 ## 2. Kalendergrid
 
-De tijdlijn loopt exact van 07:00 tot 22:00: 900 minuten, 15 uur en 60
-kwartierslots. Er zijn 16 gelabelde hele-uurgrenzen en 15 gestippelde
-halfuurgrenzen. Kwartieren zijn interactief maar hebben geen extra visuele lijn.
+De tijdlijn loopt van 00:00 tot 24:00: 1.440 minuten, 24 uur en 96
+kwartierslots. Er zijn 25 gelabelde hele-uurgrenzen, 24 gestreepte
+halfuurgrenzen en 48 lichte gestippelde kwartiergrenzen. Zo blijft ieder
+kwartier ook visueel traceerbaar zonder de grid zwaar te maken.
 
 De centrale schaal is responsief:
 
@@ -52,9 +53,9 @@ bottom-navigation en safe areas blijven buiten die scrollcontainer.
 ## 3. Eventpositionering
 
 Start en duur worden zonder visuele afronding naar pixels vertaald. Alleen een
-nieuw gekozen starttijdstip snapt naar 15 minuten. Events die gedeeltelijk buiten
-het venster vallen worden geclipt en tonen “Begonnen vóór 07:00” of “Loopt door
-na 22:00”. Volledig externe events blijven bereikbaar via tellers boven de grid.
+nieuw gekozen starttijdstip snapt naar 15 minuten. Events over middernacht worden
+aan de geselecteerde kalenderdag geclipt; afspraken binnen de tenantdag vallen
+daardoor nooit buiten het zichtbare tijdvenster.
 
 Het pure overlapalgoritme sorteert op start/einde, maakt transitieve
 overlapgroepen, wijst lanes toe en benut vrije kolommen met `columnSpan`. Exact
@@ -68,13 +69,14 @@ Enter en Spatie openen quick-add. Pointer- en touch-Y worden geclamped en naar
 het dichtstbijzijnde vrije kwartier gesnapt. Events liggen boven de lege slots,
 waardoor event-hit-testing nooit per ongeluk quick-add opent.
 
-Een compacte typepicker gebruikt de centrale typecatalogus en toont alleen
-bestaande domeintypen. Proefles is zichtbaar in de agenda, maar niet als nieuwe
-instructeur-quick-add omdat daarvoor geen veilige bestaande instructeursmutatie
-bestaat. Rijles opent de bestaande specifieke flow met datum, starttijd,
-instructeur, vestiging, standaardduur/buffer, leerling, voertuig, rayon en
-ophaalpunt vooringevuld. Andere typen gebruiken dezelfde bestaande
-afspraakmutatie met hun type-eigen compacte velden.
+Quick-add opent direct de bestaande afspraakflow. `Type afspraak` is daarin een
+echte wijzigbare dropdown met uitsluitend typen die de bestaande mutatiegrens
+ondersteunt. Rijles start als veilige standaard en datum, starttijd, instructeur,
+vestiging, standaardduur/buffer, leerling, voertuig, rayon en ophaalpunt worden
+waar mogelijk vooringevuld. De formuliersecties en centrale standaardduur
+reageren op het gekozen type.
+Proefles blijft zichtbaar in de agenda, maar staat niet in de dropdown omdat
+daarvoor geen veilige bestaande instructeursmutatie bestaat.
 
 Na succesvolle create redirect de beveiligde serveractie terug naar dezelfde
 geselecteerde kalenderdag, waarna de serverprojectie opnieuw de bron van waarheid
@@ -82,15 +84,17 @@ is. Offline create is uitgeschakeld; er wordt geen losse mutatiequeue gebouwd.
 
 ## 5. Current time en initial scroll
 
-De current-time-indicator gebruikt de tenanttijdzone, verschijnt alleen op
-vandaag tussen 07:00 en 22:00 en ververst iedere minuut en bij hervatten van het
-tabblad. Een lopende afspraak krijgt aanvullend het tekstlabel `NU`.
+De current-time-indicator gebruikt de tenanttijdzone, verschijnt gedurende de
+volledige geselecteerde huidige dag en ververst iedere minuut en bij hervatten
+van het tabblad. Ook late avond- en nachttijden blijven zichtbaar. Een lopende
+afspraak krijgt aanvullend het tekstlabel `NU`.
+
+De vaste late-time fixture controleert 23:04 expliciet: de initiële scroll zet
+22:00 bovenin, houdt de actuele lijn in beeld en toont de eindgrens 24:00.
 
 Initial scroll gebeurt eenmaal per geselecteerde datum:
 
 - vandaag: circa één uur vóór de tenantlokale tijd;
-- vóór 07:00: bovenaan;
-- na 22:00: rond 18:00;
 - andere datum: circa één uur vóór het eerste event, anders 07:00.
 
 Gebruikersscroll wordt daarna niet overschreven.
@@ -126,12 +130,16 @@ quick-view meldt dat de route handmatig moet worden gecontroleerd.
 ## 8. Accessibility
 
 - Semantische links, eventbuttons, grid/gridcells en Nederlandstalige labels.
-- Eén roving tabstop voor 60 slots; pijltjestoetsen voor navigatie.
+- Eén roving tabstop voor 96 slots; pijltjestoetsen voor navigatie.
 - Enter/Spatie opent slot of afspraak; Escape sluit sheet/dialog.
 - De bestaande Radix-dialoggrens verzorgt focus trap en focusherstel.
 - Zichtbare focusringen, minimaal 44 px voor primaire acties en geen blokkade van
   browserzoom of font scaling.
 - Type, icoon en tekst blijven aanwezig; kleur is nooit de enige informatiedrager.
+- De mobiele create-sheet heeft expliciete boven- en onderruimte, houdt de titel
+  volledig zichtbaar en bewaart veilige ruimte rond de laatste velden.
+- Dialogs worden op `document.body` geportald, zodat de kalendercontainer met
+  `overflow: hidden` een sheet nooit meer aan boven- of onderzijde afknipt.
 - Light/dark contrast en `prefers-reduced-motion` worden gerespecteerd.
 - De E2E bewijst toetsenbordnavigatie, focusherstel, interne scroll en
   `reducedMotion: reduce`.
@@ -153,16 +161,16 @@ Uitgevoerd op de uiteindelijke implementatie:
   1194×834;
 - volledige E2E-createfixture: 13:30 → Rijles → leerling → opslaan → nieuw
   proportioneel blok: geslaagd;
-- visual regression: 38/38 baselines geslaagd;
+- visual regression: 38/38 baselines geslaagd, inclusief een 23:04-fixture;
 - format check en `git diff --check`: geslaagd.
 
 Lokale productiemeting van de vaste fixture:
 
-- initial render: 847 ms;
-- quick-add openen: 59 ms;
-- gemiddelde geanimeerde scrollframe: 18,1 ms;
-- create-return: 129 ms;
-- dagwissel: 93 ms.
+- initial render: 1.194 ms;
+- quick-add openen: 101 ms;
+- gemiddelde geanimeerde scrollframe: 16,2 ms;
+- create-return: 165 ms;
+- dagwissel: 97 ms.
 
 Deze tijden zijn regressiesignalen uit de lokale Playwright-run, geen
 device-benchmarkgarantie.
@@ -195,6 +203,8 @@ De publieke instructeurcaptures `public/screenshots/instructor-1.png` en
 - `bd15917` — `test(e2e): prove instructor calendar create return flow`
 - `4963bd3` — `test(performance): measure instructor calendar interactions`
 - `4adb1f5` — `refactor(android): centralize appointment presentation types`
+- `049dd9e` — `feat(instructor): extend day calendar to 24 hours`
+- `484dbcc` — `test(instructor): cover 24-hour agenda`
 
 ## 12. Open punten
 
