@@ -23,6 +23,8 @@ type VisualCase = {
   height: number;
   waitForSelector?: string;
   publicScreenshot?: string;
+  theme?: "light" | "dark";
+  setup?: "quick-add" | "overlap";
 };
 
 const DEFAULT_CASES: VisualCase[] = [
@@ -67,6 +69,88 @@ const DEFAULT_CASES: VisualCase[] = [
     height: 1000,
     waitForSelector: "[data-instructor-shell]",
     publicScreenshot: "instructor-2.png",
+  },
+  {
+    name: "instructor-agenda-mobile-empty",
+    path: "/visual-fixtures/instructeur/agenda?fixture=empty",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-mobile-filled",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-mobile-overlap",
+    path: "/visual-fixtures/instructeur/agenda?fixture=overlap",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+    setup: "overlap",
+  },
+  {
+    name: "instructor-agenda-mobile-current-time",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 430,
+    height: 932,
+    waitForSelector: "[data-current-time-indicator]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-mobile-quick-add",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+    setup: "quick-add",
+  },
+  {
+    name: "instructor-agenda-tablet-portrait",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 768,
+    height: 1024,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-tablet-landscape",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 1024,
+    height: 768,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-tablet-current-time",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 834,
+    height: 1194,
+    waitForSelector: "[data-current-time-indicator]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-tablet-travel-conflict",
+    path: "/visual-fixtures/instructeur/agenda?afspraak=appointment-3",
+    width: 1024,
+    height: 768,
+    waitForSelector: "[data-appointment-quick-view]",
+    theme: "light",
+  },
+  {
+    name: "instructor-agenda-dark",
+    path: "/visual-fixtures/instructeur/agenda",
+    width: 390,
+    height: 844,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "dark",
   },
   {
     name: "learner-cockpit-mobile",
@@ -305,6 +389,13 @@ async function preparePage(
     width: visualCase.width,
     height: visualCase.height,
   });
+  if (visualCase.theme) {
+    await page
+      .context()
+      .addCookies([
+        { name: "nxt_theme", value: visualCase.theme, url: baseUrl },
+      ]);
+  }
   await page.goto(`${baseUrl}${visualCase.path}`, {
     waitUntil: "networkidle",
     timeout: 30_000,
@@ -323,6 +414,21 @@ async function preparePage(
   await page.emulateMedia({ reducedMotion: "reduce" });
   if (visualCase.waitForSelector) {
     await page.waitForSelector(visualCase.waitForSelector, { timeout: 10_000 });
+  }
+  if (visualCase.setup === "quick-add") {
+    await page
+      .getByRole("gridcell", {
+        name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 13:15/,
+      })
+      .click();
+    await page.waitForSelector("[data-appointment-type-picker]", {
+      timeout: 10_000,
+    });
+  }
+  if (visualCase.setup === "overlap") {
+    await page
+      .locator('[data-calendar-event="appointment-2"]')
+      .scrollIntoViewIfNeeded();
   }
   await page.waitForTimeout(150);
 }

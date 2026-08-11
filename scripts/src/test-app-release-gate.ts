@@ -54,7 +54,7 @@ assert.match(instructorData, /loadStudentsReadiness/);
 assert.match(instructorData, /resolveInstructorAgendaPeriod/);
 assert.match(
   instructorData,
-  /\.gte\("starts_at", experienceFrom\.toISOString\(\)\)/,
+  /\.gt\("ends_at", experienceFrom\.toISOString\(\)\)/,
 );
 assert.match(
   instructorData,
@@ -174,7 +174,7 @@ for (const releaseCheck of [
   "mobile instructor chat page itself must not scroll",
   "conversation must use inline vertical scrolling",
   "Terug naar gesprekken",
-  "afspraak=",
+  "data-appointment-quick-view",
   "?leerling=",
   "Rijleshistorie",
   "Open lesdetails en evaluatie",

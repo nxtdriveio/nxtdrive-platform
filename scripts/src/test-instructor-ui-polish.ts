@@ -226,12 +226,22 @@ const studentsPage = read(
   "leerlingen",
   "page.tsx",
 );
+const dayCalendar = read(
+  "artifacts",
+  "nxtdrive",
+  "domains",
+  "planning",
+  "ui",
+  "instructor-day-calendar",
+  "InstructorDayCalendar.tsx",
+);
 assert(
   agendaPage.includes("loadInstructorAgenda") &&
     agendaPage.includes("selectedAppointmentId") &&
+    dayCalendar.includes("AppointmentQuickView") &&
+    dayCalendar.includes("setSelectedItem") &&
     studentsPage.includes("loadInstructorStudents") &&
     studentsPage.includes("selectedStudentId") &&
-    redesign.includes("?afspraak=") &&
     redesign.includes("?leerling="),
   "tablet agenda and student routes should use scoped master-detail loaders",
 );
