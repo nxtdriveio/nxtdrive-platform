@@ -15,7 +15,7 @@ class InstructorDayTimelineTest {
         assertEquals(15, snapNativeTimelineMinute(14))
         assertEquals(15, snapNativeTimelineMinute(16))
         assertEquals(30, snapNativeTimelineMinute(31))
-        assertEquals(885, snapNativeTimelineMinute(899))
+        assertEquals(1425, snapNativeTimelineMinute(1439))
     }
 
     @Test
@@ -33,8 +33,8 @@ class InstructorDayTimelineTest {
         val layout = layoutNativeDayAppointments(listOf(first, second, adjacent), "Europe/Amsterdam")
 
         assertEquals(3, layout.size)
-        assertEquals(0, layout[0].startMinute)
-        assertEquals(60, layout[0].durationMinutes)
+        assertEquals(390, layout[0].startMinute)
+        assertEquals(90, layout[0].durationMinutes)
         assertEquals(2, layout[0].columnCount)
         assertEquals(2, layout[1].columnCount)
         assertEquals(1, layout[2].columnCount)

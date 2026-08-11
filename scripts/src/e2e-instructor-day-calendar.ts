@@ -56,30 +56,32 @@ async function testMobile(page: Page) {
   );
   await assertViewportContract(page);
 
-  assert.equal(await page.locator('[role="gridcell"]').count(), 60);
+  assert.equal(await page.locator('[role="gridcell"]').count(), 96);
   assert.equal(
     await page.locator('[data-calendar-grid-line="hour"]').count(),
-    16,
+    25,
   );
   assert.equal(
     await page.locator('[data-calendar-grid-line="half-hour"]').count(),
-    15,
+    24,
+  );
+  assert.equal(
+    await page.locator('[data-calendar-grid-line="quarter-hour"]').count(),
+    48,
   );
   assert.equal(await page.locator("[data-current-time-indicator]").count(), 1);
   assert.equal(
     await page.locator('[data-calendar-event="appointment-2"]').count(),
     1,
   );
-  assert.equal(
-    await page.getByRole("button", { name: /1 afspraak vóór 07:00/ }).count(),
-    1,
-  );
-  assert.equal(
-    await page.getByRole("button", { name: /1 afspraak na 22:00/ }).count(),
-    1,
-  );
 
   const scroller = page.locator("[data-calendar-scroll-viewport]");
+  await page.waitForFunction(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      "[data-calendar-scroll-viewport]",
+    );
+    return Boolean(viewport && viewport.scrollTop > 250);
+  });
   const initialScrollTop = await scroller.evaluate(
     (element) => element.scrollTop,
   );
@@ -124,12 +126,10 @@ async function testMobile(page: Page) {
   );
   const quickAddStartedAt = performance.now();
   await slot.click();
-  await page.locator("[data-appointment-type-picker]").waitFor();
+  const createDialog = page.getByRole("dialog", { name: "Nieuwe afspraak" });
+  await createDialog.waitFor();
   const quickAddOpenMs = Math.round(performance.now() - quickAddStartedAt);
   assert.ok(quickAddOpenMs < 1_000, `quick-add took ${quickAddOpenMs}ms`);
-  await page.getByRole("button", { name: "Rijles", exact: true }).click();
-  const createDialog = page.getByRole("dialog", { name: "Nieuwe rijles" });
-  await createDialog.waitFor();
   assert.equal(
     await createDialog.locator('input[name="date"]').inputValue(),
     "2026-08-11",
@@ -144,7 +144,28 @@ async function testMobile(page: Page) {
   );
   assert.equal(
     await createDialog.locator('select[name="type"]').isDisabled(),
-    true,
+    false,
+  );
+  await createDialog.locator('select[name="type"]').selectOption("break");
+  assert.equal(
+    await createDialog.locator('select[name="student_id"]').count(),
+    0,
+  );
+  assert.equal(
+    await createDialog.locator('select[name="duration_min"]').inputValue(),
+    "30",
+  );
+  await createDialog.locator('select[name="type"]').selectOption("lesson");
+  assert.equal(
+    await createDialog.locator('select[name="duration_min"]').inputValue(),
+    "60",
+  );
+  const dialogBox = await createDialog.boundingBox();
+  const dialogTitleBox = await createDialog.getByRole("heading").boundingBox();
+  assert.ok(dialogBox && dialogTitleBox);
+  assert.ok(
+    dialogTitleBox.y >= dialogBox.y + 16,
+    "dialog title must have visible top spacing",
   );
   assert.equal(
     await createDialog.locator('select[name="student_id"]').count(),
@@ -170,7 +191,7 @@ async function testMobile(page: Page) {
     /10:45/,
   );
   await page.keyboard.press("Enter");
-  await page.locator("[data-appointment-type-picker]").waitFor();
+  await page.getByRole("dialog", { name: "Nieuwe afspraak" }).waitFor();
   await page.keyboard.press("Escape");
 
   const event = page.locator('[data-calendar-event="appointment-3"]');
@@ -223,11 +244,10 @@ async function testCreateFlow(page: Page) {
   });
   await slot.scrollIntoViewIfNeeded();
   await slot.click();
-  await page.getByRole("button", { name: "Rijles", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Nieuwe rijles" });
+  const dialog = page.getByRole("dialog", { name: "Nieuwe afspraak" });
   await dialog.locator('select[name="student_id"]').selectOption("student-1");
   const createStartedAt = performance.now();
-  await dialog.getByRole("button", { name: "Rijles toevoegen" }).click();
+  await dialog.getByRole("button", { name: "Afspraak toevoegen" }).click();
   await page.waitForURL(/created=lesson/);
   const createdEvent = page.locator(
     '[data-calendar-event="appointment-created"]',
@@ -237,6 +257,43 @@ async function testCreateFlow(page: Page) {
   assert.match((await createdEvent.textContent()) ?? "", /13:30/);
   assert.match((await createdEvent.textContent()) ?? "", /Noah Jansen/);
   console.log(`fixture create return=${createFlowMs}ms`);
+}
+
+async function testLateCurrentTimeFocus(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/visual-fixtures/instructeur/agenda?clock=late`, {
+    waitUntil: "networkidle",
+  });
+  const currentTime = page.locator("[data-current-time-indicator]");
+  await currentTime.waitFor();
+  assert.match((await currentTime.getAttribute("aria-label")) ?? "", /23:04/);
+  await page.waitForFunction(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      "[data-calendar-scroll-viewport]",
+    );
+    return Boolean(viewport && viewport.scrollTop > 1_000);
+  });
+  const focus = await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      "[data-calendar-scroll-viewport]",
+    );
+    const indicator = document.querySelector<HTMLElement>(
+      "[data-current-time-indicator]",
+    );
+    if (!viewport || !indicator) return null;
+    const viewportBox = viewport.getBoundingClientRect();
+    const indicatorBox = indicator.getBoundingClientRect();
+    return {
+      visible:
+        indicatorBox.top >= viewportBox.top &&
+        indicatorBox.bottom <= viewportBox.bottom,
+      scrollTop: viewport.scrollTop,
+    };
+  });
+  assert.ok(
+    focus?.visible,
+    `23:04 indicator must be focused: ${JSON.stringify(focus)}`,
+  );
 }
 
 async function testTablet(page: Page, width: number, height: number) {
@@ -250,7 +307,7 @@ async function testTablet(page: Page, width: number, height: number) {
     .evaluate((element) => element.getBoundingClientRect().width);
   assert.ok(calendarWidth >= 500 && calendarWidth <= 1050);
   await page.getByRole("button", { name: "Nieuwe afspraak toevoegen" }).click();
-  await page.locator("[data-appointment-type-picker]").waitFor();
+  await page.getByRole("dialog", { name: "Nieuwe afspraak" }).waitFor();
   await page.keyboard.press("Escape");
 }
 
@@ -278,6 +335,7 @@ async function main() {
   });
   try {
     await testMobile(page);
+    await testLateCurrentTimeFocus(page);
     await testCreateFlow(page);
     await testDaySwitch(page);
     await testTablet(page, 768, 1024);

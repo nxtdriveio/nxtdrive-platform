@@ -97,7 +97,7 @@ const DEFAULT_CASES: VisualCase[] = [
   },
   {
     name: "instructor-agenda-mobile-current-time",
-    path: "/visual-fixtures/instructeur/agenda",
+    path: "/visual-fixtures/instructeur/agenda?clock=late",
     width: 430,
     height: 932,
     waitForSelector: "[data-current-time-indicator]",
@@ -421,7 +421,7 @@ async function preparePage(
         name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 13:15/,
       })
       .click();
-    await page.waitForSelector("[data-appointment-type-picker]", {
+    await page.waitForSelector("[data-appointment-create-sheet]", {
       timeout: 10_000,
     });
   }

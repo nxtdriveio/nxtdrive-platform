@@ -14,6 +14,10 @@ export default async function InstructorAgendaVisualFixturePage({
 }) {
   const query = await searchParams;
   const fixture = typeof query.fixture === "string" ? query.fixture : "filled";
+  const fixtureNowIso =
+    query.clock === "late"
+      ? "2026-08-11T21:04:00.000Z"
+      : "2026-08-11T11:47:00.000Z";
   const baseAppointments =
     fixture === "empty"
       ? []
@@ -55,7 +59,7 @@ export default async function InstructorAgendaVisualFixturePage({
   const agendaPeriod = resolveInstructorAgendaPeriod({
     mode: typeof query.weergave === "string" ? query.weergave : undefined,
     date: typeof query.datum === "string" ? query.datum : undefined,
-    now: new Date("2026-08-11T11:47:00.000Z"),
+    now: new Date(fixtureNowIso),
     timeZone: "Europe/Amsterdam",
   });
   return (
@@ -64,7 +68,7 @@ export default async function InstructorAgendaVisualFixturePage({
         ...instructorVisualFixture,
         appointments,
         agendaPeriod,
-        agendaNowIso: "2026-08-11T11:47:00.000Z",
+        agendaNowIso: fixtureNowIso,
       }}
       selectedAppointmentId={
         typeof query.afspraak === "string" ? query.afspraak : undefined
