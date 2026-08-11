@@ -901,15 +901,7 @@ private fun NativeAppointmentTypePicker(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    val options = listOf(
-        "lesson" to "Rijles",
-        "exam" to "Examen",
-        "interim_test" to "Toets / assessment",
-        "break" to "Pauze",
-        "private_block" to "Privé",
-        "admin" to "Administratie",
-        "free_block" to "Overig",
-    )
+    val options = nativeAppointmentPresentations.filter { it.quickAdd }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp),
@@ -923,9 +915,9 @@ private fun NativeAppointmentTypePicker(
             Spacer(Modifier.height(8.dp))
             options.forEach { option ->
                 TextButton(
-                    onClick = { onSelect(option.first) },
+                    onClick = { onSelect(option.type) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                ) { Text(option.second, modifier = Modifier.fillMaxWidth()) }
+                ) { Text(option.shortLabel, modifier = Modifier.fillMaxWidth()) }
             }
         }
     }
@@ -998,18 +990,7 @@ private fun PlanningDialog(
         "interim_test",
         "theory_guidance",
     )
-    val typeOptions = listOf(
-        "lesson" to "Rijles",
-        "exam" to "Examen",
-        "interim_test" to "Tussentijdse toets",
-        "theory_guidance" to "Theoriebegeleiding",
-        "free_block" to "Vrij blok",
-        "break" to "Pauze",
-        "private_block" to "Privéblokkade",
-        "maintenance" to "Onderhoud",
-        "admin" to "Administratie",
-        "vacation" to "Vakantie",
-    )
+    val typeOptions = nativeAppointmentPresentations.filter { it.quickAdd }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1024,7 +1005,7 @@ private fun PlanningDialog(
                         onClick = { typeMenu = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(typeOptions.first { it.first == type }.second)
+                        Text(nativeAppointmentPresentation(type).label)
                     }
                     androidx.compose.material3.DropdownMenu(
                         expanded = typeMenu,
@@ -1032,9 +1013,9 @@ private fun PlanningDialog(
                     ) {
                         typeOptions.forEach { option ->
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(option.second) },
+                                text = { Text(option.label) },
                                 onClick = {
-                                    type = option.first
+                                    type = option.type
                                     if (type !in setOf(
                                             "lesson",
                                             "exam",
@@ -2436,14 +2417,14 @@ private fun nativeTimelineTime(minute: Int): String {
 @Composable
 private fun nativeAppointmentTone(kind: String): Pair<Color, Color> {
     val dark = isSystemInDarkTheme()
-    val colors = when (kind) {
-        "lesson" -> 0xFFDCEBFF to 0xFF153A67
-        "trial" -> 0xFFEDE4FF to 0xFF4B287D
-        "exam" -> 0xFFFFE1E8 to 0xFF76263A
-        "interim_test", "theory_guidance" -> 0xFFFFECC7 to 0xFF68430A
-        "private_block" -> 0xFFDDF4E7 to 0xFF185437
-        "admin" -> 0xFFD9F3F1 to 0xFF12504C
-        else -> 0xFFECEAE6 to 0xFF403D38
+    val colors = when (nativeAppointmentPresentation(kind).tone) {
+        NativeCalendarTone.BLUE -> 0xFFDCEBFF to 0xFF153A67
+        NativeCalendarTone.VIOLET -> 0xFFEDE4FF to 0xFF4B287D
+        NativeCalendarTone.ROSE -> 0xFFFFE1E8 to 0xFF76263A
+        NativeCalendarTone.AMBER -> 0xFFFFECC7 to 0xFF68430A
+        NativeCalendarTone.GREEN -> 0xFFDDF4E7 to 0xFF185437
+        NativeCalendarTone.TEAL -> 0xFFD9F3F1 to 0xFF12504C
+        NativeCalendarTone.NEUTRAL -> 0xFFECEAE6 to 0xFF403D38
     }
     return if (dark) {
         Color(colors.second).copy(alpha = 0.72f) to Color(colors.first)

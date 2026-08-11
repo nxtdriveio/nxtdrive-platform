@@ -11,6 +11,34 @@ internal const val INSTRUCTOR_DAY_END_HOUR = 22
 internal const val INSTRUCTOR_DAY_MINUTES = 15 * 60
 internal const val INSTRUCTOR_DAY_SLOT_MINUTES = 15
 
+internal enum class NativeCalendarTone { BLUE, VIOLET, ROSE, AMBER, GREEN, TEAL, NEUTRAL }
+
+internal data class NativeAppointmentPresentation(
+    val type: String,
+    val label: String,
+    val shortLabel: String,
+    val tone: NativeCalendarTone,
+    val quickAdd: Boolean = true,
+)
+
+internal val nativeAppointmentPresentations = listOf(
+    NativeAppointmentPresentation("lesson", "Rijles", "Rijles", NativeCalendarTone.BLUE),
+    NativeAppointmentPresentation("trial", "Proefles", "Proefles", NativeCalendarTone.VIOLET, false),
+    NativeAppointmentPresentation("exam", "Examen", "Examen", NativeCalendarTone.ROSE),
+    NativeAppointmentPresentation("interim_test", "Tussentijdse toets", "Toets", NativeCalendarTone.AMBER),
+    NativeAppointmentPresentation("theory_guidance", "Theoriebegeleiding", "Theorie", NativeCalendarTone.AMBER),
+    NativeAppointmentPresentation("free_block", "Vrij blok", "Overig", NativeCalendarTone.NEUTRAL),
+    NativeAppointmentPresentation("break", "Pauze", "Pauze", NativeCalendarTone.NEUTRAL),
+    NativeAppointmentPresentation("private_block", "Privéblokkade", "Privé", NativeCalendarTone.GREEN),
+    NativeAppointmentPresentation("maintenance", "Onderhoud", "Onderhoud", NativeCalendarTone.NEUTRAL),
+    NativeAppointmentPresentation("admin", "Administratie", "Administratie", NativeCalendarTone.TEAL),
+    NativeAppointmentPresentation("vacation", "Vakantie", "Vakantie", NativeCalendarTone.GREEN),
+)
+
+internal fun nativeAppointmentPresentation(type: String): NativeAppointmentPresentation =
+    nativeAppointmentPresentations.firstOrNull { it.type == type } ?:
+        NativeAppointmentPresentation(type, "Afspraak", "Afspraak", NativeCalendarTone.NEUTRAL)
+
 internal data class NativeTimelinePosition(
     val appointment: NativeAppointment,
     val startMinute: Int,
