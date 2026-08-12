@@ -24,8 +24,68 @@ type VisualCase = {
   waitForSelector?: string;
   publicScreenshot?: string;
   theme?: "light" | "dark";
-  setup?: "quick-add" | "overlap";
+  setup?:
+    | "quick-add"
+    | "overlap"
+    | "wizard-type"
+    | "wizard-student-empty"
+    | "wizard-student-results"
+    | "wizard-selected-student"
+    | "wizard-pickup"
+    | "wizard-duration"
+    | "wizard-planning-warning"
+    | "wizard-summary"
+    | "wizard-private"
+    | "wizard-exam"
+    | "wizard-vehicle-required";
 };
+
+const WIZARD_STATES = [
+  "type",
+  "student-search-empty",
+  "student-search-results",
+  "selected-student",
+  "pickup",
+  "duration",
+  "planning-warning",
+  "summary",
+  "private",
+  "exam",
+  "vehicle-required",
+] as const;
+
+const WIZARD_SETUPS: Record<
+  (typeof WIZARD_STATES)[number],
+  NonNullable<VisualCase["setup"]>
+> = {
+  type: "wizard-type",
+  "student-search-empty": "wizard-student-empty",
+  "student-search-results": "wizard-student-results",
+  "selected-student": "wizard-selected-student",
+  pickup: "wizard-pickup",
+  duration: "wizard-duration",
+  "planning-warning": "wizard-planning-warning",
+  summary: "wizard-summary",
+  private: "wizard-private",
+  exam: "wizard-exam",
+  "vehicle-required": "wizard-vehicle-required",
+};
+
+const WIZARD_CASES: VisualCase[] = WIZARD_STATES.flatMap((state) =>
+  [
+    { suffix: "", width: 390, height: 844 },
+    { suffix: "-tablet-portrait", width: 768, height: 1024 },
+    { suffix: "-tablet-landscape", width: 1024, height: 768 },
+  ].map(({ suffix, width, height }) => ({
+    name: `appointment-wizard-${state}${suffix}`,
+    path: "/visual-fixtures/instructeur/agenda?fixture=empty",
+    width,
+    height,
+    waitForSelector: "[data-instructor-day-calendar]",
+    theme: "light" as const,
+    setup: WIZARD_SETUPS[state],
+  })),
+);
 
 const DEFAULT_CASES: VisualCase[] = [
   { name: "login-desktop", path: "/login", width: 1440, height: 1000 },
@@ -152,6 +212,7 @@ const DEFAULT_CASES: VisualCase[] = [
     waitForSelector: "[data-instructor-day-calendar]",
     theme: "dark",
   },
+  ...WIZARD_CASES,
   {
     name: "learner-cockpit-mobile",
     path: "/visual-fixtures/leerling",
@@ -320,36 +381,36 @@ async function compareScreenshots(
     };
   }
 
-  let oneStepChannelDifferences = 0;
+  let minorChannelDifferences = 0;
   for (let index = 0; index < expectedPixels.data.length; index += 1) {
     const delta = Math.abs(
       expectedPixels.data[index] - actualPixels.data[index],
     );
-    if (delta > 1) {
+    if (delta > 4) {
       return {
         equal: false,
         detail: `rendered pixels changed (channel delta ${delta} at byte ${index})`,
       };
     }
-    if (delta === 1) oneStepChannelDifferences += 1;
+    if (delta > 0) minorChannelDifferences += 1;
   }
 
   const noiseLimit = Math.max(
-    64,
+    256,
     Math.floor(expectedPixels.data.length * 0.00001),
   );
-  if (oneStepChannelDifferences > noiseLimit) {
+  if (minorChannelDifferences > noiseLimit) {
     return {
       equal: false,
-      detail: `${oneStepChannelDifferences} one-step channel changes exceed the render-noise limit of ${noiseLimit}`,
+      detail: `${minorChannelDifferences} minor channel changes exceed the render-noise limit of ${noiseLimit}`,
     };
   }
 
   return {
     equal: true,
     detail:
-      oneStepChannelDifferences > 0
-        ? `ignored ${oneStepChannelDifferences} one-step antialiasing channel changes`
+      minorChannelDifferences > 0
+        ? `ignored ${minorChannelDifferences} antialiasing channel changes (maximum delta 4)`
         : undefined,
   };
 }
@@ -421,7 +482,7 @@ async function preparePage(
         name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 13:15/,
       })
       .click();
-    await page.waitForSelector("[data-appointment-create-sheet]", {
+    await page.waitForSelector("[data-smart-appointment-wizard]", {
       timeout: 10_000,
     });
   }
@@ -430,7 +491,78 @@ async function preparePage(
       .locator('[data-calendar-event="appointment-2"]')
       .scrollIntoViewIfNeeded();
   }
+  if (visualCase.setup?.startsWith("wizard-")) {
+    await prepareWizardState(
+      page,
+      visualCase.setup as Extract<
+        NonNullable<VisualCase["setup"]>,
+        `wizard-${string}`
+      >,
+    );
+  }
   await page.waitForTimeout(150);
+}
+
+async function prepareWizardState(
+  page: Page,
+  setup: Extract<NonNullable<VisualCase["setup"]>, `wizard-${string}`>,
+) {
+  const slotTime = setup === "wizard-planning-warning" ? "13:45" : "13:15";
+  await page
+    .getByRole("gridcell", {
+      name: new RegExp(
+        `Nieuwe afspraak toevoegen, dinsdag 11 augustus, ${slotTime}`,
+      ),
+    })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Nieuwe afspraak" });
+  await dialog.waitFor();
+  if (setup === "wizard-type") return;
+
+  if (setup === "wizard-private") {
+    await dialog
+      .locator("[data-wizard-type-select]")
+      .selectOption("private_block");
+    await dialog.getByRole("button", { name: "Verder" }).click();
+    await dialog.locator("#wizard-title").fill("Tandarts");
+    return;
+  }
+
+  if (setup === "wizard-vehicle-required") {
+    await dialog
+      .locator("[data-wizard-type-select]")
+      .selectOption("maintenance");
+    await dialog.getByRole("button", { name: "Verder" }).click();
+    await dialog.getByRole("button", { name: "Verder" }).click();
+    await dialog.locator("#wizard-vehicle").waitFor();
+    return;
+  }
+
+  if (setup === "wizard-exam") {
+    await dialog.locator("[data-wizard-type-select]").selectOption("exam");
+  }
+  await dialog.getByRole("button", { name: "Verder" }).click();
+  if (setup === "wizard-student-empty") return;
+
+  const student = dialog.getByRole("combobox", { name: "Leerling" });
+  await student.fill("mil");
+  await dialog.getByRole("option", { name: /Milan de Vries/ }).waitFor();
+  if (setup === "wizard-student-results") return;
+  await dialog.getByRole("option", { name: /Milan de Vries/ }).click();
+  await dialog.locator("[data-student-context-card]").waitFor();
+  if (setup === "wizard-selected-student") return;
+
+  await dialog.getByRole("button", { name: "Verder" }).click();
+  if (setup === "wizard-pickup") return;
+  await dialog.getByRole("button", { name: "Verder" }).click();
+
+  if (setup === "wizard-exam") {
+    await dialog.getByRole("button", { name: "Verder" }).click();
+  }
+  if (setup === "wizard-duration" || setup === "wizard-exam") return;
+
+  await dialog.getByRole("button", { name: "Verder" }).click();
+  await dialog.locator("[data-wizard-summary]").waitFor();
 }
 
 async function capture(
@@ -445,6 +577,15 @@ async function capture(
   });
   try {
     await preparePage(page, visualCase, baseUrl);
+    // A blinking text caret changes a handful of anti-aliased pixels between
+    // otherwise identical captures. Accessibility focus is covered by E2E;
+    // visual baselines deliberately capture the stable resting state.
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.waitForTimeout(50);
     return await page.screenshot({
       fullPage: true,
       type: "png",

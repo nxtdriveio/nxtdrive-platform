@@ -1,11 +1,16 @@
 import { InstructorAgendaView } from "@/components/instructor/RedesignViews";
 import { resolveInstructorAgendaPeriod } from "@/lib/instructor/agenda-period";
 import {
-  instructorAgendaCreateOptionsFixture,
+  instructorAgendaWizardBootstrapFixture,
   instructorVisualFixture,
   fixtureAppointment,
 } from "../fixture-data";
-import { createFixtureCalendarAppointment } from "./actions";
+import {
+  createFixtureSmartAppointment,
+  previewFixtureSmartAppointment,
+  resolveFixtureAppointmentContext,
+  searchFixtureStudents,
+} from "./actions";
 
 export default async function InstructorAgendaVisualFixturePage({
   searchParams,
@@ -26,31 +31,55 @@ export default async function InstructorAgendaVisualFixturePage({
             ["appointment-2", "appointment-overlap"].includes(appointment.id),
           )
         : instructorVisualFixture.appointments;
+  const createdType =
+    typeof query.created === "string" &&
+    ["lesson", "private_block", "exam", "break"].includes(query.created)
+      ? query.created
+      : null;
   const createdAppointment =
-    query.created === "lesson" &&
+    createdType &&
     typeof query.date === "string" &&
     typeof query.time === "string"
       ? fixtureAppointment({
           id: "appointment-created",
-          displayType: "lesson",
-          calendarType: "lesson",
-          title: "Rijles",
+          displayType: createdType === "lesson" ? "lesson" : "private",
+          calendarType: createdType as
+            | "lesson"
+            | "private_block"
+            | "exam"
+            | "break",
+          title:
+            createdType === "lesson"
+              ? "Rijles"
+              : createdType === "exam"
+                ? "Praktijkexamen"
+                : createdType === "break"
+                  ? "Pauze"
+                  : "Privé",
           studentName:
-            query.student === "student-2" ? "Mila Bakker" : "Noah Jansen",
+            createdType === "lesson" || createdType === "exam"
+              ? query.student === "student-2"
+                ? "Milan de Vries"
+                : "Noah Jansen"
+              : undefined,
           startsAtIso: new Date(
             `${query.date}T${query.time}:00+02:00`,
           ).toISOString(),
           endsAtIso: new Date(
             new Date(`${query.date}T${query.time}:00+02:00`).getTime() +
-              60 * 60 * 1000,
+              Math.max(15, Number(query.duration) || 60) * 60 * 1000,
           ).toISOString(),
           startsAt: query.time,
           endsAt: new Date(
-            new Date(`2026-08-11T${query.time}:00Z`).getTime() + 60 * 60 * 1000,
+            new Date(`2026-08-11T${query.time}:00Z`).getTime() +
+              Math.max(15, Number(query.duration) || 60) * 60 * 1000,
           )
             .toISOString()
             .slice(11, 16),
-          location: "Standaard ophaalpunt leerling",
+          location:
+            createdType === "lesson" || createdType === "exam"
+              ? "Standaard ophaalpunt leerling"
+              : "Privé",
         })
       : null;
   const appointments = createdAppointment
@@ -74,8 +103,13 @@ export default async function InstructorAgendaVisualFixturePage({
         typeof query.afspraak === "string" ? query.afspraak : undefined
       }
       selectionBasePath="/visual-fixtures/instructeur/agenda"
-      createOptions={instructorAgendaCreateOptionsFixture}
-      createAction={createFixtureCalendarAppointment}
+      wizardBootstrap={instructorAgendaWizardBootstrapFixture}
+      wizardActions={{
+        search: searchFixtureStudents,
+        resolve: resolveFixtureAppointmentContext,
+        preview: previewFixtureSmartAppointment,
+        create: createFixtureSmartAppointment,
+      }}
     />
   );
 }

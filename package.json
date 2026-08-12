@@ -12,7 +12,7 @@
     "format:check": "prettier --check package.json pnpm-workspace.yaml .github/workflows scripts/release artifacts/nxtdrive/android/play-store docs/release",
     "lint": "node scripts/release/lint-repository.mjs",
     "test:unit": "pnpm --filter @workspace/nxtdrive run test",
-    "test:integration": "pnpm --filter @workspace/nxtdrive exec tsx --test lib/invoices/payments.rpc.test.ts",
+    "test:integration": "pnpm --filter @workspace/nxtdrive exec tsx --test lib/invoices/payments.rpc.test.ts lib/instructor/smart-appointment.rpc.test.ts",
     "migration:smoke": "node scripts/release/migration-smoke.mjs",
     "security:audit": "pnpm audit --prod --audit-level high",
     "security:secrets": "node scripts/release/secret-scan.mjs",

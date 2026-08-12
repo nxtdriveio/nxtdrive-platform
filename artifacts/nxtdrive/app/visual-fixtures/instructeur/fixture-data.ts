@@ -1,4 +1,9 @@
 import type { InstructorAgendaCreateOptions } from "@/domains/planning/application/instructor-agenda-create-options";
+import type { InstructorAgendaWizardBootstrap } from "@/domains/planning/application/smart-appointment-contracts";
+import {
+  DEFAULT_APPOINTMENT_WIZARD_SETTINGS,
+  PLATFORM_APPOINTMENT_TYPE_POLICIES,
+} from "@/domains/planning/domain/appointment-policy";
 import type {
   InstructorDayAgendaItem,
   InstructorDayCalendarType,
@@ -548,6 +553,16 @@ export const instructorAgendaCreateOptionsFixture: InstructorAgendaCreateOptions
     ],
     defaultLessonDurationMinutes: 60,
     defaultLessonBufferMinutes: 0,
+  };
+
+export const instructorAgendaWizardBootstrapFixture: InstructorAgendaWizardBootstrap =
+  {
+    instructorId: "instructor-1",
+    instructorLabel: "Sanne de Vries",
+    timeZone: "Europe/Amsterdam",
+    defaultBranchId: "branch-1",
+    policies: Object.values(PLATFORM_APPOINTMENT_TYPE_POLICIES),
+    settings: DEFAULT_APPOINTMENT_WIZARD_SETTINGS,
   };
 
 export const instructorChatVisualFixture: InstructorExperience = {
