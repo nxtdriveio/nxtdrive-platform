@@ -164,6 +164,42 @@ describe("validateScheduleCandidate", () => {
     assert.ok(codes(result).includes("INSTRUCTOR_HAS_OVERLAP"));
   });
 
+  it("blocks student overlaps without blocking adjacent appointments", () => {
+    const overlapping = validateScheduleCandidate(
+      candidate({ studentId: "student-1" }),
+      data({
+        busyIntervals: [
+          {
+            id: "student-busy",
+            entityType: "lesson",
+            instructorId: "instructor-2",
+            studentId: "student-1",
+            startsAt: "2026-06-15T08:30:00.000Z",
+            endsAt: "2026-06-15T09:30:00.000Z",
+          },
+        ],
+      }),
+    );
+    assert.ok(codes(overlapping).includes("STUDENT_HAS_OVERLAP"));
+
+    const adjacent = validateScheduleCandidate(
+      candidate({ studentId: "student-1" }),
+      data({
+        busyIntervals: [
+          {
+            id: "student-adjacent",
+            entityType: "lesson",
+            instructorId: "instructor-2",
+            studentId: "student-1",
+            startsAt: "2026-06-15T09:00:00.000Z",
+            endsAt: "2026-06-15T10:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    assert.ok(!codes(adjacent).includes("STUDENT_HAS_OVERLAP"));
+  });
+
   it("blocks missing required instructor capabilities", () => {
     const result = validateScheduleCandidate(
       candidate({ requiredInstructorCapabilityIds: ["manual", "ris"] }),

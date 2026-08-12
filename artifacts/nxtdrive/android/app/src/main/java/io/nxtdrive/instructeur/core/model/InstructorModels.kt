@@ -22,6 +22,7 @@ data class InstructorProfile(
     val email: String,
     val activeTenantId: String,
     val tenantName: String,
+    val tenantTimeZone: String = "Europe/Amsterdam",
     val ris20Qualified: Boolean,
 )
 

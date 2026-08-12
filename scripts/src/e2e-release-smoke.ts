@@ -353,24 +353,19 @@ try {
   );
   await page.getByRole("link", { name: "Terug naar vandaag" }).click();
   await page.waitForURL(/weergave=day/);
-  const appointmentSelection = page.locator('a[href*="afspraak="]').first();
-  const appointmentDestination =
-    await appointmentSelection.getAttribute("href");
-  assert.match(
-    appointmentDestination ?? "",
-    /^\/visual-fixtures\/instructeur\/agenda\?.*afspraak=.+/,
-  );
+  const appointmentSelection = page.locator("[data-calendar-event]").first();
   await appointmentSelection.click();
-  await page.getByRole("heading", { name: "Afspraakdetails" }).waitFor();
-  assert.match(page.url(), /[?&]afspraak=/);
+  await page.locator("[data-appointment-quick-view]").waitFor();
   assert.match(
     (await page
       .getByRole("link", {
-        name: /Open (lesdetails en evaluatie|volledige afspraak)/,
+        name: /(Start les|Bekijken \/ wijzigen|Bekijken)/,
       })
+      .first()
       .getAttribute("href")) ?? "",
     /^\/instructeur\/(lessen|agenda)\//,
   );
+  await page.keyboard.press("Escape");
 
   await page.goto(`${baseUrl}/visual-fixtures/instructeur/leerlingen`, {
     waitUntil: "networkidle",

@@ -266,6 +266,9 @@ export async function scheduleLesson(formData: FormData) {
   revalidatePath(`/backoffice/leerlingen/${studentId}`);
   revalidatePath(`/instructeur/leerlingen/${studentId}`);
   revalidatePath("/instructeur/agenda");
+  if (String(formData.get("return_to_calendar") ?? "") === "true") {
+    redirect(redirectTo);
+  }
   redirect(`${detailBase}/${lessonId as string}`);
 }
 

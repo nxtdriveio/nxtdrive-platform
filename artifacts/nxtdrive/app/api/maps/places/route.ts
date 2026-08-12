@@ -27,12 +27,14 @@ type RequestBody =
       query: string;
       sessionToken: string;
       correlationId: string;
+      surface?: "INSTRUCTOR_APPOINTMENT_WIZARD";
     }
   | {
       action: "resolve";
       providerReference: string;
       sessionToken: string;
       correlationId: string;
+      surface?: "INSTRUCTOR_APPOINTMENT_WIZARD";
     }
   | {
       action: "validate";
@@ -41,6 +43,7 @@ type RequestBody =
         "provider" | "providerPlaceId" | "obtainedAt"
       >;
       correlationId: string;
+      surface?: "INSTRUCTOR_APPOINTMENT_WIZARD";
     };
 
 export async function POST(request: Request) {
@@ -94,13 +97,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const surface: MapsUsageEventInput["surface"] = roles.some((role) =>
-    ["student", "parent"].includes(role),
-  )
-    ? "STUDENT_PROFILE"
-    : roles.includes("instructor")
-      ? "INSTRUCTOR_APP"
-      : "LESSON_PLANNER";
+  const surface: MapsUsageEventInput["surface"] =
+    body.surface === "INSTRUCTOR_APPOINTMENT_WIZARD" &&
+    roles.includes("instructor")
+      ? "INSTRUCTOR_APPOINTMENT_WIZARD"
+      : roles.some((role) => ["student", "parent"].includes(role))
+        ? "STUDENT_PROFILE"
+        : roles.includes("instructor")
+          ? "INSTRUCTOR_APP"
+          : "LESSON_PLANNER";
   const provider = new MeteredLocationProvider({
     provider: new GoogleLocationProvider(),
     meter: new SupabaseMapsMeter(service),

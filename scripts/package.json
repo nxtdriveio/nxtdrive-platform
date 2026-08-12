@@ -102,6 +102,8 @@
     "e2e:ris-journey-bot": "tsx ./src/e2e-business-flows.ts --ris-journey-only",
     "test-ris-journey-bot": "tsx ./src/test-ris-journey-bot.ts",
     "e2e:release-smoke": "tsx ./src/e2e-release-smoke.ts",
+    "e2e:instructor-day-calendar": "tsx ./src/e2e-instructor-day-calendar.ts",
+    "e2e:appointment-wizard-accessibility": "tsx ./src/e2e-appointment-wizard-accessibility.ts",
     "check-route-performance": "tsx ./src/check-route-performance.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

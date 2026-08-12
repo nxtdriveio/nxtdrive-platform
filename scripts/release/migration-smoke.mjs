@@ -218,6 +218,33 @@ const fixtureSql = `
   on conflict (id) do nothing;
 `;
 
+const lessonPolicyUpgradeFixtureSql = `
+  insert into public.planning_settings (
+    tenant_id, default_lesson_duration_minutes,
+    default_lesson_buffer_minutes
+  ) values (
+    '20000000-0000-4000-8000-000000000001', 50, 10
+  ) on conflict (tenant_id) do update
+    set default_lesson_duration_minutes = excluded.default_lesson_duration_minutes,
+        default_lesson_buffer_minutes = excluded.default_lesson_buffer_minutes;
+
+  insert into public.appointment_type_policies (
+    tenant_id, code, label, short_label, category, student_requirement,
+    default_duration_minutes, min_duration_minutes, max_duration_minutes,
+    duration_step_minutes, default_buffer_after_minutes,
+    location_requirement, vehicle_requirement, route_validation_enabled,
+    blocks_instructor_availability, blocks_vehicle_availability,
+    calendar_tone, icon_key
+  ) values (
+    '20000000-0000-4000-8000-000000000001', 'lesson', 'Rijles', 'Rijles',
+    'STUDENT', 'REQUIRED', 60, 30, 180, 15, 15, 'PICKUP', 'AUTO', true,
+    true, true, 'BLUE', 'car'
+  ) on conflict (tenant_id, code) do update
+    set default_duration_minutes = excluded.default_duration_minutes,
+        duration_step_minutes = excluded.duration_step_minutes,
+        default_buffer_after_minutes = excluded.default_buffer_after_minutes;
+`;
+
 function verifyDatabase(database) {
   dockerExec(
     database,
@@ -248,6 +275,10 @@ function verifyDatabase(database) {
         v_maps_gate jsonb;
         immutable_location_blocked boolean := false;
         cross_tenant_location_blocked boolean := false;
+        cross_tenant_wizard_blocked boolean := false;
+        wizard_overlap_blocked boolean := false;
+        v_wizard_result jsonb;
+        v_student_search_count integer;
         catalog_snapshot jsonb;
         catalog_hash text;
       begin
@@ -522,6 +553,133 @@ function verifyDatabase(database) {
           raise exception 'cross-tenant instructor credit grant was not blocked';
         end if;
 
+        insert into public.appointment_type_policies (
+          tenant_id, code, label, short_label, category, student_requirement,
+          default_duration_minutes, min_duration_minutes, max_duration_minutes,
+          duration_step_minutes, default_buffer_after_minutes,
+          location_requirement, vehicle_requirement, route_validation_enabled,
+          blocks_instructor_availability, blocks_vehicle_availability,
+          calendar_tone, icon_key
+        ) values (
+          '20000000-0000-4000-8000-000000000001', 'lesson', 'Rijles', 'Rijles',
+          'STUDENT', 'REQUIRED', 50, 30, 180, 10, 10, 'PICKUP', 'AUTO', true,
+          true, true, 'BLUE', 'car'
+        ) on conflict (tenant_id, code) do nothing;
+        if not exists (
+          select 1
+            from public.appointment_type_policies policy
+           where policy.tenant_id = '20000000-0000-4000-8000-000000000001'
+             and policy.code = 'lesson'
+             and policy.default_duration_minutes = 50
+             and policy.duration_step_minutes = 10
+             and policy.default_buffer_after_minutes = 10
+        ) then
+          raise exception 'lesson policy defaults were not aligned to 50/10';
+        end if;
+        insert into public.appointment_wizard_settings (
+          tenant_id, student_scope, vehicle_required
+        ) values (
+          '20000000-0000-4000-8000-000000000001', 'OWN_ACTIVE', false
+        ) on conflict (tenant_id) do update set vehicle_required = excluded.vehicle_required;
+
+        select count(*) into v_student_search_count
+          from public.search_instructor_students(
+            '20000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000001',
+            'Fix', 'OWN_ACTIVE', null, 10
+          );
+        if v_student_search_count <> 1 then
+          raise exception 'smart wizard student search did not preserve own-active scope';
+        end if;
+
+        begin
+          perform * from public.search_instructor_students(
+            '20000000-0000-4000-8000-000000000002',
+            '10000000-0000-4000-8000-000000000001',
+            'Fix', 'TENANT_ACTIVE', null, 10
+          );
+        exception when others then
+          cross_tenant_wizard_blocked := true;
+        end;
+        if not cross_tenant_wizard_blocked then
+          raise exception 'cross-tenant smart wizard student search was not blocked';
+        end if;
+        cross_tenant_wizard_blocked := false;
+        begin
+          perform public.create_smart_appointment(
+            '20000000-0000-4000-8000-000000000002',
+            '10000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000001',
+            'break', null, '2026-08-03T07:00:00Z', 30, 0, 0, null,
+            'Pauze', null, null, null, null, 1, '{}'::jsonb, 'NONE', null,
+            null, null, null, null, null, null
+          );
+        exception when others then
+          cross_tenant_wizard_blocked := true;
+        end;
+        if not cross_tenant_wizard_blocked then
+          raise exception 'cross-tenant smart wizard create was not blocked';
+        end if;
+
+        v_wizard_result := public.create_smart_appointment(
+          '20000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          '10000000-0000-4000-8000-000000000001',
+          'lesson', '30000000-0000-4000-8000-000000000001',
+          '2026-08-03T08:00:00Z', 60, 0, 15, null,
+          'Rijles', 'Migration Wizardstraat 1', null, null, null,
+          (
+            select policy.version
+              from public.appointment_type_policies policy
+             where policy.tenant_id = '20000000-0000-4000-8000-000000000001'
+               and policy.code = 'lesson'
+          ),
+          '{}'::jsonb, 'NONE', null, null, null,
+          jsonb_build_object(
+            'formattedAddress', 'Migration Wizardstraat 1, Utrecht',
+            'label', 'Tijdelijk ophaalpunt', 'countryCode', 'NL',
+            'source', 'USER_ENTERED', 'validationStatus', 'UNVALIDATED'
+          ),
+          null, null, null
+        );
+        if not exists (
+          select 1 from public.lessons lesson
+           where lesson.id = (v_wizard_result->>'id')::uuid
+             and lesson.tenant_id = '20000000-0000-4000-8000-000000000001'
+             and lesson.ends_at = lesson.starts_at + interval '60 minutes'
+             and lesson.buffer_min = 15
+             and lesson.appointment_policy_snapshot->>'code' = 'lesson'
+        ) then
+          raise exception 'smart wizard lesson snapshot or visible duration is incorrect';
+        end if;
+        if not exists (
+          select 1 from public.appointment_stops stop
+           where stop.lesson_id = (v_wizard_result->>'id')::uuid
+             and stop.stop_type = 'PICKUP'
+             and stop.publication_status = 'PUBLISHED'
+        ) then
+          raise exception 'smart wizard pickup snapshot was not published';
+        end if;
+
+        begin
+          perform public.create_smart_appointment(
+            '20000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000001',
+            'lesson', '30000000-0000-4000-8000-000000000001',
+            '2026-08-03T08:30:00Z', 60, 0, 15, null,
+            'Overlap', 'Migration Wizardstraat 1', null, null, null, 1,
+            '{}'::jsonb, 'NONE', null, null, null,
+            jsonb_build_object('formattedAddress', 'Migration Wizardstraat 1, Utrecht'),
+            null, null, null
+          );
+        exception when others then
+          wizard_overlap_blocked := true;
+        end;
+        if not wizard_overlap_blocked then
+          raise exception 'smart wizard accepted an overlapping lesson';
+        end if;
+
         select id into v_ris_version_id
           from public.ris_versions
          where is_active
@@ -738,7 +896,7 @@ function verifyDatabase(database) {
         if (select count(*) from public.students) <> 1 then
           raise exception 'RLS did not isolate students to the fixture tenant';
         end if;
-        if (select count(*) from public.lessons) <> 1 then
+        if (select count(*) from public.lessons) <> 2 then
           raise exception 'RLS hid the authorized lesson';
         end if;
         if (select count(*) from public.invoices) <> 1 then
@@ -858,6 +1016,7 @@ try {
     throw new Error("At least two migrations are required.");
   applyMigrations(secondDatabase, port, penultimateMigration);
   dockerExec(secondDatabase, "postgres", fixtureSql);
+  dockerExec(secondDatabase, "postgres", lessonPolicyUpgradeFixtureSql);
   applyMigrations(secondDatabase, port, finalMigration);
   verifyDatabase(secondDatabase);
 
@@ -877,6 +1036,7 @@ try {
           memberships: 1,
           students: 2,
           lessons: 1,
+          smartWizardLessonsCreated: 1,
           invoices: 1,
         },
         checks: [
@@ -886,6 +1046,9 @@ try {
           "invoice uniqueness",
           "authorized tenant visibility",
           "cross-tenant isolation",
+          "smart appointment search/create authorization and overlap",
+          "smart appointment duration, buffer, policy and location snapshots",
+          "lesson policy 60/15 to tenant 50/10 upgrade",
           "instructor credit grant authorization and balance",
           "RIS catalog canonical snapshot and hash",
           "RIS expert review authorization and immutable approval",

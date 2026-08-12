@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 type DialogContextValue = {
@@ -28,17 +29,19 @@ export function Dialog({
   children: React.ReactNode;
 }) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const onOpenChangeRef = React.useRef(onOpenChange);
   const titleId = React.useId();
   const descriptionId = React.useId();
   const open = controlledOpen ?? internalOpen;
-  const setOpen = (val: boolean) => {
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+  const setOpen = React.useCallback((val: boolean) => {
     setInternalOpen(val);
-    onOpenChange?.(val);
-  };
+    onOpenChangeRef.current?.(val);
+  }, []);
   return (
-    <DialogContext.Provider
-      value={{ open, setOpen, titleId, descriptionId }}
-    >
+    <DialogContext.Provider value={{ open, setOpen, titleId, descriptionId }}>
       {children}
     </DialogContext.Provider>
   );
@@ -54,15 +57,18 @@ export function DialogTrigger({
 } & React.HTMLAttributes<HTMLElement>) {
   const { open, setOpen } = React.useContext(DialogContext);
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<React.HTMLAttributes<HTMLElement>>, {
-      ...props,
-      "aria-expanded": open,
-      "aria-haspopup": "dialog",
-      onClick: (e: React.MouseEvent<HTMLElement>) => {
-        (children.props as React.HTMLAttributes<HTMLElement>).onClick?.(e);
-        setOpen(true);
+    return React.cloneElement(
+      children as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
+      {
+        ...props,
+        "aria-expanded": open,
+        "aria-haspopup": "dialog",
+        onClick: (e: React.MouseEvent<HTMLElement>) => {
+          (children.props as React.HTMLAttributes<HTMLElement>).onClick?.(e);
+          setOpen(true);
+        },
       },
-    });
+    );
   }
   return (
     <button
@@ -86,6 +92,12 @@ export function DialogContent({
     React.useContext(DialogContext);
   const contentRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const [portalContainer, setPortalContainer] =
+    React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    setPortalContainer(document.body);
+  }, []);
 
   React.useEffect(() => {
     if (!open) return;
@@ -145,11 +157,11 @@ export function DialogContent({
       const previous = previousFocusRef.current;
       if (previous?.isConnected) previous.focus();
     };
-  }, [open, setOpen]);
+  }, [open, portalContainer, setOpen]);
 
-  if (!open) return null;
+  if (!open || !portalContainer) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       aria-modal="true"
@@ -174,14 +186,15 @@ export function DialogContent({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="absolute right-2 top-2 z-20 grid h-11 w-11 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Sluiten"
         >
           <X className="h-4 w-4" />
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    portalContainer,
   );
 }
 
@@ -225,10 +238,7 @@ export function DialogFooter({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn("flex justify-end gap-2 mt-6", className)}
-      {...props}
-    />
+    <div className={cn("flex justify-end gap-2 mt-6", className)} {...props} />
   );
 }
 

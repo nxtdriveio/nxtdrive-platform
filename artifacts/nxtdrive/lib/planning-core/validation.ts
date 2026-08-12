@@ -1,5 +1,5 @@
 import { computeFreeIntervals } from "@/lib/availability/compute";
-import { amsterdamYmd, startOfAmsterdamDayUtc } from "@/lib/datetime";
+import { startOfZonedDayUtc, zonedYmd } from "@/lib/datetime";
 import type {
   PlanningActorAccess,
   PlanningBusyInterval,
@@ -38,9 +38,12 @@ function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
-function ymdMinutes(date: Date): { ymd: string; minutes: number } {
-  const ymd = amsterdamYmd(date);
-  const midnight = startOfAmsterdamDayUtc(ymd);
+function ymdMinutes(
+  date: Date,
+  timeZone?: string,
+): { ymd: string; minutes: number } {
+  const ymd = zonedYmd(date, timeZone);
+  const midnight = startOfZonedDayUtc(ymd, timeZone);
   return {
     ymd,
     minutes: Math.round((date.getTime() - midnight.getTime()) / 60000),
@@ -165,8 +168,8 @@ function validateAvailability(
   const instructor = data.instructor;
   if (!instructor) return null;
 
-  const startParts = ymdMinutes(start);
-  const endParts = ymdMinutes(end);
+  const startParts = ymdMinutes(start, input.timeZone);
+  const endParts = ymdMinutes(end, input.timeZone);
   if (startParts.ymd !== endParts.ymd) {
     return reason(
       "INSTRUCTOR_NOT_AVAILABLE",
@@ -268,8 +271,8 @@ function validateVehicle(
   }
 
   if (vehicle.apkExpiresAt) {
-    const apkDate = startOfAmsterdamDayUtc(vehicle.apkExpiresAt);
-    if (vehicle.apkExpiresAt < amsterdamYmd(start)) {
+    const apkDate = startOfZonedDayUtc(vehicle.apkExpiresAt, input.timeZone);
+    if (vehicle.apkExpiresAt < zonedYmd(start, input.timeZone)) {
       blockers.push(
         reason(
           "VEHICLE_APK_EXPIRED",
@@ -585,6 +588,29 @@ export function validateScheduleCandidate(
         { overlapId: instructorOverlap.id },
       ),
     );
+  }
+
+  if (input.studentId) {
+    const studentOverlap = activeBusyIntervals(input, data).find(
+      (interval) =>
+        interval.studentId === input.studentId &&
+        overlaps(
+          start,
+          end,
+          toDate(interval.startsAt),
+          toDate(interval.endsAt),
+        ),
+    );
+    if (studentOverlap) {
+      blockingReasons.push(
+        reason(
+          "STUDENT_HAS_OVERLAP",
+          "Leerling heeft al een afspraak in dit tijdslot.",
+          "blocking",
+          { overlapId: studentOverlap.id },
+        ),
+      );
+    }
   }
 
   if (input.vehicleId) {

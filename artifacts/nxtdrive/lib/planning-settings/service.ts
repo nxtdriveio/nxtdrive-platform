@@ -26,16 +26,19 @@ export const DEFAULT_TENANT_PLANNING_SETTINGS: TenantPlanningSettings = {
   sameAreaTravelMinutes: 10,
   differentAreaTravelMinutes: 30,
   defaultLessonDurationMinutes: 50,
-  defaultLessonBufferMinutes: 0,
+  defaultLessonBufferMinutes: 10,
 };
 
-export const LESSON_DURATION_OPTIONS = [
-  10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 180, 240,
-] as const;
+export const LESSON_DURATION_OPTIONS = Object.freeze(
+  Array.from({ length: 24 }, (_, index) => (index + 1) * 10),
+);
 
 export const LESSON_BUFFER_OPTIONS = [0, 10, 20, 30, 40, 50, 60] as const;
 
-export function occupiedMinutes(durationMinutes: number, bufferMinutes: number) {
+export function occupiedMinutes(
+  durationMinutes: number,
+  bufferMinutes: number,
+) {
   return Math.max(1, durationMinutes) + Math.max(0, bufferMinutes);
 }
 

@@ -1,4 +1,89 @@
-import type { InstructorExperience } from "@/lib/instructor/redesign-data";
+import type { InstructorAgendaCreateOptions } from "@/domains/planning/application/instructor-agenda-create-options";
+import type { InstructorAgendaWizardBootstrap } from "@/domains/planning/application/smart-appointment-contracts";
+import {
+  DEFAULT_APPOINTMENT_WIZARD_SETTINGS,
+  PLATFORM_APPOINTMENT_TYPE_POLICIES,
+} from "@/domains/planning/domain/appointment-policy";
+import type {
+  InstructorDayAgendaItem,
+  InstructorDayCalendarType,
+} from "@/domains/planning/domain/instructor-day-calendar";
+import type {
+  InstructorAppointment,
+  InstructorAppointmentType,
+  InstructorExperience,
+} from "@/lib/instructor/redesign-data";
+
+export function fixtureAppointment(input: {
+  id: string;
+  displayType: InstructorAppointmentType;
+  calendarType: InstructorDayCalendarType;
+  title: string;
+  studentName?: string;
+  startsAtIso: string;
+  endsAtIso: string;
+  startsAt: string;
+  endsAt: string;
+  location: string;
+  status?: InstructorAppointment["status"];
+  travelFromPrevious?: InstructorDayAgendaItem["travelFromPrevious"];
+}): InstructorAppointment {
+  const href =
+    input.displayType === "lesson"
+      ? `/instructeur/lessen/${input.id}`
+      : `/instructeur/agenda/${input.id}`;
+  const calendarItem: InstructorDayAgendaItem = {
+    id: input.id,
+    kind:
+      input.calendarType === "lesson"
+        ? "lesson"
+        : input.calendarType === "trial"
+          ? "trial"
+          : "appointment",
+    type: input.calendarType,
+    startsAt: input.startsAtIso,
+    endsAt: input.endsAtIso,
+    status: input.status ?? "planned",
+    title: input.title,
+    participantLabel: input.studentName,
+    location: { label: "Locatie", formattedAddress: input.location },
+    vehicle:
+      input.displayType === "lesson"
+        ? { displayName: "Volkswagen Golf · K-123-NX" }
+        : undefined,
+    href,
+    evaluationHref: input.displayType === "lesson" ? href : undefined,
+    travelFromPrevious: input.travelFromPrevious,
+    permissions: {
+      canOpen: true,
+      canEdit: true,
+      canCancel: true,
+      canStartLesson: input.displayType === "lesson",
+      canNavigate: true,
+    },
+  };
+  return {
+    id: input.id,
+    type: input.displayType,
+    title: input.title,
+    studentName: input.studentName,
+    dateYmd: "2026-08-11",
+    dateLabel: "Di 11 aug",
+    startsAtIso: input.startsAtIso,
+    endsAtIso: input.endsAtIso,
+    startsAt: input.startsAt,
+    endsAt: input.endsAt,
+    duration: `${Math.round((Date.parse(input.endsAtIso) - Date.parse(input.startsAtIso)) / 60_000)} min`,
+    location: input.location,
+    vehicle:
+      input.displayType === "lesson" ? "Volkswagen Golf - K-123-NX" : undefined,
+    status: input.status ?? "planned",
+    href,
+    evaluationHref: input.displayType === "lesson" ? href : undefined,
+    calendarType: input.calendarType,
+    calendarItem,
+  };
+}
 
 /**
  * Synthetic, non-customer data for authenticated UI screenshots.
@@ -43,98 +128,151 @@ export const instructorVisualFixture: InstructorExperience = {
     },
   ],
   appointments: [
-    {
+    fixtureAppointment({
+      id: "appointment-early",
+      displayType: "admin",
+      calendarType: "admin",
+      title: "Vroege administratie",
+      startsAtIso: "2026-08-11T04:15:00.000Z",
+      endsAtIso: "2026-08-11T04:45:00.000Z",
+      startsAt: "06:15",
+      endsAt: "06:45",
+      location: "Rijschoolkantoor",
+    }),
+    fixtureAppointment({
       id: "appointment-1",
-      type: "lesson",
-      title: "Rijles - bijzondere verrichtingen",
+      displayType: "lesson",
+      calendarType: "lesson",
+      title: "Rijles",
       studentName: "Noah Jansen",
-      dateYmd: "2026-07-31",
-      dateLabel: "Vr 31 jul",
-      startsAtIso: "2026-07-31T06:30:00.000Z",
-      startsAt: "08:30",
-      endsAt: "10:00",
-      duration: "90 min",
+      startsAtIso: "2026-08-11T05:15:00.000Z",
+      endsAtIso: "2026-08-11T06:15:00.000Z",
+      startsAt: "07:15",
+      endsAt: "08:15",
       location: "Stationsplein 12, Utrecht",
-      vehicle: "Volkswagen Golf - K-123-NX",
-      status: "confirmed",
-      href: "/instructeur/lessen/appointment-1",
-      evaluationHref: "/instructeur/lessen/appointment-1",
-    },
-    {
-      id: "appointment-2",
-      type: "lesson",
-      title: "Rijles - snelweg",
-      studentName: "Mila Bakker",
-      dateYmd: "2026-07-31",
-      dateLabel: "Vr 31 jul",
-      startsAtIso: "2026-07-31T08:15:00.000Z",
-      startsAt: "10:15",
-      endsAt: "11:45",
-      duration: "90 min",
-      location: "Kanaalweg 44, Utrecht",
-      vehicle: "Volkswagen Golf - K-123-NX",
-      status: "confirmed",
-      href: "/instructeur/lessen/appointment-2",
-      evaluationHref: "/instructeur/lessen/appointment-2",
-    },
-    {
-      id: "appointment-3",
-      type: "trial",
+      status: "completed",
+    }),
+    fixtureAppointment({
+      id: "appointment-break",
+      displayType: "admin",
+      calendarType: "break",
+      title: "Pauze",
+      startsAtIso: "2026-08-11T06:30:00.000Z",
+      endsAtIso: "2026-08-11T07:00:00.000Z",
+      startsAt: "08:30",
+      endsAt: "09:00",
+      location: "Rijschoolkantoor",
+    }),
+    fixtureAppointment({
+      id: "appointment-trial",
+      displayType: "trial",
+      calendarType: "trial",
       title: "Proefles",
       studentName: "Yara Visser",
-      dateYmd: "2026-07-31",
-      dateLabel: "Vr 31 jul",
-      startsAtIso: "2026-07-31T11:15:00.000Z",
-      startsAt: "13:15",
-      endsAt: "14:15",
-      duration: "60 min",
+      startsAtIso: "2026-08-11T07:00:00.000Z",
+      endsAtIso: "2026-08-11T08:30:00.000Z",
+      startsAt: "09:00",
+      endsAt: "10:30",
       location: "NXTDRIVE leslocatie",
-      vehicle: "Volkswagen Golf - K-123-NX",
-      status: "planned",
-      href: "/instructeur/lessen/appointment-3",
-    },
-    {
-      id: "appointment-4",
-      type: "admin",
-      title: "Administratie",
-      dateYmd: "2026-07-31",
-      dateLabel: "Vr 31 jul",
-      startsAtIso: "2026-07-31T12:30:00.000Z",
-      startsAt: "14:30",
-      endsAt: "15:00",
-      duration: "30 min",
-      location: "Rijschoolkantoor",
-      status: "planned",
-      href: "/instructeur/agenda",
-    },
-    {
-      id: "appointment-5",
-      type: "lesson",
-      title: "Rijles - examenroute",
-      studentName: "Finn Smit",
-      dateYmd: "2026-07-31",
-      dateLabel: "Vr 31 jul",
-      startsAtIso: "2026-07-31T13:15:00.000Z",
-      startsAt: "15:15",
-      endsAt: "16:45",
-      duration: "90 min",
-      location: "CBR Utrecht",
-      vehicle: "Volkswagen Golf - K-123-NX",
+    }),
+    fixtureAppointment({
+      id: "appointment-2",
+      displayType: "lesson",
+      calendarType: "lesson",
+      title: "Rijles",
+      studentName: "Mila Bakker",
+      startsAtIso: "2026-08-11T09:00:00.000Z",
+      endsAtIso: "2026-08-11T10:00:00.000Z",
+      startsAt: "11:00",
+      endsAt: "12:00",
+      location: "Kanaalweg 44, Utrecht",
       status: "confirmed",
-      href: "/instructeur/lessen/appointment-5",
-      evaluationHref: "/instructeur/lessen/appointment-5",
-    },
+      travelFromPrevious: {
+        durationMinutes: 17,
+        availableMinutes: 30,
+        status: "AMPLE",
+        asOf: "2026-08-11T08:50:00.000Z",
+        method: "GOOGLE_ROUTE",
+      },
+    }),
+    fixtureAppointment({
+      id: "appointment-overlap",
+      displayType: "admin",
+      calendarType: "admin",
+      title: "Teamoverleg",
+      startsAtIso: "2026-08-11T09:30:00.000Z",
+      endsAtIso: "2026-08-11T10:15:00.000Z",
+      startsAt: "11:30",
+      endsAt: "12:15",
+      location: "Rijschoolkantoor",
+    }),
+    fixtureAppointment({
+      id: "appointment-3",
+      displayType: "lesson",
+      calendarType: "lesson",
+      title: "Rijles",
+      studentName: "Finn Smit",
+      startsAtIso: "2026-08-11T11:30:00.000Z",
+      endsAtIso: "2026-08-11T12:30:00.000Z",
+      startsAt: "13:30",
+      endsAt: "14:30",
+      location: "CBR Utrecht",
+      status: "confirmed",
+      travelFromPrevious: {
+        durationMinutes: 24,
+        availableMinutes: 10,
+        status: "INFEASIBLE",
+        asOf: "2026-08-11T11:20:00.000Z",
+        method: "GOOGLE_TRAFFIC",
+      },
+    }),
+    fixtureAppointment({
+      id: "appointment-exam",
+      displayType: "exam",
+      calendarType: "exam",
+      title: "Praktijkexamen",
+      studentName: "Mila Bakker",
+      startsAtIso: "2026-08-11T14:00:00.000Z",
+      endsAtIso: "2026-08-11T15:00:00.000Z",
+      startsAt: "16:00",
+      endsAt: "17:00",
+      location: "CBR Utrecht",
+    }),
+    fixtureAppointment({
+      id: "appointment-private",
+      displayType: "private",
+      calendarType: "private_block",
+      title: "Privé",
+      startsAtIso: "2026-08-11T17:00:00.000Z",
+      endsAtIso: "2026-08-11T18:30:00.000Z",
+      startsAt: "19:00",
+      endsAt: "20:30",
+      location: "Privé",
+    }),
+    fixtureAppointment({
+      id: "appointment-late",
+      displayType: "admin",
+      calendarType: "maintenance",
+      title: "Voertuigcontrole",
+      startsAtIso: "2026-08-11T20:15:00.000Z",
+      endsAtIso: "2026-08-11T20:45:00.000Z",
+      startsAt: "22:15",
+      endsAt: "22:45",
+      location: "Garage",
+    }),
   ],
   agendaPeriod: {
     mode: "day",
-    selectedDate: "2026-07-31",
-    todayYmd: "2026-07-31",
-    fromYmd: "2026-07-31",
-    toYmd: "2026-08-01",
-    label: "Vrijdag 31 juli 2026",
-    previousDate: "2026-07-30",
-    nextDate: "2026-08-01",
+    selectedDate: "2026-08-11",
+    todayYmd: "2026-08-11",
+    fromYmd: "2026-08-11",
+    toYmd: "2026-08-12",
+    label: "Dinsdag 11 augustus 2026",
+    previousDate: "2026-08-10",
+    nextDate: "2026-08-12",
   },
+  agendaTimeZone: "Europe/Amsterdam",
+  agendaNowIso: "2026-08-11T11:47:00.000Z",
   students: [
     {
       id: "student-1",
@@ -390,6 +528,42 @@ export const instructorVisualFixture: InstructorExperience = {
     href: "/instructeur/lessen/appointment-1",
   },
 };
+
+export const instructorAgendaCreateOptionsFixture: InstructorAgendaCreateOptions =
+  {
+    branches: [{ id: "branch-1", name: "Utrecht Centrum" }],
+    ownInstructor: { id: "instructor-1", full_name: "Sanne de Vries" },
+    students: [
+      { id: "student-1", full_name: "Noah Jansen" },
+      { id: "student-2", full_name: "Mila Bakker" },
+      { id: "student-3", full_name: "Finn Smit" },
+    ],
+    vehicles: [
+      {
+        id: "vehicle-1",
+        label: "Volkswagen Golf",
+        license_plate: "K-123-NX",
+        transmission: "schakel",
+        status: "active",
+        default_instructor_id: "instructor-1",
+      },
+    ],
+    serviceAreas: [
+      { id: "area-1", name: "Utrecht Centrum", branch_id: "branch-1" },
+    ],
+    defaultLessonDurationMinutes: 60,
+    defaultLessonBufferMinutes: 0,
+  };
+
+export const instructorAgendaWizardBootstrapFixture: InstructorAgendaWizardBootstrap =
+  {
+    instructorId: "instructor-1",
+    instructorLabel: "Sanne de Vries",
+    timeZone: "Europe/Amsterdam",
+    defaultBranchId: "branch-1",
+    policies: Object.values(PLATFORM_APPOINTMENT_TYPE_POLICIES),
+    settings: DEFAULT_APPOINTMENT_WIZARD_SETTINGS,
+  };
 
 export const instructorChatVisualFixture: InstructorExperience = {
   ...instructorVisualFixture,

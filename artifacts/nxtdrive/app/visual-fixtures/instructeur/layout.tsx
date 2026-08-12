@@ -54,7 +54,7 @@ export default function InstructorVisualFixtureLayout({
     <BrandProvider tenant={null} branding={null} className="min-h-screen">
       <div
         data-instructor-shell=""
-        className="flex min-h-screen flex-col text-foreground lg:h-screen lg:flex-row lg:overflow-hidden"
+        className="flex h-dvh min-h-0 flex-col overflow-hidden text-foreground lg:flex-row"
       >
         <InstructorSidebar
           tenantName={tenantName}
@@ -63,7 +63,7 @@ export default function InstructorVisualFixtureLayout({
           notifications={notifications}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <InstructorTopbar
             theme="light"
             userLabel={userLabel}
@@ -71,8 +71,8 @@ export default function InstructorVisualFixtureLayout({
             notifications={notifications}
           />
 
-          <main className="min-w-0 flex-1 overflow-x-hidden bg-transparent px-4 pb-[5.75rem] pt-4 sm:px-5 sm:pb-24 md:px-6 lg:min-h-0 lg:overflow-y-auto lg:px-8 lg:pb-8 lg:pt-6">
-            <div className="mx-auto w-full max-w-[96rem] lg:flex lg:min-h-full lg:flex-col">
+          <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pb-[5.75rem] pt-4 sm:px-5 sm:pb-24 md:px-6 lg:px-8 lg:pb-8 lg:pt-6">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[96rem] flex-col">
               {children}
             </div>
           </main>

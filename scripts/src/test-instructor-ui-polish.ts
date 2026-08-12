@@ -29,14 +29,9 @@ assert(
   "popover theme tokens should be registered",
 );
 
-const routes = read(
-  "artifacts",
-  "nxtdrive",
-  "lib",
-  "instructor",
-  "routes.ts",
-);
-const routeDefinitions = routes.split("export const instructorRoutes = [")[1] ?? "";
+const routes = read("artifacts", "nxtdrive", "lib", "instructor", "routes.ts");
+const routeDefinitions =
+  routes.split("export const instructorRoutes = [")[1] ?? "";
 assert(
   (routeDefinitions.match(/visibility: "navigation"/g) ?? []).length === 5,
   "instructor app should expose exactly five primary routes",
@@ -135,8 +130,8 @@ assert(
   searchActions.includes("loadInstructorAccessibleStudentIds") &&
     searchActions.includes("isAdmin") &&
     searchActions.includes(": Promise.resolve({ data: [], error: null })") &&
-    searchActions.includes('href: `/instructeur/leerlingen/${student.id}`') &&
-    searchActions.includes('href: `/instructeur/lessen/${lesson.id}`'),
+    searchActions.includes("href: `/instructeur/leerlingen/${student.id}`") &&
+    searchActions.includes("href: `/instructeur/lessen/${lesson.id}`"),
   "quick search should respect instructor scope and canonical destinations",
 );
 
@@ -169,7 +164,9 @@ assert(
   "instructor account should expose notifications, profile and secure logout",
 );
 
-const settingsStart = redesign.indexOf("export function InstructorSettingsView");
+const settingsStart = redesign.indexOf(
+  "export function InstructorSettingsView",
+);
 const settingsEnd = redesign.indexOf("\nexport function ", settingsStart + 1);
 const settings = redesign.slice(settingsStart, settingsEnd);
 assert(
@@ -190,7 +187,9 @@ const notificationsPage = read(
 );
 assert(
   notificationsPage.includes("loadInAppNotifications") &&
-    redesign.includes("<NotificationInbox items={items} unreadCount={unreadCount} />"),
+    redesign.includes(
+      "<NotificationInbox items={items} unreadCount={unreadCount} />",
+    ),
   "instructor notifications should load and render an actionable inbox",
 );
 
@@ -226,12 +225,22 @@ const studentsPage = read(
   "leerlingen",
   "page.tsx",
 );
+const dayCalendar = read(
+  "artifacts",
+  "nxtdrive",
+  "domains",
+  "planning",
+  "ui",
+  "instructor-day-calendar",
+  "InstructorDayCalendar.tsx",
+);
 assert(
   agendaPage.includes("loadInstructorAgenda") &&
     agendaPage.includes("selectedAppointmentId") &&
+    dayCalendar.includes("AppointmentQuickView") &&
+    dayCalendar.includes("setSelectedItem") &&
     studentsPage.includes("loadInstructorStudents") &&
     studentsPage.includes("selectedStudentId") &&
-    redesign.includes("?afspraak=") &&
     redesign.includes("?leerling="),
   "tablet agenda and student routes should use scoped master-detail loaders",
 );

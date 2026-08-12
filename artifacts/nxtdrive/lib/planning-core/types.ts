@@ -44,6 +44,7 @@ export type PlanningReasonCode =
   | "INSTRUCTOR_NOT_FOUND"
   | "INSTRUCTOR_NOT_AVAILABLE"
   | "INSTRUCTOR_HAS_OVERLAP"
+  | "STUDENT_HAS_OVERLAP"
   | "INSUFFICIENT_TRAVEL_TIME_BEFORE"
   | "INSUFFICIENT_TRAVEL_TIME_AFTER"
   | "UNKNOWN_SERVICE_AREA_TRAVEL_TIME"
@@ -84,6 +85,7 @@ export type PlanningCandidateInput = {
   entityType: PlanningEntityType;
   entityId?: string | null;
   tenantId: string;
+  timeZone?: string;
   branchId?: string | null;
   studentId?: string | null;
   instructorId: string;
@@ -104,6 +106,7 @@ export type PlanningBusyInterval = {
   id: string;
   entityType: PlanningEntityType;
   instructorId?: string | null;
+  studentId?: string | null;
   vehicleId?: string | null;
   startsAt: string | Date;
   endsAt: string | Date;

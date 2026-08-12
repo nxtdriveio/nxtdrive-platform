@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { amsterdamYmd } from "@/lib/datetime";
+import { zonedYmd } from "@/lib/datetime";
 import type {
   PlanningBusyInterval,
   PlanningCandidateInput,
@@ -52,6 +52,7 @@ type VehicleRow = {
 type BusyRow = {
   id: string;
   instructor_id: string | null;
+  student_id?: string | null;
   vehicle_id?: string | null;
   starts_at: string;
   ends_at: string;
@@ -97,6 +98,7 @@ function busyInterval(
     id: row.id,
     entityType,
     instructorId: row.instructor_id,
+    studentId: row.student_id ?? null,
     vehicleId: row.vehicle_id ?? null,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -235,31 +237,36 @@ async function loadBusyIntervals(
   start: Date,
   end: Date,
 ): Promise<PlanningBusyInterval[]> {
+  // One surrounding day is deliberately loaded so travel validation can see
+  // nearest neighbours. This remains one batched daily projection, not a
+  // route/provider call per event.
+  const windowStart = new Date(start.getTime() - 86_400_000);
+  const windowEnd = new Date(end.getTime() + 86_400_000);
   const [lessons, trials, appointments] = await Promise.all([
     client
       .from("lessons")
       .select(
-        "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
+        "id, instructor_id, student_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
       )
       .eq("tenant_id", input.tenantId)
-      .lt("starts_at", end.toISOString())
-      .gt("ends_at", start.toISOString()),
+      .lt("starts_at", windowEnd.toISOString())
+      .gt("ends_at", windowStart.toISOString()),
     client
       .from("trial_lessons")
       .select(
         "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
       )
       .eq("tenant_id", input.tenantId)
-      .lt("starts_at", end.toISOString())
-      .gt("ends_at", start.toISOString()),
+      .lt("starts_at", windowEnd.toISOString())
+      .gt("ends_at", windowStart.toISOString()),
     client
       .from("agenda_appointments")
       .select(
-        "id, instructor_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
+        "id, instructor_id, student_id, vehicle_id, starts_at, ends_at, pickup_service_area_id, status",
       )
       .eq("tenant_id", input.tenantId)
-      .lt("starts_at", end.toISOString())
-      .gt("ends_at", start.toISOString()),
+      .lt("starts_at", windowEnd.toISOString())
+      .gt("ends_at", windowStart.toISOString()),
   ]);
 
   return [
@@ -282,8 +289,8 @@ export async function loadPlanningKernelData(
   const start =
     input.startAt instanceof Date ? input.startAt : new Date(input.startAt);
   const end = input.endAt instanceof Date ? input.endAt : new Date(input.endAt);
-  const fromYmd = amsterdamYmd(start);
-  const toYmd = amsterdamYmd(end);
+  const fromYmd = zonedYmd(start, input.timeZone);
+  const toYmd = zonedYmd(end, input.timeZone);
 
   const [
     rules,

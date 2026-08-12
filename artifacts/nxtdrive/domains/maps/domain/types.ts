@@ -201,6 +201,7 @@ export type MapsUsageEventInput = Readonly<{
     | "STUDENT_PROFILE"
     | "STUDENT_APP"
     | "INSTRUCTOR_APP"
+    | "INSTRUCTOR_APPOINTMENT_WIZARD"
     | "LESSON_PLANNER"
     | "PLANNING_BOARD"
     | "PLATFORM_ADMIN"

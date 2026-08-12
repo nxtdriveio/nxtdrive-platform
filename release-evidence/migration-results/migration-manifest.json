@@ -3,13 +3,14 @@
   "postgresImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
   "emptyDatabase": "passed",
   "existingFixtureUpgrade": "passed",
-  "migrationCount": 172,
+  "migrationCount": 174,
   "fixture": {
     "tenants": 2,
     "users": 3,
     "memberships": 1,
     "students": 2,
     "lessons": 1,
+    "smartWizardLessonsCreated": 1,
     "invoices": 1
   },
   "checks": [
@@ -19,6 +20,9 @@
     "invoice uniqueness",
     "authorized tenant visibility",
     "cross-tenant isolation",
+    "smart appointment search/create authorization and overlap",
+    "smart appointment duration, buffer, policy and location snapshots",
+    "lesson policy 60/15 to tenant 50/10 upgrade",
     "instructor credit grant authorization and balance",
     "RIS catalog canonical snapshot and hash",
     "RIS expert review authorization and immutable approval",
@@ -887,6 +891,16 @@
       "file": "20260730155000_student_stop_confirmations.sql",
       "sha256": "711492e1c10d99a6a69dba51be9879128f21994277e027253d5de93ea78bfb8d",
       "bytes": 5198
+    },
+    {
+      "file": "20260811233933_smart_appointment_wizard_foundation.sql",
+      "sha256": "9262a91b775a02efb3662092da48a5127dddbf97103a8c5530d5b02c4d34af5e",
+      "bytes": 39897
+    },
+    {
+      "file": "20260812021837_align_lesson_wizard_defaults.sql",
+      "sha256": "82c933b2f6451cc671410eae32e0477bcfa908fef78fbded4f3e457809884333",
+      "bytes": 1601
     }
   ]
 }

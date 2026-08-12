@@ -15,10 +15,10 @@ import {
   type InstructorPlanningType,
 } from "@/lib/agenda/types";
 
-type BranchOption = { id: string; name: string };
-type InstructorOption = { id: string; full_name: string | null };
-type StudentOption = { id: string; full_name: string };
-type VehicleOption = {
+export type BranchOption = { id: string; name: string };
+export type InstructorOption = { id: string; full_name: string | null };
+export type StudentOption = { id: string; full_name: string };
+export type VehicleOption = {
   id: string;
   label: string;
   license_plate: string | null;
@@ -26,7 +26,7 @@ type VehicleOption = {
   status?: string | null;
   default_instructor_id?: string | null;
 };
-type ServiceAreaOption = {
+export type ServiceAreaOption = {
   id: string;
   name: string;
   branch_id?: string | null;
@@ -66,6 +66,10 @@ export function AppointmentForm({
   defaults,
   submitLabel,
   allowLesson = false,
+  lockType = false,
+  returnToCalendar = false,
+  onTypeChange,
+  durationByType,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
@@ -83,12 +87,17 @@ export function AppointmentForm({
   defaults?: AppointmentFormDefaults;
   submitLabel: string;
   allowLesson?: boolean;
+  lockType?: boolean;
+  returnToCalendar?: boolean;
+  onTypeChange?: (type: InstructorPlanningType) => void;
+  durationByType?: Partial<Record<InstructorPlanningType, number>>;
 }) {
   const [type, setType] = useState<InstructorPlanningType>(
     defaults?.type ?? (allowLesson ? "lesson" : "exam"),
   );
+  const [durationMin, setDurationMin] = useState(defaults?.durationMin ?? 50);
   // In edit mode the type is immutable (the DB RPC does not change it).
-  const typeLocked = mode === "edit";
+  const typeLocked = mode === "edit" || lockType;
   // The instructor is also immutable in edit mode - update_agenda_appointment
   // keeps the original instructor. Show a read-only display instead of a select
   // so the form never offers an affordance the backend ignores.
@@ -99,6 +108,16 @@ export function AppointmentForm({
     "Instructeur";
   const lockedInstructorId = defaults?.instructorId ?? ownInstructor?.id ?? "";
   const showStudent = isStudentLinkedPlanningType(type);
+  const compactQuickAdd =
+    returnToCalendar &&
+    (type === "break" || type === "private_block" || type === "free_block");
+  const showVehicle =
+    type === "lesson" ||
+    type === "exam" ||
+    type === "interim_test" ||
+    type === "maintenance";
+  const showServiceArea =
+    type === "lesson" || type === "exam" || type === "interim_test";
   const planningTypes = allowLesson
     ? INSTRUCTOR_PLANNING_TYPES
     : INSTRUCTOR_PLANNING_TYPES.filter(
@@ -107,9 +126,12 @@ export function AppointmentForm({
   const defaultBranchId = defaults?.branchId ?? branches?.[0]?.id ?? "";
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4 pb-2">
       <input type="hidden" name="redirect_to" value={redirectTo} />
       <input type="hidden" name="error_to" value={errorTo} />
+      {returnToCalendar ? (
+        <input type="hidden" name="return_to_calendar" value="true" />
+      ) : null}
       {appointmentId ? (
         <input type="hidden" name="appointment_id" value={appointmentId} />
       ) : null}
@@ -117,6 +139,9 @@ export function AppointmentForm({
       {typeLocked ? <input type="hidden" name="type" value={type} /> : null}
       {(!instructors || instructorLocked) && lockedInstructorId ? (
         <input type="hidden" name="instructor_id" value={lockedInstructorId} />
+      ) : null}
+      {compactQuickAdd && defaultBranchId ? (
+        <input type="hidden" name="branch_id" value={defaultBranchId} />
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -126,7 +151,13 @@ export function AppointmentForm({
             id="type"
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as InstructorPlanningType)}
+            onChange={(event) => {
+              const nextType = event.target.value as InstructorPlanningType;
+              setType(nextType);
+              const nextDuration = durationByType?.[nextType];
+              if (nextDuration !== undefined) setDurationMin(nextDuration);
+              onTypeChange?.(nextType);
+            }}
             disabled={typeLocked}
             required
           >
@@ -138,7 +169,7 @@ export function AppointmentForm({
           </Select>
         </div>
 
-        {branches && branches.length > 0 ? (
+        {branches && branches.length > 0 && !compactQuickAdd ? (
           <div className="space-y-1.5">
             <Label htmlFor="branch_id">Vestiging</Label>
             <Select
@@ -178,7 +209,7 @@ export function AppointmentForm({
               ))}
             </Select>
           </div>
-        ) : instructors || ownInstructor ? (
+        ) : (instructors || ownInstructor) && !compactQuickAdd ? (
           <div className="space-y-1.5">
             <Label>Instructeur</Label>
             <div className="flex h-10 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
@@ -212,7 +243,7 @@ export function AppointmentForm({
           </div>
         ) : null}
 
-        {vehicles ? (
+        {vehicles && showVehicle ? (
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="vehicle_id">Voertuig</Label>
             <Select
@@ -239,7 +270,7 @@ export function AppointmentForm({
           </div>
         ) : null}
 
-        {serviceAreas && serviceAreas.length > 0 ? (
+        {serviceAreas && serviceAreas.length > 0 && showServiceArea ? (
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="pickup_service_area_id">Rayon</Label>
             <Select
@@ -274,6 +305,7 @@ export function AppointmentForm({
             id="time"
             name="time"
             type="time"
+            step={900}
             required
             defaultValue={defaults?.time}
           />
@@ -284,7 +316,8 @@ export function AppointmentForm({
           <Select
             id="duration_min"
             name="duration_min"
-            defaultValue={String(defaults?.durationMin ?? 50)}
+            value={String(durationMin)}
+            onChange={(event) => setDurationMin(Number(event.target.value))}
           >
             {APPOINTMENT_DURATIONS.map((d) => (
               <option key={d} value={d}>
@@ -294,46 +327,60 @@ export function AppointmentForm({
           </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="buffer_min">Buffer na afloop</Label>
-          <Select
-            id="buffer_min"
-            name="buffer_min"
-            defaultValue={String(defaults?.bufferMin ?? 0)}
-          >
-            {APPOINTMENT_BUFFER_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d} min
-              </option>
-            ))}
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Bezet in agenda: duur + buffer.
-          </p>
-        </div>
+        {type === "lesson" ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="buffer_min">Buffer na afloop</Label>
+            <Select
+              id="buffer_min"
+              name="buffer_min"
+              defaultValue={String(defaults?.bufferMin ?? 0)}
+            >
+              {APPOINTMENT_BUFFER_OPTIONS.map((d) => (
+                <option key={d} value={d}>
+                  {d} min
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Bezet in agenda: duur + buffer.
+            </p>
+          </div>
+        ) : (
+          <input type="hidden" name="buffer_min" value="0" />
+        )}
 
+        {type !== "lesson" && type !== "break" ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="title">Titel / omschrijving</Label>
+            <Input
+              id="title"
+              name="title"
+              maxLength={200}
+              placeholder="Optioneel"
+              defaultValue={defaults?.title ?? ""}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {!compactQuickAdd || type === "private_block" ? (
         <div className="space-y-1.5">
-          <Label htmlFor="title">Titel / omschrijving</Label>
+          <Label htmlFor="location">
+            {type === "lesson" ? "Ophaalpunt" : "Locatie"}
+          </Label>
           <Input
-            id="title"
-            name="title"
+            id="location"
+            name="location"
             maxLength={200}
-            placeholder="Optioneel"
-            defaultValue={defaults?.title ?? ""}
+            placeholder={
+              type === "lesson"
+                ? "Standaard ophaalpunt of tijdelijke locatie"
+                : "Optioneel"
+            }
+            defaultValue={defaults?.location ?? ""}
           />
         </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="location">Locatie</Label>
-        <Input
-          id="location"
-          name="location"
-          maxLength={200}
-          placeholder="Optioneel"
-          defaultValue={defaults?.location ?? ""}
-        />
-      </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notities</Label>

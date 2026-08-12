@@ -1,3 +1,8 @@
+import type {
+  InstructorDayAgendaItem,
+  InstructorDayCalendarType,
+} from "@/domains/planning/domain/instructor-day-calendar";
+
 export type InstructorAppointmentType =
   | "lesson"
   | "trial"
@@ -30,6 +35,7 @@ export type InstructorAppointment = {
   dateYmd: string;
   dateLabel: string;
   startsAtIso: string;
+  endsAtIso: string;
   startsAt: string;
   endsAt: string;
   duration: string;
@@ -38,6 +44,8 @@ export type InstructorAppointment = {
   status: InstructorAppointmentStatus;
   href: string;
   evaluationHref?: string;
+  calendarType: InstructorDayCalendarType;
+  calendarItem: InstructorDayAgendaItem;
 };
 
 export type InstructorStudent = {
@@ -151,6 +159,8 @@ export type InstructorExperience = {
   }>;
   appointments: InstructorAppointment[];
   agendaPeriod?: import("./agenda-period").InstructorAgendaPeriod;
+  agendaTimeZone?: string;
+  agendaNowIso?: string;
   students: InstructorStudent[];
   tasks: InstructorTask[];
   messages: InstructorMessageThread[];

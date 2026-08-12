@@ -1,5 +1,6 @@
 import { InstructorAgendaView } from "@/components/instructor/RedesignViews";
 import { loadInstructorAgenda } from "@/lib/instructor/experience-server";
+import { loadInstructorAgendaWizardBootstrap } from "@/lib/instructor/smart-appointment-service";
 
 export const dynamic = "force-dynamic";
 
@@ -11,14 +12,22 @@ export default async function InstructorAgendaPage({
   const query = await searchParams;
   const selectedAppointmentId =
     typeof query.afspraak === "string" ? query.afspraak : undefined;
-  const data = await loadInstructorAgenda({
-    mode: typeof query.weergave === "string" ? query.weergave : undefined,
-    date: typeof query.datum === "string" ? query.datum : undefined,
-  });
+  const requestedMode =
+    typeof query.weergave === "string" ? query.weergave : undefined;
+  const [data, wizardBootstrap] = await Promise.all([
+    loadInstructorAgenda({
+      mode: requestedMode,
+      date: typeof query.datum === "string" ? query.datum : undefined,
+    }),
+    !requestedMode || requestedMode === "day"
+      ? loadInstructorAgendaWizardBootstrap()
+      : Promise.resolve(undefined),
+  ]);
   return (
     <InstructorAgendaView
       data={data}
       selectedAppointmentId={selectedAppointmentId}
+      wizardBootstrap={wizardBootstrap}
     />
   );
 }
