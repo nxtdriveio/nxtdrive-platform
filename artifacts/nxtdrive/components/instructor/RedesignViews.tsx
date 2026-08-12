@@ -56,7 +56,8 @@ import {
   type InstructorAgendaMode,
 } from "@/lib/instructor/agenda-period";
 import { InstructorDayCalendar } from "@/domains/planning/ui/instructor-day-calendar";
-import type { InstructorAgendaCreateOptions } from "@/domains/planning/application/instructor-agenda-create-options";
+import type { InstructorAgendaWizardBootstrap } from "@/domains/planning/application/smart-appointment-contracts";
+import type { SmartAppointmentWizardActions } from "@/domains/planning/ui/appointment-wizard/SmartAppointmentWizard";
 
 type IconComponent = typeof CalendarDays;
 
@@ -702,14 +703,14 @@ export function InstructorAgendaView({
   data,
   selectedAppointmentId,
   selectionBasePath = "/instructeur/agenda",
-  createOptions,
-  createAction,
+  wizardBootstrap,
+  wizardActions,
 }: {
   data?: InstructorExperience;
   selectedAppointmentId?: string;
   selectionBasePath?: string;
-  createOptions?: InstructorAgendaCreateOptions;
-  createAction?: (formData: FormData) => void | Promise<void>;
+  wizardBootstrap?: InstructorAgendaWizardBootstrap;
+  wizardActions?: SmartAppointmentWizardActions;
 }) {
   if (!data) return <DataUnavailableState title="Agenda niet beschikbaar" />;
   const period =
@@ -744,8 +745,8 @@ export function InstructorAgendaView({
         initialNowIso={data.agendaNowIso ?? new Date().toISOString()}
         selectedAppointmentId={selectedAppointmentId}
         selectionBasePath={selectionBasePath}
-        createOptions={createOptions}
-        createAction={createAction}
+        wizardBootstrap={wizardBootstrap}
+        wizardActions={wizardActions}
       />
     );
   }
@@ -1710,6 +1711,10 @@ export function InstructorSettingsView({
             {[
               ["Profiel", "/instructeur/profiel"],
               ["Beschikbaarheid", "/instructeur/beschikbaarheid"],
+              [
+                "Planningvoorkeuren",
+                "/instructeur/instellingen/planningvoorkeuren",
+              ],
               ["Meldingen", "/instructeur/meldingen"],
             ].map(([label, href]) => (
               <Link

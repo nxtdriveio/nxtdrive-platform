@@ -16,8 +16,6 @@ import {
   UserRound,
   Wrench,
 } from "lucide-react";
-import { createInstructorAgendaItem } from "@/app/instructeur/agenda/nieuw/actions";
-import { AppointmentForm } from "@/components/agenda/AppointmentForm";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,17 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  INSTRUCTOR_PLANNING_TYPES,
-  type InstructorPlanningType,
-} from "@/lib/agenda/types";
 import { cn } from "@/lib/utils";
-import type { InstructorAgendaCreateOptions } from "../../application/instructor-agenda-create-options";
+import type { InstructorAgendaWizardBootstrap } from "../../application/smart-appointment-contracts";
 import { appointmentTypePresentation } from "../../application/appointment-type-catalog";
-import type {
-  InstructorDayAgendaItem,
-  InstructorDayCalendarType,
-} from "../../domain/instructor-day-calendar";
+import type { InstructorDayAgendaItem } from "../../domain/instructor-day-calendar";
+import {
+  SmartAppointmentWizard,
+  type SmartAppointmentWizardActions,
+} from "../appointment-wizard/SmartAppointmentWizard";
 
 const ICONS = {
   car: CarFront,
@@ -50,161 +45,34 @@ const ICONS = {
   book: BookOpen,
 };
 
-const SHEET_CLASS =
-  "!absolute inset-x-2 bottom-2 mx-0 !w-auto max-h-[min(80dvh,48rem)] max-w-none scroll-py-6 overscroll-contain rounded-[1.5rem] border p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6 sm:inset-x-4 sm:p-6 md:!relative md:inset-auto md:mx-4 md:!w-full md:max-h-[86dvh] md:max-w-xl md:rounded-[1.5rem]";
-
-const QUICK_ADD_DURATION_BY_TYPE = Object.fromEntries(
-  INSTRUCTOR_PLANNING_TYPES.map((type) => [
-    type,
-    appointmentTypePresentation(type).defaultDurationMinutes,
-  ]),
-) as Partial<Record<InstructorPlanningType, number>>;
-
-function dispatchCalendarEvent(
-  name: string,
-  detail: Record<string, string | number> = {},
-) {
-  window.dispatchEvent(
-    new CustomEvent("nxtdrive:analytics", { detail: { name, ...detail } }),
-  );
-}
-
 export function AppointmentCreateSheet({
   open,
   onOpenChange,
-  type,
   selectedDate,
   selectedTime,
-  options,
-  redirectTo,
+  bootstrap,
   offline,
-  createAction = createInstructorAgendaItem,
+  actions,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: InstructorDayCalendarType | null;
   selectedDate: string;
   selectedTime: string;
-  options?: InstructorAgendaCreateOptions;
-  redirectTo: string;
+  bootstrap?: InstructorAgendaWizardBootstrap;
   offline: boolean;
-  createAction?: (formData: FormData) => void | Promise<void>;
+  actions?: SmartAppointmentWizardActions;
 }) {
-  const presentation = type ? appointmentTypePresentation(type) : null;
-  if (!presentation || presentation.creationFlow === "EXISTING_ONLY")
-    return null;
-  if (offline) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={SHEET_CLASS} data-appointment-create-sheet="">
-          <DialogHeader className="pr-9 pb-1">
-            <DialogTitle autoFocus tabIndex={-1} className="outline-none">
-              Nieuwe afspraak
-            </DialogTitle>
-            <DialogDescription>
-              Datum en starttijd blijven geselecteerd in je dagagenda.
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            className="flex gap-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-sm font-semibold text-amber-950"
-            role="status"
-          >
-            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-            Je bent offline. Nieuwe afspraken kunnen worden toegevoegd zodra je
-            weer verbinding hebt.
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-  if (!options) {
-    const params = new URLSearchParams({
-      type: presentation.type,
-      date: selectedDate,
-      time: selectedTime,
-    });
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={SHEET_CLASS} data-appointment-create-sheet="">
-          <DialogHeader>
-            <DialogTitle autoFocus tabIndex={-1}>
-              Nieuwe afspraak
-            </DialogTitle>
-            <DialogDescription>
-              Open de bestaande beveiligde afspraakflow met datum en tijd alvast
-              ingevuld.
-            </DialogDescription>
-          </DialogHeader>
-          <Link
-            href={`/instructeur/agenda/nieuw?${params.toString()}`}
-            className={cn(buttonVariants(), "w-full")}
-          >
-            Doorgaan
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  if (!bootstrap) return null;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(SHEET_CLASS, "md:max-w-3xl")}
-        data-appointment-create-sheet=""
-      >
-        <DialogHeader className="pr-9 pb-1">
-          <DialogTitle
-            autoFocus
-            tabIndex={-1}
-            className="scroll-mt-6 font-black outline-none"
-          >
-            Nieuwe afspraak
-          </DialogTitle>
-          <DialogDescription>
-            Datum en starttijd zijn vanuit de dagagenda ingevuld. De bestaande
-            planningcheck wordt bij opslaan uitgevoerd.
-          </DialogDescription>
-        </DialogHeader>
-        <AppointmentForm
-          action={createAction}
-          mode="create"
-          redirectTo={redirectTo}
-          errorTo={`/instructeur/agenda/nieuw?type=${presentation.type}&date=${selectedDate}&time=${selectedTime}`}
-          branches={[...options.branches]}
-          ownInstructor={options.ownInstructor}
-          students={[...options.students]}
-          vehicles={[...options.vehicles]}
-          serviceAreas={[...options.serviceAreas]}
-          defaults={{
-            type: presentation.type as InstructorPlanningType,
-            branchId: options.branches[0]?.id ?? null,
-            date: selectedDate,
-            time: selectedTime,
-            durationMin:
-              presentation.type === "lesson"
-                ? options.defaultLessonDurationMinutes
-                : presentation.defaultDurationMinutes,
-            bufferMin:
-              presentation.type === "lesson"
-                ? options.defaultLessonBufferMinutes
-                : 0,
-          }}
-          allowLesson
-          returnToCalendar
-          submitLabel="Afspraak toevoegen"
-          durationByType={{
-            ...QUICK_ADD_DURATION_BY_TYPE,
-            lesson: options.defaultLessonDurationMinutes,
-          }}
-          onTypeChange={(appointmentType) =>
-            dispatchCalendarEvent("appointment_type_selected", {
-              appointment_type: appointmentType,
-            })
-          }
-        />
-      </DialogContent>
-    </Dialog>
+    <SmartAppointmentWizard
+      open={open}
+      onOpenChange={onOpenChange}
+      selectedDate={selectedDate}
+      selectedTime={selectedTime}
+      bootstrap={bootstrap}
+      offline={offline}
+      actions={actions}
+    />
   );
 }
 

@@ -20,7 +20,7 @@ import {
 } from "@/lib/datetime";
 import type { InstructorAgendaPeriod } from "@/lib/instructor/agenda-period";
 import { cn } from "@/lib/utils";
-import type { InstructorAgendaCreateOptions } from "../../application/instructor-agenda-create-options";
+import type { InstructorAgendaWizardBootstrap } from "../../application/smart-appointment-contracts";
 import {
   CALENDAR_SLOT_MINUTES,
   MINUTES_PER_DAY_VIEW,
@@ -33,13 +33,13 @@ import {
   snapMinutesToCreatableSlot,
   visibleCalendarInterval,
   type InstructorDayAgendaItem,
-  type InstructorDayCalendarType,
   type VisibleCalendarInterval,
 } from "../../domain/instructor-day-calendar";
 import {
   AppointmentCreateSheet,
   AppointmentQuickView,
 } from "./AppointmentSheets";
+import type { SmartAppointmentWizardActions } from "../appointment-wizard/SmartAppointmentWizard";
 import { CalendarEventBlock } from "./CalendarEventBlock";
 import { DayCalendarHeader } from "./DayCalendarHeader";
 
@@ -124,8 +124,8 @@ export function InstructorDayCalendar({
   initialNowIso,
   selectedAppointmentId,
   selectionBasePath = "/instructeur/agenda",
-  createOptions,
-  createAction,
+  wizardBootstrap,
+  wizardActions,
 }: {
   period: InstructorAgendaPeriod;
   items: readonly InstructorDayAgendaItem[];
@@ -133,8 +133,8 @@ export function InstructorDayCalendar({
   initialNowIso: string;
   selectedAppointmentId?: string;
   selectionBasePath?: string;
-  createOptions?: InstructorAgendaCreateOptions;
-  createAction?: (formData: FormData) => void | Promise<void>;
+  wizardBootstrap?: InstructorAgendaWizardBootstrap;
+  wizardActions?: SmartAppointmentWizardActions;
 }) {
   const hourHeight = useHourHeight();
   const timelineHeight = pixelsFromMinutes(MINUTES_PER_DAY_VIEW, hourHeight);
@@ -147,8 +147,6 @@ export function InstructorDayCalendar({
   const [offline, setOffline] = useState(false);
   const [quickAddMinute, setQuickAddMinute] = useState(9 * 60);
   const [focusedSlot, setFocusedSlot] = useState(9 * 60);
-  const [createType, setCreateType] =
-    useState<InstructorDayCalendarType | null>(null);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [selectedItem, setSelectedItem] =
     useState<InstructorDayAgendaItem | null>(
@@ -267,7 +265,6 @@ export function InstructorDayCalendar({
       if (occupiedSlots.has(snapped)) return;
       setQuickAddMinute(snapped);
       setFocusedSlot(snapped);
-      setCreateType("lesson");
       setCreateSheetOpen(true);
       calendarAnalytics("calendar_quick_add_opened", {
         minute: snapped,
@@ -380,11 +377,6 @@ export function InstructorDayCalendar({
   }
 
   const selectedTime = formatMinuteOffset(quickAddMinute);
-  const redirectTo = timelineHref(
-    "/instructeur/agenda",
-    "day",
-    period.selectedDate,
-  );
   const selectedItemTime = selectedItem
     ? `${timeFormatter.format(new Date(selectedItem.startsAt))}–${timeFormatter.format(
         new Date(selectedItem.endsAt),
@@ -616,13 +608,11 @@ export function InstructorDayCalendar({
       <AppointmentCreateSheet
         open={createSheetOpen}
         onOpenChange={setCreateSheetOpen}
-        type={createType}
         selectedDate={period.selectedDate}
         selectedTime={selectedTime}
-        options={createOptions}
-        redirectTo={redirectTo}
+        bootstrap={wizardBootstrap}
         offline={offline}
-        createAction={createAction}
+        actions={wizardActions}
       />
       <AppointmentQuickView
         item={selectedItem}
