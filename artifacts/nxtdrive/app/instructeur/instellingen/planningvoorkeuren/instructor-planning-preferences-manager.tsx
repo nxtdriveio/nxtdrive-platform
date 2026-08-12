@@ -107,7 +107,7 @@ function PreferenceCard({
                 type="number"
                 min={policy.minBufferBeforeMinutes}
                 max={240}
-                step={5}
+                step={10}
                 defaultValue={preference?.bufferBeforeMinutes ?? ""}
                 placeholder={`${policy.defaultBufferBeforeMinutes} min`}
                 className="h-11 tabular-nums"
@@ -128,7 +128,7 @@ function PreferenceCard({
                 type="number"
                 min={policy.minBufferAfterMinutes}
                 max={240}
-                step={5}
+                step={10}
                 defaultValue={preference?.bufferAfterMinutes ?? ""}
                 placeholder={`${policy.defaultBufferAfterMinutes} min`}
                 className="h-11 tabular-nums"

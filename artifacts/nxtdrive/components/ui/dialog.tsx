@@ -29,13 +29,17 @@ export function Dialog({
   children: React.ReactNode;
 }) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const onOpenChangeRef = React.useRef(onOpenChange);
   const titleId = React.useId();
   const descriptionId = React.useId();
   const open = controlledOpen ?? internalOpen;
-  const setOpen = (val: boolean) => {
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+  const setOpen = React.useCallback((val: boolean) => {
     setInternalOpen(val);
-    onOpenChange?.(val);
-  };
+    onOpenChangeRef.current?.(val);
+  }, []);
   return (
     <DialogContext.Provider value={{ open, setOpen, titleId, descriptionId }}>
       {children}

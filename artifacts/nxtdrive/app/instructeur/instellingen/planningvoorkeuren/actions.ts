@@ -94,6 +94,15 @@ export async function saveInstructorAppointmentPreference(
     };
   }
   if (
+    (bufferBeforeMinutes !== null && bufferBeforeMinutes % 10 !== 0) ||
+    (bufferAfterMinutes !== null && bufferAfterMinutes % 10 !== 0)
+  ) {
+    return {
+      ok: false,
+      error: "Kies buffers in stappen van 10 minuten.",
+    };
+  }
+  if (
     bufferBeforeMinutes !== null &&
     bufferBeforeMinutes < policy.minBufferBeforeMinutes
   ) {

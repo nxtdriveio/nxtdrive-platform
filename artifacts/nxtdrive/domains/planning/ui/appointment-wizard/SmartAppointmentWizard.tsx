@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -187,6 +188,48 @@ function dateLabel(ymd: string): string {
   }).format(new Date(`${ymd}T12:00:00Z`));
 }
 
+function useWizardVisualViewport() {
+  const [viewport, setViewport] = useState({
+    height: 0,
+    bottomInset: 0,
+    typing: false,
+  });
+
+  useEffect(() => {
+    const update = () => {
+      const visual = window.visualViewport;
+      const height = visual?.height ?? window.innerHeight;
+      const bottomInset = visual
+        ? Math.max(0, window.innerHeight - visual.height - visual.offsetTop)
+        : 0;
+      const active = document.activeElement;
+      const typing =
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLInputElement &&
+          !["button", "checkbox", "date", "radio", "submit", "time"].includes(
+            active.type,
+          ));
+      setViewport({ height, bottomInset, typing });
+    };
+    update();
+    const visual = window.visualViewport;
+    visual?.addEventListener("resize", update);
+    visual?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    document.addEventListener("focusin", update);
+    document.addEventListener("focusout", update);
+    return () => {
+      visual?.removeEventListener("resize", update);
+      visual?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      document.removeEventListener("focusin", update);
+      document.removeEventListener("focusout", update);
+    };
+  }, []);
+
+  return viewport;
+}
+
 function onlyRouteBlockers(
   context: ResolvedAppointmentContext | null,
 ): boolean {
@@ -222,6 +265,7 @@ export function SmartAppointmentWizard({
   onCreated?: (result: SmartAppointmentCreateResult) => void;
 }) {
   const router = useRouter();
+  const visualViewport = useWizardVisualViewport();
   const headingRef = useRef<HTMLDivElement>(null);
   const openedAtRef = useRef(0);
   const tapCountRef = useRef(0);
@@ -473,6 +517,23 @@ export function SmartAppointmentWizard({
           : null;
       });
     }
+    if (currentStep === "VEHICLE") {
+      setBusyLabel("Voertuig en planning controleren...");
+      const result = await actions.preview(currentDraft());
+      setBusyLabel(null);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setContext(result.data);
+      setVehicleId(result.data.vehicle.vehicle?.id ?? null);
+      if (result.data.vehicle.status !== "RESOLVED") {
+        setError("Kies een beschikbaar voertuig.");
+        return;
+      }
+      setCurrentStep("SUMMARY");
+      return;
+    }
     const latestSteps = buildWizardSteps({
       policy,
       vehicleResolution: resolvedForNavigation?.vehicle,
@@ -538,6 +599,14 @@ export function SmartAppointmentWizard({
 
   const canContinue = !pending && !busyLabel;
   const showProgress = steps.length > 3;
+  const keyboardActive =
+    visualViewport.typing || visualViewport.bottomInset > 80;
+  const dialogStyle = {
+    "--wizard-mobile-height": visualViewport.height
+      ? `${Math.max(240, visualViewport.height - 16)}px`
+      : "88dvh",
+    "--wizard-mobile-bottom": `${Math.max(8, visualViewport.bottomInset + 8)}px`,
+  } as CSSProperties;
 
   return (
     <Dialog
@@ -545,28 +614,34 @@ export function SmartAppointmentWizard({
       onOpenChange={(nextOpen) => (nextOpen ? onOpenChange(true) : close())}
     >
       <DialogContent
-        className="!absolute inset-x-2 bottom-2 mx-0 flex !h-[min(92dvh,54rem)] !w-auto max-w-none flex-col overflow-hidden rounded-[1.5rem] border p-0 sm:inset-x-4 md:!relative md:inset-auto md:mx-4 md:!h-[min(86dvh,54rem)] md:!w-full md:max-w-[36rem]"
+        className="!absolute inset-x-2 bottom-[var(--wizard-mobile-bottom)] mx-0 flex !h-[min(var(--wizard-mobile-height),48rem)] !w-auto max-w-none flex-col overflow-hidden rounded-[1.25rem] border p-0 sm:inset-x-4 md:!relative md:inset-auto md:mx-4 md:!h-[min(86dvh,52rem)] md:!w-full md:max-w-[36rem] md:rounded-[1.5rem]"
         data-smart-appointment-wizard=""
+        data-keyboard-active={keyboardActive ? "true" : "false"}
+        style={dialogStyle}
       >
-        <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-6 pr-14 sm:px-6">
+        <DialogHeader className="shrink-0 border-b px-4 pb-3 pt-4 pr-14 sm:px-6 sm:pb-4 sm:pt-5">
           <div ref={headingRef} tabIndex={-1} className="outline-none">
-            <DialogTitle className="font-black">Nieuwe afspraak</DialogTitle>
+            <DialogTitle className="text-lg font-black sm:text-xl">
+              Nieuwe afspraak
+            </DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription
+            className={cn("text-xs sm:text-sm", keyboardActive && "sr-only")}
+          >
             {dateLabel(date)} · {time} · {bootstrap.instructorLabel}
           </DialogDescription>
           {showProgress ? (
             <div
-              className="pt-3"
+              className="pt-2 sm:pt-3"
               aria-label={`Stap ${stepIndex + 1} van ${steps.length}`}
             >
-              <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+              <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold text-muted-foreground sm:mb-2 sm:text-[11px]">
                 <span>
                   Stap {stepIndex + 1} van {steps.length}
                 </span>
                 <span>{STEP_LABELS[currentStep]}</span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className="h-1 overflow-hidden rounded-full bg-muted sm:h-1.5">
                 <div
                   className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
                   style={{
@@ -588,7 +663,12 @@ export function SmartAppointmentWizard({
           ) : null}
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5",
+            keyboardActive && "py-3",
+          )}
+        >
           {offline ? (
             <div
               className="flex gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
@@ -727,7 +807,7 @@ export function SmartAppointmentWizard({
           ) : null}
         </div>
 
-        <div className="shrink-0 border-t bg-card px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:px-6">
+        <div className="shrink-0 border-t bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] pt-2 sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pt-3">
           <div className="flex items-center justify-between gap-3">
             {currentStep === "TYPE" ? (
               <Button
@@ -795,11 +875,11 @@ function StepHeading({
     SUMMARY: `Controleer de ${policy.label.toLowerCase()} en bevestig.`,
   };
   return (
-    <div className="mb-5">
-      <h3 className="text-lg font-black text-foreground">
+    <div className="mb-4 sm:mb-5">
+      <h3 className="text-base font-black text-foreground sm:text-lg">
         {STEP_LABELS[step]}
       </h3>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">
+      <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:mt-1 sm:text-sm sm:leading-6">
         {descriptions[step]}
       </p>
     </div>
@@ -1192,6 +1272,15 @@ function BufferField({
   locked?: boolean;
   onChange: (value: number) => void;
 }) {
+  const options = Array.from(
+    new Set([
+      ...Array.from({ length: 25 }, (_, index) => index * 10),
+      min,
+      value,
+    ]),
+  )
+    .filter((minutes) => minutes >= min && minutes <= 240)
+    .sort((a, b) => a - b);
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
@@ -1202,13 +1291,11 @@ function BufferField({
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-11"
       >
-        {[0, 5, 10, 15, 20, 30, 45, 60]
-          .filter((minutes) => minutes >= min)
-          .map((minutes) => (
-            <option key={minutes} value={minutes}>
-              {minutes} min
-            </option>
-          ))}
+        {options.map((minutes) => (
+          <option key={minutes} value={minutes}>
+            {minutes} min
+          </option>
+        ))}
       </Select>
       {locked || min > 0 ? (
         <p className="text-xs text-muted-foreground">

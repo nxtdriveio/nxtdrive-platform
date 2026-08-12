@@ -150,7 +150,7 @@ Surface: NXTDRIVE Instructeur · Dagagenda
 ## 19. Mobile UX
 
 **Status:** Uitgevoerd.  
-**Uitgevoerd:** 390×844 gebruikt een 92dvh large bottom sheet met eigen scroll, vaste ruime header/footer, safe-area padding, 44×44 acties en zichtbare contentmarges. Het softwaretoetsenbord kan de inhoud intern laten scrollen zonder de agendashell te verlengen.  
+**Uitgevoerd:** 390×844 gebruikt een compacte large bottom sheet die zich via `visualViewport` aan het softwaretoetsenbord aanpast, met eigen scroll, verkleinde header/footer, safe-area padding, 44×44 acties en zichtbare contentmarges. De primaire actie blijft boven het toetsenbord bereikbaar zonder de agendashell te verlengen.
 **Belangrijkste bestanden:** `SmartAppointmentWizard.tsx`, `components/ui/dialog.tsx`.  
 **Tests:** Mobiele kalender/wizard-E2E, accessibility-E2E en elf mobiele wizardbaselines.  
 **Eventuele resterende externe/invloedrijke beslissing:** Geen.
@@ -184,12 +184,20 @@ Surface: NXTDRIVE Instructeur · Dagagenda
 - typecheck: groen;
 - unit tests: groen;
 - integration tests: groen;
-- migration smoke: groen, 173 migraties op lege database en bestaande fixture;
+- migration smoke: groen, 174 migraties op lege database en bestaande fixture;
 - build: groen;
 - instructor agenda + wizard E2E: groen;
 - accessibility E2E: groen;
 - visual regression: groen.
 
+**Eventuele resterende externe/invloedrijke beslissing:** Geen.
+
+## Productiehotfix 12 augustus 2026
+
+**Status:** Uitgevoerd en gevalideerd.
+**Uitgevoerd:** Het adresveld behoudt focus tijdens iedere toetsaanslag; de wizard past hoogte en ondermarge aan de zichtbare mobiele viewport aan; rijlesdefaults volgen tenantconfiguratie met 50 minuten duur, 10 minuten buffer en 10-minutenopties; een handmatig gekozen voertuig wordt opnieuw server-side gevalideerd en wist de oude voertuigblokkade voordat de samenvatting opent. De bestaande configuratieschermen voor tenant en instructeur gebruiken dezelfde 10-minutenstappen.
+**Belangrijkste bestanden:** `components/ui/dialog.tsx`, `SmartAppointmentWizard.tsx`, `smart-appointment-service.ts`, `appointment-policy.ts`, `planning-settings/service.ts`, `20260812021837_align_lesson_wizard_defaults.sql`.
+**Tests:** 311 unit tests, 6 integratietests, typecheck, lint, productiebuild, migratiesmoke, mobiele agenda-E2E, wizard accessibility/focus/keyboard/vehicle-E2E en alle visual regressions groen.
 **Eventuele resterende externe/invloedrijke beslissing:** Geen.
 
 ## 23. Commits
@@ -202,6 +210,7 @@ Surface: NXTDRIVE Instructeur · Dagagenda
 3. `feat(instructor): add smart appointment wizard`
 4. `test(instructor): prove smart appointment wizard flows`
 5. `docs(instructor): document smart appointment wizard`
+6. `fix(instructor): harden mobile appointment wizard`
 
 **Belangrijkste bestanden:** Zie bovenstaande secties.  
 **Tests:** Iedere laag is vóór de uiteindelijke releasevalidatie afzonderlijk gecontroleerd.  

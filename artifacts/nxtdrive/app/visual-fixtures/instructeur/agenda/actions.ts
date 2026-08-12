@@ -137,7 +137,7 @@ export async function resolveFixtureAppointmentContext(input: {
             ? 30
             : 20
           : input.type === "lesson"
-            ? 15
+            ? 10
             : 0,
         source: "TENANT",
         locked: exam,
@@ -208,11 +208,27 @@ export async function previewFixtureSmartAppointment(
     selectedTime: draft.selectedTime,
   });
   if (!resolved.ok) return resolved;
+  const selectedVehicle =
+    draft.vehicleId && resolved.data.vehicle.status === "SELECTION_REQUIRED"
+      ? resolved.data.vehicle.candidates.find(
+          (candidate) => candidate.id === draft.vehicleId,
+        )
+      : undefined;
+  const vehicle = selectedVehicle
+    ? {
+        ...resolved.data.vehicle,
+        status: "RESOLVED" as const,
+        source: "MANUAL" as const,
+        vehicle: selectedVehicle,
+        reason: undefined,
+      }
+    : resolved.data.vehicle;
   const warning = draft.selectedTime === "13:45";
   return {
     ok: true,
     data: {
       ...resolved.data,
+      vehicle,
       planning: warning
         ? {
             allowed: false,

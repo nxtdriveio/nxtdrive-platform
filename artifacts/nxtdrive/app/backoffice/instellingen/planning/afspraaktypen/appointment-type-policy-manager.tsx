@@ -90,12 +90,14 @@ function NumberField({
   value,
   min = 0,
   max = 480,
+  step = 1,
 }: {
   name: string;
   label: string;
   value: number;
   min?: number;
   max?: number;
+  step?: number;
 }) {
   const id = useId();
   return (
@@ -108,6 +110,7 @@ function NumberField({
           type="number"
           min={min}
           max={max}
+          step={step}
           defaultValue={value}
           className="tabular-nums"
           required
@@ -316,19 +319,23 @@ function PolicyEditor({
               name="default_duration_minutes"
               label="Standaardduur"
               value={policy.defaultDurationMinutes}
-              min={5}
+              min={policy.minDurationMinutes}
+              max={policy.maxDurationMinutes}
+              step={policy.durationStepMinutes}
             />
             <NumberField
               name="min_duration_minutes"
               label="Minimale duur"
               value={policy.minDurationMinutes}
               min={5}
+              step={5}
             />
             <NumberField
               name="max_duration_minutes"
               label="Maximale duur"
               value={policy.maxDurationMinutes}
-              min={5}
+              min={policy.minDurationMinutes}
+              step={policy.durationStepMinutes}
             />
             <NumberField
               name="duration_step_minutes"
@@ -336,30 +343,35 @@ function PolicyEditor({
               value={policy.durationStepMinutes}
               min={5}
               max={120}
+              step={5}
             />
             <NumberField
               name="default_buffer_before_minutes"
               label="Buffer voor"
               value={policy.defaultBufferBeforeMinutes}
               max={240}
+              step={10}
             />
             <NumberField
               name="default_buffer_after_minutes"
               label="Buffer na"
               value={policy.defaultBufferAfterMinutes}
               max={240}
+              step={10}
             />
             <NumberField
               name="min_buffer_before_minutes"
               label="Minimum voor"
               value={policy.minBufferBeforeMinutes}
               max={240}
+              step={10}
             />
             <NumberField
               name="min_buffer_after_minutes"
               label="Minimum na"
               value={policy.minBufferAfterMinutes}
               max={240}
+              step={10}
             />
           </div>
         </section>

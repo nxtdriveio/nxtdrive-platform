@@ -218,6 +218,33 @@ const fixtureSql = `
   on conflict (id) do nothing;
 `;
 
+const lessonPolicyUpgradeFixtureSql = `
+  insert into public.planning_settings (
+    tenant_id, default_lesson_duration_minutes,
+    default_lesson_buffer_minutes
+  ) values (
+    '20000000-0000-4000-8000-000000000001', 50, 10
+  ) on conflict (tenant_id) do update
+    set default_lesson_duration_minutes = excluded.default_lesson_duration_minutes,
+        default_lesson_buffer_minutes = excluded.default_lesson_buffer_minutes;
+
+  insert into public.appointment_type_policies (
+    tenant_id, code, label, short_label, category, student_requirement,
+    default_duration_minutes, min_duration_minutes, max_duration_minutes,
+    duration_step_minutes, default_buffer_after_minutes,
+    location_requirement, vehicle_requirement, route_validation_enabled,
+    blocks_instructor_availability, blocks_vehicle_availability,
+    calendar_tone, icon_key
+  ) values (
+    '20000000-0000-4000-8000-000000000001', 'lesson', 'Rijles', 'Rijles',
+    'STUDENT', 'REQUIRED', 60, 30, 180, 15, 15, 'PICKUP', 'AUTO', true,
+    true, true, 'BLUE', 'car'
+  ) on conflict (tenant_id, code) do update
+    set default_duration_minutes = excluded.default_duration_minutes,
+        duration_step_minutes = excluded.duration_step_minutes,
+        default_buffer_after_minutes = excluded.default_buffer_after_minutes;
+`;
+
 function verifyDatabase(database) {
   dockerExec(
     database,
@@ -535,9 +562,20 @@ function verifyDatabase(database) {
           calendar_tone, icon_key
         ) values (
           '20000000-0000-4000-8000-000000000001', 'lesson', 'Rijles', 'Rijles',
-          'STUDENT', 'REQUIRED', 60, 30, 180, 15, 15, 'PICKUP', 'AUTO', true,
+          'STUDENT', 'REQUIRED', 50, 30, 180, 10, 10, 'PICKUP', 'AUTO', true,
           true, true, 'BLUE', 'car'
         ) on conflict (tenant_id, code) do nothing;
+        if not exists (
+          select 1
+            from public.appointment_type_policies policy
+           where policy.tenant_id = '20000000-0000-4000-8000-000000000001'
+             and policy.code = 'lesson'
+             and policy.default_duration_minutes = 50
+             and policy.duration_step_minutes = 10
+             and policy.default_buffer_after_minutes = 10
+        ) then
+          raise exception 'lesson policy defaults were not aligned to 50/10';
+        end if;
         insert into public.appointment_wizard_settings (
           tenant_id, student_scope, vehicle_required
         ) values (
@@ -589,7 +627,13 @@ function verifyDatabase(database) {
           '10000000-0000-4000-8000-000000000001',
           'lesson', '30000000-0000-4000-8000-000000000001',
           '2026-08-03T08:00:00Z', 60, 0, 15, null,
-          'Rijles', 'Migration Wizardstraat 1', null, null, null, 1,
+          'Rijles', 'Migration Wizardstraat 1', null, null, null,
+          (
+            select policy.version
+              from public.appointment_type_policies policy
+             where policy.tenant_id = '20000000-0000-4000-8000-000000000001'
+               and policy.code = 'lesson'
+          ),
           '{}'::jsonb, 'NONE', null, null, null,
           jsonb_build_object(
             'formattedAddress', 'Migration Wizardstraat 1, Utrecht',
@@ -972,6 +1016,7 @@ try {
     throw new Error("At least two migrations are required.");
   applyMigrations(secondDatabase, port, penultimateMigration);
   dockerExec(secondDatabase, "postgres", fixtureSql);
+  dockerExec(secondDatabase, "postgres", lessonPolicyUpgradeFixtureSql);
   applyMigrations(secondDatabase, port, finalMigration);
   verifyDatabase(secondDatabase);
 
@@ -1003,6 +1048,7 @@ try {
           "cross-tenant isolation",
           "smart appointment search/create authorization and overlap",
           "smart appointment duration, buffer, policy and location snapshots",
+          "lesson policy 60/15 to tenant 50/10 upgrade",
           "instructor credit grant authorization and balance",
           "RIS catalog canonical snapshot and hash",
           "RIS expert review authorization and immutable approval",

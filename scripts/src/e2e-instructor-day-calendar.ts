@@ -149,7 +149,7 @@ async function testMobileCalendarAndWizard(page: Page) {
   assert.equal(await dialog.locator("#wizard-date").inputValue(), "2026-08-11");
   assert.equal(await dialog.locator("#wizard-time").inputValue(), "13:15");
   assert.equal(await dialog.locator("#wizard-duration").inputValue(), "90");
-  assert.equal(await dialog.locator("#wizard-buffer-after").inputValue(), "15");
+  assert.equal(await dialog.locator("#wizard-buffer-after").inputValue(), "10");
   assert.equal(await dialog.locator("#wizard-vehicle").count(), 0);
   await clickNext(dialog);
   await dialog.locator("[data-wizard-summary]").waitFor();

@@ -111,11 +111,96 @@ async function main() {
     await student.press("Enter");
     await dialog.locator("[data-selected-student]").waitFor();
 
+    await dialog.getByRole("button", { name: "Verder" }).click();
+    await dialog
+      .getByRole("radio", { name: /Ander ophaalpunt voor deze afspraak/ })
+      .click();
+    const address = dialog.getByRole("combobox", {
+      name: "Tijdelijk ophaaladres",
+    });
+    await address.focus();
+    for (const character of "Marken") {
+      await address.press(character);
+      assert.equal(
+        await address.evaluate((element) => document.activeElement === element),
+        true,
+        "address input must retain focus while typing",
+      );
+    }
+    assert.equal(await address.inputValue(), "Marken");
+    await page.setViewportSize({ width: 390, height: 480 });
+    await dialog.waitFor();
+    const keyboardDialogBox = await dialog.boundingBox();
+    const keyboardActionBox = await dialog
+      .getByRole("button", { name: "Verder" })
+      .boundingBox();
+    assert.ok(
+      keyboardDialogBox &&
+        keyboardDialogBox.y >= 0 &&
+        keyboardDialogBox.y + keyboardDialogBox.height <= 480,
+      "wizard must remain inside the visual viewport while the keyboard is open",
+    );
+    assert.ok(
+      keyboardActionBox &&
+        keyboardActionBox.y >= 0 &&
+        keyboardActionBox.y + keyboardActionBox.height <= 480,
+      "primary action must remain reachable above the keyboard",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await dialog.getByRole("button", { name: "Verder" }).click();
+    const durationOptions = await dialog
+      .locator("#wizard-duration option")
+      .evaluateAll((options) =>
+        options.map((option) => Number((option as HTMLOptionElement).value)),
+      );
+    assert.ok(durationOptions.includes(50));
+    assert.ok(!durationOptions.includes(45));
+    assert.ok(
+      durationOptions.every(
+        (minutes, index) =>
+          index === 0 || minutes - durationOptions[index - 1]! === 10,
+      ),
+      "lesson duration options must advance in ten-minute increments",
+    );
+    for (const selector of ["#wizard-buffer-before", "#wizard-buffer-after"]) {
+      const bufferOptions = await dialog
+        .locator(`${selector} option`)
+        .evaluateAll((options) =>
+          options.map((option) => Number((option as HTMLOptionElement).value)),
+        );
+      assert.ok(bufferOptions.every((minutes) => minutes % 10 === 0));
+    }
+
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "detached" });
     assert.equal(
       await slot.evaluate((element) => document.activeElement === element),
       true,
+    );
+
+    const vehicleSlot = page.getByRole("gridcell", {
+      name: /Nieuwe afspraak toevoegen, dinsdag 11 augustus, 14:00/,
+    });
+    await vehicleSlot.click();
+    const vehicleDialog = page.getByRole("dialog", {
+      name: "Nieuwe afspraak",
+    });
+    await vehicleDialog
+      .locator("[data-wizard-type-select]")
+      .selectOption("maintenance");
+    await vehicleDialog.getByRole("button", { name: "Verder" }).click();
+    await vehicleDialog.getByRole("button", { name: "Verder" }).click();
+    const vehicleSelect = vehicleDialog.locator("#wizard-vehicle");
+    await vehicleSelect.waitFor();
+    await vehicleSelect.selectOption("vehicle-1");
+    await vehicleDialog.getByRole("button", { name: "Verder" }).click();
+    await vehicleDialog.locator("[data-wizard-summary]").waitFor();
+    assert.equal(
+      await vehicleDialog
+        .getByText("Kies een beschikbaar voertuig om verder te gaan.")
+        .count(),
+      0,
+      "a selected vehicle must clear the stale planning blocker",
     );
   } finally {
     await browser.close();

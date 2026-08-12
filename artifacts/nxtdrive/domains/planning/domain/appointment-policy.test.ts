@@ -18,16 +18,16 @@ test("duration resolver prefers student, then instructor, then tenant", () => {
     resolveAppointmentDuration({
       policy: lesson,
       studentMinutes: 90,
-      instructorMinutes: 75,
+      instructorMinutes: 80,
     }),
     { minutes: 90, source: "STUDENT", locked: false },
   );
   assert.deepEqual(
-    resolveAppointmentDuration({ policy: lesson, instructorMinutes: 75 }),
-    { minutes: 75, source: "INSTRUCTOR", locked: false },
+    resolveAppointmentDuration({ policy: lesson, instructorMinutes: 80 }),
+    { minutes: 80, source: "INSTRUCTOR", locked: false },
   );
   assert.deepEqual(resolveAppointmentDuration({ policy: lesson }), {
-    minutes: 60,
+    minutes: 50,
     source: "TENANT",
     locked: false,
   });
@@ -36,7 +36,7 @@ test("duration resolver prefers student, then instructor, then tenant", () => {
 test("duration resolver applies tenant boundaries and step", () => {
   assert.equal(clampDuration(5, lesson), lesson.minDurationMinutes);
   assert.equal(clampDuration(999, lesson), lesson.maxDurationMinutes);
-  assert.equal(clampDuration(83, lesson), 90);
+  assert.equal(clampDuration(83, lesson), 80);
 });
 
 test("locked exam duration ignores instructor and student preferences", () => {

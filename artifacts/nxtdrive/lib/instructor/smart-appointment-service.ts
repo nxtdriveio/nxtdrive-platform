@@ -685,6 +685,9 @@ function selectedVehicleResolution(
       "Voor dit afspraaktype is geen voertuig nodig.",
     );
   }
+  if (base.status === "RESOLVED" && base.vehicle?.id === requestedVehicleId) {
+    return base;
+  }
   const selected = base.candidates.find(
     (candidate) => candidate.id === requestedVehicleId && candidate.available,
   );

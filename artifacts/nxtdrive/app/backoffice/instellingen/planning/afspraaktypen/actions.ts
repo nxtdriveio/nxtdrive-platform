@@ -217,11 +217,17 @@ function parsePolicy(
     defaultBufferBeforeMinutes > 240 ||
     defaultBufferAfterMinutes > 240 ||
     minBufferBeforeMinutes > defaultBufferBeforeMinutes ||
-    minBufferAfterMinutes > defaultBufferAfterMinutes
+    minBufferAfterMinutes > defaultBufferAfterMinutes ||
+    [
+      defaultBufferBeforeMinutes,
+      defaultBufferAfterMinutes,
+      minBufferBeforeMinutes,
+      minBufferAfterMinutes,
+    ].some((minutes) => minutes % 10 !== 0)
   ) {
     return {
       error:
-        "Buffers moeten tussen 0 en 240 minuten liggen; een minimum mag niet hoger zijn dan de standaard.",
+        "Buffers moeten in stappen van 10 minuten tussen 0 en 240 liggen; een minimum mag niet hoger zijn dan de standaard.",
     };
   }
 
