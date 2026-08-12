@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   BellRing,
+  CalendarClock,
   CreditCard,
   Globe,
   Palette,
@@ -374,6 +375,18 @@ export default async function SettingsPage({
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 Stuur e-mail-, push- en in-app triggers centraal bij.
+              </p>
+            </Link>
+            <Link
+              href="/backoffice/instellingen/planning/afspraaktypen"
+              className="rounded-xl border border-border bg-muted/20 px-4 py-4 transition-colors hover:bg-muted/35"
+            >
+              <div className="flex items-center gap-2 text-foreground">
+                <CalendarClock className="h-4 w-4 text-primary" aria-hidden />
+                <p className="font-medium">Planning & afspraaktypen</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Beheer duur, buffers, leerling-, locatie- en voertuigbeleid.
               </p>
             </Link>
             <Link
