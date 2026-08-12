@@ -47,10 +47,12 @@ export function AddressAutocomplete({
   value,
   onChange,
   label = "Adres",
+  surface,
 }: {
   value?: AddressDraft | null;
   onChange: (value: AddressDraft) => void;
   label?: string;
+  surface?: "INSTRUCTOR_APPOINTMENT_WIZARD";
 }) {
   const listboxId = useId();
   const [draft, setDraft] = useState(value ?? EMPTY_DRAFT);
@@ -85,6 +87,7 @@ export function AddressAutocomplete({
             query,
             sessionToken: sessionToken.current,
             correlationId: `address.${crypto.randomUUID()}`,
+            surface,
           }),
         });
         const payload = (await response.json()) as {
@@ -106,7 +109,7 @@ export function AddressAutocomplete({
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [draft.formattedAddress, manual, query]);
+  }, [draft.formattedAddress, manual, query, surface]);
 
   function update(next: AddressDraft) {
     setDraft(next);
@@ -125,6 +128,7 @@ export function AddressAutocomplete({
           providerReference: suggestion.providerReference,
           sessionToken: sessionToken.current,
           correlationId: `address.${crypto.randomUUID()}`,
+          surface,
         }),
       });
       const payload = (await response.json()) as {

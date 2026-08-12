@@ -4,7 +4,13 @@ export type PlanningReasonExplanation = {
   title: string;
   detail: string;
   action: string;
-  category: "rechten" | "tijd" | "beschikbaarheid" | "voertuig" | "rayon" | "capability";
+  category:
+    | "rechten"
+    | "tijd"
+    | "beschikbaarheid"
+    | "voertuig"
+    | "rayon"
+    | "capability";
 };
 
 export function explainPlanningReason(
@@ -15,8 +21,10 @@ export function explainPlanningReason(
     case "ACTOR_NOT_ALLOWED_FOR_SCOPE":
       return {
         title: "Geen planningsrechten",
-        detail: "Je account mag binnen deze vestiging of franchisescope niet plannen.",
-        action: "Vraag een beheerder om rechten of kies een scope waar je toegang toe hebt.",
+        detail:
+          "Je account mag binnen deze vestiging of franchisescope niet plannen.",
+        action:
+          "Vraag een beheerder om rechten of kies een scope waar je toegang toe hebt.",
         category: "rechten",
       };
     case "INVALID_TIME_RANGE":
@@ -31,7 +39,8 @@ export function explainPlanningReason(
         title: "Instructeur niet beschikbaar",
         detail:
           "De gekozen tijd valt buiten de beschikbaarheid, of in een geblokkeerd moment.",
-        action: "Kies een beschikbaar groen tijdvak of pas beschikbaarheid aan.",
+        action:
+          "Kies een beschikbaar groen tijdvak of pas beschikbaarheid aan.",
         category: "beschikbaarheid",
       };
     case "INSTRUCTOR_HAS_OVERLAP":
@@ -41,25 +50,35 @@ export function explainPlanningReason(
         action: "Kies een ander tijdslot of een andere instructeur.",
         category: "beschikbaarheid",
       };
+    case "STUDENT_HAS_OVERLAP":
+      return {
+        title: "Leerling heeft overlap",
+        detail: "Deze leerling heeft al een afspraak in hetzelfde tijdvak.",
+        action: "Kies een ander tijdslot of wijzig de bestaande afspraak.",
+        category: "beschikbaarheid",
+      };
     case "OUTSIDE_INSTRUCTOR_SERVICE_AREA":
       return {
         title: "Buiten rayon",
         detail: "De ophaallocatie valt buiten het rayon van deze instructeur.",
-        action: "Kies een instructeur met dit rayon of pas het rayon/locatie aan.",
+        action:
+          "Kies een instructeur met dit rayon of pas het rayon/locatie aan.",
         category: "rayon",
       };
     case "INSUFFICIENT_TRAVEL_TIME_BEFORE":
       return {
         title: "Te weinig reistijd vanaf vorige afspraak",
         detail: travelDetail(meta),
-        action: "Gebruik routeoptimalisatie, kies een dichterbij gelegen leerling of maak meer buffer.",
+        action:
+          "Gebruik routeoptimalisatie, kies een dichterbij gelegen leerling of maak meer buffer.",
         category: "rayon",
       };
     case "INSUFFICIENT_TRAVEL_TIME_AFTER":
       return {
         title: "Te weinig reistijd naar volgende afspraak",
         detail: travelDetail(meta),
-        action: "Gebruik routeoptimalisatie, kies een dichterbij gelegen leerling of maak meer buffer.",
+        action:
+          "Gebruik routeoptimalisatie, kies een dichterbij gelegen leerling of maak meer buffer.",
         category: "rayon",
       };
     case "UNKNOWN_SERVICE_AREA_TRAVEL_TIME":
@@ -73,7 +92,8 @@ export function explainPlanningReason(
       return {
         title: "Instructeur mist verplichte eigenschap",
         detail: capabilityDetail(meta, "instructeur"),
-        action: "Kies een instructeur met de juiste bevoegdheid, taal of begeleidingservaring.",
+        action:
+          "Kies een instructeur met de juiste bevoegdheid, taal of begeleidingservaring.",
         category: "capability",
       };
     case "MISSING_REQUIRED_VEHICLE_CAPABILITY":
@@ -87,7 +107,8 @@ export function explainPlanningReason(
       return {
         title: "Voorkeur ontbreekt",
         detail: capabilityDetail(meta, "planning"),
-        action: "Je kunt doorplannen, maar een betere match is beschikbaar als deze voorkeur wordt ingevuld.",
+        action:
+          "Je kunt doorplannen, maar een betere match is beschikbaar als deze voorkeur wordt ingevuld.",
         category: "capability",
       };
     case "VEHICLE_NOT_FOUND":
@@ -107,7 +128,8 @@ export function explainPlanningReason(
     case "VEHICLE_APK_EXPIRED":
       return {
         title: "APK verlopen",
-        detail: "Dit voertuig mag niet worden ingepland zolang de APK is verlopen.",
+        detail:
+          "Dit voertuig mag niet worden ingepland zolang de APK is verlopen.",
         action: "Plan onderhoud/APK of kies een ander voertuig.",
         category: "voertuig",
       };
@@ -135,7 +157,8 @@ export function explainPlanningReason(
     case "VEHICLE_HAS_NON_BLOCKING_DAMAGE":
       return {
         title: "Voertuig heeft aandachtspunt",
-        detail: "Er staat open schade geregistreerd, maar planning wordt niet geblokkeerd.",
+        detail:
+          "Er staat open schade geregistreerd, maar planning wordt niet geblokkeerd.",
         action: "Controleer of het voertuig geschikt blijft voor deze les.",
         category: "voertuig",
       };
@@ -164,13 +187,15 @@ export function explainPlanningReason(
       return {
         title: "Voertuig hoort bij andere vestiging",
         detail: "Het voertuig valt buiten de vestigingsscope van de afspraak.",
-        action: "Kies een voertuig uit dezelfde vestiging of wijzig de vestiging.",
+        action:
+          "Kies een voertuig uit dezelfde vestiging of wijzig de vestiging.",
         category: "voertuig",
       };
     case "VEHICLE_ODOMETER_STALE":
       return {
         title: "Kilometerstand controleren",
-        detail: "De kilometerstand is onbekend of te oud voor betrouwbare voertuigplanning.",
+        detail:
+          "De kilometerstand is onbekend of te oud voor betrouwbare voertuigplanning.",
         action: "Werk de kilometerstand bij bij de volgende voertuigcontrole.",
         category: "voertuig",
       };

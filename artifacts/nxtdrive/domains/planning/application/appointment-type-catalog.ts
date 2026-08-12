@@ -1,4 +1,6 @@
 import type { InstructorDayCalendarType } from "../domain/instructor-day-calendar";
+import { PLATFORM_APPOINTMENT_TYPE_POLICIES } from "../domain/appointment-policy";
+import type { InstructorPlanningType } from "@/lib/agenda/types";
 
 export type AppointmentCalendarTone =
   | "BLUE"
@@ -37,18 +39,26 @@ export type AppointmentTypePresentation = Readonly<{
   creationFlow: AppointmentCreationFlow;
 }>;
 
+function configured(
+  type: InstructorPlanningType,
+  creationFlow: AppointmentCreationFlow,
+): AppointmentTypePresentation {
+  const policy = PLATFORM_APPOINTMENT_TYPE_POLICIES[type];
+  return Object.freeze({
+    type,
+    label: policy.label,
+    shortLabel: policy.shortLabel,
+    icon: policy.iconKey as AppointmentTypePresentation["icon"],
+    calendarTone: policy.calendarTone,
+    defaultDurationMinutes: policy.defaultDurationMinutes,
+    creationFlow,
+  });
+}
+
 export const APPOINTMENT_TYPE_CATALOG: Readonly<
   Record<InstructorDayCalendarType, AppointmentTypePresentation>
 > = Object.freeze({
-  lesson: {
-    type: "lesson",
-    label: "Rijles",
-    shortLabel: "Rijles",
-    icon: "car",
-    calendarTone: "BLUE",
-    defaultDurationMinutes: 60,
-    creationFlow: "LESSON",
-  },
+  lesson: configured("lesson", "LESSON"),
   trial: {
     type: "trial",
     label: "Proefles",
@@ -58,87 +68,15 @@ export const APPOINTMENT_TYPE_CATALOG: Readonly<
     defaultDurationMinutes: 60,
     creationFlow: "EXISTING_ONLY",
   },
-  exam: {
-    type: "exam",
-    label: "Examen",
-    shortLabel: "Examen",
-    icon: "flag",
-    calendarTone: "ROSE",
-    defaultDurationMinutes: 60,
-    creationFlow: "EXAM",
-  },
-  interim_test: {
-    type: "interim_test",
-    label: "Tussentijdse toets",
-    shortLabel: "TTT",
-    icon: "clipboard",
-    calendarTone: "AMBER",
-    defaultDurationMinutes: 60,
-    creationFlow: "EXAM",
-  },
-  theory_guidance: {
-    type: "theory_guidance",
-    label: "Theoriebegeleiding",
-    shortLabel: "Theorie",
-    icon: "book",
-    calendarTone: "TEAL",
-    defaultDurationMinutes: 60,
-    creationFlow: "GENERIC",
-  },
-  free_block: {
-    type: "free_block",
-    label: "Vrij blok",
-    shortLabel: "Vrij",
-    icon: "calendar",
-    calendarTone: "SAND",
-    defaultDurationMinutes: 60,
-    creationFlow: "GENERIC",
-  },
-  break: {
-    type: "break",
-    label: "Pauze",
-    shortLabel: "Pauze",
-    icon: "coffee",
-    calendarTone: "NEUTRAL",
-    defaultDurationMinutes: 30,
-    creationFlow: "BREAK",
-  },
-  private_block: {
-    type: "private_block",
-    label: "Privé",
-    shortLabel: "Privé",
-    icon: "user",
-    calendarTone: "GREEN",
-    defaultDurationMinutes: 60,
-    creationFlow: "PRIVATE",
-  },
-  maintenance: {
-    type: "maintenance",
-    label: "Onderhoud",
-    shortLabel: "Onderhoud",
-    icon: "tools",
-    calendarTone: "AMBER",
-    defaultDurationMinutes: 60,
-    creationFlow: "GENERIC",
-  },
-  admin: {
-    type: "admin",
-    label: "Administratie",
-    shortLabel: "Admin",
-    icon: "clipboard",
-    calendarTone: "TEAL",
-    defaultDurationMinutes: 30,
-    creationFlow: "GENERIC",
-  },
-  vacation: {
-    type: "vacation",
-    label: "Vakantie",
-    shortLabel: "Vakantie",
-    icon: "calendar",
-    calendarTone: "SAND",
-    defaultDurationMinutes: 60,
-    creationFlow: "GENERIC",
-  },
+  exam: configured("exam", "EXAM"),
+  interim_test: configured("interim_test", "EXAM"),
+  theory_guidance: configured("theory_guidance", "GENERIC"),
+  free_block: configured("free_block", "GENERIC"),
+  break: configured("break", "BREAK"),
+  private_block: configured("private_block", "PRIVATE"),
+  maintenance: configured("maintenance", "GENERIC"),
+  admin: configured("admin", "GENERIC"),
+  vacation: configured("vacation", "GENERIC"),
 });
 
 export const QUICK_ADD_APPOINTMENT_TYPES = Object.freeze(
