@@ -17,7 +17,7 @@ Datum: 21 oktober 2026. Volledige acceptatiedefinities: `overdracht/ACCEPTATIE-E
 | Onbevestigde doelidentiteit opent geen DB      | Geslaagd           | Gemockte negatieve test                         |
 | Projectref-parser                              | Geslaagd           | Provideridentiteit of onbekend                  |
 | JavaScript-syntaxcontrole                      | Geslaagd           | `node --check scripts/v1/inventory-db.mjs`      |
-| Runnerinventarisatie staging/production        | Twee runs geslaagd | Rapportage geslaagd; staging is ongezond        |
+| Runnerinventarisatie staging/production        | Drie runs geslaagd | Rapportage geslaagd; staging is ongezond        |
 | Zes runtime/GitHub-vergelijkingen per omgeving | Gelijk             | Geen waarden gelogd                             |
 | Production read-only transactie en decryptie   | Geslaagd           | `read_only=on`, twee secrets geldig ontsleuteld |
 | Staging DNS/database                           | Mislukt            | API- en DB-host onoplosbaar; `ENOTFOUND`        |
@@ -43,3 +43,5 @@ Herhalen bij wijzigingen: `python3 -m unittest discover -s scripts/v1 -p 'test_*
 | U01–U04: rollen/responsiviteit/toegankelijkheid/tutorial | Niet getest op nieuwe V1 |
 
 De 36 prototypetests en oude releasechecks gelden niet als productieacceptatie. De 60-secondenflow vereist een representatieve gemeten praktijktest op telefoon en tablet; geen tijdclaim op basis van de hoeveelheid velden. Geen echte ontvangers/betalingen gebruiken voor tests zonder expliciete testbestemming.
+
+PR #184: self-hosted inventarisatie staging en production geslaagd op `f7aa7d87ec46dd2bfb639be1158220bfee6c1945`. Hosted PR-quality-gate faalt vóór jobstart door een door GitHub bevestigde account-billingblokkade. Dit is geen uitgevoerde appbuild of app-testfailure.
