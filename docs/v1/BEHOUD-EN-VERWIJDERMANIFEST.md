@@ -31,22 +31,22 @@ Vrij vóór: 597213184 bytes; direct erna: 3225747456 bytes. Cacheherstel: volge
 
 ## Staging en productie: inventarisatie vóór enig resetbesluit
 
-| Onderdeel                  | Staging                                 | Production                                 |
-| -------------------------- | --------------------------------------- | ------------------------------------------ |
-| Transport/toegang          | Self-hosted runner `nxtdrive-vps`       | Dezelfde geregistreerde runnerlabels       |
-| Live host/project-ID       | Nog door runner te bevestigen           | Nog door runner te bevestigen              |
-| Verwacht basispad uit bron | `/var/www/nxtdrive/staging`             | `/var/www/nxtdrive/production`             |
-| Verwacht runtimebestand    | `/var/www/nxtdrive/staging/shared/.env` | `/var/www/nxtdrive/production/shared/.env` |
-| GitHub-connectionnaam      | `STAGING_DATABASE_URL`                  | `PRODUCTION_DATABASE_URL`                  |
-| Actuele release-SHA        | Nog live te bevestigen                  | Nog live te bevestigen                     |
-| Exacte resetobjecten       | Geen vrijgegeven                        | Geen vrijgegeven                           |
-| Private back-upreferentie  | Nog niet gemaakt                        | Nog niet gemaakt                           |
-| Getest herstelpunt/-pad    | Nog niet bewezen                        | Nog niet bewezen                           |
-| Doelserververwijderpaden   | Geen vrijgegeven                        | Geen vrijgegeven                           |
+| Onderdeel                    | Staging                                    | Production                                 |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------ |
+| Transport/toegang            | Self-hosted runner `nxtdrive-vps`          | Dezelfde geregistreerde runnerlabels       |
+| Live host/project-ID         | `nxtdrive` / `kulyguiszfsxzlhlyyeo`        | `nxtdrive` / `hhhdgfmsgbkfkmoqzhif`        |
+| Gecontroleerd basispad       | `/var/www/nxtdrive/staging`                | `/var/www/nxtdrive/production`             |
+| Gecontroleerd runtimebestand | `/var/www/nxtdrive/staging/shared/.env`    | `/var/www/nxtdrive/production/shared/.env` |
+| GitHub-connectionnaam        | `STAGING_DATABASE_URL`                     | `PRODUCTION_DATABASE_URL`                  |
+| Runtime-release-SHA          | `ebebfdf02a7bf945a198a82ffaf276f73cafdc0b` | `065562adb390741b825cd8b92d623d5cb882676a` |
+| Exacte resetobjecten         | Geen vrijgegeven                           | Geen vrijgegeven                           |
+| Private back-upreferentie    | Nog niet gemaakt                           | Nog niet gemaakt                           |
+| Getest herstelpunt/-pad      | Nog niet bewezen                           | Nog niet bewezen                           |
+| Doelserververwijderpaden     | Geen vrijgegeven                           | Geen vrijgegeven                           |
 
 Te behouden: alle bestaande environment-/integratiecredentials, env-fallbacks, encrypted records met tenant/eigenaarcontext, `platform_settings`, Auth-accounttoegang, Storage, Vault, Caddy/TLS, runners, systemd, SSH/netwerk en hersteldata. Zakelijke applicatiedata blijft staan totdat de objectlijst en het samenhangende code/database/configuratieherstel zijn bewezen.
 
-Auth: accountaantallen eerst inventariseren; toegang van bestaande productiegebruikers expliciet naar V1 mappen. Geen accountverwijdering of generiek CASCADE toegestaan door dit manifest. Storage: geen buckets of objecten verwijderen. Migraties: oude runner niet als V1-baseline uitvoeren; een nieuwe procedure moet de oude `public._migrations` bewust behandelen.
+Auth: production heeft 17 accounts. Die blijven behouden; toegang moet expliciet naar V1 worden gemapt. Stagingaantallen zijn onbekend zolang het project niet bereikbaar is. Geen accountverwijdering of generiek CASCADE toegestaan door dit manifest. Storage: geen buckets of objecten verwijderen. Migraties: oude runner niet als V1-baseline uitvoeren; een nieuwe procedure moet de oude `public._migrations` bewust behandelen.
 
 Oude deploys/cronjobs zijn nog niet gepauzeerd omdat geen reset/cutover plaatsvindt. Voor reset: exact opsommen en pauzeren, writes veiligstellen, versleutelde private back-up maken, restore testen, configuratieherstel en decryptie bewijzen. Symlinkrollback alleen is onvoldoende na een schemareset.
 
@@ -66,3 +66,11 @@ Oude deploys/cronjobs zijn nog niet gepauzeerd omdat geen reset/cutover plaatsvi
 | Demo-store, vrije rol-/tenantwissel         | Uitsluitend referentie; niet overnemen als productiebackend                  |
 | Oude migratiereeks                          | Archief; geen automatische nieuwe baseline                                   |
 | Franchise/AI-lesroutes/uitgebreide theorie  | Archief en backlog, buiten V1                                                |
+
+## Live behoudinformatie
+
+[Runnerbewijs](evidence/runner-inventory-20261021.json) bevat de objectinventaris, runtimepaden en controles zonder secrets. Production draait vanuit `/var/www/nxtdrive/production/releases/20260812024917`; staging vanuit `/var/www/nxtdrive/staging/releases/20260801002702`. Beide systemd-services zijn actief en gebruiken de bedoelde shared env-bestanden.
+
+Alle zes vergeleken runtimewaarden komen overeen met de GitHub-environmentsecrets. Production bevat twee platformsecretrecords, beide succesvol ontsleuteld; geen tenant-secretrecords; één platformsetting met geconfigureerd SendGrid-verzendadres. Deze records en eigenaar-/tenantcontext zijn nog niet privé geback-upt. De aanwezigheid van geldige ciphertext bewijst geen werkende externe mail-/AI-dienst.
+
+De bestaande back-updirectories `/var/backups/nxtdrive` en `/var/www/nxtdrive/backups` zijn niet aangetroffen. Dit is geen volledige audit van alle mogelijke back-uplocaties. PostgreSQL-clients en Docker zijn niet op de doelserver aangetroffen; de runner heeft geen leesrecht op Caddy-secrets. Geen restoreclaim of resetvrijgave.

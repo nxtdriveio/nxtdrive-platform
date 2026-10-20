@@ -4,20 +4,26 @@ Datum: 21 oktober 2026. Volledige acceptatiedefinities: `overdracht/ACCEPTATIE-E
 
 ## Uitgevoerd in deze fase
 
-| Controle                                      | Resultaat         | Reikwijdte                                   |
-| --------------------------------------------- | ----------------- | -------------------------------------------- |
-| Negen SHA-256-pakketcontroles                 | Geslaagd          | Integriteit van documentatie                 |
-| GitHub-heads/runner/environmentmetadata       | Opgehaald         | Geen secretwaarden of runtimebewijs          |
-| Vijf archiefrefs onafhankelijk fetchen        | Geslaagd          | SHA en migratie-/infra-/doc-trees            |
-| Sites-v12-bronidentiteit                      | Geslaagd          | Lokale HEAD en saved-version-SHA gelijk      |
-| Oude werkbranch secretscan                    | Geslaagd          | 1.649 bestanden; geen historische auditclaim |
-| Inventarisatie-env voert geen shell uit       | Geslaagd          | Python unittest                              |
-| Database-URL-output bevat geen password/query | Geslaagd          | Direct, pooler en ongeldige URL              |
-| Credentialvergelijking toont alleen booleans  | Geslaagd          | Geen waarden in serialisatie                 |
-| Onbevestigde doelidentiteit opent geen DB     | Geslaagd          | Gemockte negatieve test                      |
-| Projectref-parser                             | Geslaagd          | Provideridentiteit of onbekend               |
-| JavaScript-syntaxcontrole                     | Geslaagd          | `node --check scripts/v1/inventory-db.mjs`   |
-| Runnerinventarisatie staging/production       | Nog uit te voeren | Live read-only metadata/decryptie            |
+| Controle                                       | Resultaat          | Reikwijdte                                      |
+| ---------------------------------------------- | ------------------ | ----------------------------------------------- |
+| Negen SHA-256-pakketcontroles                  | Geslaagd           | Integriteit van documentatie                    |
+| GitHub-heads/runner/environmentmetadata        | Opgehaald          | Geen secretwaarden of runtimebewijs             |
+| Vijf archiefrefs onafhankelijk fetchen         | Geslaagd           | SHA en migratie-/infra-/doc-trees               |
+| Sites-v12-bronidentiteit                       | Geslaagd           | Lokale HEAD en saved-version-SHA gelijk         |
+| Oude werkbranch secretscan                     | Geslaagd           | 1.649 bestanden; geen historische auditclaim    |
+| Inventarisatie-env voert geen shell uit        | Geslaagd           | Python unittest                                 |
+| Database-URL-output bevat geen password/query  | Geslaagd           | Direct, pooler en ongeldige URL                 |
+| Credentialvergelijking toont alleen booleans   | Geslaagd           | Geen waarden in serialisatie                    |
+| Onbevestigde doelidentiteit opent geen DB      | Geslaagd           | Gemockte negatieve test                         |
+| Projectref-parser                              | Geslaagd           | Provideridentiteit of onbekend                  |
+| JavaScript-syntaxcontrole                      | Geslaagd           | `node --check scripts/v1/inventory-db.mjs`      |
+| Runnerinventarisatie staging/production        | Twee runs geslaagd | Rapportage geslaagd; staging is ongezond        |
+| Zes runtime/GitHub-vergelijkingen per omgeving | Gelijk             | Geen waarden gelogd                             |
+| Production read-only transactie en decryptie   | Geslaagd           | `read_only=on`, twee secrets geldig ontsleuteld |
+| Staging DNS/database                           | Mislukt            | API- en DB-host onoplosbaar; `ENOTFOUND`        |
+| Production health/readiness                    | 200/200            | Huidige oude app; geen V1-acceptatie            |
+| Staging health/readiness                       | 200/503            | Huidige oude app; database niet bereikbaar      |
+| Back-up en echte restore                       | Niet uitgevoerd    | Tooling/herstelbestemming nog in te richten     |
 
 Herhalen bij wijzigingen: `python3 -m unittest discover -s scripts/v1 -p 'test_*.py' -v`, `node --check scripts/v1/inventory-db.mjs`, secretscan en formattercheck op gewijzigde workflow/JS/documentatie. Geen appbuild voor alleen inventarisatiescripts en documentatie; dit is geen bewijs van een werkende V1-app.
 

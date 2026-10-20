@@ -24,7 +24,11 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        environment: [staging, production]
+        include:
+          - environment: staging
+            prefix: STAGING
+          - environment: production
+            prefix: PRODUCTION
     steps:
       - name: Checkout inventory in isolated directory
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -35,10 +39,10 @@ jobs:
       - name: Inspect metadata and read-only database state
         working-directory: v1-inventory-${{ github.run_id }}
         env:
-          EXPECTED_SUPABASE_URL: ${{ matrix.environment == 'staging' && secrets.STAGING_SUPABASE_URL || secrets.PRODUCTION_SUPABASE_URL }}
-          EXPECTED_SUPABASE_ANON_KEY: ${{ matrix.environment == 'staging' && secrets.STAGING_SUPABASE_ANON_KEY || secrets.PRODUCTION_SUPABASE_ANON_KEY }}
-          EXPECTED_SUPABASE_SERVICE_ROLE_KEY: ${{ matrix.environment == 'staging' && secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY || secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY }}
-          EXPECTED_SESSION_SECRET: ${{ matrix.environment == 'staging' && secrets.STAGING_SESSION_SECRET || secrets.PRODUCTION_SESSION_SECRET }}
-          EXPECTED_DATABASE_URL: ${{ matrix.environment == 'staging' && secrets.STAGING_DATABASE_URL || secrets.PRODUCTION_DATABASE_URL }}
+          EXPECTED_SUPABASE_URL: ${{ secrets[format('{0}_SUPABASE_URL', matrix.prefix)] }}
+          EXPECTED_SUPABASE_ANON_KEY: ${{ secrets[format('{0}_SUPABASE_ANON_KEY', matrix.prefix)] }}
+          EXPECTED_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets[format('{0}_SUPABASE_SERVICE_ROLE_KEY', matrix.prefix)] }}
+          EXPECTED_SESSION_SECRET: ${{ secrets[format('{0}_SESSION_SECRET', matrix.prefix)] }}
+          EXPECTED_DATABASE_URL: ${{ secrets[format('{0}_DATABASE_URL', matrix.prefix)] }}
           EXPECTED_MOLLIE_KEY_ENCRYPTION_SECRET: ${{ secrets.MOLLIE_KEY_ENCRYPTION_SECRET }}
         run: python3 scripts/v1/inventory.py --environment '${{ matrix.environment }}'

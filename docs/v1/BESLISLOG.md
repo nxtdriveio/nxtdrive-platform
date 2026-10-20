@@ -23,3 +23,13 @@ Sites-versie 12 en broncommit zijn bevestigd en de bron is lokaal beschikbaar. D
 Voor database-inventarisatie worden API-projectref, databaseprojectref en GitHub-configuratie vergeleken. Alleen bij overeenstemming en een release onder het verwachte releasepad wordt een bestaande `pg`-dependency gebruikt. SQL draait in een expliciete read-only transactie. Integratiegegevens worden uitsluitend in geheugen ontsleuteld en als aantallen gerapporteerd. Dit is geen back-up of hersteltest.
 
 Geraadpleegde actuele bronnen: [Supabase changelog](https://supabase.com/changelog.md) en [databaseverbindingen](https://supabase.com/docs/guides/database/connecting-to-postgres). De bestaande providerhost en verbindingsvorm worden overgenomen, niet uit regio of projectnaam geconstrueerd. TLS-/Postgreswijzigingen worden bij de daadwerkelijke versiekeuze opnieuw beoordeeld.
+
+## 2026-10-21 — live inventarisatie en behoudvoorwaarden
+
+De runner bevestigt host `nxtdrive` voor beide environments. Stagingproject `kulyguiszfsxzlhlyyeo` is onbereikbaar via zowel API- als database-DNS (`ENOTFOUND`); productieproject `hhhdgfmsgbkfkmoqzhif` is bereikbaar. Alle zes runtime-/GitHub-vergelijkingen per omgeving zijn gelijk. Productieruntime meldt de tabletcommit, terwijl staging de main-commit meldt; de beide codeversies zijn gearchiveerd.
+
+Productie is read-only onderzocht: PostgreSQL 17.6, twee succesvol ontsleutelde platformsecrets, geen tenant-secretrecords, één platformsetting met verzendadres, 17 Auth-accounts en twee Storage-buckets. Dit bewijs is geen back-up, restore of functionele providerproef. Geen credentials vervangen of zakelijke data gewijzigd.
+
+De inventarisatieworkflow selecteert secrets rechtstreeks via een vaste environmentprefix. Een ontbrekend stagingsecret krijgt geen productie-fallback. De doelserver mist dump-/restoretools en Docker, en de runner kan Caddy-secrets niet lezen. De gebruiker is gericht gevraagd het bestaande stagingproject te hervatten of de juiste Supabase-account te koppelen. Een projectopvraag via de huidige MCP-account is wegens ontbrekende rechten geweigerd. De reden van de ontbrekende DNS is nog niet vastgesteld.
+
+Eerst de ontbrekende toegang en private herstelvoorziening regelen; geen database-reset of vervanging van de oude productieapp zolang het noodzakelijke herstelbewijs ontbreekt. De app- en baselineherbouw blijft open. De self-hosted inventarisatie werkt ondanks een billingblokkade die de bestaande hosted GitHub-jobs al vóór runner-toewijzing laat falen.
