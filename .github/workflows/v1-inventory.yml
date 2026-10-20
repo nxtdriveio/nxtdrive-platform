@@ -1,0 +1,48 @@
+name: V1 read-only inventory
+
+on:
+  push:
+    branches: [codex/v1-inventory-20261021]
+    paths:
+      - .github/workflows/v1-inventory.yml
+      - scripts/v1/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Inventory ${{ matrix.environment }}
+    runs-on: [self-hosted, nxtdrive-vps]
+    timeout-minutes: 5
+    environment: ${{ matrix.environment }}
+    concurrency:
+      group: deploy-${{ matrix.environment }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - environment: staging
+            prefix: STAGING
+          - environment: production
+            prefix: PRODUCTION
+    steps:
+      - name: Checkout inventory in isolated directory
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: v1-inventory-${{ github.run_id }}
+          persist-credentials: false
+
+      - name: Inspect metadata and read-only database state
+        working-directory: v1-inventory-${{ github.run_id }}
+        env:
+          EXPECTED_SUPABASE_URL: ${{ secrets[format('{0}_SUPABASE_URL', matrix.prefix)] }}
+          EXPECTED_SUPABASE_ANON_KEY: ${{ secrets[format('{0}_SUPABASE_ANON_KEY', matrix.prefix)] }}
+          EXPECTED_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets[format('{0}_SUPABASE_SERVICE_ROLE_KEY', matrix.prefix)] }}
+          EXPECTED_SESSION_SECRET: ${{ secrets[format('{0}_SESSION_SECRET', matrix.prefix)] }}
+          EXPECTED_DATABASE_URL: ${{ secrets[format('{0}_DATABASE_URL', matrix.prefix)] }}
+          EXPECTED_MOLLIE_KEY_ENCRYPTION_SECRET: ${{ secrets.MOLLIE_KEY_ENCRYPTION_SECRET }}
+        run: python3 scripts/v1/inventory.py --environment '${{ matrix.environment }}'

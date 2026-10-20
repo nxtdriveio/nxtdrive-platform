@@ -1,0 +1,1528 @@
+{
+  "workflow_run": "https://github.com/nxtdriveio/nxtdrive-platform/actions/runs/39517236011",
+  "note": "Read-only inventory, not a backup, restore, functional provider test or reset approval. No credential values, ciphertext, connection strings or customer records.",
+  "reports": [
+    {
+      "mode": "read_only",
+      "environment": "staging",
+      "utc": "2026-10-20T23:47:10.971217+00:00",
+      "host": "nxtdrive",
+      "runner": "nxtdrive",
+      "runner_user": "github-runner",
+      "runner_groups": ["users", "github-runner", "nxtdrive"],
+      "inventory_sha": "b1d50c7aaff1e0d9ab9cca32c68ae59b54161ef6",
+      "free_bytes": 293612892160,
+      "base": {
+        "path": "/var/www/nxtdrive/staging",
+        "resolved": "/var/www/nxtdrive/staging",
+        "exists": true,
+        "symlink": false,
+        "mode": "0o2775",
+        "uid": 0,
+        "gid": 1002
+      },
+      "current": {
+        "path": "/var/www/nxtdrive/staging/current",
+        "resolved": "/var/www/nxtdrive/staging/releases/20260801002702",
+        "exists": true,
+        "symlink": true,
+        "mode": "0o777",
+        "uid": 1000,
+        "gid": 1002
+      },
+      "runtime_file": {
+        "path": "/var/www/nxtdrive/staging/shared/.env",
+        "resolved": "/var/www/nxtdrive/staging/shared/.env",
+        "exists": true,
+        "symlink": false,
+        "mode": "0o640",
+        "uid": 1000,
+        "gid": 1002
+      },
+      "runtime_names": [
+        "BUILD_TIMESTAMP",
+        "DATABASE_MIGRATION_VERSION",
+        "DATABASE_URL",
+        "GIT_SHA",
+        "MOLLIE_KEY_ENCRYPTION_SECRET",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_APP_VERSION",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NODE_ENV",
+        "PORT",
+        "SESSION_SECRET",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_URL"
+      ],
+      "credentials": {
+        "SUPABASE_URL": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SUPABASE_ANON_KEY": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SESSION_SECRET": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "DATABASE_URL": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "MOLLIE_KEY_ENCRYPTION_SECRET": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        }
+      },
+      "database_target": {
+        "valid": true,
+        "project_ref": "kulyguiszfsxzlhlyyeo",
+        "host": "db.kulyguiszfsxzlhlyyeo.supabase.co",
+        "port": 5432,
+        "database": "postgres"
+      },
+      "api_project_ref": "kulyguiszfsxzlhlyyeo",
+      "github_project_ref": "kulyguiszfsxzlhlyyeo",
+      "target_identity_matches": true,
+      "api_dns": {
+        "status": "unresolved",
+        "code": -2
+      },
+      "database_dns": {
+        "status": "unresolved",
+        "code": -2
+      },
+      "tools": {
+        "node": "/usr/bin/node",
+        "pnpm": "/usr/bin/pnpm",
+        "pg_dump": null,
+        "pg_restore": null,
+        "psql": null,
+        "docker": null,
+        "openssl": "/usr/bin/openssl",
+        "caddy": "/usr/bin/caddy"
+      },
+      "postgres_toolchains": [],
+      "deployed_sha": "ebebfdf02a7bf945a198a82ffaf276f73cafdc0b",
+      "releases": [
+        "20260731160346",
+        "20260731161401",
+        "20260731234153",
+        "20260801001912",
+        "20260801002702"
+      ],
+      "service": {
+        "ActiveState": "active",
+        "FragmentPath": "/etc/systemd/system/nxtdrive-staging.service",
+        "MainPID": "650959",
+        "EnvironmentFiles": "/var/www/nxtdrive/staging/shared/.env (ignore_errors=no)",
+        "WorkingDirectory": "/var/www/nxtdrive/staging/current",
+        "User": "deployer",
+        "Group": "nxtdrive"
+      },
+      "health": {
+        "status": 200
+      },
+      "readiness": {
+        "status": 503
+      },
+      "caddy": [
+        {
+          "path": "/etc/caddy/Caddyfile",
+          "resolved": "/etc/caddy/Caddyfile",
+          "exists": true,
+          "symlink": false,
+          "mode": "0o644",
+          "uid": 0,
+          "gid": 0
+        },
+        {
+          "path": "/etc/caddy/caddy.env",
+          "resolved": "/etc/caddy/caddy.env",
+          "exists": true,
+          "symlink": false,
+          "mode": "0o640",
+          "uid": 0,
+          "gid": 983
+        }
+      ],
+      "caddy_env_readable": false,
+      "backup_directories": [
+        {
+          "path": "/var/backups/nxtdrive",
+          "exists": false,
+          "errno": 2
+        },
+        {
+          "path": "/var/www/nxtdrive/backups",
+          "exists": false,
+          "errno": 2
+        }
+      ],
+      "reset_permitted_by_this_report": false,
+      "database": {
+        "status": "unavailable",
+        "phase": "connect",
+        "code": "ENOTFOUND",
+        "category": "unavailable"
+      },
+      "schema_objects": []
+    },
+    {
+      "mode": "read_only",
+      "environment": "production",
+      "utc": "2026-10-20T23:47:26.905601+00:00",
+      "host": "nxtdrive",
+      "runner": "nxtdrive",
+      "runner_user": "github-runner",
+      "runner_groups": ["users", "github-runner", "nxtdrive"],
+      "inventory_sha": "b1d50c7aaff1e0d9ab9cca32c68ae59b54161ef6",
+      "free_bytes": 293612740608,
+      "base": {
+        "path": "/var/www/nxtdrive/production",
+        "resolved": "/var/www/nxtdrive/production",
+        "exists": true,
+        "symlink": false,
+        "mode": "0o2775",
+        "uid": 0,
+        "gid": 1002
+      },
+      "current": {
+        "path": "/var/www/nxtdrive/production/current",
+        "resolved": "/var/www/nxtdrive/production/releases/20260812024917",
+        "exists": true,
+        "symlink": true,
+        "mode": "0o777",
+        "uid": 1000,
+        "gid": 1002
+      },
+      "runtime_file": {
+        "path": "/var/www/nxtdrive/production/shared/.env",
+        "resolved": "/var/www/nxtdrive/production/shared/.env",
+        "exists": true,
+        "symlink": false,
+        "mode": "0o640",
+        "uid": 1000,
+        "gid": 1002
+      },
+      "runtime_names": [
+        "BUILD_TIMESTAMP",
+        "DATABASE_MIGRATION_VERSION",
+        "DATABASE_URL",
+        "GIT_SHA",
+        "MOLLIE_KEY_ENCRYPTION_SECRET",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_APP_VERSION",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NODE_ENV",
+        "PORT",
+        "SESSION_SECRET",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_URL"
+      ],
+      "credentials": {
+        "SUPABASE_URL": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SUPABASE_ANON_KEY": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "SESSION_SECRET": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "DATABASE_URL": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        },
+        "MOLLIE_KEY_ENCRYPTION_SECRET": {
+          "runtime_present": true,
+          "github_present": true,
+          "matches": true
+        }
+      },
+      "database_target": {
+        "valid": true,
+        "project_ref": "hhhdgfmsgbkfkmoqzhif",
+        "host": "aws-0-eu-west-1.pooler.supabase.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      "api_project_ref": "hhhdgfmsgbkfkmoqzhif",
+      "github_project_ref": "hhhdgfmsgbkfkmoqzhif",
+      "target_identity_matches": true,
+      "api_dns": {
+        "status": "resolved",
+        "addresses": ["104.18.38.10", "172.64.149.246"]
+      },
+      "database_dns": {
+        "status": "resolved",
+        "addresses": ["108.128.216.176", "34.241.16.247", "52.209.89.87"]
+      },
+      "tools": {
+        "node": "/usr/bin/node",
+        "pnpm": "/usr/bin/pnpm",
+        "pg_dump": null,
+        "pg_restore": null,
+        "psql": null,
+        "docker": null,
+        "openssl": "/usr/bin/openssl",
+        "caddy": "/usr/bin/caddy"
+      },
+      "postgres_toolchains": [],
+      "deployed_sha": "065562adb390741b825cd8b92d623d5cb882676a",
+      "releases": [
+        "20260801003412",
+        "20260811205521",
+        "20260811215238",
+        "20260812020402",
+        "20260812024917"
+      ],
+      "service": {
+        "ActiveState": "active",
+        "FragmentPath": "/etc/systemd/system/nxtdrive-production.service",
+        "MainPID": "650952",
+        "EnvironmentFiles": "/var/www/nxtdrive/production/shared/.env (ignore_errors=no)",
+        "WorkingDirectory": "/var/www/nxtdrive/production/current",
+        "User": "deployer",
+        "Group": "nxtdrive"
+      },
+      "health": {
+        "status": 200
+      },
+      "readiness": {
+        "status": 200
+      },
+      "caddy": [
+        {
+          "path": "/etc/caddy/Caddyfile",
+          "resolved": "/etc/caddy/Caddyfile",
+          "exists": true,
+          "symlink": false,
+          "mode": "0o644",
+          "uid": 0,
+          "gid": 0
+        },
+        {
+          "path": "/etc/caddy/caddy.env",
+          "resolved": "/etc/caddy/caddy.env",
+          "exists": true,
+          "symlink": false,
+          "mode": "0o640",
+          "uid": 0,
+          "gid": 983
+        }
+      ],
+      "caddy_env_readable": false,
+      "backup_directories": [
+        {
+          "path": "/var/backups/nxtdrive",
+          "exists": false,
+          "errno": 2
+        },
+        {
+          "path": "/var/www/nxtdrive/backups",
+          "exists": false,
+          "errno": 2
+        }
+      ],
+      "reset_permitted_by_this_report": false,
+      "database": {
+        "status": "read_only_verified",
+        "identity": {
+          "database": "postgres",
+          "role": "postgres",
+          "server_version": "17.6",
+          "read_only": "on"
+        },
+        "config": {
+          "platform_secrets": {
+            "exists": true,
+            "total": 2,
+            "decrypted": 2,
+            "failed": 0
+          },
+          "tenant_secrets": {
+            "exists": true,
+            "total": 0,
+            "decrypted": 0,
+            "failed": 0
+          },
+          "platform_settings": {
+            "setting_count": 1,
+            "sendgrid_from_configured": true
+          }
+        },
+        "counts": {
+          "auth.users": 17,
+          "storage.buckets": 2,
+          "public._migrations": 174
+        }
+      },
+      "schema_objects": [
+        {
+          "schema": "auth",
+          "name": "audit_log_entries",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "custom_oauth_providers",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "flow_state",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "identities",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "instances",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "mfa_amr_claims",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "mfa_challenges",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "mfa_factors",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "mfa_recovery_code_sets",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "mfa_recovery_codes",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "oauth_authorizations",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "oauth_client_states",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "oauth_clients",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "oauth_consents",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "one_time_tokens",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "refresh_tokens",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "saml_providers",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "saml_relay_states",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "schema_migrations",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "scim_tokens",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "scim_users",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "sessions",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "sso_domains",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "sso_providers",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "users",
+          "rls": true
+        },
+        {
+          "schema": "auth",
+          "name": "webauthn_challenges",
+          "rls": false
+        },
+        {
+          "schema": "auth",
+          "name": "webauthn_credentials",
+          "rls": false
+        },
+        {
+          "schema": "public",
+          "name": "_migrations",
+          "rls": false
+        },
+        {
+          "schema": "public",
+          "name": "agenda_appointments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "app_notifications",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_stop_confirmations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_stops",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_travel_status_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_type_policies",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_wizard_analytics",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "appointment_wizard_settings",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "assessment_criterion_results",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "assessment_definitions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "assessment_override_policies",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "assessment_readiness_decisions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "assessment_records",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "audit_log",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_candidate_preferences",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_candidates",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_confirmations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_holds",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "booking_requests",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "branches",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "capability_definitions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "cbr_competencies",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "cbr_locations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "chat_conversations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "chat_messages",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "credit_ledger",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "curriculum_versions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "empty_mile_daily_rollups",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "entity_location_links",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "exam_appointment_details",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "exam_invitations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "expert_validation_records",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_benchmark_actions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_benchmark_checkins",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_benchmark_targets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_lead_assignments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_operations_permissions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_planning_actions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_playbook_assignments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_playbook_programs",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_playbook_step_progress",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_playbook_steps",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_template_activations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_template_rollout_batches",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_template_rollout_items",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "franchise_templates",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "installment_credit_releases",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "installment_plans",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_appointment_preferences",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_availability",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_availability_exception",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_capabilities",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_service_area_assignments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "instructor_training_qualifications",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "invoice_counters",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "invoice_lines",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "invoices",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lead_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lead_intake_analysis",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lead_intake_details",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "leads",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "legacy_training_corrections",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lesson_internal",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lesson_notes",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lesson_refill_invitations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lesson_skill_scores",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lesson_topics",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "lessons",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_change_proposals",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_merge_operations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_migration_cohorts",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_records",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_validation_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "location_versions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "locations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_budget_alerts",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_circuit_breakers",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_cost_price_versions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_cost_reconciliations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_credential_registry",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_feature_degradation_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_notification_dedup",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_route_cache_entries",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_sku_prices",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_tenant_entitlements",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_tenant_limits",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_usage_daily_rollups",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "maps_usage_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "membership_branches",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "memberships",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "normalized_readiness_evidence",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "notification_log",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "notification_preferences",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "notification_templates",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "offline_lesson_drafts",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "organization_profiles",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "organization_role_permission_overrides",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "organization_team_members",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "organization_teams",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "package_products",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "packages",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "payment_records",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_audit_log",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_card_goals",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_cards",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_optimization_scenarios",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_queue_items",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_scenario_mutations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "planning_settings",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "platform_notification_config",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "platform_secrets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "platform_settings",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "postcode_analytics_snapshots",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "privacy_audit_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "privacy_legal_holds",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "privacy_requests",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "product_release_items",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "product_releases",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "product_roadmap_interest",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "product_roadmap_items",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "production_checklist_items",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "production_checklists",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "products",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "profiles",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "push_subscriptions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "rate_limit_buckets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "readiness_evaluations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "readiness_input_snapshots",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "readiness_policies",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "readiness_result_snapshots",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "referral_codes",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "retention_policy_versions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "retention_runs",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_categories",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_guided_reflections",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_lesson_cards",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_lesson_observations",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_module_tests",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_modules",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_script_assessments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_script_variants",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_scripts",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_step_definitions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "ris_versions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "route_calculation_decisions",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "route_conflict_overrides",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "route_conflict_policies",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "service_area_travel_matrix",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "service_area_zones",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "service_areas",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "skill_taxonomy",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_cbr_progress",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_cbr_status",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_documents",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_guardians",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_post_lesson_responses",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_requirements",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_reviews",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_ris_progress",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "student_skill_scores",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "students",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "support_ticket_comments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "support_tickets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "task_assignment_rules",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "task_boards",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "task_columns",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "task_departments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "task_links",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tasks",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_branding",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_checklist_item_statuses",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_domains",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_release_acknowledgements",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_ris_settings",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_secrets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenant_settings",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "tenants",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "theme_presets",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "theory_homework",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "theory_module_skills",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "theory_modules",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "training_enrollments",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "trial_lessons",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "vehicle_capabilities",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "vehicle_damage_reports",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "vehicle_maintenance_events",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "vehicle_odometer_entries",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "vehicles",
+          "rls": true
+        },
+        {
+          "schema": "public",
+          "name": "work_area_versions",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "buckets",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "buckets_analytics",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "buckets_vectors",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "migrations",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "objects",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "s3_multipart_uploads",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "s3_multipart_uploads_parts",
+          "rls": true
+        },
+        {
+          "schema": "storage",
+          "name": "vector_indexes",
+          "rls": true
+        },
+        {
+          "schema": "vault",
+          "name": "secrets",
+          "rls": false
+        }
+      ]
+    }
+  ]
+}
