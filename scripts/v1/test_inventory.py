@@ -42,6 +42,7 @@ class InventorySafetyTests(unittest.TestCase):
         with patch("inventory.read_env", return_value={"DATABASE_URL": "do-not-print"}), \
              patch("inventory.database_inventory") as database, \
              patch("inventory.probe", return_value={"status": None}), \
+             patch("inventory.dns_status", return_value={"status": "unknown_host"}), \
              patch.dict(os.environ, {}, clear=True):
             result = inventory("staging")
             database.assert_not_called()

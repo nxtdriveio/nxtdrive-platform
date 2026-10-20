@@ -10,6 +10,7 @@ import platform
 import pwd
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import urllib.error
@@ -89,6 +90,16 @@ def credential_status(runtime, expected):
     }
 
 
+def dns_status(host):
+    if not host:
+        return {"status": "unknown_host"}
+    try:
+        addresses = socket.getaddrinfo(host, 443)
+        return {"status": "resolved", "addresses": sorted({a[4][0] for a in addresses})}
+    except socket.gaierror as error:
+        return {"status": "unresolved", "code": error.errno}
+
+
 def probe(port, route):
     # No response body enters logs, including on 4xx/5xx.
     try:
@@ -146,6 +157,11 @@ def inventory(environment):
     result["database_target"] = db
     result["api_project_ref"] = api_ref
     result["github_project_ref"] = expected_ref
+    result["api_dns"] = dns_status(api_ref + ".supabase.co" if api_ref else None)
+    result["database_dns"] = dns_status(db.get("host"))
+    result["tools"] = {tool: shutil.which(tool) for tool in
+                       ["node", "pnpm", "pg_dump", "pg_restore", "psql", "docker", "openssl", "caddy"]}
+    result["postgres_toolchains"] = [str(p) for p in Path("/usr/lib/postgresql").glob("*/bin/pg_dump")]
     identity_matches = bool(api_ref and expected_ref and db.get("valid") and
                             api_ref == expected_ref == db.get("project_ref") and
                             result["credentials"]["DATABASE_URL"]["matches"])

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { createDecipheriv } from "node:crypto";
 
 let client;
+let phase = "dependency";
 try {
   let input = "";
   for await (const chunk of process.stdin) input += chunk;
@@ -17,7 +18,9 @@ try {
     connectionTimeoutMillis: 10000,
     query_timeout: 15000,
   });
+  phase = "connect";
   await client.connect();
+  phase = "query";
   await client.query("begin read only");
   await client.query("set local statement_timeout = '10s'");
   await client.query("set local lock_timeout = '2s'");
@@ -97,10 +100,29 @@ try {
   );
 } catch (error) {
   // Provider error messages can embed credentials or real tenant data.
-  const code = /^[A-Z0-9]{5}$/.test(error?.code ?? "")
-    ? error.code
-    : "unavailable";
-  console.log(JSON.stringify({ status: "unavailable", code }));
+  const safeCodes = new Set([
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ENETUNREACH",
+    "ERR_MODULE_NOT_FOUND",
+    "MODULE_NOT_FOUND",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "CERT_HAS_EXPIRED",
+  ]);
+  const code =
+    safeCodes.has(error?.code) || /^[0-9][A-Z0-9]{4}$/.test(error?.code ?? "")
+      ? error.code
+      : "unavailable";
+  const category = /tenant or user not found/i.test(error?.message ?? "")
+    ? "provider_target_rejected"
+    : /timeout/i.test(error?.message ?? "")
+      ? "timeout"
+      : "unavailable";
+  console.log(JSON.stringify({ status: "unavailable", phase, code, category }));
 } finally {
   if (client) await client.end().catch(() => {});
 }
